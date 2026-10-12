@@ -40,7 +40,7 @@ public sealed partial class GitRepositoryClient
         }
         catch (FormatException exception)
         {
-            return Failure<GitComparison>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitComparison>(exception);
         }
     }
 
@@ -169,7 +169,7 @@ public sealed partial class GitRepositoryClient
         }
         catch (FormatException exception)
         {
-            return Failure<GitCommitPage>(GitErrorCode.InvalidResponse, exception.Message);
+            return Unreadable<GitCommitPage>(exception);
         }
     }
 

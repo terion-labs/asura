@@ -48,6 +48,41 @@ public sealed class FileProviderProfileEditorViewModelTests
     }
 
     [Fact]
+    public async Task A_missing_SFTP_connection_or_SMB_credential_is_named_under_its_field()
+    {
+        var editor = new FileProviderProfileEditorViewModel(
+            new StubProviderRuntime(),
+            [SshConnection()],
+            [])
+        {
+            Name = "Files",
+            Kind = FileProviderKind.Sftp,
+            RemoteRoot = "/",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal("Choose the SSH connection for SFTP to use.", editor.TestDetail);
+        Assert.Equal(
+            nameof(FileProviderProfileEditorViewModel.SelectedSshConnection),
+            InvalidField.Of(Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest())));
+
+        editor.Kind = FileProviderKind.Smb;
+        editor.Server = "smb.example.test";
+        editor.Share = "files";
+        editor.SmbCredentialMode = SmbCredentialMode.UsernamePassword;
+        editor.Username = "operator";
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Choose the saved credential that holds the SMB password.", editor.TestDetail);
+        Assert.Equal(
+            nameof(FileProviderProfileEditorViewModel.SelectedCredential),
+            InvalidField.Of(Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest())));
+    }
+
+    [Fact]
     public void CredentialSelectorContainsOnlyOpaqueReferencesOwnedByTheProfile()
     {
         var existing = new FileProviderProfile(
@@ -102,7 +137,7 @@ public sealed class FileProviderProfileEditorViewModelTests
         Assert.True(editor.HasHostKeyReview);
         Assert.True(editor.HasTrustedHostKey);
         Assert.Equal("SSH host key changed", editor.HostKeyReviewTitle);
-        Assert.Equal("Replace trusted key", editor.HostKeyActionText);
+        Assert.Equal("Replace Trusted Key…", editor.HostKeyActionText);
         Assert.Contains("SHA256:", editor.PresentedHostKey, StringComparison.Ordinal);
         Assert.Contains("SHA256:", editor.TrustedHostKey, StringComparison.Ordinal);
 
@@ -110,7 +145,7 @@ public sealed class FileProviderProfileEditorViewModelTests
 
         Assert.Equal(SshHostKeyTrustAction.ReplaceChanged, runtime.TrustAction);
         Assert.False(editor.HasHostKeyReview);
-        Assert.Equal("Provider connected", editor.TestStatus);
+        Assert.Equal("File location connected", editor.TestStatus);
         Assert.Equal(2, runtime.TestCount);
     }
 
@@ -162,13 +197,13 @@ public sealed class FileProviderProfileEditorViewModelTests
         await editor.TestAsync(CancellationToken.None);
 
         Assert.Equal("Unknown SSH host key", editor.HostKeyReviewTitle);
-        Assert.Equal("Trust this key", editor.HostKeyActionText);
+        Assert.Equal("Trust This Key…", editor.HostKeyActionText);
         Assert.False(editor.HasTrustedHostKey);
 
         await editor.TrustHostKeyAsync(editor.HostKeyReview!.Id, CancellationToken.None);
 
         Assert.Equal(SshHostKeyTrustAction.TrustNew, runtime.TrustAction);
-        Assert.Equal("Provider connected", editor.TestStatus);
+        Assert.Equal("File location connected", editor.TestStatus);
     }
 
     private static SecretMetadataViewModel Secret(string id, SecretScope scope) => new(

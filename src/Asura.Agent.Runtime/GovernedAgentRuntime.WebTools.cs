@@ -140,7 +140,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 Prefix(toolName) + "cancelled",
-                "The web operation was cancelled."),
+                "The web operation was canceled."),
             revision);
 
     private static string Prefix(string toolName) => toolName switch

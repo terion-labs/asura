@@ -15,7 +15,7 @@ public sealed class DefinitionImportReviewHeadlessTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var plan = new DefinitionBundleImportPlan("/tmp/review.json", new(new(1, DateTimeOffset.UtcNow, []),
                 DefinitionImportMode.ReplaceExisting, [])
@@ -47,6 +47,8 @@ public sealed class DefinitionImportReviewHeadlessTests
             {
                 dialog.Close();
             }
-        }, timeout.Token);
+
+            return true;
+        }, timeout.Token));
     }
 }

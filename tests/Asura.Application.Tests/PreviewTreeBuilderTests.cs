@@ -47,7 +47,7 @@ public sealed class PreviewTreeBuilderTests
         var folder = Assert.Single(nodes);
         Assert.True(folder.IsContainer);
         Assert.Empty(folder.Children);
-        Assert.Equal("0 items", folder.Detail);
+        Assert.Equal("No items", folder.Detail);
     }
 
     [Fact]
@@ -61,8 +61,13 @@ public sealed class PreviewTreeBuilderTests
 
     [Theory]
     [InlineData(512, "512 B")]
+    [InlineData(999, "999 B")]
+    [InlineData(1000, "1 KB")]
     [InlineData(2048, "2 KB")]
-    [InlineData(1_572_864, "1.5 MB")]
+    [InlineData(999_960, "1 MB")]
+    [InlineData(1_500_000, "1.5 MB")]
+    [InlineData(1_572_864, "1.6 MB")]
+    [InlineData(4_000_000_000, "4 GB")]
     public void Sizes_read_the_way_a_person_reads_them(long bytes, string expected) =>
         Assert.Equal(expected, PreviewTreeBuilder.FormatSize(bytes));
 }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using Asura.App;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
@@ -209,39 +210,54 @@ internal sealed class QaDockerEngineClient : IDockerEngineClient
         DockerResourceReference resource,
         CancellationToken cancellationToken)
     {
+        // The fields the engine client reads, named by their inspect-document
+        // paths and in the engine's own shapes (RFC 3339 times, byte counts),
+        // so the capture shows what the panel makes of what Docker sends.
         IReadOnlyList<DockerInspectionProperty> properties = resource.Kind switch
         {
             DockerResourceKind.Image =>
             [
-                new DockerInspectionProperty("ID", resource.Id),
-                new DockerInspectionProperty("Tag", resource.DisplayName),
-                new DockerInspectionProperty("Created", "2 days ago"),
-                new DockerInspectionProperty("Size", "386 MB"),
-                new DockerInspectionProperty("Platform", "linux/arm64"),
-                new DockerInspectionProperty("Working directory", "/app"),
-                new DockerInspectionProperty("Entrypoint", "[\"/usr/local/bin/docker-entrypoint.sh\"]"),
-                new DockerInspectionProperty("Command", "[\"bun\",\"server/index.mjs\"]"),
+                new DockerInspectionProperty("Id", resource.Id),
+                new DockerInspectionProperty("Created", "2026-08-06T09:12:00Z"),
+                new DockerInspectionProperty("Os", "linux"),
+                new DockerInspectionProperty("Architecture", "arm64"),
+                new DockerInspectionProperty("Size", "386000000"),
+                new DockerInspectionProperty("Config.WorkingDir", "/app"),
+                new DockerInspectionProperty("Config.Entrypoint", "[\"/usr/local/bin/docker-entrypoint.sh\"]"),
+                new DockerInspectionProperty("Config.Cmd", "[\"bun\",\"server/index.mjs\"]"),
             ],
             DockerResourceKind.Network =>
             [
                 new DockerInspectionProperty("Name", resource.DisplayName),
-                new DockerInspectionProperty("ID", resource.Id),
-                new DockerInspectionProperty("Created", "Aug 8, 2026 at 14:20"),
-                new DockerInspectionProperty("Subnet", "172.22.0.0/16"),
-                new DockerInspectionProperty("Gateway", "172.22.0.1"),
+                new DockerInspectionProperty("Id", resource.Id),
+                new DockerInspectionProperty("Created", "2026-08-08T14:20:00Z"),
                 new DockerInspectionProperty("Driver", "bridge"),
                 new DockerInspectionProperty("Scope", "local"),
+                new DockerInspectionProperty("Internal", "false"),
+                new DockerInspectionProperty("IPAM.Config", "172.22.0.0/16 via 172.22.0.1"),
+            ],
+            // A volume has its own fields; it used to answer with a
+            // container's, so the volume capture showed a state and ports.
+            DockerResourceKind.Volume =>
+            [
+                new DockerInspectionProperty("Name", resource.DisplayName),
+                new DockerInspectionProperty("Driver", "local"),
+                new DockerInspectionProperty("Mountpoint", $"/var/lib/docker/volumes/{resource.DisplayName}/_data"),
+                new DockerInspectionProperty("Scope", "local"),
+                new DockerInspectionProperty("CreatedAt", "2026-08-08T14:18:00Z"),
+                new DockerInspectionProperty("Labels", "com.docker.compose.project=asura"),
             ],
             _ =>
             [
-                new DockerInspectionProperty("ID", $"sha256:{resource.Id}"),
-                new DockerInspectionProperty("State", "running"),
-                new DockerInspectionProperty("Created", "Aug 8, 2026 at 14:22"),
-                new DockerInspectionProperty("Image", "ghcr.io/asura/api:main"),
-                new DockerInspectionProperty("Ports", "0.0.0.0:8080 → 8080/tcp"),
-                new DockerInspectionProperty("Network", "asura_default"),
-                new DockerInspectionProperty("Address", "172.22.0.4"),
-                new DockerInspectionProperty("Working directory", "/app"),
+                new DockerInspectionProperty("Id", resource.Id),
+                new DockerInspectionProperty("Created", "2026-08-08T14:22:00Z"),
+                new DockerInspectionProperty("State.Status", "running"),
+                new DockerInspectionProperty("State.StartedAt", "2026-08-08T14:22:04Z"),
+                new DockerInspectionProperty("Config.Image", "ghcr.io/asura/api:main"),
+                new DockerInspectionProperty("Config.Hostname", "api"),
+                new DockerInspectionProperty("Config.WorkingDir", "/app"),
+                new DockerInspectionProperty("HostConfig.NetworkMode", "asura_default"),
+                new DockerInspectionProperty("NetworkSettings.IPAddress", "172.22.0.4"),
             ],
         };
         return ValueTask.FromResult<DockerResult<DockerResourceInspection>>(
@@ -373,7 +389,7 @@ internal sealed class QaDockerEngineClient : IDockerEngineClient
         CancellationToken cancellationToken)
     {
         var bytes = System.Text.Encoding.UTF8.GetBytes(
-            "# Container image\n\nThis content is rendered by the shared File Viewer preview.\n");
+            "# Container image\n\nThis content is rendered by the shared Files preview.\n");
         var length = (int)Math.Min(bytes.Length, maximumBytes);
         return ValueTask.FromResult<DockerResult<DockerFileContent>>(
             new DockerResult<DockerFileContent>.Success(new DockerFileContent(
@@ -1254,156 +1270,6 @@ internal sealed class QaDatabasePanelClient : IDatabasePanelClient
         string Region,
         string? Status,
         DateTimeOffset DeployedAt);
-}
-
-/// <summary>
-/// Layout-only stand-in for the statistics view model: real presentation values
-/// with no monitoring runtime behind them, so the panel's card layout is
-/// capturable at any width.
-/// </summary>
-internal sealed class QaStatisticsPreview
-{
-    public string Title => "Statistics";
-
-    public bool IsActive => true;
-
-    public bool HasAttention => false;
-
-    public bool IsAgentActive => false;
-
-    public bool IsNotificationPulseActive => false;
-
-    public bool IsZoomed => false;
-
-    public bool ShowContent => true;
-
-    public bool IsVisibleInLayout => true;
-
-    public string StatusText => "Live · Local";
-
-    public IBrush StatusColor => Brushes.MediumSeaGreen;
-
-    public string ConnectionDisplayName => "Local";
-
-    public string CpuText => "3.8%";
-
-    public string MemoryText => "101.9 GiB";
-
-    public string NetworkReceivedText => "4.6 MiB/s";
-
-    public string NetworkSentText => "2.3 MiB/s";
-
-    public string ProcessCountText => "1 180";
-
-    public string ProcessDetailText => "Resource details available for all processes";
-
-    public string UptimeText => "9d 5h 30m";
-
-    public int ProcessorCountText => 16;
-
-    public bool HasIssue => false;
-
-    public bool ShowLoading => false;
-
-    public bool ShowTerminalError => false;
-
-    public string CapturedAtText => "Captured 09:30:00";
-
-    public string IssueTitle => string.Empty;
-
-    public string IssueMessage => string.Empty;
-
-    public IReadOnlyList<double?> CpuHistory { get; } =
-        [4.1, 3.6, 5.2, 3.9, 4.4, 3.2, 3.8, 4.9, 3.5, 3.8];
-
-    public IReadOnlyList<double?> MemoryHistory { get; } =
-        [101.2, 101.4, 101.3, 101.6, 101.5, 101.8, 101.7, 101.9];
-
-    public IReadOnlyList<double?> NetworkReceivedHistory { get; } =
-        [1.8, 2.1, 3.4, 2.7, 4.1, 2.9, 3.6, 5.2, 3.8, 4.6];
-
-    public IReadOnlyList<double?> NetworkSentHistory { get; } =
-        [0.9, 1.1, 1.7, 1.3, 2.2, 1.5, 1.8, 2.6, 1.9, 2.3];
-}
-
-/// <summary>
-/// Layout-only stand-in for the process monitor view model, with names long
-/// enough to prove the name column trims instead of overlapping its neighbours.
-/// </summary>
-internal sealed class QaProcessMonitorPreview
-{
-    public sealed record Row(
-        int ProcessId,
-        string Name,
-        string Cpu,
-        string Memory,
-        string Started,
-        bool IsAsura)
-    {
-        public string AccessibleSummary =>
-            $"PID {ProcessId}, {Name}, CPU {Cpu}, memory {Memory}, started {Started}.";
-    }
-
-    public string Title => "Process Monitor";
-
-    public bool IsActive => true;
-
-    public bool HasAttention => false;
-
-    public bool IsAgentActive => false;
-
-    public bool IsNotificationPulseActive => false;
-
-    public bool IsZoomed => false;
-
-    public bool IsVisibleInLayout => true;
-
-    public bool ShowContent => true;
-
-    public bool ShowLoading => false;
-
-    public bool ShowTerminalError => false;
-
-    public bool ShowInlineIssue => false;
-
-    public string StatusText => "Live · Local";
-
-    public IBrush StatusColor => Brushes.MediumSeaGreen;
-
-    public string ConnectionDisplayName => "Local";
-
-    public string Filter => string.Empty;
-
-    public bool IsSortingByCpu => true;
-
-    public bool IsSortingByMemory => false;
-
-    public bool IsSortingByName => false;
-
-    public bool IsSortingByProcessId => false;
-
-    public bool IsSortDescending => true;
-
-    public string IssueTitle => string.Empty;
-
-    public string IssueMessage => string.Empty;
-
-    public string ShowingText => "250 processes";
-
-    public string CapturedAtText => "Captured 18:30:53";
-
-    public IReadOnlyList<Row> Processes { get; } =
-    [
-        new(96971, "Asura", "0.8%", "562.4 MiB", "03.08.2026 18:26", true),
-        new(61335, "Brave Browser Helper (Renderer)", "0.2%", "214.5 MiB", "01.08.2026 22:55", false),
-        new(37330, "AMSUIPaymentsViewService_macOS", "0.0%", "15.0 MiB", "31.07.2026 14:09", false),
-        new(49345, "BackgroundTaskManagementAgent", "0.0%", "28.1 MiB", "01.08.2026 22:46", false),
-        new(51129, "sysmond", "0.2%", "5.3 MiB", "01.08.2026 22:48", false),
-        new(17880, "Signal", "0.0%", "269.1 MiB", "31.07.2026 11:39", false),
-        new(908, "bridge-gui", "0.0%", "90.7 MiB", "25.07.2026 12:52", false),
-    ];
-
-    public Row? SelectedProcess { get; set; }
 }
 
 /// <summary>

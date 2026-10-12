@@ -5,6 +5,8 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
+    xmlns:git="using:Asura.Git"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
@@ -17,25 +19,74 @@
     Container.Name="gitPanel"
     Container.Sizing="Width">
   <UserControl.Styles>
-    <Style Selector="Button.GitNav">
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <!-- The section list is a source list: the shell's list selection draws
+         the current section, accent while the list has focus and gray
+         otherwise, and the count badge turns with the row's text. -->
+    <Style Selector="ListBox.GitSections">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem">
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
-    <Style Selector="Button.GitNav:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <!-- One size for the panel's rows and the controls among them: the
+         section list, the sidebar's refs, the file lists, the history and the
+         pull-downs above them all read at the body size, as a Finder sidebar
+         does, so no label stands a size above the list it sits in. Counts and
+         badges are the only captions. -->
+    <Style Selector="ListBox.GitSections ListBoxItem TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
-    <Style Selector="Button.GitNav.selected">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Style Selector="ListBox.GitSections ListBoxItem Border.GitCountBadge TextBlock">
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
     </Style>
+    <Style Selector="ListBox.GitSections ListBoxItem icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
+    </Style>
+    <Style Selector="ListBox.GitSections:focus-within ListBoxItem:selected Border.GitCountBadge">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.GitSections:focus-within ListBoxItem:selected Border.GitCountBadge TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <!-- A pull-down button: a push button whose trailing chevron says it
+         opens a menu of commands rather than acting on its own. -->
+    <Style Selector="Button.GitPullDown">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.GitPullDown icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <!-- The status mark: a dot by default, a glyph per state when the host
+         asks to differentiate without colour. -->
+    <Style Selector="Panel.GitStatusGlyphs">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Panel.GitStatusGlyphs icons|SymbolIcon">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector=":is(Window).differentiate-without-color Panel.GitStatusGlyphs">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector=":is(Window).differentiate-without-color Border.GitStatusDot">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="icons|SymbolIcon.GitRefGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <!-- Ref names keep both ends, so feature/… branches stay apart. -->
     <Style Selector="TextBlock.GitSidebarRow">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
-      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellBodyLineHeight}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
     </Style>
     <!-- Ref trees use the shell's standard tree template with a single icon
          column and a fixed row band. The parent viewport constrains labels. -->
@@ -46,12 +97,46 @@
       <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
       <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
+    <!-- A sidebar section's header is one row band, the height of the refs
+         under it. Remotes and Tags hold a 28-point add button beside their
+         disclosure, so their headers stood taller than the others and the
+         gap above them looked wider than the gap above Stashes. -->
+    <Style Selector="StackPanel#GitSidebarSections ToggleButton.SectionDisclosure">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
+    </Style>
     <Style Selector="TextBox.GitRefFilter">
-      <Setter Property="Height" Value="24" />
-      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <!-- Stashes, worktrees and submodules are flat lists in the same
+         sidebar: their rows sit where the ref rows sit, and a row is
+         selected as a ref row is, so the Git menu can act on it. -->
+    <Style Selector="ListBox.GitSidebarList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList ListBoxItem">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <!-- A sidebar list's row is a list row, as tall as its item, so the
+         hover band and the selection are one shape. -->
+    <Style Selector="ListBox.GitSidebarList Border.GitRefRow">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList ListBoxItem:selected Border.GitRefRow">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ListBox.GitSidebarList:focus-within ListBoxItem:selected icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="Grid.GitSidebarRowLayout">
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
@@ -69,8 +154,8 @@
       <Setter Property="Padding" Value="0" />
     </Style>
     <Style Selector="Border.GitKindBadge">
-      <Setter Property="Width" Value="18" />
-      <Setter Property="Height" Value="18" />
+      <Setter Property="Width" Value="{controls:TextScaled 20}" />
+      <Setter Property="Height" Value="{controls:TextScaled 20}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -78,7 +163,7 @@
     <Style Selector="Border.GitKindBadge TextBlock">
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
@@ -111,22 +196,41 @@
       <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="VerticalContentAlignment" Value="Stretch" />
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
     </Style>
     <Style Selector="TextBlock.GitCommitCell">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellBodyLineHeight}" />
     </Style>
+    <!-- The author, hash and date are the commit's metadata: a step under
+         its subject, as a Finder row's secondary column is. -->
+    <Style Selector="TextBlock.GitCommitCell.Muted">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
+    </Style>
+    <!-- A ref name is a label, not something to act on, so it wears a
+         neutral fill rather than the accent the selection and focus use. A
+         hairline keeps it a pill on a selected row, whose gray is the same
+         step as its fill; on a focused row it turns with the row's text. -->
     <Style Selector="Border.GitRefTag">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <Style Selector="ListBox.GitCommits ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitCommits:focus-within ListBoxItem:selected Border.GitRefTag">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
     <Style Selector="Border.GitRefTag TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellCaptionLineHeight}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <Style Selector="Border.GitCountBadge">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
@@ -136,30 +240,36 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.GitCountBadge TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellCaptionLineHeight}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- The commit's metadata is one secondary block: labels, values and the
+         signature line share the secondary size, the labels muted, so the
+         subject and message below are the step up. -->
     <Style Selector="TextBlock.GitMetaLabel">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize9}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight9}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.GitDetailTab">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
-      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    <Style Selector="TextBlock.GitMetaValue">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="Button.GitDetailTab.selected">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    <Style Selector="TextBlock.GitCommitBody">
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight13}" />
     </Style>
-    <Style Selector="StackPanel#GitCompactSections">
+    <Style Selector="Button.GitMetaLink">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="controls|SegmentedControl#GitCompactSections">
       <Setter Property="IsVisible" Value="False" />
     </Style>
     <Style Selector="TextBlock.GitSidebarRow.current">
@@ -169,38 +279,49 @@
          differently from arrows, and the whole point of one text run is a
          shared baseline. -->
     <Style Selector="TextBlock.GitTrackingText">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <!-- Ref rows are plain data wrapped in a hit-testable band so the whole
-         row answers to the pointer; the current branch wears the accent. -->
+         row answers to the pointer. Every sidebar row puts its label in the
+         same column: a 16-point glyph column, then the name, whether the row
+         is a branch, a tag, a stash or a worktree. The current branch is
+         marked the way a Mac marks the current choice — a checkmark in the
+         glyph column and a heavier name — and never with a fill, so the
+         selection is the only filled row in the list. -->
     <Style Selector="Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     </Style>
     <Style Selector="Border.GitRefRow:pointerover">
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
     </Style>
-    <Style Selector="Border.GitRefRow.current">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <Style Selector="icons|SymbolIcon.GitCurrentMark">
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
-    <Style Selector="Border.GitRefRow.current:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
+    <!-- A ref tree with focus selects in accent, as a source list does. The
+         rules reach only the selected row's own band and its own content (the
+         template root that is the row's direct child), never the rows nested
+         under a selected folder, so a folder's selection does not recolour
+         the branches inside it. Without focus the shell's gray selection
+         stands. -->
+    <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ Border#PART_LayoutRoot, TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ Border#PART_LayoutRoot:pointerover">
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
     </Style>
-    <!-- A section heading is the disclosure control for its list: the whole
-         band answers the pointer, and the chevron on the left says which way. -->
-    <Style Selector="Button.GitSectionHeader">
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow Border.GitRefRow, TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow Border.GitRefRow:pointerover">
       <Setter Property="Background" Value="Transparent" />
-      <Setter Property="BorderThickness" Value="0" />
-      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
     </Style>
-    <Style Selector="Button.GitSectionHeader:pointerover">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
+    <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected > Panel.GitRefTreeRow icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ ToggleButton#PART_ExpandCollapseChevron">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <ContainerQuery Name="gitPanel" Query="max-width:700">
       <Style Selector="Border#GitSidebar">
@@ -215,7 +336,7 @@
       <Style Selector="GridSplitter#GitSidebarSplitter">
         <Setter Property="IsVisible" Value="False" />
       </Style>
-      <Style Selector="StackPanel#GitCompactSections">
+      <Style Selector="controls|SegmentedControl#GitCompactSections">
         <Setter Property="IsVisible" Value="True" />
       </Style>
     </ContainerQuery>
@@ -237,7 +358,41 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot available" />
+      <!-- The repository's state, not a fixed "available" green. With
+           Differentiate Without Color the dot gives way to a glyph per state,
+           so the state never rests on hue alone. A Panel has no automation
+           peer of its own, so the mark opts into the content view; without
+           that VoiceOver never reaches its name. -->
+      <Panel
+          x:Name="GitStatusMark"
+          Background="Transparent"
+          ToolTip.Tip="{Binding RepositoryStatusLabel}"
+          AutomationProperties.AccessibilityView="Content"
+          AutomationProperties.Name="{Binding RepositoryStatusAccessibleName}">
+        <Border Classes="StatusDot GitStatusDot" controls:StatusToneBrush.Background="{Binding RepositoryStatusTone}" />
+        <Panel Classes="GitStatusGlyphs">
+          <icons:SymbolIcon
+              Symbol="CheckmarkCircle"
+              FontSize="{DynamicResource ShellIconSizeXs}"
+              Foreground="{DynamicResource ShellSuccessBrush}"
+              IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Success}}" />
+          <icons:SymbolIcon
+              Symbol="Warning"
+              FontSize="{DynamicResource ShellIconSizeXs}"
+              Foreground="{DynamicResource ShellWarningBrush}"
+              IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Warning}}" />
+          <icons:SymbolIcon
+              Symbol="ErrorCircle"
+              FontSize="{DynamicResource ShellIconSizeXs}"
+              Foreground="{DynamicResource ShellDangerBrush}"
+              IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Danger}}" />
+          <icons:SymbolIcon
+              Symbol="Circle"
+              FontSize="{DynamicResource ShellIconSizeXs}"
+              Foreground="{DynamicResource ShellStatusNeutralBrush}"
+              IsVisible="{Binding RepositoryStatusTone, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:Static vm:StatusTone.Neutral}}" />
+        </Panel>
+      </Panel>
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -250,101 +405,173 @@
 
     <controls:PanelChrome.Actions>
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-        <Menu IsVisible="{Binding IsRepositoryOpen}" IsEnabled="{Binding CanMutateRepository}" AutomationProperties.Name="Git repository tools">
-          <MenuItem Header="Repository">
-            <MenuItem Header="Accounts and repositories…" Click="OnHostingAccounts" />
-            <MenuItem Header="Compare revisions…" Click="OnCompareRevisions" />
-            <MenuItem Header="Create branch at revision…" Click="OnCreateBranchAtCommit" />
-            <MenuItem Header="Restore file from revision…" Click="OnRestoreFile" />
-            <MenuItem Header="Interactive rebase…" Click="OnInteractiveRebase" />
-            <MenuItem Header="Git Flow">
-              <MenuItem Header="Initialize…" Tag="Initialize" Click="OnGitFlow" />
-              <MenuItem Header="Start…" Tag="Start" Click="OnGitFlow" />
-              <MenuItem Header="Finish…" Tag="Finish" Click="OnGitFlow" />
-              <MenuItem Header="Publish…" Tag="Publish" Click="OnGitFlow" />
-              <MenuItem Header="Review and resume pending finish…" Click="OnGitFlowPending" IsVisible="{Binding HasPendingGitFlowFinish}" />
-              <MenuItem Header="Cancel pending finish…" Tag="CancelFinish" Click="OnGitFlow" />
-            </MenuItem>
-            <MenuItem Header="Fetch options…" Tag="Fetch" Click="OnNetworkOptions" />
-            <MenuItem Header="Pull options…" Tag="Pull" Click="OnNetworkOptions" />
-            <MenuItem Header="Push options…" Tag="Push" Click="OnNetworkOptions" />
-            <Separator />
-            <MenuItem Header="Save selected files to stash…" Click="OnSelectiveStash" />
-            <MenuItem Header="Add ignore pattern…" Tag="IgnorePattern" Click="OnRepositoryTask" />
-            <MenuItem Header="Apply patch…" Tag="ApplyPatch" Click="OnRepositoryTask" />
-            <MenuItem Header="Export patch…" Tag="ExportPatch" Click="OnRepositoryTask" />
-            <MenuItem Header="Git preferences…" Click="OnGitPreferences" />
-            <MenuItem Header="Identity and signing…" Click="OnIdentitySettings" />
-            <MenuItem Header="Tracking">
-              <MenuItem Header="Set upstream…" Tag="SetUpstream" Click="OnRepositoryTask" />
-              <MenuItem Header="Remove upstream…" Tag="UnsetUpstream" Click="OnRepositoryTask" />
-              <MenuItem Header="Prune stale remote branches…" Tag="PruneRemote" Click="OnRepositoryTask" />
-            </MenuItem>
-            <MenuItem Header="Worktrees">
-              <MenuItem Header="Add worktree…" Tag="Add" Click="OnWorktreeTool" />
-              <MenuItem Header="Remove worktree…" Tag="Remove" Click="OnWorktreeTool" />
-              <MenuItem Header="Lock…" Tag="Lock" Click="OnWorktreeTool" />
-              <MenuItem Header="Unlock…" Tag="Unlock" Click="OnWorktreeTool" />
-            </MenuItem>
-            <MenuItem Header="Submodules">
-              <MenuItem Header="Add…" Tag="Add" Click="OnSubmoduleTool" />
-              <MenuItem Header="Initialize…" Tag="Initialize" Click="OnSubmoduleTool" />
-              <MenuItem Header="Update…" Tag="Update" Click="OnSubmoduleTool" />
-              <MenuItem Header="Sync…" Tag="Sync" Click="OnSubmoduleTool" />
-              <MenuItem Header="Remove…" Tag="Remove" Click="OnSubmoduleTool" />
-            </MenuItem>
-            <MenuItem Header="Git LFS">
-              <MenuItem Header="Set up for this repository" Tag="LfsInstall" Click="OnRepositoryTask" />
-              <MenuItem Header="Status and locks…" Click="OnLfsBrowser" />
-              <MenuItem Header="Fetch objects" Tag="LfsFetch" Click="OnRepositoryTask" />
-              <MenuItem Header="Download checkout objects" Tag="LfsPull" Click="OnRepositoryTask" />
-              <MenuItem Header="Track pattern…" Tag="LfsTrack" Click="OnRepositoryTask" />
-              <MenuItem Header="Untrack pattern…" Tag="LfsUntrack" Click="OnRepositoryTask" />
-              <MenuItem Header="Lock file…" Tag="LfsLock" Click="OnRepositoryTask" />
-              <MenuItem Header="Unlock file…" Tag="LfsUnlock" Click="OnRepositoryTask" />
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="Reflog and recovery…" Click="OnReflog" />
-            <MenuItem Header="Start bisect…" Tag="BisectStart" Click="OnRepositoryTask" />
-            <MenuItem Header="File history and blame…" Click="OnFileHistory" />
-            <MenuItem Header="Line history…" Tag="RangeHistory" Click="OnRepositoryTask" />
-            <MenuItem Header="Commit signature…" Tag="Signature" Click="OnRepositoryTask" />
-            <MenuItem Header="Preview merge conflicts…" Tag="ConflictForecast" Click="OnRepositoryTask" />
-            <MenuItem Header="Repository statistics" Tag="Statistics" Click="OnRepositoryTask" />
-            <MenuItem Header="Benchmark status read" Tag="Benchmark" Click="OnRepositoryTask" />
-            <MenuItem Header="External diff tool for selection…" Click="OnSelectedExternalDiff" />
-            <MenuItem Header="Copy selected patch" Click="OnCopySelectedPatch" />
-            <MenuItem Header="Save selected patch…" Click="OnSaveSelectedPatch" />
-            <MenuItem Header="External merge tool…" Tag="ExternalMerge" Click="OnRepositoryTask" />
-            <MenuItem Header="Run custom command…" Click="OnCustomCommand" />
-            <MenuItem Header="Review selected scope with agent" Click="OnReviewSelection" />
-            <MenuItem Header="Open repository terminal" Tag="Terminal" Click="OnOpenGitContext" />
-            <MenuItem Header="Open repository files" Tag="Files" Click="OnOpenGitContext" />
-            <MenuItem Header="Open selected working file" Tag="File" Click="OnOpenGitContext" />
-            <MenuItem Header="Hosting">
-              <MenuItem Header="Open repository on hosting site" Tag="Repository" Click="OnHostingShortcut" />
-              <MenuItem Header="Open selected commit on hosting site" Tag="Commit" Click="OnHostingShortcut" IsEnabled="{Binding SelectedCommit, Converter={x:Static ObjectConverters.IsNotNull}}" />
-              <MenuItem Header="Open current branch on hosting site" Tag="Branch" Click="OnHostingShortcut" />
-              <MenuItem Header="Open pull request…" Tag="PullRequest" Click="OnHostingShortcut" />
-              <MenuItem Header="Open notifications" Tag="Notifications" Click="OnHostingShortcut" />
-            </MenuItem>
-            <MenuItem Header="Activity log" Click="OnActivityLog" />
-          </MenuItem>
-        </Menu>
-        <Button Content="Cancel operation" Click="OnCancelGitOperation" IsVisible="{Binding IsMutating}" />
+        <!-- Three pull-down buttons in place of a menu bar inside the panel:
+             each keeps one submenu level and a handful of items per group.
+             Commands that only read stay enabled while an operation runs;
+             only those that change the repository wait for it. -->
+        <StackPanel
+            x:Name="GitRepositoryMenus"
+            Orientation="Horizontal"
+            Spacing="{DynamicResource ShellSpaceXs}"
+            IsVisible="{Binding IsRepositoryOpen}">
+          <Button
+              x:Name="GitBranchMenuButton"
+              Classes="Dense GitPullDown"
+              ToolTip.Tip="Branch, history and worktree commands"
+              AutomationProperties.Name="Branch">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+              <TextBlock VerticalAlignment="Center" Text="Branch" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+            </StackPanel>
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                <MenuItem Header="New Branch at Revision…" Click="OnCreateBranchAtCommit" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Interactive Rebase…" Click="OnInteractiveRebase" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Restore File from Revision…" Click="OnRestoreFile" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Stash Selected Files…" Click="OnSelectiveStash" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Compare Revisions…" Click="OnCompareRevisions" IsEnabled="{Binding CanReadRepository}" />
+                <Separator />
+                <MenuItem Header="Git Flow">
+                  <MenuItem Header="Initialize…" Tag="Initialize" Click="OnGitFlow" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Start…" Tag="Start" Click="OnGitFlow" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Finish…" Tag="Finish" Click="OnGitFlow" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Publish…" Tag="Publish" Click="OnGitFlow" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Resume Pending Finish…" Click="OnGitFlowPending" IsEnabled="{Binding CanResolvePendingGitFlowFinish}" />
+                  <MenuItem Header="Discard Pending Finish…" Tag="CancelFinish" Click="OnGitFlow" IsEnabled="{Binding CanResolvePendingGitFlowFinish}" />
+                </MenuItem>
+                <MenuItem Header="Tracking">
+                  <MenuItem Header="Set Upstream…" Tag="SetUpstream" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Remove Upstream…" Tag="UnsetUpstream" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <MenuItem Header="Worktrees">
+                  <MenuItem Header="Add Worktree…" Click="OnAddWorktree" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Lock Worktree…" Tag="Lock" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Unlock Worktree…" Tag="Unlock" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Remove Worktree…" Tag="Remove" Click="OnWorktreeTool" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Start Bisect…" Tag="BisectStart" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Recover from Reflog…" Click="OnReflog" IsEnabled="{Binding CanMutateRepository}" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+          <Button
+              x:Name="GitRemoteMenuButton"
+              Classes="Dense GitPullDown"
+              ToolTip.Tip="Remote and hosting commands"
+              AutomationProperties.Name="Remote">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+              <TextBlock VerticalAlignment="Center" Text="Remote" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+            </StackPanel>
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                <MenuItem Header="Fetch…" Tag="Fetch" Click="OnNetworkOptions" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Pull…" Tag="Pull" Click="OnNetworkOptions" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Push…" Tag="Push" Click="OnNetworkOptions" IsEnabled="{Binding CanMutateRepository}" />
+                <MenuItem Header="Prune Stale Remote Branches…" Tag="PruneRemote" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                <Separator />
+                <MenuItem Header="Open Repository on Host" Tag="Repository" Click="OnHostingShortcut" IsEnabled="{Binding CanReadRepository}" />
+                <MenuItem Header="Open Current Branch on Host" Tag="Branch" Click="OnHostingShortcut" IsEnabled="{Binding CanReadRepository}" />
+                <MenuItem Header="Open Selected Commit on Host" Tag="Commit" Click="OnHostingShortcut" IsEnabled="{Binding SelectedCommit, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                <MenuItem Header="Open Pull Request…" Tag="PullRequest" Click="OnHostingShortcut" IsEnabled="{Binding CanReadRepository}" />
+                <MenuItem Header="Open Notifications" Tag="Notifications" Click="OnHostingShortcut" IsEnabled="{Binding CanReadRepository}" />
+                <Separator />
+                <MenuItem Header="Accounts and Repositories…" Click="OnHostingAccounts" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+          <Button
+              x:Name="GitToolsMenuButton"
+              Classes="Dense GitPullDown"
+              ToolTip.Tip="Inspection, patch and repository tools"
+              AutomationProperties.Name="Tools">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+              <TextBlock VerticalAlignment="Center" Text="Tools" />
+              <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+            </StackPanel>
+            <Button.Flyout>
+              <!-- Seven entries at the top and one submenu level: reading
+                   the history, patches, this repository's own setup, its
+                   submodules and LFS, and opening it in other tools. Each
+                   item keeps its own enablement. The choices every Git panel
+                   shares are in Settings, which the last item opens. -->
+              <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                <MenuItem x:Name="GitInvestigateMenu" Header="Investigate">
+                  <MenuItem Header="File History and Blame…" Click="OnFileHistory" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Line History…" Tag="RangeHistory" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Commit Signature…" Tag="Signature" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Preview Merge Conflicts…" Tag="ConflictForecast" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Review Selection with Agent" Click="OnReviewSelection" IsEnabled="{Binding CanReadRepository}" />
+                  <Separator />
+                  <MenuItem Header="Repository Statistics…" Tag="Statistics" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Activity Log…" Click="OnActivityLog" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem x:Name="GitBenchmarkMenuItem" Header="Measure Status Read Time…" Tag="Benchmark" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                </MenuItem>
+                <MenuItem Header="Patches">
+                  <MenuItem Header="Copy Selected Patch" Click="OnCopySelectedPatch" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Save Selected Patch…" Click="OnSaveSelectedPatch" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Export Patch…" Tag="ExportPatch" Click="OnRepositoryTask" IsEnabled="{Binding CanReadRepository}" />
+                  <Separator />
+                  <MenuItem Header="Apply Patch…" Tag="ApplyPatch" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <!-- Identity and signing are stored in the repository, so
+                     they stay with it here rather than in Settings. -->
+                <MenuItem x:Name="GitRepositorySetupMenu" Header="Repository">
+                  <MenuItem Header="Add Ignore Pattern…" Tag="IgnorePattern" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Run Custom Command…" Click="OnCustomCommand" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Repository Identity and Signing…" Click="OnIdentitySettings" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <MenuItem Header="Submodules">
+                  <MenuItem Header="Add Submodule…" Tag="Add" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Initialize Submodules…" Tag="Initialize" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Update Submodules…" Tag="Update" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Sync Submodules…" Tag="Sync" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Remove Submodule…" Tag="Remove" Click="OnSubmoduleTool" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <MenuItem Header="Git LFS">
+                  <MenuItem Header="Status and Locks…" Click="OnLfsBrowser" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Set Up for Repository" Tag="LfsInstall" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Fetch Objects" Tag="LfsFetch" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Download Checkout Objects" Tag="LfsPull" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <Separator />
+                  <MenuItem Header="Track Pattern…" Tag="LfsTrack" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Untrack Pattern…" Tag="LfsUntrack" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Lock File…" Tag="LfsLock" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                  <MenuItem Header="Unlock File…" Tag="LfsUnlock" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" />
+                </MenuItem>
+                <MenuItem Header="Open In">
+                  <MenuItem Header="Terminal" Tag="Terminal" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Files" Tag="Files" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <MenuItem Header="Selected File" Tag="File" Click="OnOpenGitContext" IsEnabled="{Binding CanReadRepository}" />
+                  <Separator />
+                  <MenuItem Header="Diff Tool…" Click="OnSelectedExternalDiff" IsEnabled="{Binding CanMutateRepository}" ToolTip.Tip="Compare the selection in the configured diff tool" />
+                  <MenuItem Header="Merge Tool…" Tag="ExternalMerge" Click="OnRepositoryTask" IsEnabled="{Binding CanMutateRepository}" ToolTip.Tip="Resolve the selected conflict in the configured merge tool" />
+                </MenuItem>
+                <Separator />
+                <MenuItem x:Name="GitSettingsMenuItem" Header="Git Settings…" Click="OnGitSettings" ToolTip.Tip="Choices every Git panel shares, in Settings" />
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </StackPanel>
+        <Button Content="Cancel Operation" Click="OnCancelGitOperation" IsVisible="{Binding IsMutating}" />
         <Button Classes="IconButton" Tag="Previous" Click="OnNavigateConflict" IsVisible="{Binding HasUnresolvedConflicts}" ToolTip.Tip="Previous conflict" AutomationProperties.Name="Previous conflict">
-          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellFontSize13}" />
+          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
-        <Button Content="Resolve conflict" Click="OnResolveConflict" IsVisible="{Binding IsConflictSelected}" IsEnabled="{Binding CanMutateRepository}" />
+        <Button Content="Resolve Conflict…" Click="OnResolveConflict" IsVisible="{Binding IsConflictSelected}" IsEnabled="{Binding CanMutateRepository}" />
         <Button Classes="IconButton" Tag="Next" Click="OnNavigateConflict" IsVisible="{Binding HasUnresolvedConflicts}" ToolTip.Tip="Next conflict" AutomationProperties.Name="Next conflict">
-          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellFontSize13}" />
+          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
         </Button>
         <!-- No LineHeight: the status line carries ↑/↓ arrows beside digits,
              and only an uninflated line box keeps them on one centerline. -->
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite" />
         <Border Classes="FileToolbarGroup" x:Name="GitToolbarActions">
@@ -354,21 +581,21 @@
                 Command="{Binding PullCommand}"
                 ToolTip.Tip="Pull"
                 AutomationProperties.Name="Pull">
-              <icons:SymbolIcon Symbol="ArrowDown" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding PushCommand}"
                 ToolTip.Tip="Push"
                 AutomationProperties.Name="Push">
-              <icons:SymbolIcon Symbol="ArrowUp" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding SyncCommand}"
                 ToolTip.Tip="Pull, then push"
                 AutomationProperties.Name="Pull, then push">
-              <icons:SymbolIcon Symbol="ArrowSync" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
@@ -376,14 +603,14 @@
                 IsEnabled="{Binding CanMutateRepository}"
                 ToolTip.Tip="Stash working changes"
                 AutomationProperties.Name="Stash working changes">
-              <icons:SymbolIcon Symbol="Archive" FontSize="14" />
+              <icons:SymbolIcon Symbol="Archive" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 Classes="IconButton FileToolbarAction"
                 Command="{Binding RefreshCommand}"
                 ToolTip.Tip="Refresh repository state"
                 AutomationProperties.Name="Refresh repository state">
-              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" />
+              <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </StackPanel>
         </Border>
@@ -393,25 +620,21 @@
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <TextBlock
-            Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
-            Text="{Binding RepositoryRoot}"
-            TextTrimming="CharacterEllipsis" />
+            Classes="Muted Path"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="{Binding RepositoryRoot}" />
         <TextBlock
             Grid.Column="1"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
-            Text="{Binding ConnectionDisplayName, StringFormat=Target · {0}}" />
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
         <!-- Impersonation is visible, never silent: when Git runs as the
              repository's owner rather than the signed-in user, the footer
              says so for the panel's whole life. -->
         <TextBlock
             Grid.Column="2"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            LineHeight="{DynamicResource ShellLineHeight9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding EffectiveGitUser, StringFormat=· git as {0}}"
             IsVisible="{Binding HasEffectiveGitUser}" />
       </Grid>
@@ -431,14 +654,10 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Eyebrow" Text="Git" />
-              <TextBlock
-                  FontSize="{DynamicResource ShellFontSize15}"
-                  LineHeight="{DynamicResource ShellLineHeight15}"
-                  FontWeight="SemiBold"
-                  Text="Open a repository" />
+              <TextBlock Classes="Title3" Text="Open a repository" />
               <TextBlock
                   Classes="Muted"
-                  Text="Point the panel at a working tree on this connection. The target's own Git does the work."
+                  Text="Choose a repository folder on this connection. Asura uses the Git installed there."
                   TextWrapping="Wrap" />
             </StackPanel>
             <controls:LabeledField Label="Repository path">
@@ -453,25 +672,42 @@
                     Classes="SecondaryButton"
                     VerticalAlignment="Stretch"
                     Click="OnBrowseRepositoryClick"
-                    Content="Browse…" />
+                    Content="Choose…"
+                    AutomationProperties.Name="Choose repository folder" />
               </Grid>
             </controls:LabeledField>
             <Button
                     Classes="SecondaryButton"
                     Click="OnTrustRepositoryClick"
-                    Content="Trust this repository"
+                    Content="Trust Repository…"
                     IsVisible="{Binding CanTrustRepository}" />
             <Button
                 Classes="PrimaryButton"
                 HorizontalAlignment="Left"
                 Command="{Binding OpenRepositoryCommand}"
-                Content="Open repository" />
+                Content="Open Repository" />
             <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-              <Button Content="Accounts and repositories…" Click="OnHostingAccounts" IsEnabled="{Binding !IsMutating}" />
+              <Button Content="Accounts and Repositories…" Click="OnHostingAccounts" IsEnabled="{Binding !IsMutating}" />
               <Button Content="Clone…" Tag="Clone" Click="OnCreateRepository" IsEnabled="{Binding !IsMutating}" />
               <Button Content="Initialize…" Tag="Initialize" Click="OnCreateRepository" IsEnabled="{Binding !IsMutating}" />
+              <!-- A pull-down of commands, one per recent repository: choosing
+                   one opens it. A combo box did the same on selection, which
+                   reads as a setting rather than an action. -->
+              <Button
+                  x:Name="GitRecentRepositoriesButton"
+                  Classes="GitPullDown"
+                  IsEnabled="{Binding HasRecentRepositories}"
+                  ToolTip.Tip="Open a recently used repository"
+                  AutomationProperties.Name="Open Recent">
+                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock VerticalAlignment="Center" Text="Open Recent" />
+                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+                </StackPanel>
+                <Button.Flyout>
+                  <MenuFlyout Placement="BottomEdgeAlignedLeft" />
+                </Button.Flyout>
+              </Button>
             </StackPanel>
-            <ComboBox ItemsSource="{Binding RecentRepositories}" SelectionChanged="OnRecentRepository" PlaceholderText="Recent repositories" AutomationProperties.Name="Recent Git repositories" />
           </StackPanel>
         </controls:SurfaceCard>
       </ScrollViewer>
@@ -496,19 +732,56 @@
               <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
               <Setter Property="Padding" Value="0" />
               <Setter Property="BorderThickness" Value="0" />
-              <Setter Property="MinHeight" Value="24" />
+              <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
-              <!-- State selectors override the Fluent template's fixed margins. -->
+              <!-- A ref row says what it is to VoiceOver by its name, and the
+                   current branch says so as its status, not only by its
+                   checkmark and weight. -->
+              <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+              <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AccessibleStatus}" />
+              <!-- State selectors override the Fluent template's fixed margins.
+                   The disclosure toggle is a 20 × 20 target, but the chevron
+                   drawn in it stays the section headers' small one rather
+                   than stretching to fill the target. The target ends where
+                   the folder name begins, so the gap before the name is the
+                   target's own room around the glyph and nothing overlaps. -->
               <Style Selector="^:not(:empty) /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
-                <Setter Property="Width" Value="12" />
+                <Setter Property="Width" Value="20" />
               </Style>
               <Style Selector="^ /template/ ToggleButton#PART_ExpandCollapseChevron">
-                <Setter Property="Width" Value="8" />
-                <Setter Property="Height" Value="8" />
+                <Setter Property="Width" Value="20" />
+                <Setter Property="Height" Value="20" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+                <!-- Fluent stretches its chevron path to fill the toggle, so a
+                     20-point target drew a 20-point chevron. This draws the
+                     section headers' own glyph at its own size instead. -->
+                <Setter Property="Template">
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}">
+                      <Panel HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <icons:SymbolIcon
+                            Symbol="ChevronRight"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter={x:True}}" />
+                        <icons:SymbolIcon
+                            Symbol="ChevronDown"
+                            FontSize="{DynamicResource ShellIconSizeXs}"
+                            Foreground="{TemplateBinding Foreground}"
+                            IsVisible="{TemplateBinding IsChecked, Converter={x:Static ObjectConverters.Equal}, ConverterParameter={x:True}}" />
+                      </Panel>
+                    </Border>
+                  </ControlTemplate>
+                </Setter>
               </Style>
-              <!-- A leaf's ref icon occupies the disclosure column. Reserving
-                   an empty chevron here would double its apparent indent. -->
+              <!-- A leaf's ref glyph occupies the disclosure column. Reserving
+                   an empty chevron here would double its apparent indent, so
+                   every leaf, a branch, a remote branch or a tag, carries a
+                   16-point glyph column instead and its name lines up with
+                   a folder's name beside the chevron. -->
               <Style Selector="^:empty /template/ Panel#PART_ExpandCollapseChevronContainer">
                 <Setter Property="Margin" Value="0" />
                 <Setter Property="Width" Value="0" />
@@ -521,99 +794,98 @@
                   Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                   Classes="Eyebrow"
                   Text="{Binding RepositoryName}" />
-              <Button Classes="GitNav" Classes.selected="{Binding IsLocalChangesSection}" Click="OnLocalChangesClick">
-                <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" FontSize="15" />
-                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="Local Changes" />
-                  <Border Grid.Column="2" HorizontalAlignment="Right" Classes="GitCountBadge">
-                    <TextBlock Text="{Binding UnstagedCount}" />
-                  </Border>
-                </Grid>
-              </Button>
-              <Button Classes="GitNav" Classes.selected="{Binding IsAllCommitsSection}" Click="OnAllCommitsClick">
-                <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" FontSize="15" />
-                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="All Commits" />
-                </Grid>
-              </Button>
-              <TextBox x:Name="GitRefFilter" Classes="GitRefFilter"
+              <!-- The two sections are a source list: one row is the current
+                   section, and the list says which to VoiceOver as selection
+                   rather than as a tint on a button. -->
+              <ListBox
+                  x:Name="GitSectionList"
+                  Classes="GitSections"
+                  SelectionMode="Single,AlwaysSelected"
+                  SelectedIndex="{Binding SectionIndex, Mode=TwoWay}"
+                  AutomationProperties.Name="Repository sections">
+                <ListBoxItem AutomationProperties.Name="Local Changes">
+                  <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Edit" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="Local Changes" />
+                    <Border Grid.Column="2" HorizontalAlignment="Right" Classes="GitCountBadge">
+                      <TextBlock Text="{Binding UnstagedCount}" />
+                    </Border>
+                  </Grid>
+                </ListBoxItem>
+                <ListBoxItem AutomationProperties.Name="All Commits">
+                  <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="History" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="All Commits" />
+                  </Grid>
+                </ListBoxItem>
+              </ListBox>
+              <controls:SearchField x:Name="GitRefFilter" Classes="GitRefFilter"
                   Margin="{controls:Inset Top=Xs}" Text="{Binding RefFilter}"
-                  PlaceholderText="Filter refs" AutomationProperties.Name="Filter branches and tags" />
+                  PlaceholderText="Filter branches and tags" AutomationProperties.Name="Filter branches and tags" />
             </StackPanel>
 
+            <!-- Every header is one row band (GitSidebarSections' style), so
+                 a section starts one short step after the last row above it,
+                 whether or not its header carries an add button. -->
             <ScrollViewer Grid.Row="1" Margin="{controls:Inset Top=Sm}" HorizontalScrollBarVisibility="Disabled">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <StackPanel x:Name="GitSidebarSections" Spacing="{DynamicResource ShellSpaceXs}">
                 <StackPanel Spacing="0">
-                  <Button Classes="GitSectionHeader" Click="OnToggleBranchesSection">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsBranchesSectionExpanded}" />
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsBranchesSectionExpanded}" />
-                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Branches" />
-                    </StackPanel>
-                  </Button>
+                  <ToggleButton
+                      x:Name="GitBranchesDisclosure"
+                      Classes="SectionDisclosure"
+                      IsChecked="{Binding IsBranchesSectionExpanded, Mode=TwoWay}"
+                      AutomationProperties.Name="Branches">
+                    <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Branches" />
+                  </ToggleButton>
                   <TreeView x:Name="GitLocalBranchTree" Classes="GitRefTree"
                       ItemsSource="{Binding LocalBranchTree}" IsVisible="{Binding IsBranchesSectionExpanded}"
-                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}">
+                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}"
+                      AutomationProperties.Name="Branches">
                     <TreeView.ItemTemplate>
                       <TreeDataTemplate x:DataType="vm:GitRefTreeNodeViewModel" ItemsSource="{Binding Children}">
-                        <Panel>
+                        <Panel Classes="GitRefTreeRow">
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24"
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0"
                                 Classes="GitRefRow"
-                                Classes.current="{Binding IsCurrent}"
                                 DoubleTapped="OnBranchRowDoubleTapped">
+                              <!-- Three groups: what you do with the branch,
+                                   what you make from it, and deleting it,
+                                   last and on its own. -->
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem
-                                      Header="{Binding CheckoutLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnCheckoutBranchClick" />
-                                  <MenuItem
-                                      Header="Checkout as Worktree…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnCheckoutWorktreeClick" />
-                                  <Separator IsVisible="{Binding !IsCurrent}" />
-                                  <MenuItem
-                                      Header="{Binding FastForwardLabel}"
-                                      IsVisible="{Binding HasUpstream}"
-                                      Click="OnFastForwardBranchClick" />
-                                  <MenuItem
-                                      Header="{Binding PushLabel}"
-                                      IsVisible="{Binding HasPushRemote}"
-                                      Click="OnPushBranchClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCheckout}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCheckoutWorktree}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchFastForward}" IsVisible="{Binding HasUpstream}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchPush}" IsVisible="{Binding HasPushRemote}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchMerge}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchRebase}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
                                   <Separator />
-                                  <MenuItem
-                                      Header="{Binding MergeLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnMergeBranchClick" />
-                                  <MenuItem
-                                      Header="{Binding RebaseLabel}"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnRebaseBranchClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitNewBranch}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchNewTag}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchRename}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchCopyName}" Click="OnGitMenuCommand" />
                                   <Separator IsVisible="{Binding !IsCurrent}" />
-                                  <MenuItem Header="New Branch…" Click="OnNewBranchClick" />
-                                  <MenuItem Header="New Tag…" Click="OnNewTagAtBranchClick" />
-                                  <Separator />
-                                  <MenuItem
-                                      Header="Rename…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnRenameBranchClick" />
-                                  <MenuItem
-                                      Header="Delete…"
-                                      IsVisible="{Binding !IsCurrent}"
-                                      Click="OnDeleteBranchClick" />
-                                  <Separator IsVisible="{Binding !IsCurrent}" />
-                                  <MenuItem Header="Copy Branch Name" Click="OnCopyBranchNameClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitBranchDelete}" IsVisible="{Binding !IsCurrent}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
-                              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                              <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                                 <icons:SymbolIcon
+                                    Classes="GitRefGlyph"
+                                    HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="BranchFork"
-                                    FontSize="11"
-                                    Foreground="{DynamicResource ShellMutedBrush}" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding !IsCurrent}" />
+                                <icons:SymbolIcon
+                                    Classes="GitCurrentMark"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Checkmark"
+                                    FontSize="{DynamicResource ShellIconSizeXs}"
+                                    IsVisible="{Binding IsCurrent}"
+                                    ToolTip.Tip="Current branch" />
                                 <TextBlock
                                     Grid.Column="1"
                                     VerticalAlignment="Center"
@@ -639,46 +911,47 @@
 
                 <StackPanel Spacing="0">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                    <Button Classes="GitSectionHeader" Click="OnToggleRemotesSection">
-                      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsRemotesSectionExpanded}" />
-                        <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsRemotesSectionExpanded}" />
-                        <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Remotes" />
-                      </StackPanel>
-                    </Button>
+                    <ToggleButton
+                        Classes="SectionDisclosure"
+                        IsChecked="{Binding IsRemotesSectionExpanded, Mode=TwoWay}"
+                        AutomationProperties.Name="Remotes">
+                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Remotes" />
+                    </ToggleButton>
                     <Button
                         Grid.Column="1"
                         Classes="IconButton Compact"
                         Click="OnAddRemoteClick"
-                        ToolTip.Tip="Add remote"
+                        ToolTip.Tip="Add remote…"
                         AutomationProperties.Name="Add remote">
-                      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+                      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
                   </Grid>
                   <TreeView x:Name="GitRemoteBranchTree" Classes="GitRefTree"
                       ItemsSource="{Binding RemoteBranchTree}" IsVisible="{Binding IsRemotesSectionExpanded}"
-                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}">
+                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}"
+                      AutomationProperties.Name="Remotes">
                     <TreeView.ItemTemplate>
                       <TreeDataTemplate x:DataType="vm:GitRefTreeNodeViewModel" ItemsSource="{Binding Children}">
-                        <Panel>
+                        <Panel Classes="GitRefTreeRow">
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" Classes="GitRefRow">
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="{Binding FetchLabel}" Click="OnFetchRemoteClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteFetch}" Click="OnGitMenuCommand" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteEdit}" Click="OnGitMenuCommand" />
                                   <Separator />
-                                  <MenuItem Header="Edit…" Click="OnEditRemoteClick" />
-                                  <MenuItem Header="Delete…" Click="OnRemoveRemoteClick" />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteRemove}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
-                              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                              <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                                 <icons:SymbolIcon
+                                    Classes="GitRefGlyph"
+                                    HorizontalAlignment="Center"
                                     VerticalAlignment="Center"
                                     Symbol="Globe"
-                                    FontSize="11"
-                                    Foreground="{DynamicResource ShellMutedBrush}" />
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
                                 <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
                               </Grid>
                             </Border>
@@ -691,38 +964,48 @@
 
                 <StackPanel Spacing="0">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                    <Button Classes="GitSectionHeader" Click="OnToggleTagsSection">
-                      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsTagsSectionExpanded}" />
-                        <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsTagsSectionExpanded}" />
-                        <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Tags" />
-                      </StackPanel>
-                    </Button>
+                    <ToggleButton
+                        Classes="SectionDisclosure"
+                        IsChecked="{Binding IsTagsSectionExpanded, Mode=TwoWay}"
+                        AutomationProperties.Name="Tags">
+                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Tags" />
+                    </ToggleButton>
                     <Button
                         Grid.Column="1"
                         Classes="IconButton Compact"
                         Click="OnCreateTagClick"
-                        ToolTip.Tip="Create tag"
+                        ToolTip.Tip="Create tag…"
                         AutomationProperties.Name="Create tag">
-                      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+                      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
                   </Grid>
                   <TreeView x:Name="GitTagTree" Classes="GitRefTree"
                       ItemsSource="{Binding TagTree}" IsVisible="{Binding IsTagsSectionExpanded}"
-                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}">
+                      ItemContainerTheme="{StaticResource GitRefTreeItemTheme}"
+                      AutomationProperties.Name="Tags">
                     <TreeView.ItemTemplate>
                       <TreeDataTemplate x:DataType="vm:GitRefTreeNodeViewModel" ItemsSource="{Binding Children}">
-                        <Panel>
+                        <Panel Classes="GitRefTreeRow">
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="24" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" Classes="GitRefRow">
                               <Border.ContextMenu>
-                                <ContextMenu>
-                                  <MenuItem Header="Delete…" Click="OnDeleteTagClick" />
+                                <ContextMenu Opening="OnGitMenuOpening">
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagCopyName}" Click="OnGitMenuCommand" />
+                                  <Separator />
+                                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagDelete}" Click="OnGitMenuCommand" />
                                 </ContextMenu>
                               </Border.ContextMenu>
-                              <TextBlock Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                                <icons:SymbolIcon
+                                    Classes="GitRefGlyph"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Symbol="Tag"
+                                    FontSize="{DynamicResource ShellIconSizeXs}" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="GitSidebarRow" Text="{Binding LeafName}" ToolTip.Tip="{Binding Name}" />
+                              </Grid>
                             </Border>
                           </Border>
                         </Panel>
@@ -732,77 +1015,136 @@
                 </StackPanel>
 
                 <StackPanel Spacing="0">
-                  <Button Classes="GitSectionHeader" Click="OnToggleStashesSection">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsStashesSectionExpanded}" />
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsStashesSectionExpanded}" />
-                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Stashes" />
-                    </StackPanel>
-                  </Button>
-                  <ItemsControl ItemsSource="{Binding Stashes}" IsVisible="{Binding IsStashesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ToggleButton
+                      Classes="SectionDisclosure"
+                      IsChecked="{Binding IsStashesSectionExpanded, Mode=TwoWay}"
+                      AutomationProperties.Name="Stashes">
+                    <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Stashes" />
+                  </ToggleButton>
+                  <ListBox
+                      x:Name="GitStashList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Stashes}"
+                      IsVisible="{Binding IsStashesSectionExpanded}"
+                      AutomationProperties.Name="Stashes">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitStashItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Subject}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
                           <Border.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Apply" Click="OnStashApplyClick" />
-                              <MenuItem Header="Pop" Click="OnStashPopClick" />
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashApply}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashPop}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashShowPatch}" Click="OnGitMenuCommand" />
                               <Separator />
-                              <MenuItem Header="Drop…" Click="OnStashDropClick" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitStashDrop}" Click="OnGitMenuCommand" />
                             </ContextMenu>
                           </Border.ContextMenu>
-                          <TextBlock
-                              Classes="GitSidebarRow"
-                              Text="{Binding Subject}"
-                              ToolTip.Tip="{Binding Reference}" />
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Archive" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow"
+                                Text="{Binding Subject}"
+                                ToolTip.Tip="{Binding Reference}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
 
                 <StackPanel Spacing="0">
-                  <Button Classes="GitSectionHeader" Click="OnToggleWorktreesSection">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsWorktreesSectionExpanded}" />
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsWorktreesSectionExpanded}" />
-                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Worktrees" />
-                    </StackPanel>
-                  </Button>
-                  <ItemsControl ItemsSource="{Binding Worktrees}" IsVisible="{Binding IsWorktreesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ToggleButton
+                      Classes="SectionDisclosure"
+                      IsChecked="{Binding IsWorktreesSectionExpanded, Mode=TwoWay}"
+                      AutomationProperties.Name="Worktrees">
+                    <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Worktrees" />
+                  </ToggleButton>
+                  <ListBox
+                      x:Name="GitWorktreeList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Worktrees}"
+                      IsVisible="{Binding IsWorktreesSectionExpanded}"
+                      AutomationProperties.Name="Worktrees">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitWorktreeItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Path}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
-                          <TextBlock
-                              Classes="GitSidebarRow"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding Branch}" />
+                          <Border.ContextMenu>
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeOpen}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeLock}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeUnlock}" Click="OnGitMenuCommand" />
+                              <Separator />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitWorktreeRemove}" Click="OnGitMenuCommand" />
+                            </ContextMenu>
+                          </Border.ContextMenu>
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Folder" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding Branch}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
 
                 <StackPanel Spacing="0" IsVisible="{Binding HasSubmodules}">
-                  <Button Classes="GitSectionHeader" Click="OnToggleSubmodulesSection">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="ChevronDown" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding IsSubmodulesSectionExpanded}" />
-                      <icons:SymbolIcon Symbol="ChevronRight" FontSize="9" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsSubmodulesSectionExpanded}" />
-                      <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Submodules" />
-                    </StackPanel>
-                  </Button>
-                  <ItemsControl ItemsSource="{Binding Submodules}" IsVisible="{Binding IsSubmodulesSectionExpanded}">
-                    <ItemsControl.ItemTemplate>
+                  <ToggleButton
+                      Classes="SectionDisclosure"
+                      IsChecked="{Binding IsSubmodulesSectionExpanded, Mode=TwoWay}"
+                      AutomationProperties.Name="Submodules">
+                    <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="Submodules" />
+                  </ToggleButton>
+                  <ListBox
+                      x:Name="GitSubmoduleList"
+                      Classes="GitSidebarList"
+                      ItemsSource="{Binding Submodules}"
+                      IsVisible="{Binding IsSubmodulesSectionExpanded}"
+                      AutomationProperties.Name="Submodules">
+                    <ListBox.ItemContainerTheme>
+                      <ControlTheme TargetType="ListBoxItem" x:DataType="git:GitSubmoduleItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Path}" />
+                      </ControlTheme>
+                    </ListBox.ItemContainerTheme>
+                    <ListBox.ItemTemplate>
                       <DataTemplate>
                         <Border Classes="GitRefRow">
-                          <TextBlock
-                              Classes="GitSidebarRow"
-                              Text="{Binding Path}"
-                              ToolTip.Tip="{Binding State}" />
+                          <Border.ContextMenu>
+                            <ContextMenu Opening="OnGitMenuOpening">
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleOpen}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleDetails}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleUpdate}" Click="OnGitMenuCommand" />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleSync}" Click="OnGitMenuCommand" />
+                              <Separator />
+                              <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitSubmoduleRemove}" Click="OnGitMenuCommand" />
+                            </ContextMenu>
+                          </Border.ContextMenu>
+                          <Grid ColumnDefinitions="16,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                            <icons:SymbolIcon Classes="GitRefGlyph" HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Box" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Classes="GitSidebarRow Path"
+                                Text="{Binding Path}"
+                                ToolTip.Tip="{Binding State}" />
+                          </Grid>
                         </Border>
                       </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
                 </StackPanel>
               </StackPanel>
             </ScrollViewer>
@@ -828,38 +1170,30 @@
 
         <Grid Grid.Column="2" RowDefinitions="Auto,Auto,*">
           <!-- Narrow layout keeps the two sections reachable without the sidebar. -->
-          <StackPanel
+          <controls:SegmentedControl
               x:Name="GitCompactSections"
               Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
-              Orientation="Horizontal"
-              Spacing="{DynamicResource ShellSpaceXs}">
-            <Button
-                Classes="GitDetailTab"
-                Classes.selected="{Binding IsLocalChangesSection}"
-                Click="OnLocalChangesClick"
-                Content="Local Changes" />
-            <Button
-                Classes="GitDetailTab"
-                Classes.selected="{Binding IsAllCommitsSection}"
-                Click="OnAllCommitsClick"
-                Content="All Commits" />
-          </StackPanel>
+              SelectedIndex="{Binding SectionIndex, Mode=TwoWay}"
+              AutomationProperties.Name="Repository section">
+            <RadioButton Content="Local Changes" />
+            <RadioButton Content="All Commits" />
+          </controls:SegmentedControl>
 
           <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}">
                 <WrapPanel ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding HasOperation}" IsEnabled="{Binding CanMutateRepository}">
                   <TextBlock Text="{Binding OperationLabel}" VerticalAlignment="Center" />
                   <Button Content="Continue" IsVisible="{Binding Operation.CanContinue}" Tag="Continue" Click="OnOperationControl" IsEnabled="{Binding CanContinueOperation}" />
                   <Button Content="Skip" Tag="Skip" Click="OnOperationControl" IsVisible="{Binding CanSkipOperation}" />
-                  <Button Content="Abort" Tag="Abort" Click="OnOperationControl" IsVisible="{Binding !IsBisecting}" />
+                  <Button Content="Abort…" Tag="Abort" Click="OnOperationControl" IsVisible="{Binding !IsBisecting}" />
                   <Button Content="Good" Tag="Good" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
                   <Button Content="Bad" Tag="Bad" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
-                  <Button Content="Skip candidate" Tag="BisectSkip" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
-                  <Button Content="Reset bisect" Tag="BisectReset" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
+                  <Button Content="Skip Candidate" Tag="BisectSkip" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
+                  <Button Classes="DestructiveButton" Content="Reset Bisect" Tag="BisectReset" Click="OnOperationControl" IsVisible="{Binding IsBisecting}" />
                 </WrapPanel>
                 <WrapPanel ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" IsVisible="{Binding HasPendingGitFlowFinish}" IsEnabled="{Binding CanMutateRepository}">
                   <TextBlock Text="{Binding GitFlowPendingLabel}" VerticalAlignment="Center" />
-                  <Button Content="Review and resume finish…" Click="OnGitFlowPending" />
-                  <Button Content="Discard pending plan…" Tag="Cancel" Click="OnGitFlowPending" />
+                  <Button Content="Review and Resume Finish…" Click="OnGitFlowPending" />
+                  <Button Classes="DestructiveButton" Content="Discard Pending Plan…" Tag="Cancel" Click="OnGitFlowPending" />
                 </WrapPanel>
           </StackPanel>
 
@@ -890,8 +1224,8 @@
                       ToolTip.Tip="{Binding UnstagedViewToggleLabel}"
                       AutomationProperties.Name="{Binding UnstagedViewToggleLabel}">
                     <Panel>
-                      <icons:SymbolIcon Symbol="Folder" FontSize="13" IsVisible="{Binding !UnstagedViewIsTree}" />
-                      <icons:SymbolIcon Symbol="Navigation" FontSize="13" IsVisible="{Binding UnstagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Folder" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !UnstagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding UnstagedViewIsTree}" />
                     </Panel>
                   </Button>
                   <Button
@@ -901,7 +1235,7 @@
                       IsEnabled="{Binding HasUnstagedSelection}"
                       ToolTip.Tip="Discard selected changes"
                       AutomationProperties.Name="Discard selected changes">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="5"
@@ -914,9 +1248,9 @@
                       Grid.Column="6"
                       Classes="SecondaryButton Dense"
                       Command="{Binding StageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Stage all"
-                      AutomationProperties.Name="Stage all" />
+                      Content="Stage All"
+                      ToolTip.Tip="Stage every unstaged change"
+                      AutomationProperties.Name="Stage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -937,18 +1271,21 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="File history and blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="External diff tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
-                          <MenuItem Header="Copy patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save patch…" Tag="SavePatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Ignore file…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem Header="Ignore extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
+                          <Separator />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
+                          <Separator />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </controls:ListItem.ContextMenu>
                       <controls:ListItem.Leading>
@@ -976,7 +1313,7 @@
                   <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                   </ControlTheme>
                 </TreeView.ItemContainerTheme>
                 <TreeView.ItemTemplate>
@@ -986,19 +1323,21 @@
                         Spacing="{DynamicResource ShellSpaceXs}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <StackPanel.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="File or directory history…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="External diff tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Copy patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Save patch…" Tag="SavePatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore file…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <Separator IsVisible="{Binding !IsDirectory}" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <Separator IsVisible="{Binding !IsDirectory}" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
-                          FontSize="12"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding IsDirectory}" />
                       <Border
@@ -1032,8 +1371,8 @@
                       ToolTip.Tip="{Binding StagedViewToggleLabel}"
                       AutomationProperties.Name="{Binding StagedViewToggleLabel}">
                     <Panel>
-                      <icons:SymbolIcon Symbol="Folder" FontSize="13" IsVisible="{Binding !StagedViewIsTree}" />
-                      <icons:SymbolIcon Symbol="Navigation" FontSize="13" IsVisible="{Binding StagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Folder" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !StagedViewIsTree}" />
+                      <icons:SymbolIcon Symbol="Navigation" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding StagedViewIsTree}" />
                     </Panel>
                   </Button>
                   <Button
@@ -1047,9 +1386,9 @@
                       Grid.Column="5"
                       Classes="SecondaryButton Dense"
                       Command="{Binding UnstageAllCommand}"
-                      Content="All"
-                      ToolTip.Tip="Unstage all"
-                      AutomationProperties.Name="Unstage all" />
+                      Content="Unstage All"
+                      ToolTip.Tip="Unstage every staged change"
+                      AutomationProperties.Name="Unstage All" />
                 </Grid>
               </Border>
               <ListBox
@@ -1070,18 +1409,21 @@
                 <ListBox.ItemTemplate>
                   <DataTemplate>
                     <controls:ListItem
+                        Classes="MiddleTruncatedDetail"
                         ContentPadding="{DynamicResource ShellListRowPadding}"
                         Title="{Binding FileName}"
                         Detail="{Binding Directory}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="File history and blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="External diff tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
-                          <MenuItem Header="Copy patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save patch…" Tag="SavePatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Ignore file…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem Header="Ignore extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
+                          <Separator />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
+                          <Separator />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </controls:ListItem.ContextMenu>
                       <controls:ListItem.Leading>
@@ -1109,7 +1451,7 @@
                   <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="24" />
+                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                   </ControlTheme>
                 </TreeView.ItemContainerTheme>
                 <TreeView.ItemTemplate>
@@ -1119,19 +1461,21 @@
                         Spacing="{DynamicResource ShellSpaceXs}"
                         AutomationProperties.Name="{Binding AccessibleSummary}">
                       <StackPanel.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="File or directory history…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="External diff tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Copy patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Save patch…" Tag="SavePatch" Click="OnFileContextAction" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore file…" Tag="File" Click="OnIgnoreSelectedFile" />
-                          <MenuItem IsVisible="{Binding !IsDirectory}" Header="Ignore extension…" Tag="Extension" Click="OnIgnoreSelectedFile" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <Separator IsVisible="{Binding !IsDirectory}" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <Separator IsVisible="{Binding !IsDirectory}" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnore}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
-                          FontSize="12"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellMutedBrush}"
                           IsVisible="{Binding IsDirectory}" />
                       <Border
@@ -1209,37 +1553,38 @@
 
             <Grid RowDefinitions="*,Auto">
               <!-- Compact history: graph rail, subject with ref tags,
-                   then author, SHA, and date columns. -->
+                   then author, SHA, and date columns. The current commit is
+                   joined to the list in code rather than bound to its
+                   SelectedItem: setting that collapses a multiple selection,
+                   and the current commit moves within one, as Finder's does
+                   when a selected row is right-clicked. -->
               <ListBox
                   x:Name="CommitHistory"
                   Classes="GitCommits"
                   SelectionMode="Multiple"
                   SelectionChanged="OnHistorySelection"
                   ItemsSource="{Binding Commits}"
-                  SelectedItem="{Binding SelectedCommit, Mode=TwoWay}"
                   AutomationProperties.Name="Commit history">
                 <ListBox.ContextMenu>
                   <ContextMenu x:Name="CommitContextMenu" Opening="OnHistoryContextMenuOpening">
-                    <MenuItem Header="New branch…" Tag="NewBranch" Click="OnHistoryContextAction" />
-                    <MenuItem Header="New tag…" Tag="NewTag" Click="OnHistoryContextAction" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitNewBranch}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitNewTag}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCheckout}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCherryPick}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitRevert}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitInteractiveRebase}" Click="OnGitMenuCommand" />
                     <Separator />
-                    <MenuItem Header="Interactive rebase…" Tag="Rebase" Click="OnHistoryContextAction" />
-                    <MenuItem x:Name="CommitResetMenu" Header="Reset current branch to here">
-                      <MenuItem Header="Keep staged changes…" Tag="Soft" Click="OnHistoryContextAction" />
-                      <MenuItem Header="Keep working changes…" Tag="Mixed" Click="OnHistoryContextAction" />
-                      <MenuItem Header="Discard tracked changes…" Tag="Hard" Click="OnHistoryContextAction" />
-                    </MenuItem>
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCompareLocal}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCompare}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitOpenOnHost}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitSavePatch}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitCopySha}" Click="OnGitMenuCommand" />
                     <Separator />
-                    <MenuItem Header="Checkout commit…" Tag="Checkout" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Cherry-pick commit…" Tag="CherryPick" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Revert commit…" Tag="Revert" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Save as patch…" Tag="SavePatch" Click="OnHistoryContextAction" />
-                    <Separator />
-                    <MenuItem Header="Compare to local changes" Tag="CompareLocal" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Compare revisions…" Tag="Compare" Click="OnHistoryContextAction" />
-                    <MenuItem Header="Open commit on hosting site" Tag="Hosting" Click="OnHistoryContextAction" />
-                    <Separator />
-                    <MenuItem Header="Copy commit SHA" Tag="CopySha" Click="OnHistoryContextAction" />
+                    <!-- The Git menu's three Reset Branch to Commit items, with
+                         their titles: one title per command, here as there. -->
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetSoft}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetMixed}" Click="OnGitMenuCommand" />
+                    <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitCommitResetHard}" Click="OnGitMenuCommand" />
                   </ContextMenu>
                 </ListBox.ContextMenu>
                 <ListBox.ItemContainerTheme>
@@ -1329,7 +1674,7 @@
                   Classes="TextButton"
                   HorizontalAlignment="Center"
                   Command="{Binding LoadMoreCommitsCommand}"
-                  Content="Load more commits"
+                  Content="Load More Commits"
                   IsVisible="{Binding HasMoreCommits}" />
             </Grid>
 
@@ -1351,26 +1696,15 @@
             <!-- The Commit tab reads full width; only Changes and File Tree
                  split into list-plus-comparison columns. -->
             <Grid Grid.Row="2" RowDefinitions="Auto,*">
-                <StackPanel
+                <controls:SegmentedControl
+                    x:Name="GitCommitDetailTabs"
                     Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
-                    Orientation="Horizontal"
-                    Spacing="{DynamicResource ShellSpaceXs}">
-                  <Button
-                      Classes="GitDetailTab"
-                      Classes.selected="{Binding IsCommitTab}"
-                      Click="OnCommitTabClick"
-                      Content="Commit" />
-                  <Button
-                      Classes="GitDetailTab"
-                      Classes.selected="{Binding IsChangesTab}"
-                      Click="OnChangesTabClick"
-                      Content="Changes" />
-                  <Button
-                      Classes="GitDetailTab"
-                      Classes.selected="{Binding IsFileTreeTab}"
-                      Click="OnFileTreeTabClick"
-                      Content="File Tree" />
-                </StackPanel>
+                    SelectedIndex="{Binding DetailTabIndex, Mode=TwoWay}"
+                    AutomationProperties.Name="Commit detail view">
+                  <RadioButton Content="Commit" />
+                  <RadioButton Content="Changes" />
+                  <RadioButton Content="File Tree" />
+                </controls:SegmentedControl>
 
                 <ScrollViewer Grid.Row="1" IsVisible="{Binding IsCommitTab}">
                   <StackPanel Margin="{controls:Inset Md}" Spacing="{DynamicResource ShellSpaceSm}">
@@ -1379,13 +1713,13 @@
                         RowDefinitions="Auto,Auto,Auto,Auto"
                         ColumnSpacing="{DynamicResource ShellSpaceSm}"
                         RowSpacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="GitMetaLabel" Text="AUTHOR" />
+                      <TextBlock Classes="GitMetaLabel" Text="Author" />
                       <TextBlock
                           Grid.Column="1"
-                          Classes="GitCommitCell"
+                          Classes="GitMetaValue"
                           Text="{Binding CommitDetailMeta}"
                           TextWrapping="Wrap" />
-                      <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="REFS" IsVisible="{Binding SelectedCommit.HasRefs}" />
+                      <TextBlock Grid.Row="1" Classes="GitMetaLabel" Text="Refs" IsVisible="{Binding SelectedCommit.HasRefs}" />
                       <ItemsControl
                           Grid.Row="1"
                           Grid.Column="1"
@@ -1409,11 +1743,10 @@
                       <TextBlock
                           Grid.Row="2"
                           Grid.Column="1"
-                          Classes="GitCommitCell Muted"
+                          Classes="GitMetaValue MiddleTruncated"
                           FontFamily="{DynamicResource ShellDataFontFamily}"
-                          Text="{Binding SelectedCommit.Commit.Sha}"
-                          TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="PARENTS" IsVisible="{Binding HasCommitParents}" />
+                          Text="{Binding SelectedCommit.Commit.Sha}" />
+                      <TextBlock Grid.Row="3" Classes="GitMetaLabel" Text="Parents" IsVisible="{Binding HasCommitParents}" />
                       <ItemsControl
                           Grid.Row="3"
                           Grid.Column="1"
@@ -1426,8 +1759,10 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                           <DataTemplate>
+                            <!-- No padding, so the link starts in the value
+                                 column with the SHA above it. -->
                             <Button
-                                Classes="TextButton Accent Dense"
+                                Classes="TextButton Accent GitMetaLink"
                                 Click="OnParentShaClick"
                                 Content="{Binding}"
                                 FontFamily="{DynamicResource ShellDataFontFamily}" />
@@ -1436,13 +1771,14 @@
                       </ItemsControl>
                     </Grid>
 
-                    <TextBlock Classes="Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    <TextBlock Classes="GitMetaValue Muted" Text="{Binding CommitSignatureSummary}" TextWrapping="Wrap" IsVisible="{Binding CommitSignatureSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 
                     <TextBlock
                         FontWeight="SemiBold"
                         Text="{Binding SelectedCommit.Subject}"
                         TextWrapping="Wrap" />
                     <TextBlock
+                        Classes="GitCommitBody"
                         Text="{Binding CommitDetailBody}"
                         TextWrapping="Wrap"
                         IsVisible="{Binding HasCommitDetailBody}" />
@@ -1467,9 +1803,8 @@
                               <TextBlock
                                   Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Classes="GitCommitCell"
-                                  Text="{Binding Path}"
-                                  TextTrimming="CharacterEllipsis" />
+                                  Classes="GitCommitCell Path"
+                                  Text="{Binding Path}" />
                             </Grid>
                           </Button>
                         </DataTemplate>
@@ -1492,25 +1827,25 @@
                     <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                       <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                      <Setter Property="MinHeight" Value="24" />
+                      <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
                     </ControlTheme>
                   </TreeView.ItemContainerTheme>
                   <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding Children}">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
                         <StackPanel.ContextMenu>
-                          <ContextMenu><MenuItem Header="File or directory history…" Tag="History" Click="OnFileContextAction" /></ContextMenu>
+                          <ContextMenu Opening="OnGitMenuOpening"><MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" /></ContextMenu>
                         </StackPanel.ContextMenu>
                         <icons:SymbolIcon
                             VerticalAlignment="Center"
                             Symbol="Folder"
-                            FontSize="12"
+                            FontSize="{DynamicResource ShellIconSizeSm}"
                             Foreground="{DynamicResource ShellMutedBrush}"
                             IsVisible="{Binding IsDirectory}" />
                         <icons:SymbolIcon
                             VerticalAlignment="Center"
                             Symbol="Document"
-                            FontSize="12"
+                            FontSize="{DynamicResource ShellIconSizeSm}"
                             Foreground="{DynamicResource ShellMutedBrush}"
                             IsVisible="{Binding !IsDirectory}" />
                         <TextBlock VerticalAlignment="Center" Classes="GitCommitCell" Text="{Binding Name}" />
@@ -1533,16 +1868,18 @@
                   <ListBox.ItemTemplate>
                     <DataTemplate>
                       <controls:ListItem
+                          Classes="MiddleTruncatedDetail"
                           ContentPadding="{DynamicResource ShellListRowPadding}"
                           Title="{Binding FileName}"
                           Detail="{Binding Directory}"
                           AutomationProperties.Name="{Binding AccessibleSummary}">
                         <controls:ListItem.ContextMenu>
-<ContextMenu>
-                          <MenuItem Header="File history and blame…" Tag="History" Click="OnFileContextAction" />
-                          <MenuItem Header="External diff tool…" Tag="ExternalDiff" Click="OnFileContextAction" />
-                          <MenuItem Header="Copy patch" Tag="CopyPatch" Click="OnFileContextAction" />
-                          <MenuItem Header="Save patch…" Tag="SavePatch" Click="OnFileContextAction" />
+<ContextMenu Opening="OnGitMenuOpening">
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileHistory}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileExternalDiff}" Click="OnGitMenuCommand" />
+                          <Separator />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileCopyPatch}" Click="OnGitMenuCommand" />
+                          <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileSavePatch}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                         </controls:ListItem.ContextMenu>
                         <controls:ListItem.Leading>
@@ -1589,10 +1926,10 @@
                     <TextBlock
                         VerticalAlignment="Center"
                         FontFamily="{DynamicResource ShellDataFontFamily}"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        LineHeight="{DynamicResource ShellLineHeight10}"
-                        Text="{Binding CommitFileName}"
-                        TextTrimming="CharacterEllipsis" />
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                        Classes="Path"
+                        Text="{Binding CommitFileName}" />
                   </Border>
                   <components:CodePreviewView
                       Grid.Row="1"

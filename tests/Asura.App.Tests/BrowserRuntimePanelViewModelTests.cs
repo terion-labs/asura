@@ -29,11 +29,11 @@ public sealed class BrowserRuntimePanelViewModelTests
             new BrowserProductEvent.RendererRecovered(lostAddress));
 
         Assert.True(browser.IsProductNoticeVisible);
-        Assert.Equal("Page process restarted", browser.ProductHeading);
-        Assert.Contains("volatile page state were lost", browser.ProductMessage);
+        Assert.Equal("Page restarted", browser.ProductHeading);
+        Assert.Contains("unsaved form input and other page state were lost", browser.ProductMessage);
         Assert.DoesNotContain("restored", browser.ProductMessage);
         Assert.True(browser.HasProductAction);
-        Assert.Equal("Reload page", browser.ProductActionLabel);
+        Assert.Equal("Reload Page", browser.ProductActionLabel);
         Assert.Equal(lostAddress.ToString(), browser.AddressText);
     }
 
@@ -48,7 +48,9 @@ public sealed class BrowserRuntimePanelViewModelTests
                 BrowserPermissionKind.Camera | BrowserPermissionKind.Microphone));
 
         Assert.Equal("Permission denied", browser.ProductHeading);
-        Assert.Contains("camera", browser.ProductMessage);
+        Assert.Equal(
+            "https://example.test asked to use the camera and the microphone. Asura didn’t allow it.",
+            browser.ProductMessage);
         Assert.False(browser.HasDownloadProgress);
 
         browser.ApplyProductEvent(
@@ -351,6 +353,69 @@ public sealed class BrowserRuntimePanelViewModelTests
         Assert.Equal(1, lifetime.DisposeCount);
     }
 
+    [Theory]
+    [InlineData("  Guide  ", "https://docs.example.test/guide", "Guide")]
+    [InlineData("", "https://www.example.test/", "example.test")]
+    [InlineData(" ", "https://docs.example.test/guide", "docs.example.test")]
+    public void A_page_is_named_by_its_title_or_else_its_host(
+        string title,
+        string address,
+        string expected) =>
+        Assert.Equal(
+            expected,
+            BrowserRuntimePanelViewModel.PageTitleFor(title, Address(address)));
+
+    [Fact]
+    public void A_blank_page_has_no_name_of_its_own() =>
+        Assert.Empty(BrowserRuntimePanelViewModel.PageTitleFor(null, BrowserAddress.Blank));
+
+    [Fact]
+    public void A_browser_tab_reads_its_page_until_someone_names_it()
+    {
+        var rendererView = new BrowserRendererView(
+            new Border(),
+            new RecordingBrowserRenderer(),
+            new RecordingLifetime());
+        var panel = new BrowserRuntimePanelViewModel(
+            new PanelInstanceId("browser-panel"),
+            "Browser",
+            new SessionOwner(
+                HostMode.Desktop,
+                new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"),
+                new TabInstanceId("tab"),
+                new PanelInstanceId("browser-panel")),
+            Address("https://www.example.test/start"),
+            DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"),
+            BuiltInConnections.Local,
+            new RecordingBrowserRendererViewFactory(rendererView));
+        var tab = new RuntimeTabViewModel(new TabInstanceId("tab"), "Browser", "TEST");
+        tab.AddPanel(panel);
+        var durableTitle = tab.Title;
+        var announced = new List<string?>();
+        tab.PropertyChanged += (_, e) => announced.Add(e.PropertyName);
+
+        Assert.Equal("example.test", tab.DisplayTitle);
+
+        panel.ApplyBrowserState(new BrowserSessionState(
+            Address("https://www.example.test/guide"),
+            "Getting Started",
+            BrowserLoadState.Ready,
+            canGoBack: true,
+            canGoForward: false,
+            documentRevision: 2));
+
+        // The page names the tab; the durable title the host checks is unchanged.
+        Assert.Equal("Getting Started", tab.DisplayTitle);
+        Assert.Equal(durableTitle, tab.Title);
+        Assert.Contains(nameof(RuntimeTabViewModel.DisplayTitle), announced, StringComparer.Ordinal);
+
+        Assert.True(tab.Rename("Docs"));
+        Assert.Equal("Docs", tab.DisplayTitle);
+        panel.Dispose();
+    }
+
     [Fact]
     public async Task BrowserStateFlowsIntoRecoveryAndRendererLifetimeIsReleasedOnce()
     {
@@ -583,6 +648,72 @@ public sealed class BrowserRuntimePanelViewModelTests
         panel.ApplyBrowserState(new BrowserSessionState(Address("http://private.asura-forward.invalid:32123/"),
             "Private forwarded app", BrowserLoadState.Ready, false, false, 2));
         Assert.Equal(expectedRecords, history.Titles.Count);
+    }
+
+    [Fact]
+    public void A_browser_that_could_not_start_is_unavailable_not_waiting()
+    {
+        var browser = new BrowserPresentationHost();
+        Assert.Equal("Waiting", browser.StatusText);
+
+        browser.ShowUnavailable();
+
+        Assert.Equal("Unavailable", browser.StatusText);
+        Assert.Equal(StatusTone.Danger, browser.StatusTone);
+        Assert.False(browser.IsLive);
+    }
+
+    [Fact]
+    public async Task A_browser_that_could_not_start_says_what_to_do_and_starts_on_retry()
+    {
+        var factory = new FailingOnceRendererViewFactory(
+            new BrowserRendererView(new Border(), new RecordingBrowserRenderer()));
+        var panelId = new PanelInstanceId("browser-retry");
+        using var panel = new BrowserRuntimePanelViewModel(panelId, "Browser",
+            new SessionOwner(HostMode.Desktop, new WindowInstanceId("window"),
+                new WorkspaceInstanceId("workspace"), new TabInstanceId("tab"), panelId),
+            BrowserAddress.Blank, DispatchProxy.Create<ISessionHostClient, NoopSessionClient>(),
+            new ClientId("client"), BuiltInConnections.Local,
+            new BrowserProfileBinding(
+                new BrowserProfileSelection(BuiltInBrowserProfiles.Default.Id, BrowserProfileKey.Global),
+                BuiltInBrowserProfiles.Default,
+                revision: 1),
+            factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(panel.StartInitialization);
+
+        Assert.True(panel.HasRouteError);
+        Assert.DoesNotContain("renderer host exited", panel.RouteErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("Try again", panel.RouteErrorMessage, StringComparison.Ordinal);
+
+        await panel.RetryInitialization();
+
+        Assert.False(panel.HasRouteError);
+        Assert.NotNull(panel.RendererView);
+        Assert.Equal(2, factory.Attempts);
+    }
+
+    private sealed class FailingOnceRendererViewFactory(BrowserRendererView rendererView) : IBrowserRendererViewFactory
+    {
+        public int Attempts { get; private set; }
+
+        public BrowserRendererView Create() => rendererView;
+
+        public BrowserRendererView CreateIsolatedHtmlPreview() => rendererView;
+
+        public ValueTask<BrowserRendererView> CreateAsync(ConnectionProfile connection, CancellationToken cancellationToken) =>
+            CreateAsync(connection, BrowserProfileKey.Global, cancellationToken);
+
+        public ValueTask<BrowserRendererView> CreateAsync(
+            ConnectionProfile connection,
+            BrowserProfileKey profile,
+            CancellationToken cancellationToken)
+        {
+            Attempts++;
+            return Attempts == 1
+                ? ValueTask.FromException<BrowserRendererView>(new InvalidOperationException("The renderer host exited with code 3."))
+                : ValueTask.FromResult(rendererView);
+        }
     }
 
     private sealed class RecordingHistory : IBrowserHistory

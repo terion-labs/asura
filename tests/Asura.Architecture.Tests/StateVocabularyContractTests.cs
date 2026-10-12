@@ -119,7 +119,7 @@ public sealed class StateVocabularyContractTests
         Assert.Contains("StateOverlayKind.DestructiveAction", dialog, StringComparison.Ordinal);
         Assert.Contains("Active sessions stay open", catalog, StringComparison.Ordinal);
         Assert.Contains("Saved connections", catalog, StringComparison.Ordinal);
-        Assert.Contains("cannot be restored", catalog, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("can’t be restored", catalog, StringComparison.OrdinalIgnoreCase);
     }
 
     private static void AssertArea(string source, params string[] required)

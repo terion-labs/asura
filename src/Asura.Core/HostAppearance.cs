@@ -32,7 +32,8 @@ public sealed record HostAppearance
         bool reducedTransparency = false,
         double textScale = 1,
         bool supportsAdvancedMaterials = true,
-        bool supportsLiquidGlass = false)
+        bool supportsLiquidGlass = false,
+        bool differentiateWithoutColor = false)
     {
         if (!double.IsFinite(textScale) || textScale is < 0.5 or > 4)
         {
@@ -60,6 +61,7 @@ public sealed record HostAppearance
         TextScale = textScale;
         SupportsAdvancedMaterials = supportsAdvancedMaterials;
         SupportsLiquidGlass = supportsLiquidGlass;
+        DifferentiateWithoutColor = differentiateWithoutColor;
     }
 
     public HostOperatingSystem OperatingSystem { get; }
@@ -81,4 +83,6 @@ public sealed record HostAppearance
     public bool SupportsAdvancedMaterials { get; }
 
     public bool SupportsLiquidGlass { get; }
+
+    public bool DifferentiateWithoutColor { get; }
 }

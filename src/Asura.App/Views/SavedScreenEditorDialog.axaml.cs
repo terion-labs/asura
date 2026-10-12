@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -7,7 +8,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class SavedScreenEditorDialog : Window
+public sealed partial class SavedScreenEditorDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
     private readonly SavedScreenPersistenceOperation? _persist;
@@ -17,7 +18,6 @@ public sealed partial class SavedScreenEditorDialog : Window
     public SavedScreenEditorDialog()
     {
         InitializeComponent();
-        AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
     }
 
     public SavedScreenEditorDialog(
@@ -69,21 +69,6 @@ public sealed partial class SavedScreenEditorDialog : Window
         base.OnClosed(e);
     }
 
-    private async void OnWindowKeyDown(object? sender, KeyEventArgs e)
-    {
-        _ = sender;
-        if (e.Key != Key.Escape)
-        {
-            return;
-        }
-
-        e.Handled = true;
-        if (!ViewModel.IsSaving)
-        {
-            await RequestCancelAsync();
-        }
-    }
-
     private async void OnCancelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -126,7 +111,16 @@ public sealed partial class SavedScreenEditorDialog : Window
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            ViewModel.ErrorNotices.Report(exception.Message);
+            // Under the field it is about, with everything typed kept; a
+            // failure about the whole screen goes to the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ViewModel.ErrorNotices.Report(FailureReason.Refusal(
+                    "saved-screen.editor.save.refused",
+                    exception,
+                    "Asura couldn’t save the screen. Check its layout and panels, then save again."));
+                this.FindControl<Control>("FormErrors")?.BringIntoView();
+            }
         }
     }
 
@@ -148,7 +142,7 @@ public sealed partial class SavedScreenEditorDialog : Window
         try
         {
             var discard = await Confirmations.DiscardChanges(
-                    "Discard saved screen changes?",
+                    "Discard Saved Screen Changes?",
                     "The unsaved name, description, panel assignments, and startup settings will be lost.")
                 .ShowDialog<bool>(this);
             if (!discard)

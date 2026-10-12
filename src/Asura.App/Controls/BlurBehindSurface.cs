@@ -1,8 +1,10 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Skia;
+using Avalonia.Threading;
 using SkiaSharp;
 
 namespace Asura.App.Controls;
@@ -21,6 +23,11 @@ namespace Asura.App.Controls;
 /// What never blurs: content that does not pass through the compositor at
 /// all — native surfaces such as webviews — because it is not on the canvas
 /// to be photographed.
+///
+/// Nothing blurs at all when the shell has no translucency to offer — the
+/// person turned it off, or the host asks for reduced transparency or
+/// increased contrast. The surface then paints its base colour solid, so the
+/// overlay standing on it reads on an opaque plate.
 /// </summary>
 public sealed class BlurBehindSurface : Control
 {
@@ -40,12 +47,32 @@ public sealed class BlurBehindSurface : Control
     public static readonly StyledProperty<IBrush?> BaseBrushProperty =
         AvaloniaProperty.Register<BlurBehindSurface, IBrush?>(nameof(BaseBrush));
 
+    /// <summary>
+    /// Whether the live blur runs. Follows the shell's
+    /// <c>ShellBlurBehindEnabled</c> token unless set explicitly.
+    /// </summary>
+    public static readonly StyledProperty<bool> IsBlurEnabledProperty =
+        AvaloniaProperty.Register<BlurBehindSurface, bool>(nameof(IsBlurEnabled), true);
+
+    internal const string BlurEnabledResourceKey = "ShellBlurBehindEnabled";
+
     static BlurBehindSurface()
     {
         AffectsRender<BlurBehindSurface>(
             BlurRadiusProperty,
             CornerRadiusProperty,
-            BaseBrushProperty);
+            BaseBrushProperty,
+            IsBlurEnabledProperty);
+    }
+
+    public BlurBehindSurface()
+    {
+        Bind(
+            IsBlurEnabledProperty,
+            this.GetResourceObservable(
+                BlurEnabledResourceKey,
+                value => value is not false),
+            BindingPriority.Style);
     }
 
     public double BlurRadius
@@ -66,18 +93,79 @@ public sealed class BlurBehindSurface : Control
         set => SetValue(BaseBrushProperty, value);
     }
 
+    public bool IsBlurEnabled
+    {
+        get => GetValue(IsBlurEnabledProperty);
+        set => SetValue(IsBlurEnabledProperty, value);
+    }
+
+    /// <summary>
+    /// How long the window has to keep its size before the live loop runs
+    /// again after a resize.
+    /// </summary>
+    internal static readonly TimeSpan ResizeSettleDelay = TimeSpan.FromMilliseconds(150);
+
     private bool _framePending;
+    private TopLevel? _sizeSource;
+    private DispatcherTimer? _resizeSettle;
+
+    /// <summary>Whether the surface has asked for its next live frame.</summary>
+    internal bool IsLiveLoopRunning => _framePending;
+
+    private bool IsWindowResizing => _resizeSettle?.IsEnabled == true;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _sizeSource = TopLevel.GetTopLevel(this);
+        _sizeSource?.PropertyChanged += OnSizeSourcePropertyChanged;
+
         RequestLiveFrame();
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _sizeSource?.PropertyChanged -= OnSizeSourcePropertyChanged;
+        _sizeSource = null;
+
+        _resizeSettle?.Stop();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// While the window is being resized the loop stands down. Every step of
+    /// a resize repaints the whole window, this surface and its blur
+    /// included, so the loop adds nothing then; but its own frame between
+    /// two resize steps made a live resize on a Mac paint at half the
+    /// display's rate while the agent panel floated. The loop comes back
+    /// once the size has held still for <see cref="ResizeSettleDelay"/>.
+    /// </summary>
+    private void OnSizeSourcePropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != TopLevel.ClientSizeProperty)
+        {
+            return;
+        }
+
+        if (_resizeSettle is null)
+        {
+            _resizeSettle = new DispatcherTimer(DispatcherPriority.Background) { Interval = ResizeSettleDelay };
+            _resizeSettle.Tick += (_, _) =>
+            {
+                _resizeSettle.Stop();
+                RequestLiveFrame();
+            };
+        }
+
+        _resizeSettle.Stop();
+        _resizeSettle.Start();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsVisibleProperty)
+        if (change.Property == IsVisibleProperty
+            || change.Property == IsBlurEnabledProperty)
         {
             RequestLiveFrame();
         }
@@ -96,11 +184,14 @@ public sealed class BlurBehindSurface : Control
     /// that also presented mid-layout frames nothing should ever have shown.
     /// The loop ends the moment the surface stops being effectively on
     /// screen, and <see cref="Render"/> — which runs exactly when it comes
-    /// back — is what restarts it.
+    /// back — is what restarts it. It also pauses while the window is being
+    /// resized; see <see cref="OnSizeSourcePropertyChanged"/>.
     /// </summary>
     private void RequestLiveFrame()
     {
         if (_framePending
+            || IsWindowResizing
+            || !IsBlurEnabled
             || !IsEffectivelyVisible
             || VisualRoot is null
             || TopLevel.GetTopLevel(this) is not { } topLevel)
@@ -112,7 +203,7 @@ public sealed class BlurBehindSurface : Control
         topLevel.RequestAnimationFrame(_ =>
         {
             _framePending = false;
-            if (IsEffectivelyVisible && VisualRoot is not null)
+            if (!IsWindowResizing && IsBlurEnabled && IsEffectivelyVisible && VisualRoot is not null)
             {
                 InvalidateVisual();
                 RequestLiveFrame();
@@ -122,6 +213,21 @@ public sealed class BlurBehindSurface : Control
 
     public override void Render(DrawingContext context)
     {
+        if (!IsBlurEnabled)
+        {
+            if (BaseBrush is ISolidColorBrush ground)
+            {
+                context.DrawRectangle(
+                    new SolidColorBrush(Color.FromRgb(ground.Color.R, ground.Color.G, ground.Color.B)),
+                    null,
+                    new Rect(Bounds.Size),
+                    CornerRadius.TopLeft,
+                    CornerRadius.TopLeft);
+            }
+
+            return;
+        }
+
         context.Custom(new BlurBehindRenderOperation(
             new Rect(Bounds.Size),
             BlurRadius,

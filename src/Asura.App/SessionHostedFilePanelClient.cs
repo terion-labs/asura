@@ -91,7 +91,7 @@ public sealed class SessionHostedFilePanelClient :
                 new FilePanelError(
                     FilePanelErrorCode.UnsupportedCapability,
                     "file_content_unsupported",
-                    "This file client cannot open whole files.",
+                    "Whole files can't be opened from this location.",
                     false)));
 
     public IReadOnlyList<FileProviderProfileDescriptor> Profiles
@@ -202,7 +202,7 @@ public sealed class SessionHostedFilePanelClient :
                 return HostResult<SessionSnapshot>.Fail(
                     HostError.Create(
                         HostErrorCode.InvalidRequest,
-                        "The first file location does not belong to the saved provider profile."),
+                        "The first file location doesn't belong to the saved provider profile."),
                     Revision ?? 0);
             }
 
@@ -211,7 +211,7 @@ public sealed class SessionHostedFilePanelClient :
                 return HostResult<SessionSnapshot>.Fail(
                     HostError.Create(
                         HostErrorCode.NotFound,
-                        "The file-provider profile required by this panel is not available."),
+                        "The file-provider profile required by this panel isn't available."),
                     Revision ?? 0);
             }
 
@@ -670,7 +670,7 @@ public sealed class SessionHostedFilePanelClient :
             var profileId = metadata?.TrustedRoot.ProviderProfileId
                 ?? _bindingLocation?.ProviderProfileId
                 ?? throw new InvalidOperationException(
-                    "A hosted file session cannot freeze profiles before binding.");
+                    "A hosted file session can't freeze profiles before binding.");
             var initialProfile = profilesAfterBinding
                 .Concat(profilesBeforeBinding)
                 .FirstOrDefault(profile =>
@@ -714,15 +714,37 @@ public sealed class SessionHostedFilePanelClient :
             or SessionCloseOutcome.AlreadyClosed;
 
     private HostResult<T> Cancelled<T>() => HostResult<T>.Fail(
-        HostError.Create(HostErrorCode.Cancelled, "The operation was cancelled."),
+        HostError.Create(HostErrorCode.Cancelled, "The operation was canceled."),
         Revision ?? 0);
 
     private static FilePanelResult<T> HostFailure<T>(HostError error) =>
         FilePanelResult<T>.Failure(new FilePanelError(
             MapHostErrorCode(error.Code),
             $"host_{error.StableCode}",
-            error.Message,
+            HostFailureMessage(error.Code),
             error.Retryable));
+
+    /// <summary>
+    /// What the Files panel says when the session host, not the file
+    /// location, refused a request. The host's message is written for its own
+    /// log ("The file-panel session is closed."), so the code chooses the
+    /// sentence; the panel adds the next step from the mapped file error code.
+    /// </summary>
+    internal static string HostFailureMessage(HostErrorCode code) => code switch
+    {
+        HostErrorCode.Cancelled => "The file operation was canceled.",
+        HostErrorCode.RevisionConflict or HostErrorCode.IdempotencyKeyReused =>
+            "The files changed while Asura was working with them.",
+        HostErrorCode.CapabilityNotSupported => "This location doesn’t support that action.",
+        HostErrorCode.LeaseDenied or HostErrorCode.ConfirmationRequired =>
+            "Asura isn’t allowed to change these files right now.",
+        HostErrorCode.NotFound
+            or HostErrorCode.SessionClosed
+            or HostErrorCode.ResynchronizationRequired => "The connection to these files closed.",
+        HostErrorCode.InvalidRequest => "Asura can’t open that location on this connection.",
+        HostErrorCode.DeadlineExceeded => "The file operation didn’t finish in time.",
+        _ => "Asura couldn’t finish working with the files.",
+    };
 
     private static FilePanelErrorCode MapHostErrorCode(HostErrorCode code) => code switch
     {

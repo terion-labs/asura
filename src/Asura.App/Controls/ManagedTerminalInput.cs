@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Asura.Application;
 using Avalonia.Input;
 using CoreKeyStroke = Asura.Core.KeyStroke;
@@ -35,10 +37,90 @@ internal interface IManagedTerminalInputSink
     ValueTask<TerminalPasteResult> PasteAsync(
         TerminalPasteInput pasteInput,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Reads the bounded screen snapshot now, including scrollback position.
+    /// Null when the session cannot provide one.
+    /// </summary>
+    ValueTask<TerminalScreenSnapshot?> ReadScreenSnapshotAsync(CancellationToken cancellationToken);
 }
 
 internal static class ManagedTerminalInput
 {
+    /// <summary>
+    /// Characters a POSIX shell would interpret in an unquoted word. Terminal and
+    /// iTerm2 put a backslash before each of them in a dropped path.
+    /// </summary>
+    private const string PosixShellSpecialCharacters = "\\'\"`$!&*()[]{}<>|;?~#^";
+
+    /// <summary>
+    /// Control-F6 and Control-Shift-F6 move focus between areas of the window, as
+    /// in AppKit, so they never reach the session.
+    /// </summary>
+    public static bool IsApplicationFocusNavigation(Key key, KeyModifiers modifiers) =>
+        key == Key.F6 && (modifiers & ~KeyModifiers.Shift) == KeyModifiers.Control;
+
+    /// <summary>
+    /// Formats dropped files as shell words separated by spaces: backslash-escaped
+    /// on macOS and Linux, double-quoted on Windows.
+    /// </summary>
+    public static string FormatDroppedPaths(IEnumerable<string> paths) =>
+        FormatDroppedPaths(paths, OperatingSystem.IsWindows());
+
+    internal static string FormatDroppedPaths(IEnumerable<string> paths, bool windowsQuoting)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        return string.Join(
+            ' ',
+            paths
+                .Where(path => !string.IsNullOrEmpty(path))
+                .Select(path => windowsQuoting ? QuoteWindowsPath(path) : EscapePosixPath(path)));
+    }
+
+    private static string EscapePosixPath(string path)
+    {
+        var escaped = new StringBuilder(path.Length + 8);
+        if (path.Any(char.IsControl))
+        {
+            // A raw newline would end the command line, so a name containing control
+            // characters is written as an ANSI-C quoted word instead.
+            escaped.Append("$'");
+            foreach (var character in path)
+            {
+                _ = character switch
+                {
+                    '\\' => escaped.Append("\\\\"),
+                    '\'' => escaped.Append("\\'"),
+                    '\n' => escaped.Append("\\n"),
+                    '\t' => escaped.Append("\\t"),
+                    '\r' => escaped.Append("\\r"),
+                    _ when char.IsControl(character) =>
+                        escaped.Append(CultureInfo.InvariantCulture, $"\\x{(int)character:x2}"),
+                    _ => escaped.Append(character),
+                };
+            }
+
+            return escaped.Append('\'').ToString();
+        }
+
+        foreach (var character in path)
+        {
+            if (char.IsWhiteSpace(character) || PosixShellSpecialCharacters.Contains(character))
+            {
+                escaped.Append('\\');
+            }
+
+            escaped.Append(character);
+        }
+
+        return escaped.ToString();
+    }
+
+    private static string QuoteWindowsPath(string path) =>
+        path.Any(character => char.IsWhiteSpace(character) || "&()[]{}^=;!'+,`~%".Contains(character))
+            ? $"\"{path}\""
+            : path;
+
     public static TerminalPhysicalKeyEvent CreatePhysicalKeyEvent(
         Key logicalKey,
         PhysicalKey physicalKey,

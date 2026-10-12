@@ -37,4 +37,6 @@ public sealed record EffectiveTheme(
     TabStripPlacement TabStripPlacement = TabStripPlacement.Top,
     WorkspacePanelPlacement WorkspacePanelPlacement = WorkspacePanelPlacement.Left,
     MaterialDisposition MaterialDisposition = MaterialDisposition.Enabled,
-    PlatformProfile RequestedPlatformProfile = PlatformProfile.Automatic);
+    PlatformProfile RequestedPlatformProfile = PlatformProfile.Automatic,
+    bool DifferentiateWithoutColor = false,
+    bool ContentIsGlass = false);

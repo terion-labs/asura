@@ -36,12 +36,12 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return DefinitionStoreResult<StoredDefinition<ThemePreference>>.Failure(new(
-                DefinitionStoreErrorCode.Cancelled, "Appearance changes were not saved because saving was cancelled."));
+                DefinitionStoreErrorCode.Cancelled, "Appearance changes weren't saved because saving was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             return DefinitionStoreResult<StoredDefinition<ThemePreference>>.Failure(new(
-                DefinitionStoreErrorCode.StorageFailure, "Appearance changes could not be saved. Try again."));
+                DefinitionStoreErrorCode.StorageFailure, "Asura couldn't save the appearance changes. Try again."));
         }
     }
 
@@ -57,9 +57,30 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
 
     public ThemePreference ActiveTheme => _activeTheme;
 
-    public string ThemeMode => ActiveTheme.Appearance.ToString();
+    public string ThemeMode => ModeLabel(ActiveTheme.Appearance);
 
-    public string ThemeProfile => ActiveTheme.PlatformProfile.ToString();
+    public string ThemeProfile => ProfileLabel(ActiveTheme.PlatformProfile);
+
+    /// <summary>The saved appearance mode in words, not the enum value.</summary>
+    internal static string ModeLabel(AppearanceMode mode) => mode switch
+    {
+        AppearanceMode.Light => "Light",
+        AppearanceMode.Dark => "Dark",
+        _ => "Match system",
+    };
+
+    /// <summary>The saved platform style in words ("macOS Liquid Glass", not "MacOsLiquidGlass").</summary>
+    internal static string ProfileLabel(PlatformProfile profile) => profile switch
+    {
+        PlatformProfile.MacOsClassic => "macOS Classic",
+        PlatformProfile.MacOsLiquidGlass => "macOS Liquid Glass",
+        PlatformProfile.Windows11 => "Windows 11",
+        PlatformProfile.Gnome => "GNOME",
+        PlatformProfile.Kde => "KDE",
+        PlatformProfile.Asura => "Asura",
+        PlatformProfile.Custom => "Custom",
+        _ => "Automatic",
+    };
 
     public string ThemeTextScale => ActiveTheme.TextScaleOverride is { } textScale
         ? textScale.ToString("0.##%", System.Globalization.CultureInfo.InvariantCulture)
@@ -67,10 +88,17 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
 
     public string ThemeAccent => ActiveTheme.Accent.Kind == AccentPreferenceKind.Custom
         ? ActiveTheme.Accent.CustomColor?.ToString()
-            ?? ThemePreference.BronzeFallback.ToString()
+            ?? ThemePreference.BrandAccent.ToString()
         : "Follow system accent";
 
     public bool ShowTabBar => ActiveTheme.ShowTabBar;
+
+    /// <summary>
+    /// Whether terminals asked to let the window's material show through.
+    /// What the shell actually draws also depends on the host allowing
+    /// translucency at all; this is only the stored request.
+    /// </summary>
+    public bool HasTranslucentTerminal => ActiveTheme.HasTranslucentTerminal;
 
     /// <summary>
     /// Saves only the workspace-rail field while retaining every other stored
@@ -165,7 +193,10 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
             effective.IsTranslucent,
             effective.BackdropOpacityPercent,
             effective.HasGlassPanels,
-            effective.OverridesBackdropOpacity);
+            effective.OverridesBackdropOpacity,
+            // Not part of the chrome half: a caller saving chrome leaves the
+            // terminal's own translucency as it was stored.
+            existing.HasTranslucentTerminal);
         return await SaveThemeAsync(updated, stored?.Revision, cancellationToken);
     }
 
@@ -231,6 +262,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ThemeTextScale));
         OnPropertyChanged(nameof(ThemeAccent));
         OnPropertyChanged(nameof(ShowTabBar));
+        OnPropertyChanged(nameof(HasTranslucentTerminal));
         OnPropertyChanged(nameof(ShowWorkspacesPanel));
         OnPropertyChanged(nameof(IsWorkspacePanelOnLeft));
         OnPropertyChanged(nameof(IsWorkspacePanelOnRight));

@@ -214,7 +214,7 @@ public sealed class StartupProtectionRuntimeTests : IDisposable
 
         var error = await protection.EnableAsync("4812", CancellationToken.None);
 
-        Assert.Contains("incomplete", error, StringComparison.Ordinal);
+        Assert.Contains("isn't complete", error, StringComparison.Ordinal);
         Assert.True(protection.HoldsWrappedKeys);
         var (rebooted, rebootedDatabase) = ComposeEncryption(databasePath);
         var restarted = new StartupProtectionRuntime(_vault, _root, _clock, rebooted);

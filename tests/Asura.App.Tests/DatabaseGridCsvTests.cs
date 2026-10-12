@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 
 namespace Asura.App.Tests;
@@ -12,7 +13,8 @@ public sealed class DatabaseGridCsvTests
         var error = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridCsv.ValidateStagingSize(rowCount: 101, tableColumnCount: 1000));
 
-        Assert.Contains("100,000 staged cells", error.Message, StringComparison.Ordinal);
+        Assert.Contains("more than 100,000 cells", error.Message, StringComparison.Ordinal);
+        Assert.True(FailureReason.IsReadable(error));
     }
 
     [Fact]
@@ -44,7 +46,7 @@ public sealed class DatabaseGridCsvTests
 
         var ragged = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridCsv.Parse("id,title\n1\n"));
-        Assert.Contains("expected 2", ragged.Message, StringComparison.Ordinal);
+        Assert.Contains("the header has 2 columns", ragged.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -53,7 +55,12 @@ public sealed class DatabaseGridCsvTests
     [InlineData("id,title\n1,bad\"quote\n")]
     public void Rejects_malformed_quote_structure(string text)
     {
-        Assert.Throws<InvalidDataException>(() => DatabaseGridCsv.Parse(text));
+        var error = Assert.Throws<InvalidDataException>(() => DatabaseGridCsv.Parse(text));
+
+        // Shown as written, so it reads as a sentence with a next step.
+        Assert.True(FailureReason.IsReadable(error));
+        Assert.Contains("quot", error.Message, StringComparison.Ordinal);
+        Assert.EndsWith("then import again.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -81,7 +88,7 @@ public sealed class DatabaseGridCsvTests
 
         var error = Assert.Throws<InvalidDataException>(() => DatabaseGridCsv.Parse(oversized));
 
-        Assert.Contains("16 MiB", error.Message, StringComparison.Ordinal);
+        Assert.Contains("16 MB", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,6 +101,7 @@ public sealed class DatabaseGridCsvTests
 
         Assert.Contains(
             DatabaseGridCsv.MaximumRows.ToString(
+                "N0",
                 System.Globalization.CultureInfo.InvariantCulture),
             error.Message,
             StringComparison.Ordinal);
@@ -116,7 +124,7 @@ public sealed class DatabaseGridCsvTests
 
         var error = Assert.Throws<InvalidDataException>(() => DatabaseGridCsv.Parse(text));
 
-        Assert.Contains("headers", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("column name", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

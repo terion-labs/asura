@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -12,11 +13,6 @@ namespace Asura.App.Controls;
 
 public sealed class BrowserPresentationHost : ContentControl
 {
-    private static readonly IBrush WaitingBrush = Brush.Parse("#8B8B91");
-    private static readonly IBrush ReadyBrush = Brush.Parse("#3FB950");
-    private static readonly IBrush LoadingBrush = Brush.Parse("#D79B57");
-    private static readonly IBrush FailedBrush = Brush.Parse("#FF7A55");
-
     public static readonly StyledProperty<ISessionHostClient?> SessionClientProperty =
         AvaloniaProperty.Register<BrowserPresentationHost, ISessionHostClient?>(
             nameof(SessionClient));
@@ -56,11 +52,11 @@ public sealed class BrowserPresentationHost : ContentControl
                 nameof(StatusMessage),
                 control => control.StatusMessage);
 
-    public static readonly DirectProperty<BrowserPresentationHost, IBrush>
-        StatusBrushProperty =
-            AvaloniaProperty.RegisterDirect<BrowserPresentationHost, IBrush>(
-                nameof(StatusBrush),
-                control => control.StatusBrush);
+    public static readonly DirectProperty<BrowserPresentationHost, StatusTone>
+        StatusToneProperty =
+            AvaloniaProperty.RegisterDirect<BrowserPresentationHost, StatusTone>(
+                nameof(StatusTone),
+                control => control.StatusTone);
 
     public static readonly DirectProperty<BrowserPresentationHost, bool>
         IsLiveProperty =
@@ -171,7 +167,7 @@ public sealed class BrowserPresentationHost : ContentControl
     private string _addressText = string.Empty;
     private string _statusText = "Waiting";
     private string _statusMessage = string.Empty;
-    private IBrush _statusBrush = WaitingBrush;
+    private StatusTone _statusTone = StatusTone.Neutral;
     private bool _isLive;
     private bool _isLoading;
     private bool _canGoBack;
@@ -260,10 +256,11 @@ public sealed class BrowserPresentationHost : ContentControl
             value);
     }
 
-    public IBrush StatusBrush
+    /// <summary>What the status dot says: waiting, loading, ready, or failed.</summary>
+    public StatusTone StatusTone
     {
-        get => _statusBrush;
-        private set => SetAndRaise(StatusBrushProperty, ref _statusBrush, value);
+        get => _statusTone;
+        private set => SetAndRaise(StatusToneProperty, ref _statusTone, value);
     }
 
     public bool IsLive
@@ -479,13 +476,13 @@ public sealed class BrowserPresentationHost : ContentControl
             });
             if (process is null)
             {
-                SetOperationMessage("The system browser could not be opened.");
+                SetOperationMessage("The system browser couldn’t be opened.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
-            SetOperationMessage("The system browser could not be opened.");
+            SetOperationMessage("The system browser couldn’t be opened.");
         }
     }
 
@@ -661,7 +658,7 @@ public sealed class BrowserPresentationHost : ContentControl
             || ClientId is null
             || RendererView is not { } rendererView)
         {
-            SetWaitingState("Waiting for the browser renderer.");
+            SetWaitingState("Waiting for the browser to start…");
             return;
         }
 
@@ -772,7 +769,7 @@ public sealed class BrowserPresentationHost : ContentControl
         {
             if (generation == _initializationGeneration)
             {
-                SetWaitingState("Browser renderer stopped.", "Stopped");
+                SetWaitingState("The browser stopped.", "Stopped");
             }
         }
         catch (Exception exception)
@@ -780,7 +777,7 @@ public sealed class BrowserPresentationHost : ContentControl
             if (generation == _initializationGeneration)
             {
                 UnsubscribeRenderer();
-                SetFailureState("The browser could not be initialized.");
+                SetFailureState("The browser couldn’t start.");
             }
 
             SecretSafeDiagnostics.WriteTrace(
@@ -804,12 +801,33 @@ public sealed class BrowserPresentationHost : ContentControl
             case HostResult<BrowserResult<BrowserSessionState>>.Success success:
                 SetOperationMessage(
                     success.Value.Error?.Message
-                    ?? "The browser operation could not be completed.");
+                    ?? "The browser couldn’t finish that action.");
                 break;
             case HostResult<BrowserResult<BrowserSessionState>>.Failure failure:
-                SetOperationMessage(failure.Error.Message);
+                SetOperationMessage(HostFailureMessage(failure.Error));
                 break;
         }
+    }
+
+    /// <summary>
+    /// A browser action the session host refused. The host's message is
+    /// written for its log and can carry the engine's own exception text, so
+    /// the code chooses the sentence.
+    /// </summary>
+    internal static string HostFailureMessage(HostError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        SecretSafeDiagnosticProjection.WriteTrace(
+            $"browser.host.{error.Code.ToString().ToLowerInvariant()}",
+            SecretSafeDiagnosticKind.Unexpected);
+        return error.Code switch
+        {
+            HostErrorCode.Cancelled => "The browser action was canceled.",
+            HostErrorCode.DeadlineExceeded => "The browser didn’t finish that action in time. Try again.",
+            HostErrorCode.NotFound or HostErrorCode.SessionClosed =>
+                "This browser panel closed. Open a new browser panel, then try again.",
+            _ => "The browser couldn’t finish that action. Try again.",
+        };
     }
 
     private void SubscribeRenderer(IBrowserRenderer renderer)
@@ -889,12 +907,12 @@ public sealed class BrowserPresentationHost : ContentControl
             case BrowserProductEvent.PermissionDenied permission:
                 ShowProductNotice(
                     "Permission denied",
-                    $"{permission.Origin} requested {FormatPermissions(permission.Permissions)}. Asura denied it.");
+                    $"{permission.Origin} asked to use {FormatPermissions(permission.Permissions)}. Asura didn’t allow it.");
                 return;
             case BrowserProductEvent.CertificateRejected certificate:
                 ShowProductNotice(
                     "Certificate rejected",
-                    $"Asura did not trust the certificate for {certificate.Address}.");
+                    $"Asura doesn’t trust the certificate for {certificate.Address}.");
                 return;
             case BrowserProductEvent.DownloadRequested download:
                 ShowProductNotice(
@@ -919,7 +937,7 @@ public sealed class BrowserPresentationHost : ContentControl
                 return;
             case BrowserProductEvent.DownloadCancelled:
                 ShowProductNotice(
-                    "Download cancelled",
+                    "Download canceled",
                     "No file was saved by this download.");
                 return;
             case BrowserProductEvent.RendererRecovered recovered:
@@ -928,18 +946,18 @@ public sealed class BrowserPresentationHost : ContentControl
                     : recovered.LostAddress;
                 AddressText = _recoveryAddress?.ToString() ?? string.Empty;
                 ShowProductNotice(
-                    "Page process restarted",
-                    "The page process stopped. Cookies and persisted site data remain, but unsaved form input and other volatile page state were lost.",
+                    "Page restarted",
+                    "The page stopped unexpectedly and was restarted. Cookies and saved site data remain, but unsaved form input and other page state were lost.",
                     hasAction: _recoveryAddress is not null,
-                    actionLabel: "Reload page");
+                    actionLabel: "Reload Page");
                 return;
             case BrowserProductEvent.RendererFailed failed:
                 _recoveryAddress = failed.LastAddress == BrowserAddress.Blank
                     ? null
                     : failed.LastAddress;
                 ShowProductNotice(
-                    "Page process stopped",
-                    "The browser could not start a replacement process. Volatile page state was lost.");
+                    "Page stopped",
+                    "The browser couldn’t restart the page. Unsaved page state was lost.");
                 return;
             default:
                 throw new ArgumentOutOfRangeException(nameof(productEvent));
@@ -969,11 +987,11 @@ public sealed class BrowserPresentationHost : ContentControl
             },
             _ => throw new ArgumentOutOfRangeException(nameof(state)),
         };
-        StatusBrush = state.LoadState switch
+        StatusTone = state.LoadState switch
         {
-            BrowserLoadState.Ready => ReadyBrush,
-            BrowserLoadState.Loading => LoadingBrush,
-            BrowserLoadState.Failed => FailedBrush,
+            BrowserLoadState.Ready => StatusTone.Success,
+            BrowserLoadState.Loading => StatusTone.Warning,
+            BrowserLoadState.Failed => StatusTone.Danger,
             _ => throw new ArgumentOutOfRangeException(nameof(state)),
         };
         StatusMessage = state.Failure?.Message ?? string.Empty;
@@ -986,20 +1004,27 @@ public sealed class BrowserPresentationHost : ContentControl
     {
         StatusText = status;
         StatusMessage = message;
-        StatusBrush = WaitingBrush;
+        StatusTone = StatusTone.Neutral;
         ShowFallback = true;
         UpdateAutomationStatus();
     }
 
-    private void SetFailureState(string message)
+    /// <summary>
+    /// The panel couldn't start its browser: no page will load until it
+    /// tries again, so the state is "Unavailable" rather than "Waiting".
+    /// </summary>
+    public void ShowUnavailable() =>
+        SetFailureState("The browser couldn’t start.", "Unavailable");
+
+    private void SetFailureState(string message, string status = "Error")
     {
         IsLive = false;
         IsLoading = false;
         CanGoBack = false;
         CanGoForward = false;
-        StatusText = "Error";
+        StatusText = status;
         StatusMessage = message;
-        StatusBrush = FailedBrush;
+        StatusTone = StatusTone.Danger;
         ShowFallback = true;
         UpdateAutomationStatus();
     }
@@ -1029,10 +1054,37 @@ public sealed class BrowserPresentationHost : ContentControl
         UpdateAutomationStatus();
     }
 
-    private static string FormatPermissions(BrowserPermissionKind permissions) =>
-        permissions == BrowserPermissionKind.None
-            ? "an unspecified browser permission"
-            : permissions.ToString().ToLowerInvariant();
+    /// <summary>
+    /// What the page asked for, in words: "the camera and the microphone",
+    /// not the flag names "camera, microphone" or "screencapture".
+    /// </summary>
+    private static string FormatPermissions(BrowserPermissionKind permissions)
+    {
+        var names = PermissionNames
+            .Where(entry => (permissions & entry.Kind) != 0)
+            .Select(entry => entry.Name)
+            .ToArray();
+        return names.Length switch
+        {
+            0 => "a browser permission",
+            1 => names[0],
+            _ => $"{string.Join(", ", names[..^1])} and {names[^1]}",
+        };
+    }
+
+    private static readonly (BrowserPermissionKind Kind, string Name)[] PermissionNames =
+    [
+        (BrowserPermissionKind.Camera, "the camera"),
+        (BrowserPermissionKind.Microphone, "the microphone"),
+        (BrowserPermissionKind.ScreenCapture, "screen recording"),
+        (BrowserPermissionKind.Location, "your location"),
+        (BrowserPermissionKind.Notifications, "notifications"),
+        (BrowserPermissionKind.Clipboard, "the clipboard"),
+        (BrowserPermissionKind.FileSystem, "files on this computer"),
+        (BrowserPermissionKind.Storage, "site storage"),
+        (BrowserPermissionKind.Device, "a connected device"),
+        (BrowserPermissionKind.Other, "another browser feature"),
+    ];
 
     private static string FormatDownloadProgress(long received, long? total)
     {

@@ -14,7 +14,7 @@ namespace Asura.App.Views;
 public sealed partial class MainWindow
 {
     private static readonly FilePickerFileType AgentHistoryFileType = new(
-        "Asura agent history")
+        "Asura Agent History")
     {
         Patterns = ["*.json"],
         MimeTypes = ["application/json"],
@@ -234,6 +234,14 @@ public sealed partial class MainWindow
             return;
         }
 
+        // Clearing deletes the saved conversation, so it is confirmed exactly
+        // like deleting that conversation from the history list.
+        if (agentChat.ConversationDeletedByClear is { } saved
+            && !await Confirmations.AgentConversationDelete(saved.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
         try
         {
             await agentChat.ClearAsync(_lifetime.Token);
@@ -302,49 +310,51 @@ public sealed partial class MainWindow
 
     private async void OnDeleteAgentConversationClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AgentRunId runId }
-            && ViewModel.AgentChat is { } agent
-            && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
-            && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
+        _ = e;
+
+        // From the row's context menu or Delete on the focused row.
+        if (sender is Control { Tag: AgentRunId runId })
         {
-            await RunAgentConversationActionAsync(
-                sender,
-                e,
-                (agent, token) => agent.DeleteConversationAsync(runId, token),
-                hideHistoryFlyout: false);
+            await DeleteAgentConversationAsync(runId);
         }
     }
 
-    private async void OnApplyAgentHistoryRetentionClick(
-        object? sender,
-        RoutedEventArgs e)
+    /// <summary>
+    /// Asks, then deletes one saved conversation: the row's, or from the File
+    /// menu the one the agent panel shows.
+    /// </summary>
+    private async Task DeleteAgentConversationAsync(AgentRunId runId)
     {
-        _ = sender;
-        _ = e;
-        if (ViewModel.AgentHistoryOwner is not { CanApplyHistoryRetention: true } agent
-            || !await Confirmations
-                .AgentHistoryRetentionChange(agent.SelectedHistoryRetentionOption)
-                .ShowDialog<bool>(this))
+        if (ViewModel.AgentChat is not { } agent
+            || agent.Conversations.FirstOrDefault(item => item.RunId == runId) is not { } item
+            || !await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
         {
             return;
         }
 
-        await agent.ApplyHistoryRetentionAsync(_lifetime.Token);
+        try
+        {
+            await agent.DeleteConversationAsync(runId, _lifetime.Token);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
     }
 
     private async void OnExportAgentHistoryClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (ViewModel.AgentHistoryOwner is not { CanExportHistory: true } agent)
         {
             return;
         }
 
-        var selected = await StorageProvider.SaveFilePickerAsync(
+        // The save panel attaches to the window the button is in: Settings, or
+        // this window's history flyout.
+        var selected = await DialogOwnerFor(sender).StorageProvider.SaveFilePickerAsync(
             new FilePickerSaveOptions
             {
-                Title = "Export metadata-only agent history",
+                Title = "Export Agent History",
                 SuggestedFileName = AgentRunHistoryExportController.SuggestedFileName,
                 DefaultExtension = "json",
                 FileTypeChoices = [AgentHistoryFileType],
@@ -386,7 +396,7 @@ public sealed partial class MainWindow
 
     private async void OnSelectAgentModelClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AiProviderModelDescriptor model })
+        if (sender is Control { Tag: AiProviderModelDescriptor model })
         {
             await RunAgentConversationActionAsync(
                 sender,

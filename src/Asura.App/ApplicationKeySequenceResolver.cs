@@ -1,5 +1,11 @@
+using Asura.App.Controls;
 using Asura.Core;
+using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.VisualTree;
+using AvaloniaEdit;
+using AvaloniaEdit.Editing;
 using AvaloniaKeyModifiers = Avalonia.Input.KeyModifiers;
 using CoreKeyModifiers = Asura.Core.KeyModifiers;
 
@@ -71,10 +77,16 @@ internal sealed class ApplicationKeySequenceResolver
         _prefix = profile.Prefix;
     }
 
+    /// <param name="canArmPrefix">
+    /// False while text input owns the keyboard. The prefix is then an
+    /// ordinary key for that field: Control-B moves the caret back, it does not
+    /// start a command. Direct shortcuts still resolve.
+    /// </param>
     public ApplicationKeyResolution Resolve(
         KeyStroke stroke,
         CommandContext activeContexts,
-        DateTimeOffset timestamp)
+        DateTimeOffset timestamp,
+        bool canArmPrefix = true)
     {
         if (_prefix is { } prefix && _prefixStartedAt is { } prefixStartedAt)
         {
@@ -117,7 +129,8 @@ internal sealed class ApplicationKeySequenceResolver
             _repeatStartedAt = null;
         }
 
-        if (_prefix is { } candidatePrefix
+        if (canArmPrefix
+            && _prefix is { } candidatePrefix
             && stroke == candidatePrefix.Stroke
             && HasApplicablePrefixedBinding(activeContexts))
         {
@@ -172,12 +185,14 @@ internal sealed class ApplicationKeySequenceResolver
                 && binding.Sequence[1] == suffix)
             : null;
 
+    // Key capture names some keys after their key cap and stored bindings after
+    // their character; Command-Shift-[ is one shortcut either way.
     private CommandBinding? FindDirectBinding(
         KeyStroke stroke,
         CommandContext activeContexts) => _profile.Bindings.FirstOrDefault(binding =>
             IsApplicable(binding, activeContexts)
             && binding.Sequence.Count == 1
-            && binding.Sequence[0] == stroke);
+            && ShortcutText.AreEquivalent(binding.Sequence[0], stroke));
 
     private bool HasApplicablePrefixedBinding(CommandContext activeContexts) =>
         _prefix is { } prefix
@@ -191,6 +206,21 @@ internal sealed class ApplicationKeySequenceResolver
 
     private void ArmRepeat(DateTimeOffset timestamp) =>
         _repeatStartedAt = _prefix?.Repeatable == true ? timestamp : null;
+}
+
+/// <summary>
+/// Decides whether the focused control takes typed text: a text field, a code
+/// editor, or a web page. Those keep the application prefix as an ordinary key.
+/// </summary>
+internal static class ApplicationKeyFocus
+{
+    public static bool OwnsTextInput(IInputElement? focused) =>
+        focused is Visual visual
+        && visual.GetSelfAndVisualAncestors().Any(ancestor => ancestor is
+            TextBox
+            or TextArea
+            or TextEditor
+            or BrowserPresentationHost);
 }
 
 internal static class ApplicationKeyStrokeMapper

@@ -7,7 +7,7 @@
     <DockPanel>
       <Border DockPanel.Dock="Top" Classes="PanelToolbar" Padding="8">
         <DockPanel>
-          <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="Close popup" />
+          <Button x:Name="CloseButton" DockPanel.Dock="Right" Content="Close Pop-Up" />
           <TextBlock x:Name="OriginText" VerticalAlignment="Center" Margin="0,0,8,0"
                      Text="Popup · about:blank" TextTrimming="CharacterEllipsis" />
         </DockPanel>

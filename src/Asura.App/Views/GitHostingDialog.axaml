@@ -1,40 +1,67 @@
-<Window x:Class="Asura.App.Views.GitHostingDialog" x:DataType="vm:GitHostingBrowserViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:controls="using:Asura.App.Controls" Width="780" Height="650" MinWidth="540" MinHeight="420" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
-  <controls:DialogShell Title="Hosting accounts and repositories" Subtitle="Browse account repositories and starred projects. Credentials use Asura's vault and the connection's network route." Scrolls="False">
+<controls:DialogWindow x:Class="Asura.App.Views.GitHostingDialog" x:DataType="vm:GitHostingBrowserViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:core="using:Asura.Core" xmlns:git="using:Asura.Git" xmlns:controls="using:Asura.App.Controls" Width="780" Height="650" MinWidth="540" MinHeight="420">
+  <controls:DialogWindow.Styles>
+    <!-- One height per row: every control in a row stands as tall as the
+         row's text field, so the buttons beside a field line up with it. -->
+    <Style Selector="Grid.HostingRow > Button">
+      <Setter Property="VerticalAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Grid.HostingRow > :is(Control)">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellControlMinHeight}" />
+    </Style>
+    <Style Selector="Grid.HostingRow > CheckBox">
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </controls:DialogWindow.Styles>
+  <controls:DialogShell Title="Hosting Accounts and Repositories" Subtitle="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Browse your account’s repositories and starred projects. Credentials stay in {0}, and requests use the connection’s network route.'}" Scrolls="False">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" />
-        <Button IsEnabled="{Binding !IsBusy}" Content="Clone selected repository…" Click="OnClone" Classes="PrimaryButton" />
+        <Button Content="Cancel" Click="OnCancel" Classes="SecondaryButton" IsCancel="True" />
+        <Button x:Name="CloneButton" IsEnabled="{Binding CanClone}" Content="Clone Repository…" Click="OnClone" Classes="PrimaryButton" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
     <Grid IsEnabled="{Binding !IsBusy}" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" PlaceholderText="Saved hosting account" AutomationProperties.Name="Hosting account">
+      <Grid Classes="HostingRow" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <ComboBox ItemsSource="{Binding Accounts}" SelectedItem="{Binding SelectedAccount}" PlaceholderText="Saved hosting account" HorizontalAlignment="Stretch" AutomationProperties.Name="Hosting account">
           <ComboBox.ItemTemplate><DataTemplate x:DataType="git:GitHostingAccount"><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
         </ComboBox>
-        <Button Grid.Column="1" Content="Remove account" Click="OnRemoveAccount" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="1" Classes="DestructiveButton" Content="Remove Account…" Click="OnRemoveAccount" IsEnabled="{Binding CanRemoveAccount}" />
       </Grid>
-      <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <ComboBox ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" AutomationProperties.Name="Hosting provider" />
-        <TextBox Grid.Column="1" Text="{Binding ApiAddress}" AutomationProperties.Name="Provider API base URL" />
-        <Button Grid.Column="2" Content="Sign in…" Click="OnSignIn" IsEnabled="{Binding !IsBusy}" />
+      <Grid Grid.Row="1" Classes="HostingRow" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <!-- The provider's own spelling, "GitHub" and "GitLab", not the
+             words a generic enum label would split them into. -->
+        <ComboBox ItemsSource="{Binding Providers}" SelectedItem="{Binding Provider}" AutomationProperties.Name="Hosting provider">
+          <ComboBox.ItemTemplate><DataTemplate x:DataType="git:GitHostingProvider"><TextBlock Text="{Binding Converter={x:Static vm:GitHostingBrowserViewModel.ProviderNameConverter}}" /></DataTemplate></ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox Grid.Column="1" Text="{Binding ApiAddress}" VerticalContentAlignment="Center" AutomationProperties.Name="Provider API base URL" />
+        <Button Grid.Column="2" Content="Sign In…" Click="OnSignIn" IsEnabled="{Binding !IsBusy}" />
       </Grid>
-      <WrapPanel Grid.Row="2">
-        <TextBox Text="{Binding Filter}" PlaceholderText="Find a repository" Width="260" AutomationProperties.Name="Filter hosting repositories" />
-        <CheckBox Content="Starred only" IsChecked="{Binding Starred}" />
-        <Button Content="Load repositories" Click="OnLoad" IsEnabled="{Binding !IsBusy}" />
-        <Button Content="Load more" Click="OnLoadMore" IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsBusy}" />
-      </WrapPanel>
-      <ListBox x:Name="Repositories" Grid.Row="3" ItemsSource="{Binding Repositories}" AutomationProperties.Name="Hosting repositories">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="git:GitHostedRepository">
-            <Grid ColumnDefinitions="*,Auto" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-              <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
-              <TextBlock Grid.Column="1" Text="Private" IsVisible="{Binding IsPrivate}" Foreground="{DynamicResource ShellMutedBrush}" />
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-      <TextBlock Grid.Row="4" Text="{Binding Status}" TextWrapping="Wrap" />
+      <Grid Grid.Row="2" Classes="HostingRow" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <controls:SearchField Text="{Binding Filter}" PlaceholderText="Filter repositories" MaxWidth="320" HorizontalAlignment="Left" AutomationProperties.Name="Filter hosting repositories" />
+        <!-- Starred only changes which list is shown, so it reloads the list
+             it changes rather than waiting for Load Repositories. The dialog
+             reloads once the binding has written Starred back, and the box
+             waits out a load the change would otherwise discard. -->
+        <CheckBox Grid.Column="1" x:Name="StarredCheckBox" Content="Starred only" IsChecked="{Binding Starred}" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="2" Content="Load Repositories" Click="OnLoad" IsEnabled="{Binding !IsBusy}" />
+        <Button Grid.Column="3" Content="Load More" Click="OnLoadMore" IsVisible="{Binding HasMore}" IsEnabled="{Binding !IsBusy}" />
+      </Grid>
+      <Border Grid.Row="3" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+        <Panel>
+          <ListBox x:Name="Repositories" Classes="Rows" ItemsSource="{Binding Repositories}" SelectedItem="{Binding SelectedRepository}" AutomationProperties.Name="Hosting repositories">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="git:GitHostedRepository">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
+                  <TextBlock Text="{Binding Name}" TextTrimming="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
+                  <TextBlock Grid.Column="1" Classes="Muted" Text="Private" IsVisible="{Binding IsPrivate}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Classes="Muted" Margin="{controls:Inset Md}" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" IsHitTestVisible="False" Text="{Binding EmptyListText}" IsVisible="{Binding IsListEmpty}" />
+        </Panel>
+      </Border>
+      <TextBlock Grid.Row="4" Text="{Binding Status}" TextWrapping="Wrap" IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
     </Grid>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

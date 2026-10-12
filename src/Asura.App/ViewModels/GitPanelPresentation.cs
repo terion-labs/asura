@@ -381,8 +381,7 @@ public sealed class GitCommitItemViewModel(GitCommitItem commit)
 
     public bool HasRefs => Commit.RefNames.Count > 0;
 
-    public string AuthoredAtText =>
-        Commit.AuthoredAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+    public string AuthoredAtText => GitDateText.Format(Commit.AuthoredAt, CultureInfo.CurrentCulture);
 
     public string AccessibleSummary => $"{Subject} by {AuthorName}, {AuthoredAtText}, {ShortSha}";
 }
@@ -560,7 +559,6 @@ public sealed class GitDiffSplitRowViewModel
 /// <summary>One ref row in the repository sidebar.</summary>
 public sealed class GitRefItemViewModel(
     GitRefItem item,
-    string? currentBranchName = null,
     string? defaultRemoteName = null)
 {
     public GitRefItem Item { get; } = item ?? throw new ArgumentNullException(nameof(item));
@@ -583,21 +581,9 @@ public sealed class GitRefItemViewModel(
         }
     }
 
-    // Menu labels live here so the markup can bind them: a DataTemplate has
-    // no place to compose "merge X into Y" from two sources.
-    public string CheckoutLabel => $"Checkout “{Name}”";
-
-    public string MergeLabel => $"Merge “{Name}” into “{currentBranchName}”…";
-
-    public string RebaseLabel => $"Rebase “{currentBranchName}” on “{Name}”…";
-
-    public string FetchLabel => $"Fetch “{RemoteName}”";
-
     public string? Upstream => Item.Upstream;
 
     public bool HasUpstream => Item.Upstream is not null;
-
-    public string FastForwardLabel => $"Fast-Forward to “{Item.Upstream}”";
 
     /// <summary>
     /// Where a push of this branch goes: its upstream's remote when it has
@@ -613,8 +599,6 @@ public sealed class GitRefItemViewModel(
     }
 
     public bool HasPushRemote => PushRemoteName is not null;
-
-    public string PushLabel => $"Push to “{PushRemoteName}”…";
 
     // One text run renders the whole "↑1 ↓3" cluster: arrows and digits
     // share a font and a baseline by construction, where icon-and-text

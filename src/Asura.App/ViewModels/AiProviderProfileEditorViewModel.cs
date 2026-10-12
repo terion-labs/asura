@@ -1,4 +1,6 @@
+using System.Runtime.CompilerServices;
 using System.Text;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -157,7 +159,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         if (existing.Authentication is AiProviderAuthentication.OAuth oauth)
         {
             _oauthSessionReference = oauth.Session;
-            _authenticationStatus = "OAuth session is stored in the OS vault.";
+            _authenticationStatus = $"The OAuth session is stored in {PlatformTerms.SecretStore}.";
         }
 
         RebuildAuthenticationOptions(existingMode);
@@ -167,7 +169,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit AI provider" : "New AI provider";
+    public string EditorTitle => IsEditing ? "Edit AI Provider" : "New AI Provider";
 
     public string ProfileId => _id.Value;
 
@@ -219,7 +221,13 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         set => Kind = value.Kind;
     }
 
-    public string ProviderProtocol => AiProviderCatalog.Get(Kind).Protocol.ToString();
+    /// <summary>
+    /// The API this provider is reached through, by the name its vendor gives
+    /// it, as one sentence under the Provider choice. Several providers speak
+    /// the same API, which is what makes the line worth showing.
+    /// </summary>
+    public string ProviderProtocol =>
+        $"Uses the {ProtocolDisplayName(AiProviderCatalog.Get(Kind).Protocol)}.";
 
     public string ProviderCategory => AiProviderCatalog.Get(Kind).Category.ToString();
 
@@ -227,7 +235,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     public string ProviderAvailability => IsProviderRuntimeSupported
         ? "This provider is available."
-        : "This provider is cataloged, but its native runtime is not implemented yet. Saving and testing are disabled.";
+        : "Asura doesn't support this AI provider yet, so you can't save or test it.";
 
     public string Endpoint
     {
@@ -337,8 +345,8 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     public string AuthenticationButtonLabel => SelectedAuthentication?.Mode
         == AiProviderEditorAuthenticationMode.OAuthBrowser
-            ? "Connect in browser"
-            : "Connect with device code";
+            ? "Connect in Browser"
+            : "Connect with Device Code";
 
     public bool IsAuthenticating
     {
@@ -444,7 +452,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             var result = await _storeCredential!(request, material, cancellationToken);
             if (result is not SecretVaultResult<SecretMetadata>.Success success)
             {
-                CredentialStatus = "The API key could not be stored. Check that the system keychain is available and try again.";
+                CredentialStatus = $"Asura couldn't store the API key. Check that {PlatformTerms.SecretStore} is unlocked, then try again.";
                 ReportError(CredentialStatus);
                 return false;
             }
@@ -457,17 +465,17 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedCredential));
             OnPropertyChanged(nameof(HasSingleCredentialOption));
             OnPropertyChanged(nameof(HasMultipleCredentialOptions));
-            CredentialStatus = "API key stored in the system keychain and selected for this provider.";
+            CredentialStatus = $"The API key is stored in {PlatformTerms.SecretStore} and selected for this provider.";
             return true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            CredentialStatus = "API-key storage was cancelled.";
+            CredentialStatus = "Storing the API key was canceled.";
             return false;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            CredentialStatus = "The API key could not be stored. Enter a provider name and key, then try again.";
+            CredentialStatus = "Asura couldn't store the API key. Enter a provider name and key, then try again.";
             ReportError(CredentialStatus);
             return false;
         }
@@ -523,7 +531,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
     {
         if (UsesCredential && ApiKeyValue.Length > 0)
         {
-            throw new ArgumentException("Store the entered API key before saving the provider.");
+            throw InvalidField.Exception(
+                nameof(ApiKeyValue),
+                "Store the entered API key before saving the provider.");
         }
 
         return new(BuildProfile(), ExpectedRevision);
@@ -611,14 +621,14 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         {
             CompleteAuthenticationAttempt(
                 attempt,
-                "Authentication was cancelled.");
+                "Authentication was canceled.");
             return null;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             CompleteAuthenticationAttempt(
                 attempt,
-                "Authentication could not be started.");
+                "Asura couldn't start signing in. Try again.");
             ReportError(AuthenticationStatus);
             return null;
         }
@@ -653,7 +663,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeRefusal(
+                exception,
+                "Asura can't test the provider with these settings. Check the endpoint and authentication, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -679,7 +691,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                         {
                             IsSuccess = true,
                             Code = "ai_provider_test_succeeded",
-                            Message = $"Connected to {Name}; {result.Models.Count} model(s) are available.",
+                            Message = result.Models.Count == 1
+                                ? $"Connected to {Name}. 1 model is available."
+                                : $"Connected to {Name}. {result.Models.Count:N0} models are available.",
                             ErrorCode = null,
                         };
                     }
@@ -698,13 +712,13 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The provider test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The provider test was canceled.";
         }
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The provider test could not be completed.";
+            TestDetail = "Asura couldn't finish testing the AI provider. Try again.";
             ReportError(TestDetail, TestStatus);
         }
         finally
@@ -713,22 +727,30 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Why the form's values can't make a provider. The editor's own messages
+    /// are shown as written; a profile rule's argument check is developer
+    /// text, so it goes to diagnostics and <paramref name="fallback"/> is shown.
+    /// </summary>
+    internal static string DescribeRefusal(Exception exception, string fallback) =>
+        FailureReason.Refusal("ai-provider.editor.refused", exception, fallback);
+
     private AiProviderProfile BuildProfile(string? discoveryModel = null)
     {
         if (!IsProviderRuntimeSupported)
         {
-            throw new ArgumentException(ProviderAvailability);
+            throw FailureReason.Readable(new ArgumentException(ProviderAvailability));
         }
 
         if (!Uri.TryCreate(Required(Endpoint, "Endpoint"), UriKind.Absolute, out var endpoint))
         {
-            throw new ArgumentException("Endpoint must be an absolute HTTP(S) URI.");
+            throw InvalidField.Exception(nameof(Endpoint), "Endpoint must be an absolute HTTP(S) URI.");
         }
 
         if (UseNoAuthentication && !CanDisableAuthentication)
         {
-            throw new ArgumentException(
-                "Only an OpenAI-compatible loopback provider can disable authentication.");
+            throw FailureReason.Readable(new ArgumentException(
+                "Only an OpenAI-compatible provider running on this computer can work without authentication. Choose an authentication method."));
         }
 
         var authentication = SelectedAuthentication?.Mode switch
@@ -748,7 +770,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                     AiProviderOAuthFlow.Device),
             AiProviderEditorAuthenticationMode.AwsCredentialChain =>
                 new AiProviderAuthentication.AwsCredentialChain(),
-            _ => throw new ArgumentException("Choose an authentication method."),
+            _ => throw FailureReason.Readable(new ArgumentException("Choose an authentication method.")),
         };
         var keepModelMetadata = _modelCatalogProfile is { } tested
                 && tested.ProviderKind == Kind
@@ -788,7 +810,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             if (result.Succeeded && result.Session is { } session)
             {
                 _oauthSessionReference = session;
-                AuthenticationStatus = "Connected. The token session is stored in the OS vault.";
+                AuthenticationStatus = $"Connected. The sign-in session is stored in {PlatformTerms.SecretStore}.";
             }
             else
             {
@@ -800,7 +822,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         {
             if (ReferenceEquals(_authenticationAttempt, attempt))
             {
-                AuthenticationStatus = "Authentication was cancelled.";
+                AuthenticationStatus = "Authentication was canceled.";
             }
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -853,7 +875,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
     private static string SafeAuthenticationMessage(
         AiProviderAuthenticationResult result) => result.StableCode switch
         {
-            "ai_provider_authentication_cancelled" => "Authentication was cancelled.",
+            "ai_provider_authentication_cancelled" => "Authentication was canceled.",
             "ai_provider_authentication_denied" => "Authentication was denied.",
             "ai_provider_device_code_expired" => "The device code expired.",
             "ai_provider_oauth_token_exchange_rejected" =>
@@ -863,13 +885,13 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             "ai_provider_oauth_token_exchange_invalid_response" =>
                 "OpenAI returned an invalid OAuth token response.",
             "ai_provider_oauth_token_response_missing_access_token" =>
-                "OpenAI's OAuth response did not include a valid access token.",
+                "OpenAI's OAuth response didn't include a valid access token.",
             "ai_provider_oauth_token_response_missing_refresh_token" =>
-                "OpenAI's OAuth response did not include a refresh token.",
+                "OpenAI's OAuth response didn't include a refresh token.",
             "ai_provider_oauth_token_response_invalid_expiry" =>
                 "OpenAI's OAuth response included an invalid token expiry.",
             "ai_provider_oauth_session_store_failed" =>
-                "The OAuth session could not be stored in the OS vault.",
+                $"Asura couldn't store the OAuth session in {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.",
             _ => "Authentication failed.",
         };
 
@@ -910,8 +932,8 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
 
     private SecretRef RequireOAuthSession() =>
         _oauthSessionReference
-        ?? throw new ArgumentException(
-            "Connect this provider before saving its OAuth authentication method.");
+        ?? throw FailureReason.Readable(new ArgumentException(
+            "Connect this provider before saving its OAuth authentication method."));
 
     private void RebuildAuthenticationOptions(
         AiProviderEditorAuthenticationMode preferred)
@@ -924,14 +946,14 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             AiProviderAuthenticationMethod.ApiKey,
             AiProviderEditorAuthenticationMode.ApiKey,
             "API key",
-            "Use an API key stored in the system keychain.");
+            $"Use an API key stored in {PlatformTerms.SecretStore}.");
         AddAuthenticationOption(
             options,
             methods,
             AiProviderAuthenticationMethod.OAuthBrowser,
             AiProviderEditorAuthenticationMode.OAuthBrowser,
             "Browser OAuth",
-            "Open a PKCE browser flow and keep refreshable tokens in the OS vault.");
+            $"Sign in through your browser. Asura keeps the session in {PlatformTerms.SecretStore}.");
         AddAuthenticationOption(
             options,
             methods,
@@ -969,7 +991,7 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             }
 
             throw new ArgumentException(
-                "The selected provider does not support this authentication method.");
+                "The selected provider doesn't support this authentication method.");
         }
 
         SelectedAuthentication = option;
@@ -1000,6 +1022,17 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
                 AiProviderEditorAuthenticationMode.NoAuthentication,
             _ => AiProviderEditorAuthenticationMode.ApiKey,
         };
+
+    internal static string ProtocolDisplayName(AiProviderProtocol protocol) => protocol switch
+    {
+        AiProviderProtocol.AnthropicMessages => "Anthropic Messages API",
+        AiProviderProtocol.OpenAiResponses => "OpenAI Responses API",
+        AiProviderProtocol.OpenAiChatCompletions => "OpenAI Chat Completions API",
+        AiProviderProtocol.GitHubCopilot => "GitHub Copilot API",
+        AiProviderProtocol.GoogleGenerativeAi => "Gemini API",
+        AiProviderProtocol.AmazonBedrockConverse => "Amazon Bedrock Converse API",
+        _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, null),
+    };
 
     private IReadOnlyList<AiProviderSecretOption> BuildSecretOptions(
         IReadOnlyList<SecretMetadataViewModel> secrets,
@@ -1037,11 +1070,18 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
         return options.AsReadOnly();
     }
 
-    private static string Required(string value, string label)
+    /// <summary>
+    /// The trimmed value, or a failure naming the field it came from — the
+    /// property passed in — so the editor can show it under that field.
+    /// </summary>
+    private static string Required(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{label} is required.");
+            throw InvalidField.Exception(field, $"{label} is required.");
         }
 
         return value.Trim();

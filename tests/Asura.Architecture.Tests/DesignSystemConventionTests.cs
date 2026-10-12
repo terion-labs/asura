@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using Asura.Testing;
 
 namespace Asura.Architecture.Tests;
@@ -46,8 +47,15 @@ public sealed partial class DesignSystemConventionTests
     /// Re-based at 40 after the August 2026 interface expansion outgrew the stale
     /// budget of 6. This records existing debt; every surviving literal remains
     /// visible to this ratchet and the count may only move downward.
+    /// Raised to 41 when the macOS conformance packages landed together: each
+    /// fitted inside the one spare slot alone, and both add geometry tied to a
+    /// fixed size rather than to the spacing scale — the confirmation alert's
+    /// 30-point caution badge needs a 15-point radius to stay a circle, and the
+    /// Git ref tree's 20-point disclosure target shifts four points into the
+    /// name column with an offsetting right margin, which no single inset
+    /// expresses.
     /// </remarks>
-    private const int LiteralLayoutBudget = 40;
+    private const int LiteralLayoutBudget = 41;
 
     /// <summary>
     /// The design system defines what a value means, so it cannot contain one. A
@@ -86,6 +94,300 @@ public sealed partial class DesignSystemConventionTests
                 $"{Path.GetRelativePath(ApplicationViews.RepositoryRoot, file)} contains a "
                 + "literal colour. Every colour must come from a Shell* brush token.");
         }
+    }
+
+    /// <summary>
+    /// The second line under a row's title — a description, a hint, a footnote —
+    /// is at least the macOS Subheadline, 11 pt, never the 10 pt Caption. Once
+    /// the 13 pt floor went, a 10 pt token there would have rendered at 10.
+    /// </summary>
+    [Fact]
+    public void Design_system_secondary_lines_never_render_below_eleven_points()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "DesignSystem.axaml"));
+        var secondaryLines = SecondaryLineTextBlock().Matches(source);
+
+        Assert.NotEmpty(secondaryLines);
+        foreach (Match line in secondaryLines)
+        {
+            Assert.DoesNotMatch(
+                "FontSize=\"\\{DynamicResource ShellFontSize(8|9|10)\\}\"",
+                line.Value);
+        }
+    }
+
+    /// <summary>
+    /// Views another package is migrating onto the type and icon ramps in
+    /// parallel. Each one broke at least one of the three view-wide rules
+    /// below when the rules were written, and is exempt from all three until
+    /// its own change lands. This set is emptied at integration, once every
+    /// package has merged; it may only ever shrink.
+    /// </summary>
+    private static readonly HashSet<string> PendingCrossPackageFiles = new(StringComparer.Ordinal)
+    {
+        "src/Asura.App/Views/AgentWorkspaceView.axaml",
+        "src/Asura.App/Views/AiProviderProfileEditorDialog.axaml",
+        "src/Asura.App/Views/Components/AgentApprovalCardView.axaml",
+        "src/Asura.App/Views/Components/AgentCapabilityRequestCardView.axaml",
+        "src/Asura.App/Views/Components/AgentChatImagePreview.axaml",
+        "src/Asura.App/Views/Components/AgentQuestionCardView.axaml",
+        "src/Asura.App/Views/Components/LauncherView.axaml",
+        "src/Asura.App/Views/Components/NetworkCredentialPicker.axaml",
+        "src/Asura.App/Views/Components/RuntimeTabStripView.axaml",
+        "src/Asura.App/Views/Components/SavedConnectionShortcutView.axaml",
+        "src/Asura.App/Views/ConfirmationDialog.axaml",
+        "src/Asura.App/Views/ConnectionEditorDialog.axaml",
+        "src/Asura.App/Views/DefinitionImportModeDialog.axaml",
+        "src/Asura.App/Views/DefinitionImportPreflightDialog.axaml",
+        "src/Asura.App/Views/FileAccessControlDialog.axaml",
+        "src/Asura.App/Views/FileTransferDialog.axaml",
+        "src/Asura.App/Views/MainWindow.axaml",
+        "src/Asura.App/Views/McpServerProfileEditorDialog.axaml",
+        "src/Asura.App/Views/McpServerTrustConfirmationDialog.axaml",
+        "src/Asura.App/Views/Overlays/CommandPaletteView.axaml",
+        "src/Asura.App/Views/Overlays/LayoutDesignerView.axaml",
+        "src/Asura.App/Views/Overlays/NewPanelChooserView.axaml",
+        "src/Asura.App/Views/QuickTerminalWindow.axaml",
+        "src/Asura.App/Views/RecoveryDataControlView.axaml",
+        "src/Asura.App/Views/SavedScreenEditorDialog.axaml",
+        "src/Asura.App/Views/SecretEditorDialog.axaml",
+        "src/Asura.App/Views/SettingsPages/LocalMcpServerSettingsView.axaml",
+        "src/Asura.App/Views/SettingsPages/NetworkingSettingsPageView.axaml",
+        "src/Asura.App/Views/SettingsPages/QuickTerminalSettingsPageView.axaml",
+        "src/Asura.App/Views/SettingsView.axaml",
+        "src/Asura.App/Views/ShortcutRecorderDialog.axaml",
+        "src/Asura.App/Views/WorkspaceEditorView.axaml",
+        "src/Asura.App/Views/WorkspaceView.axaml",
+    };
+
+    /// <summary>
+    /// Text that is genuinely a caption below the secondary size, by file, with
+    /// the reason it is. Empty: nothing in the markup has needed one. An entry
+    /// needs its reason written here.
+    /// </summary>
+    private static readonly Dictionary<string, string> CaptionExceptions = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The ramp starts at the macOS Caption, 10 pt. ShellFontSize8 and 9 (and
+    /// their line heights) are no longer published, so markup that names them
+    /// silently falls back to the default size.
+    /// </summary>
+    [Fact]
+    public void Application_markup_never_names_the_retired_eight_and_nine_point_tokens()
+    {
+        var violations = GuardedApplicationXaml()
+            .SelectMany(file => RetiredTypeToken().Matches(file.Source)
+                .Select(match => $"{file.Path}: {match.Value}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Use ShellFontSize10 (or the secondary size for a second line) instead of: "
+            + string.Join(", ", violations));
+    }
+
+    /// <summary>
+    /// Muted text is secondary text, and secondary text is at least the macOS
+    /// Subheadline, 11 pt. Ten is the caption size and belongs to captions
+    /// listed in <see cref="CaptionExceptions"/>, not to every description.
+    /// Every element whose name ends in TextBlock counts, so the subclasses
+    /// (LiveRegionTextBlock, GitDiffTextBlock) are held to it too.
+    /// </summary>
+    [Fact]
+    public void Muted_text_in_application_markup_is_at_least_the_secondary_size()
+    {
+        var violations = GuardedApplicationXaml()
+            .Where(file => !CaptionExceptions.ContainsKey(file.Path))
+            .SelectMany(file => file.Document.Descendants()
+                .Where(element => element.Name.LocalName.EndsWith("TextBlock", StringComparison.Ordinal))
+                .Where(element => ClassNames(element).Contains("Muted", StringComparer.Ordinal))
+                .Where(element => IsBelowSecondarySize(AttributeValue(element, "FontSize")))
+                .Select(element => $"{file.Path}:{LineOf(element)}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Muted text below 11 pt; use ShellSecondaryFontSize, or record a caption "
+            + $"exception with its reason: {string.Join(", ", violations)}");
+    }
+
+    /// <summary>
+    /// An icon takes its size from the icon ramp (ShellIconSizeXs to Xl) or
+    /// from <c>{controls:TextScaled N}</c>, so it grows with the text-size
+    /// setting. A literal point size stays small at 200% text.
+    /// </summary>
+    [Fact]
+    public void Icons_in_application_markup_never_take_a_literal_size()
+    {
+        var violations = GuardedApplicationXaml()
+            .SelectMany(file => file.Document.Descendants()
+                .Where(element => IsLiteralNumber(IconFontSize(element)))
+                .Select(element => $"{file.Path}:{LineOf(element)}"))
+            .ToArray();
+
+        Assert.True(
+            violations.Length == 0,
+            "Size icons from ShellIconSize* or {controls:TextScaled N}, not a literal: "
+            + string.Join(", ", violations));
+    }
+
+    private sealed record GuardedXaml(string Path, string Source, XDocument Document);
+
+    private static IEnumerable<GuardedXaml> GuardedApplicationXaml() =>
+        ApplicationXamlFiles()
+            .Select(file => (
+                Path: Path.GetRelativePath(ApplicationViews.RepositoryRoot, file).Replace('\\', '/'),
+                File: file))
+            .Where(entry => !PendingCrossPackageFiles.Contains(entry.Path))
+            .Select(entry =>
+            {
+                var source = File.ReadAllText(entry.File);
+                return new GuardedXaml(
+                    entry.Path,
+                    source,
+                    XDocument.Parse(source, LoadOptions.SetLineInfo));
+            });
+
+    private static string? AttributeValue(XElement element, string name) =>
+        element.Attributes().FirstOrDefault(attribute =>
+            string.Equals(attribute.Name.LocalName, name, StringComparison.Ordinal))?.Value;
+
+    private static string[] ClassNames(XElement element) =>
+        (AttributeValue(element, "Classes") ?? string.Empty)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    private static bool IsBelowSecondarySize(string? fontSize) =>
+        string.Equals(fontSize, "{DynamicResource ShellFontSize10}", StringComparison.Ordinal)
+        || (double.TryParse(fontSize, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var points)
+            && points < 11);
+
+    private static bool IsLiteralNumber(string? value) =>
+        double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _);
+
+    /// <summary>
+    /// The font size an element gives an icon: a SymbolIcon's own attribute,
+    /// or a FontSize setter in a style whose last selector step is a
+    /// SymbolIcon.
+    /// </summary>
+    private static string? IconFontSize(XElement element)
+    {
+        if (element.Name.LocalName is "SymbolIcon")
+        {
+            return AttributeValue(element, "FontSize");
+        }
+
+        if (element.Name.LocalName is "Setter"
+            && string.Equals(AttributeValue(element, "Property"), "FontSize", StringComparison.Ordinal)
+            && element.Parent is { Name.LocalName: "Style" } style
+            && (AttributeValue(style, "Selector") ?? string.Empty)
+                .Split(',')
+                .Any(selector => SelectorSegment()
+                    .Split(selector.Trim())
+                    .LastOrDefault(segment => segment.Length > 0)?
+                    .Contains("SymbolIcon", StringComparison.Ordinal) == true))
+        {
+            return AttributeValue(element, "Value");
+        }
+
+        return null;
+    }
+
+    private static int LineOf(XElement element) =>
+        ((System.Xml.IXmlLineInfo)element).LineNumber;
+
+    /// <summary>
+    /// Elements whose foreground is read as text. An icon only has to clear
+    /// 3:1, which the raw accent promises against the window; text has to
+    /// clear 4.5:1 on whatever it sits on, which only the accent-text token
+    /// promises.
+    /// </summary>
+    private static readonly HashSet<string> TextForegroundTargets = new(StringComparer.Ordinal)
+    {
+        "AccessText",
+        "Button",
+        "CheckBox",
+        "ContentPresenter",
+        "HyperlinkButton",
+        "Label",
+        "ListBoxItem",
+        "MenuItem",
+        "RadioButton",
+        "Run",
+        "SelectableTextBlock",
+        "TabItem",
+        "TextBlock",
+        "TextBox",
+        "ToggleButton",
+    };
+
+    /// <summary>
+    /// Text never takes the raw accent as its colour. The accent fill is held
+    /// to 3:1 against the window; on its own soft tint — a selected row — it
+    /// fell to about 3.2:1. Accent-coloured text uses ShellAccentTextBrush,
+    /// which is held to 4.5:1 on every plate and fill it is read on. Icon-only
+    /// buttons and glyphs may keep the raw accent.
+    /// </summary>
+    [Fact]
+    public void Text_never_takes_the_raw_accent_as_its_colour()
+    {
+        const string rawAccent = "{DynamicResource ShellAccentBrush}";
+        var appRoot = Path.Combine(ApplicationViews.RepositoryRoot, "src", "Asura.App");
+        var violations = new List<string>();
+        foreach (var path in Directory
+                     .EnumerateFiles(appRoot, "*.axaml", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+        {
+            var relative = Path.GetRelativePath(ApplicationViews.RepositoryRoot, path);
+            foreach (var element in XDocument.Load(path).Descendants())
+            {
+                if (TextForegroundTargets.Contains(element.Name.LocalName)
+                    && string.Equals(
+                        (string?)element.Attribute("Foreground"),
+                        rawAccent,
+                        StringComparison.Ordinal))
+                {
+                    violations.Add($"{relative}: <{element.Name.LocalName}> Foreground");
+                }
+
+                if (!string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                    || !element.Elements().Any(setter =>
+                        string.Equals(setter.Name.LocalName, "Setter", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Property"), "Foreground", StringComparison.Ordinal)
+                        && string.Equals((string?)setter.Attribute("Value"), rawAccent, StringComparison.Ordinal)))
+                {
+                    continue;
+                }
+
+                foreach (var selector in ((string?)element.Attribute("Selector") ?? string.Empty)
+                             .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (TargetsText(selector))
+                    {
+                        violations.Add($"{relative}: Style \"{selector}\"");
+                    }
+                }
+            }
+        }
+
+        Assert.True(violations.Count == 0, string.Join(Environment.NewLine, violations));
+    }
+
+    private static bool TargetsText(string selector)
+    {
+        if (selector.Contains(".IconButton", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var target = SelectorSegment().Split(selector)[^1];
+        var type = TypeSeparator().Split(target)[0];
+        var unqualified = type[(type.IndexOf('|', StringComparison.Ordinal) + 1)..];
+        return TextForegroundTargets.Contains(unqualified);
     }
 
     [Fact]
@@ -232,11 +534,11 @@ public sealed partial class DesignSystemConventionTests
 
     /// <summary>
     /// How many literal colours the application's markup may still contain.
-    /// The survivors are deliberate — the appearance page's mode-preview tiles
-    /// render each mode's own values, which must not follow the live theme —
-    /// but a new one is a theme and a contrast guarantee silently bypassed.
+    /// None: even the appearance page's mode-preview tiles draw each mode from
+    /// the mapper's published preview tokens. A new literal is a theme and a
+    /// contrast guarantee silently bypassed.
     /// </summary>
-    private const int LiteralColourBudget = 14;
+    private const int LiteralColourBudget = 0;
 
     [Fact]
     public void Literal_colours_in_application_markup_only_ever_decrease()
@@ -351,6 +653,12 @@ public sealed partial class DesignSystemConventionTests
                      "design-system-high-contrast",
                      "design-system-scale-200",
                      "design-system-scale-250",
+                     "dialog-shortcut-recorder",
+                     "dialog-shortcut-recorder-reserved",
+                     "dialog-ssh-host-key-first-seen",
+                     "dialog-ssh-host-key-changed",
+                     "dialog-secret-editor-new",
+                     "dialog-secret-editor-existing",
                  })
         {
             Assert.Contains($"\"{route}\"", harness, StringComparison.Ordinal);
@@ -411,4 +719,28 @@ public sealed partial class DesignSystemConventionTests
         RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
         matchTimeoutMilliseconds: 1_000)]
     private static partial Regex LiteralColour();
+
+    [GeneratedRegex(
+        "<TextBlock\\b[^>]*?(Text=\"\\{TemplateBinding (Description|Hint|Error|Footnote|StateText|StateDescription|FooterHint)\\}\"|Name=\"PART_Subtitle\")[^>]*>",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SecondaryLineTextBlock();
+
+    [GeneratedRegex(
+        "Shell(FontSize|LineHeight)[89](?![0-9])",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex RetiredTypeToken();
+
+    [GeneratedRegex(
+        "[\\s>]+",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex SelectorSegment();
+
+    [GeneratedRegex(
+        "[.:#/\\[]",
+        RegexOptions.CultureInvariant,
+        matchTimeoutMilliseconds: 1_000)]
+    private static partial Regex TypeSeparator();
 }

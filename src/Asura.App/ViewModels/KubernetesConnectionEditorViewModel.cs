@@ -85,9 +85,9 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
             if (!string.Equals(path, KubeconfigPath, StringComparison.Ordinal)) { return; }
             Contexts = result.Contexts;
             SelectedContext = Contexts.FirstOrDefault(item => string.Equals(item.ContextName, ContextName, StringComparison.Ordinal));
-            ReviewStatus = $"{Contexts.Count} contexts found. Review does not run credential commands or connect.";
+            ReviewStatus = $"{(Contexts.Count == 0 ? "No contexts found" : CountText.Of(Contexts.Count, "context", "contexts") + " found")}. Reviewing doesn't run credential commands or connect.";
         }
-        catch (KubernetesRequestException exception) { ReviewStatus = exception.Message; }
+        catch (KubernetesRequestException exception) { ReviewStatus = KubernetesErrorText.Describe(exception, KubernetesActivity.ConfigurationReview); }
         catch (NotSupportedException) { ReviewStatus = "Configuration review is unavailable in this execution environment."; }
         finally { IsReviewing = false; }
     }

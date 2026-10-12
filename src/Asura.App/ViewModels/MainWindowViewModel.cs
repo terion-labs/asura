@@ -3,10 +3,13 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Asura.App;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.ApplicationUpdates;
 using Asura.Application.Previews;
@@ -108,7 +111,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     private bool _isPreparingAgentSavedScreenTarget;
     private bool _isChangingAgentScopeForSavedScreen;
     private string _agentSavedScreenTargetStatus =
-        "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized.";
+        "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it.";
     private string? _operationError;
     private string _tabReorderStatus = string.Empty;
     private string _workspaceTransferStatus = string.Empty;
@@ -192,6 +195,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ?? new WorkspaceDefinitionOccupancy();
         _uiThreadDispatcher = uiThreadDispatcher ?? AvaloniaUiThreadDispatcher.Instance;
         LocalMcpServerSettings = new(localMcpServerControl, _uiThreadDispatcher);
+        NotificationSettings = new(
+            nativeNotificationService as INativeNotificationSettings,
+            _uiThreadDispatcher);
         BrowserStartupRecovery = new(browserStartupRecovery, _uiThreadDispatcher);
         _workspaceNetworkRuntime = workspaceNetworkRuntime;
         _inactiveWorkspaceNetwork = new WorkspaceNetworkControlViewModel(
@@ -219,8 +225,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionEdit.PropertyChanged += OnDefinitionEditPropertyChanged;
         DefinitionSettings = new DefinitionSettingsViewModel(_catalog);
         DefinitionSettings.PropertyChanged += OnDefinitionSettingsPropertyChanged;
+        // The saved keymap is applied before this window listens for changes,
+        // so the toolbar tooltips read it once here.
+        UpdateShortcutTips();
         TerminalSettings = new TerminalSettingsViewModel(_catalog);
         TerminalSettings.PropertyChanged += OnTerminalSettingsPropertyChanged;
+        FollowAutoAppliedEditors();
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
         _appearancePreview.Changed += OnAppearancePreviewChanged;
         AppearanceSettings = new AppearanceSettingsViewModel(_catalog);
@@ -251,6 +261,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             () => _aiProviderRuntime?.Profiles ?? []);
         _connectionRuntime = connectionRuntime ?? throw new ArgumentNullException(nameof(connectionRuntime));
         _secretVault = secretVault ?? throw new ArgumentNullException(nameof(secretVault));
+        DefinitionDeleteUndo = new DefinitionDeleteUndoViewModel(_catalog, _secretVault);
         _filePanelClient = filePanelClient ?? throw new ArgumentNullException(nameof(filePanelClient));
         _fileTransferQueue = fileTransferQueue
             ?? throw new ArgumentNullException(nameof(fileTransferQueue));
@@ -502,6 +513,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public LocalMcpServerSettingsViewModel LocalMcpServerSettings { get; }
 
+    public NotificationSettingsViewModel NotificationSettings { get; }
+
     public DatabaseConnectionSettingsCoordinator DatabaseConnectionSettings { get; }
 
     public SecretSettingsViewModel SecretSettings { get; }
@@ -550,11 +563,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 OnPropertyChanged(nameof(HasAgentSavedScreenTemplates));
                 OnPropertyChanged(nameof(CanCreateAgentSavedScreenTarget));
                 OnPropertyChanged(nameof(CanAuthorizeAgentSavedScreenTarget));
+                OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+                OnPropertyChanged(nameof(AgentToggleStatus));
             }
         }
     }
 
     public AgentChatViewModel? AgentHistoryOwner => _settingsAgentHistoryOwner ?? AgentChat;
+
+    /// <summary>
+    /// The agent Settings was asked to show the history of, when it is not
+    /// this window's own — Quick Terminal's.
+    /// </summary>
+    internal AgentChatViewModel? SettingsAgentHistoryOwner => _settingsAgentHistoryOwner;
 
     internal void ReplaceAgentHistoryOwner(AgentChatViewModel? previousOwner, AgentChatViewModel? replacement)
     {
@@ -580,6 +601,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public SavedScreenDeleteUndoViewModel SavedScreenDeleteUndo =>
         SavedScreenSettings.DeleteUndo;
+
+    /// <summary>Undo for the last deleted saved connection or workspace.</summary>
+    public DefinitionDeleteUndoViewModel DefinitionDeleteUndo { get; }
 
     public ClientId ClientId { get; }
 
@@ -701,7 +725,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (value is not null && !Screens.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected saved-screen template is not in the current catalog.",
+                    "That saved screen isn't available anymore. Choose another one.",
                     nameof(value));
             }
 
@@ -713,8 +737,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _selectedAgentSavedScreenTemplate = value;
             _agentSavedScreenLiveTarget = null;
             AgentSavedScreenTargetStatus = value is null
-                ? "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized."
-                : $"Template selected: {value.Name} · revision {value.Revision}. No live target or agent authority exists yet.";
+                ? "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it."
+                : $"Selected “{value.Name}”. The agent has no access yet. Open it in a tab, review the tab, then allow the agent to use it.";
             NotifyAgentSavedScreenTargetChanged();
         }
     }
@@ -846,17 +870,34 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public string ExecutableName => ProductIdentity.ExecutableName;
 
-    public string ApplicationVersion =>
-        $"v{typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "0.0.0"}";
+    /// <summary>"Version 1.0.0 (abc1234)", as the standard About panel writes it.</summary>
+    public string ApplicationVersion => FormatApplicationVersion(
+        typeof(MainWindowViewModel).Assembly.GetName().Version,
+        typeof(MainWindowViewModel).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion);
+
+    public string Copyright => ProductIdentity.Copyright;
+
+    /// <summary>
+    /// The marketing version, then the build in parentheses: the source
+    /// revision a release was built from, or the fourth version number.
+    /// </summary>
+    internal static string FormatApplicationVersion(Version? version, string? informationalVersion)
+    {
+        var marketing = version?.ToString(3) ?? "0.0.0";
+        var build = informationalVersion?.Split('+', 2) is [_, { Length: > 0 } revision]
+            ? revision[..Math.Min(7, revision.Length)]
+            : version is { Revision: > 0 } numbered
+                ? numbered.Revision.ToString(CultureInfo.InvariantCulture)
+                : null;
+        return build is null ? $"Version {marketing}" : $"Version {marketing} ({build})";
+    }
 
     public string RuntimeDescription => RuntimeInformation.FrameworkDescription;
 
     public string PlatformDescription =>
         $"{PlatformName()} · {RuntimeInformation.ProcessArchitecture}";
 
-    public string AgentRuntimeDescription => AgentChat is null
-        ? "Unavailable · provider runtime not composed"
-        : AgentChat.RendererModeDescription;
 
     public ApplicationUpdateViewModel ApplicationUpdates { get; }
 
@@ -1086,6 +1127,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     internal ShellNotificationCenter Notifications { get; }
 
     private readonly ObservableCollection<RuntimeWorkspaceViewModel> _openWorkspaces = [];
+    private bool _isLayoutDesignerOpen;
+    private DockDragOrigin _dockDragOrigin;
+    private bool _isWorkspaceEditorOpen;
 
     /// <summary>
     /// What each open workspace was opened from. The active one's is
@@ -1113,14 +1157,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 // this setter is still running. Without a mark here that cost
                 // would be charged to whatever came next.
                 ShowCanvasOf(value, insteadOf: previous);
+                FollowWorkspaceBehindIsolationProgress();
                 _activation?.Mark("bindings");
                 StopRuntimeGraphWatch();
                 _activation?.Mark("graph stop");
-                // One announcement, from the one place that knows what is in
-                // front. Scattered across the open paths it was missing from
-                // every other way of arriving — restore among them.
-                SetActiveWorkspaceAccent(ShellAccentOf(value));
-                _activation?.Mark("accent");
 
                 AgentWorkspaceScope.StopTracking(previous);
                 StopTrackingRecovery(previous);
@@ -1152,6 +1192,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 OnPropertyChanged(nameof(HasRuntimeWorkspace));
                 OnPropertyChanged(nameof(NewItemLauncherTitle));
                 OnPropertyChanged(nameof(CanCreateBrowserPanel));
+                OnPropertyChanged(nameof(BrowserPanelUnavailableReason));
                 OnPropertyChanged(nameof(PanelConnectionOptions));
                 OnPropertyChanged(nameof(BrowserConnectionOptions));
                 OnPropertyChanged(nameof(WorkspaceNetwork));
@@ -1239,7 +1280,26 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             OnPropertyChanged(propertyName);
         }
+
+        if (eventArgs.PropertyName is nameof(DefinitionSettingsViewModel.ActiveApplicationKeymap)
+            or nameof(DefinitionSettingsViewModel.ActiveApplicationKeymapRevision))
+        {
+            // Toolbar tooltips name the keys the menu shows, so they follow
+            // a rebinding.
+            UpdateShortcutTips();
+        }
     }
+
+    /// <summary>
+    /// Points the toolbar tooltips at the active application keymap. They
+    /// name window commands (New Tab, Close Tab, the agent and Add Panel
+    /// buttons), which a terminal keymap never binds, so the menu finds their
+    /// keys in the application keymap or Apple's standard set whatever panel
+    /// is in front, and the tips need no refresh when the active panel changes.
+    /// </summary>
+    private void UpdateShortcutTips() =>
+        ShortcutTips.Current.Update(
+            new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, []));
 
     private void OnTerminalSettingsPropertyChanged(
         object? sender,
@@ -1270,6 +1330,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (eventArgs.PropertyName is not null)
         {
             OnPropertyChanged(eventArgs.PropertyName);
+        }
+
+        if (string.Equals(eventArgs.PropertyName, nameof(ShowWorkspacesPanel), StringComparison.Ordinal))
+        {
+            OnPropertyChanged(nameof(IsWorkspaceRailVisible));
+            OnPropertyChanged(nameof(HasWorkspaceAttention));
+            OnPropertyChanged(nameof(WorkspacesMenuName));
         }
     }
 
@@ -1553,6 +1620,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         _agentModelFavoriteStore),
                     () => NotifyAgentRunFinished(id),
                     NotifyAgentRunningStateChanged,
+                    isNewDecision => OnAgentDecisionChanged(id, isNewDecision),
                     activity => ApplyWorkspaceAgentActivity(id, activity));
                 _workspaceAgentChats.Add(id, owned);
             }
@@ -1584,8 +1652,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 failed
                     ? PanelNotificationKind.AgentFailed
                     : PanelNotificationKind.AgentCompleted,
-                failed ? "Agent run failed" : "Agent finished",
-                workspace.Name,
+                failed ? "Agent Run Failed" : "Agent Finished",
+                AgentRunOutcomeText(workspace.Name, owned.ViewModel.State),
                 _timeProvider.GetUtcNow())
             {
                 Effects = PanelNotificationEffects.Visual
@@ -1593,6 +1661,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             },
             sourceIsVisible: IsAgentPanelVisible);
     }
+
+    /// <summary>
+    /// What a notification about a finished agent run says: where it ran and
+    /// how it ended, so the banner is worth reading without opening Asura.
+    /// </summary>
+    internal static string AgentRunOutcomeText(string workspaceName, GovernedAgentState state) =>
+        state == GovernedAgentState.Failed
+            ? $"The agent in “{workspaceName}” stopped with an error. Open the agent panel to see what went wrong."
+            : $"The agent in “{workspaceName}” finished its run and is ready for review.";
 
     private void ActivateNativeNotification(
         NativeNotificationRoute route,
@@ -1665,8 +1742,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         MarkVisibleNotificationsSeen();
     }
 
-    private void NotifyAgentRunningStateChanged() =>
+    private void NotifyAgentRunningStateChanged()
+    {
         OnPropertyChanged(nameof(HasRunningAgent));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+    }
+
+    /// <summary>
+    /// A decision appeared or was answered in a workspace's agent. In the
+    /// workspace in front, a new waiting decision brings the agent panel out,
+    /// so the run is never blocked on a card nobody can see. The same request
+    /// republished by a later refresh does not, so a panel hidden while it
+    /// waits stays hidden. Whether the card takes keyboard focus is the
+    /// panel's call (AgentWorkspaceView.DecisionFocus).
+    /// </summary>
+    private void OnAgentDecisionChanged(
+        WorkspaceInstanceId workspaceId,
+        bool isNewDecision)
+    {
+        if (RuntimeWorkspace?.Id != workspaceId)
+        {
+            return;
+        }
+
+        OnPropertyChanged(nameof(IsAgentAwaitingDecision));
+        OnPropertyChanged(nameof(AgentToggleStatus));
+        if (isNewDecision && IsAgentAwaitingDecision)
+        {
+            IsAgentPanelVisible = true;
+        }
+    }
 
     private void ApplyWorkspaceAgentActivity(
         WorkspaceInstanceId workspaceId,
@@ -1714,21 +1819,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             NotifyAgentRunningStateChanged();
         }
     }
-
-    /// <summary>
-    /// The accent the open workspace asks the shell to wear, or null to go back
-    /// to the application's own. Raised rather than applied here: retinting the
-    /// shell means republishing application resources, which is the host's job.
-    /// </summary>
-    public event EventHandler<string?>? WorkspaceAccentChanged;
-
-    private string? _activeWorkspaceAccent;
-
-    /// <summary>
-    /// The accent the open workspace is asking the shell to wear, for anything
-    /// that starts listening after it was announced.
-    /// </summary>
-    public string? ActiveWorkspaceAccent => _activeWorkspaceAccent;
 
     /// <summary>
     /// Says which part of bringing a workspace forward cost the time, when any
@@ -1824,25 +1914,30 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             Avalonia.Threading.DispatcherPriority.Background);
     }
 
-    private void SetActiveWorkspaceAccent(string? accent)
-    {
-        var next = string.IsNullOrWhiteSpace(accent) ? null : accent;
-        if (string.Equals(_activeWorkspaceAccent, next, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        _activeWorkspaceAccent = next;
-        WorkspaceAccentChanged?.Invoke(this, next);
-    }
-
-    public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Session";
+    public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Workspace";
 
     public bool CanStartBrowserSession => _browserRendererViewFactory is not null;
 
     public bool CanCreateBrowserPanel =>
         CanStartBrowserSession
         && RuntimeWorkspace?.ActiveTab is not null;
+
+    /// <summary>
+    /// What a dimmed Browser tile says instead of its description: why it
+    /// cannot be used, and what would fix that.
+    /// </summary>
+    public string? BrowserSessionUnavailableReason => CanStartBrowserSession
+        ? null
+        : BrowserEngineMissing;
+
+    public string? BrowserPanelUnavailableReason => !CanStartBrowserSession
+        ? BrowserEngineMissing
+        : RuntimeWorkspace?.ActiveTab is null
+            ? "Open a tab first, then add a browser panel to it."
+            : null;
+
+    private static string BrowserEngineMissing =>
+        "This build of Asura doesn't include the browser engine. Install the full build to add browser panels.";
 
     public RuntimePanelViewModel? ActivePanel => RuntimeWorkspace?.ActiveTab?.ActivePanel;
 
@@ -1860,7 +1955,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (stored is null || stored.Revision != selected.Revision)
         {
             AgentSavedScreenTargetStatus =
-                "The selected template changed or was removed. Select its current revision and review it again.";
+                "The saved screen changed or was removed. Choose it again, then review it.";
             _selectedAgentSavedScreenTemplate = null;
             _agentSavedScreenLiveTarget = null;
             NotifyAgentSavedScreenTargetChanged();
@@ -1869,14 +1964,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         IsPreparingAgentSavedScreenTarget = true;
         AgentSavedScreenTargetStatus =
-            $"Creating a pending live instance from {selected.Name} revision {selected.Revision}. The template still grants no agent authority.";
+            $"Opening “{selected.Name}” in a new tab. The agent has no access yet.";
         try
         {
             if (!await LaunchScreenAsync(selected.Id, cancellationToken))
             {
                 AgentSavedScreenTargetStatus = string.IsNullOrWhiteSpace(OperationError)
-                    ? "The template could not create a live instance. No agent authority was granted."
-                    : $"The template could not create a live instance: {OperationError}";
+                    ? "Asura couldn't open the saved screen in a tab, so the agent has no access. Try again."
+                    : $"Asura couldn't open the saved screen in a tab, so the agent has no access. {OperationError}";
                 return;
             }
 
@@ -1887,7 +1982,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     && source.Revision == stored.Revision))
             {
                 AgentSavedScreenTargetStatus =
-                    "The created tab did not preserve the selected template revision. No agent authority was granted.";
+                    "The new tab doesn't match the saved screen anymore, so the agent has no access. Choose the saved screen again.";
                 return;
             }
 
@@ -1913,13 +2008,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             }
 
             AgentSavedScreenTargetStatus =
-                $"Pending live instance: {tab.Title} · {tab.Panels.Count} panels · template revision {selected.Revision}. Review the visible tab, then authorize this exact live target.";
+                $"Opened “{tab.Title}” with {CountText.Of(tab.Panels.Count, "panel", "panels")}. Review the tab, then allow the agent to use it.";
             NotifyAgentSavedScreenTargetChanged();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             AgentSavedScreenTargetStatus =
-                "Creating the pending live instance was cancelled. No agent authority was granted.";
+                "Opening the saved screen was canceled. The agent has no access.";
             throw;
         }
         finally
@@ -1932,14 +2027,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         if (_agentSavedScreenLiveTarget is not { IsAuthorized: false } pending)
         {
-            error = "Create a pending live instance before authorizing a saved-screen target.";
+            error = "Open the saved screen in a tab before allowing the agent to use it.";
             return false;
         }
 
         if (!TryResolveAgentSavedScreenLiveTarget(pending, requireVisibleReview: true, out _))
         {
             error =
-                "The pending live instance is no longer the visible reviewed tab. Return to that exact tab or create a new instance.";
+                "The tab you reviewed isn't the visible tab anymore. Go back to it, or open the saved screen again.";
             AgentSavedScreenTargetStatus = error;
             return false;
         }
@@ -1947,7 +2042,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _agentSavedScreenLiveTarget = pending.Authorize();
         error = string.Empty;
         AgentSavedScreenTargetStatus =
-            $"Authorized live target: {pending.TabName} · {pending.PanelCount} panels · {pending.ExactIdentity}. Later template edits cannot retarget this run context.";
+            $"The agent can use “{pending.TabName}” and its {CountText.Of(pending.PanelCount, "panel", "panels")}. Later changes to the saved screen don't change which tab the agent uses.";
         NotifyAgentSavedScreenTargetChanged();
         return true;
     }
@@ -1957,7 +2052,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         _selectedAgentSavedScreenTemplate = null;
         _agentSavedScreenLiveTarget = null;
         AgentSavedScreenTargetStatus =
-            "A saved screen template grants no agent authority until its live instance is created, reviewed, and authorized.";
+            "Choosing a saved screen gives the agent no access. Open it in a tab, review the tab, then allow the agent to use it.";
         NotifyAgentSavedScreenTargetChanged();
     }
 
@@ -1980,7 +2075,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (_agentSavedScreenLiveTarget is not { IsAuthorized: true } accepted)
             {
                 agentChat.ReportTargetUnavailable(
-                    "The saved screen is still a template or pending live instance. Review and authorize its exact live target before sending.");
+                    "Open the saved screen in a tab, review it, and allow the agent to use it before sending.");
                 return Task.CompletedTask;
             }
 
@@ -1990,7 +2085,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     out target))
             {
                 AgentSavedScreenTargetStatus =
-                    "The authorized live target is no longer available. No replacement was selected; create and review a new live instance.";
+                    "The tab the agent was allowed to use isn't open anymore. Open the saved screen again and review it.";
                 agentChat.ReportTargetUnavailable(AgentSavedScreenTargetStatus);
                 return Task.CompletedTask;
             }
@@ -2084,7 +2179,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (tabs.Length == 0)
         {
             policy = null;
-            error = "The selected agent scope no longer has trusted runtime policy provenance.";
+            error = target switch
+            {
+                AgentTarget.SelectedPanels =>
+                    "Some panels the agent was set to work in have closed. Choose where it should work, then send again.",
+                AgentTarget.Workspace =>
+                    "No tabs are open for the agent to work in. Open a tab, then send again.",
+                _ =>
+                    "The tab the agent was set to work in has closed. Choose where it should work, then send again.",
+            };
             return false;
         }
 
@@ -2094,7 +2197,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (DefaultAgentPolicySettings.Policy is not { } configuredPolicy)
             {
                 policy = null;
-                error = "Configure the primary, compaction, and title models in AI settings.";
+                error = "Choose the models the agent uses in AI Settings, then send again.";
                 return false;
             }
 
@@ -2107,8 +2210,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected scope combines saved policy overrides with inherited provider settings. "
-                + "Choose a narrower scope.";
+                "Some tabs here follow a saved screen's own agent policy and others follow AI Settings, "
+                + "so the agent can't work across them at once. Close the tabs you don't need it for, "
+                + "or give their saved screens the same agent policy.";
             return false;
         }
 
@@ -2124,8 +2228,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected scope combines different saved agent policy providers or models. "
-                + "Choose a narrower scope.";
+                "Tabs here come from saved screens whose agent policies use different AI providers or models. "
+                + "Close the tabs you don't need the agent for, or choose the same provider and model for those saved screens.";
             return false;
         }
 
@@ -2139,8 +2243,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             policy = null;
             error =
-                "The selected workspace does not have valid agent settings. "
-                + "Choose a narrower scope.";
+                "The agent policies of the saved screens open here can't be combined. "
+                + "Close the tabs you don't need the agent for, or edit their saved screens' agent policy.";
             return false;
         }
     }
@@ -2177,7 +2281,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public bool IsSettingsVisible => _navigation.IsSettingsVisible;
 
     public bool IsWorkspaceCanvasVisible =>
-        _navigation.IsWorkspaceCanvasVisible && !IsWorkspaceIsolationStarting;
+        _navigation.IsWorkspaceCanvasVisible && !IsWorkspaceIsolationProgressVisible;
 
     public bool IsAppearanceSettingsVisible => _navigation.IsAppearanceSettingsVisible;
 
@@ -2221,6 +2325,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsMcpSettingsVisible => _navigation.IsMcpSettingsVisible;
 
+    public bool IsNotificationSettingsVisible => _navigation.IsNotificationSettingsVisible;
+
     public bool IsAboutSettingsVisible => _navigation.IsAboutSettingsVisible;
 
     public string SecretVaultStatus
@@ -2234,9 +2340,57 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsNewPanelVisible => _navigation.IsNewPanelVisible;
 
-    public bool IsLayoutDesignerVisible => _navigation.IsLayoutDesignerVisible;
+    /// <summary>
+    /// Whether this window's Layout Designer window is open: a layout is being
+    /// designed. It is a window of its own beside the workspace now, not an
+    /// overlay over it, so the workspace stays live and usable meanwhile.
+    /// </summary>
+    public bool IsLayoutDesignerVisible
+    {
+        get => _isLayoutDesignerOpen;
+        private set => SetProperty(ref _isLayoutDesignerOpen, value);
+    }
 
-    public bool IsDefinitionEditorVisible => _navigation.IsDefinitionEditorVisible;
+    /// <summary>
+    /// Whether the workspace's panels can be docked: always, except while a
+    /// panel is held in the Layout Designer. Dock resolves drop targets across
+    /// every dock control, so a designer slot could otherwise land in the live
+    /// workspace.
+    /// </summary>
+    public bool IsWorkspaceDockingEnabled => _dockDragOrigin != DockDragOrigin.LayoutDesigner;
+
+    /// <summary>
+    /// Whether the designer's slots can be docked: always, except while a live
+    /// panel is held in the workspace, which must not land in the designer.
+    /// </summary>
+    public bool IsLayoutDesignerDockingEnabled => _dockDragOrigin != DockDragOrigin.Workspace;
+
+    /// <summary>
+    /// A panel is pressed in the workspace or the designer, or let go. Only
+    /// the other one stops taking drops meanwhile; both stay usable otherwise.
+    /// </summary>
+    public void SetDockDragOrigin(DockDragOrigin origin)
+    {
+        if (_dockDragOrigin == origin)
+        {
+            return;
+        }
+
+        _dockDragOrigin = origin;
+        OnPropertyChanged(nameof(IsWorkspaceDockingEnabled));
+        OnPropertyChanged(nameof(IsLayoutDesignerDockingEnabled));
+    }
+
+    /// <summary>
+    /// Whether this window's workspace editor window is open: a workspace is
+    /// being edited or created. Like the designer, it no longer covers the
+    /// workspace.
+    /// </summary>
+    public bool IsDefinitionEditorVisible
+    {
+        get => _isWorkspaceEditorOpen;
+        private set => SetProperty(ref _isWorkspaceEditorOpen, value);
+    }
 
     public string EditorTitle => DefinitionEdit.EditorTitle;
 
@@ -2281,13 +2435,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (SetProperty(ref _isAgentPanelDocked, value))
             {
                 OnPropertyChanged(nameof(IsAgentPanelDockedVisible));
+                OnPropertyChanged(nameof(IsAgentPanelFloating));
                 OnPropertyChanged(nameof(AgentPanelPinTip));
             }
         }
     }
 
-    /// <summary>The layout reserves the agent panel's width only while a pinned panel is on screen.</summary>
-    public bool IsAgentPanelDockedVisible => IsAgentPanelVisible && IsAgentPanelDocked;
+    /// <summary>
+    /// The layout reserves the agent panel's width only while a pinned panel
+    /// is on screen and the window is wide enough to spare it.
+    /// </summary>
+    public bool IsAgentPanelDockedVisible =>
+        IsAgentPanelVisible && IsAgentPanelDocked && !IsNarrowWindow;
 
     public string AgentPanelPinTip => IsAgentPanelDocked
         ? "Unpin — float over the workspace"
@@ -2500,40 +2659,56 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public int KeybindingConflictCount =>
         DefinitionSettings.KeybindingConflictCount;
 
-    public void ShowSettings(SettingsPage page = SettingsPage.Appearance,
+    /// <summary>
+    /// Opens this window's Settings on <paramref name="page"/>, or on the page
+    /// it was last left on. Settings is a window of its own, so an editor open
+    /// in this window stays open beside it.
+    /// </summary>
+    public void ShowSettings(SettingsPage? page = null,
         AgentChatViewModel? agentHistoryOwner = null)
     {
-        if (!TryDismissOverlayForNavigation())
-        {
-            return;
-        }
-
+        var target = page ?? SettingsPage;
         _settingsAgentHistoryOwner = agentHistoryOwner;
         OnPropertyChanged(nameof(AgentHistoryOwner));
-        _navigation.ShowSettings(page);
-        if (page is SettingsPage.Secrets or SettingsPage.Mcp)
+        _navigation.ShowSettings(target);
+        if (target is SettingsPage.Secrets or SettingsPage.Mcp)
         {
             // Listing the native credential store may show an OS authorization
             // prompt. Cross that boundary only after explicit user navigation.
             _ = RefreshSecretsAsync(CancellationToken.None);
         }
 
-        if (page == SettingsPage.Keybindings)
+        if (target == SettingsPage.Keybindings)
         {
             DefinitionSettings.EnsureKeybindingEditor();
         }
 
-        if (page == SettingsPage.Files)
+        if (target == SettingsPage.Files)
         {
             // The usage figure is read when the page is opened, not on a
             // timer: a settings page is looked at, not watched.
             FilePreviewSettingsEditor.RefreshCacheUsage();
         }
 
-        if (page == SettingsPage.Browser)
+        if (target == SettingsPage.Browser)
         {
             BrowserProfileSettingsEditor.RefreshUsage();
         }
+
+        if (target == SettingsPage.Notifications)
+        {
+            // Read when looked at: the person may have just changed it in
+            // System Settings and come back.
+            _ = NotificationSettings.RefreshAuthorizationAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>The Settings window this view model was showing closed.</summary>
+    public void HideSettings()
+    {
+        _settingsAgentHistoryOwner = null;
+        OnPropertyChanged(nameof(AgentHistoryOwner));
+        _navigation.HideSettings();
     }
 
     public void ShowWorkspace()
@@ -2551,24 +2726,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void ShowOverlay(ShellOverlay overlay)
     {
-        if (Overlay == ShellOverlay.LayoutDesigner
-            && overlay != ShellOverlay.LayoutDesigner
-            && LayoutDesignerEditor?.RequestCancel()
-                == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before opening another overlay.");
-            return;
-        }
-
-        if (Overlay == ShellOverlay.DefinitionEditor
-            && overlay != ShellOverlay.DefinitionEditor
-            && WorkspaceEditor?.RequestCancel()
-                == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before opening another overlay.");
-            return;
-        }
-
         Overlay = overlay;
         if (overlay == ShellOverlay.CommandPalette)
         {
@@ -2583,10 +2740,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         WorkspaceSettings.Dismiss();
         DefinitionEdit.Clear();
-        if (Overlay == ShellOverlay.DefinitionEditor)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsDefinitionEditorVisible = false;
     }
 
     public void BeginCreateLayout()
@@ -2598,28 +2752,36 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
-    public void BeginEditLayout(LayoutId id)
+    /// <param name="replaceCurrent">
+    /// The layout being designed is replaced even with unsaved edits: the
+    /// person has already chosen to discard them.
+    /// </param>
+    public void BeginEditLayout(LayoutId id, bool replaceCurrent = false)
     {
+        if (replaceCurrent)
+        {
+            DefinitionSettings.DismissLayoutDesigner();
+        }
+
         if (!DefinitionSettings.TryBeginEditLayout(id, out var error))
         {
+            IsLayoutDesignerVisible = LayoutDesignerEditor is not null;
             SetError(error!);
             return;
         }
 
         ClearError();
-        Overlay = ShellOverlay.LayoutDesigner;
+        IsLayoutDesignerVisible = true;
     }
 
     public void DismissLayoutDesigner()
     {
         DefinitionSettings.DismissLayoutDesigner();
-        if (Overlay == ShellOverlay.LayoutDesigner)
-        {
-            Overlay = ShellOverlay.None;
-        }
+        IsLayoutDesignerVisible = false;
+        SetDockDragOrigin(DockDragOrigin.None);
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>>
@@ -2681,7 +2843,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public bool TryGetWorkspaceDefinitionId(
@@ -2717,7 +2879,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             identity.Name,
             identity.Description);
         ClearError();
-        Overlay = ShellOverlay.DefinitionEditor;
+        IsDefinitionEditorVisible = true;
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>>
@@ -2778,18 +2940,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _workspaceTerminalMultiplexingModes.Remove(runtime.Id);
             }
         }
-    }
-
-    public void BeginEditScreen(ScreenId id)
-    {
-        var stored = _catalog.Snapshot.Screens.SingleOrDefault(item => item.Value.Id == id);
-        if (stored is null)
-        {
-            SetError("That saved screen no longer exists.");
-            return;
-        }
-
-        BeginEdit(stored.Value.Key, stored.Revision, stored.Value.Name, stored.Value.Description);
     }
 
     public void ToggleAgentPanel() => IsAgentPanelVisible = !IsAgentPanelVisible;
@@ -2862,12 +3012,19 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         var workspace = storedWorkspace.Value;
+        if (TryBringWorkspaceIsolationStartupForward(workspace.Id))
+        {
+            // Already starting: its progress comes back to the front and the
+            // open under way finishes it. This call opened nothing itself.
+            return false;
+        }
 
         // Already open: bring it forward rather than building a second one. The
         // sessions in it are the point — rebuilding them from the definition is
         // what "switching killed my processes" was.
         if (FindOpenWorkspace(workspace.Key) is { } alreadyOpen)
         {
+            StepWorkspaceIsolationStartupAside();
             if (!IsolationIntentMatches(alreadyOpen))
             {
                 SetError(
@@ -3066,13 +3223,24 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             {
                 SetError(
                     "Workspace isolation or host mounts changed while the workspace was opening. "
-                    + "The stale runtime was discarded; open it again to use the saved configuration.");
+                    + "Open it again to use the saved configuration.");
                 return false;
             }
 
             if (_shutdownStarted || operationCancellation.IsCancellationRequested)
             {
                 return false;
+            }
+
+            if (IsWorkspaceIsolationStartupSteppedAside(activationId)
+                && RuntimeWorkspace is not null)
+            {
+                // Another workspace was brought forward while this one
+                // started. It stays in front; this one joins the open set
+                // behind it and is a click on the rail away.
+                AdmitRuntimeWorkspaceBehindFront(runtime, workspace.Key, workspace.Name);
+                QueueRuntimeRecoverySnapshot();
+                return true;
             }
 
             ActivateRuntimeWorkspace(runtime, workspace.Key, workspace.Name);
@@ -3120,7 +3288,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         CancellationToken.None);
                     if (releaseError is not null)
                     {
-                        SetError(releaseError.Message);
+                        SetError(WorkspaceIsolationText.Message(releaseError));
                     }
                 }
             }
@@ -3138,7 +3306,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         if (position < 0 || position >= Workspaces.Count)
         {
-            SetError($"Workspace position {position + 1} is not available.");
+            SetError($"Workspace position {position + 1} isn't available.");
             return Task.FromResult(false);
         }
 
@@ -3167,7 +3335,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             connection.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [.. Connections.Where(item => item.Id == connection.Id)],
             CurrentAgentPolicyProvenance());
         try
@@ -3215,7 +3383,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             screen.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [.. Connections],
             CurrentAgentPolicyProvenance());
         try
@@ -3311,7 +3479,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtimeWorkspace = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             profile.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3372,7 +3540,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtimeWorkspace = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             profile.Name,
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3428,7 +3596,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Local system",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3436,13 +3604,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             RegisterWorkspaceConnectionRuntime(runtime);
             var tab = new RuntimeTabViewModel(
                 TabInstanceId.New(),
-                kind == PanelKind.Statistics ? "Statistics" : "Processes",
+                PanelTypes.Name(kind),
                 "Local host");
             var panel = CreateMonitorPanel(
                 runtime.Id,
                 tab.Id,
                 PanelInstanceId.New(),
-                kind == PanelKind.Statistics ? "Statistics" : "Process Monitor",
+                PanelTypes.Name(kind),
                 kind);
             tab.AddPanel(panel);
             runtime.Tabs.Add(tab);
@@ -3476,7 +3644,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Database",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3527,7 +3695,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var runtime = new RuntimeWorkspaceViewModel(
             WorkspaceInstanceId.New(),
             "Browser",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             CurrentAgentPolicyProvenance());
         try
@@ -3615,7 +3783,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var result = await _sessionRestoreCoordinator.ReadPreferenceAsync(cancellationToken);
         if (!result.IsSuccess)
         {
-            SetError("The session restore preference could not be loaded.");
+            SetError("Asura couldn't load the setting for restoring windows. Check it in Settings.");
             return false;
         }
 
@@ -3649,7 +3817,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 cancellationToken);
             if (!result.IsSuccess)
             {
-                SetError("The session restore preference could not be saved.");
+                SetError("Asura couldn't save the setting for restoring windows. Try again.");
                 OnPropertyChanged(nameof(RestoreSessionsOnStart));
                 return false;
             }
@@ -3763,7 +3931,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "recovery.previous-session.lookup-failed",
                 SecretSafeDiagnosticKind.Unexpected);
-            SetError("The previous session could not be loaded.");
+            SetError("Asura couldn't restore your previous windows. Open your workspaces again from the sidebar.");
             return false;
         }
 
@@ -3796,7 +3964,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _runtimeGraphLifetime.Token);
         var operationCancellation = operationLifetime.Token;
         var snapshot = snapshots
-            .Where(item => string.Equals(item.Key, RuntimeWorkspaceRecoveryCodec.SnapshotKey, StringComparison.Ordinal))
+            .Where(item => string.Equals(item.Key, RuntimeRecovery.SnapshotKey, StringComparison.Ordinal))
             .OrderByDescending(item => item.UpdatedAt)
             .FirstOrDefault();
         if (snapshot is null)
@@ -3807,12 +3975,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!RuntimeWorkspaceRecoveryCodec.TryDeserialize(
                 snapshot,
                 out var payload,
-                out var error))
+                out _))
         {
+            // The codec's reason names schema versions and internal links, so
+            // people read what to do and diagnostics record the rejection.
             SecretSafeDiagnosticProjection.WriteStandardError(
                 "recovery.previous-session.payload-rejected",
                 SecretSafeDiagnosticKind.Unexpected);
-            SetError(error ?? "Runtime recovery state could not be read.");
+            SetError("Asura couldn't read what was open before. Open your workspaces again from the sidebar.");
             return false;
         }
 
@@ -3905,8 +4075,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (!RecoveredWorkspaceIsolationConfigurationMatches(payload.Workspace))
             {
                 SetError(
-                    "Workspace isolation or host mounts changed while recovery was registering. "
-                    + "The stale runtime was discarded; restore it again with the saved configuration.");
+                    "Workspace isolation or host mounts changed while the workspace was being restored. "
+                    + "Restore it again to use the saved configuration.");
                 return false;
             }
 
@@ -3952,7 +4122,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             SecretSafeDiagnostics.WriteTraceAndStandardError(
                 "recovery.apply.failed",
                 exception);
-            SetError("Runtime recovery state could not be applied.");
+            SetError("Asura couldn't reopen what was open before. Open your workspaces again from the sidebar.");
             return false;
         }
         catch (OperationCanceledException) when (_runtimeGraphLifetime.IsCancellationRequested)
@@ -3997,7 +4167,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         CancellationToken.None);
                     if (releaseError is not null)
                     {
-                        SetError(releaseError.Message);
+                        SetError(WorkspaceIsolationText.Message(releaseError));
                     }
                 }
             }
@@ -4156,7 +4326,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     await RestoreWorkspaceAfterFailedRecreateAsync(
                         workspaceId,
                         openInstance is not null);
-                    SetError(failure.Error.Message);
+                    SetError(WorkspaceIsolationText.Message(failure.Error));
                     return false;
                 }
             }
@@ -4174,7 +4344,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             await RestoreWorkspaceAfterFailedRecreateAsync(
                 workspaceId,
                 openInstance is not null);
-            SetError("Workspace environment recreation was cancelled.");
+            SetError("Workspace environment recreation was canceled.");
             return false;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -4185,7 +4355,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             await RestoreWorkspaceAfterFailedRecreateAsync(
                 workspaceId,
                 openInstance is not null);
-            SetError("The workspace environment could not be recreated.");
+            SetError("Asura couldn't set up the workspace again. Close the workspace and open it again.");
             return false;
         }
     }
@@ -4223,7 +4393,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             cancellationToken);
         if (close is HostResult<CloseScopeResult>.Failure failure)
         {
-            SetError(failure.Error.Message);
+            SetError(ShellFailureText.CloseFailed(failure.Error));
             return false;
         }
 
@@ -4236,7 +4406,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 or SessionCloseOutcome.ForceTerminated
                 or SessionCloseOutcome.AlreadyClosed)))
         {
-            SetError("The workspace could not be restarted to change isolation configuration.");
+            SetError("Asura couldn't restart the workspace to apply its new isolation settings. Close the workspace and open it again.");
             return false;
         }
 
@@ -4250,7 +4420,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             new DefinitionStoreError(
                 DefinitionStoreErrorCode.InvalidDefinition,
                 OperationError
-                ?? "The workspace could not be restarted to change isolation configuration."));
+                ?? "Asura couldn't restart the workspace to apply its new isolation settings. Close the workspace and open it again."));
 
     public ConnectionEditorViewModel CreateConnectionEditor(ConnectionId? connectionId = null)
         => TerminalConnectionSettings.CreateEditor(connectionId);
@@ -4299,8 +4469,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (databaseProfileId is { } databaseId)
             {
                 existing = FindDatabaseConnection(databaseId)
-                    ?? throw new InvalidOperationException(
-                        "That database connection no longer exists.");
+                    ?? throw FailureReason.Readable(new InvalidOperationException(
+                        "That database connection no longer exists."));
             }
 
             database = new DatabaseConnectionEditorViewModel(
@@ -4435,7 +4605,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                             revision,
                             McpServerTestPresentationState.Failed,
                             "Test failed",
-                            failure.Error.Message));
+                            McpDiagnosticText.DescribeTestFailure(
+                                failure.Error.StableCode)));
                     break;
                 default:
                     throw new InvalidOperationException(
@@ -4451,8 +4622,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 new McpServerTestPresentation(
                     revision,
                     McpServerTestPresentationState.Failed,
-                    "Test cancelled",
-                    "The MCP server test was cancelled."));
+                    "Test canceled",
+                    "The MCP server test was canceled."));
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -4464,7 +4635,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     revision,
                     McpServerTestPresentationState.Failed,
                     "Test failed",
-                    "The MCP diagnostics boundary could not complete the test."));
+                    "Asura couldn't finish testing the MCP server. Try again."));
         }
 
         if (!_disposed)
@@ -4649,8 +4820,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         OwnsAppearancePreview && _appearancePreview.Current.HasThemeDraft;
 
     private bool _appearanceThemeSaveFailed;
+    private bool _terminalAppearanceSaveFailed;
 
-    public bool CanRetryAppearanceSave => _appearanceThemeSaveFailed && HasThemeAppearanceDraft;
+    /// <summary>
+    /// Whether an application or terminal appearance change is on show but
+    /// couldn't be saved, so Try Again and Discard Changes are offered.
+    /// </summary>
+    public bool CanRetryAppearanceSave =>
+        (_appearanceThemeSaveFailed && HasThemeAppearanceDraft)
+        || CanRetryTerminalAppearanceSave;
+
+    public bool CanRetryTerminalAppearanceSave =>
+        _terminalAppearanceSaveFailed && HasTerminalAppearanceDraft;
 
     public bool HasTerminalAppearanceDraft =>
         OwnsAppearancePreview && _appearancePreview.Current.HasTerminalDraft;
@@ -4688,7 +4869,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 ?.Revision);
         _appearancePreviewLease = acquisition.Lease;
         AppearancePreviewStatus = acquisition.Conflict
-            ?? "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            ?? "Appearance saves automatically.";
         PublishAppearanceDraftState();
         return acquisition.IsSuccess;
     }
@@ -4730,8 +4911,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         PublishAppearanceDraftState();
     }
 
+    /// <summary>
+    /// Discards the appearance changes on show that couldn't be saved,
+    /// putting back what is saved.
+    /// </summary>
+    public void DiscardUnsavedAppearance()
+    {
+        if (_appearanceThemeSaveFailed && HasThemeAppearanceDraft)
+        {
+            _appearanceThemeSaveFailed = false;
+            CancelAppearanceThemeDraft();
+        }
+
+        if (CanRetryTerminalAppearanceSave)
+        {
+            CancelTerminalAppearanceDraft();
+        }
+    }
+
     public void CancelTerminalAppearanceDraft()
     {
+        _terminalAppearanceSaveFailed = false;
         _ = _appearancePreviewLease?.ClearTerminal();
         TerminalSettings.DiscardTerminalDraft();
         OnPropertyChanged(nameof(TerminalSettingsEditor));
@@ -4794,35 +4994,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return result;
     }
 
-    public async ValueTask<DefinitionStoreResult<StoredDefinition<TerminalProfile>>>
-        ApplyTerminalAppearanceAsync(CancellationToken cancellationToken)
-    {
-        if (!BeginAppearanceEditing() || _appearancePreviewLease is null)
-        {
-            return DefinitionStoreResult<StoredDefinition<TerminalProfile>>.Failure(new(
-                DefinitionStoreErrorCode.RevisionConflict,
-                AppearancePreviewStatus));
-        }
-
-        ClearError();
-        var result = await TerminalSettings.SaveTerminalProfileAsync(
-            cancellationToken,
-            _appearancePreviewLease.BaselineTerminalRevision);
-        ApplyError(result.Error);
-        if (result.IsSuccess)
-        {
-            _ = _appearancePreviewLease.AdvanceTerminalBaseline(result.Value!.Revision);
-            _ = _appearancePreviewLease.ClearTerminal();
-            TerminalSettings.DiscardTerminalDraft();
-            OnPropertyChanged(nameof(TerminalSettingsEditor));
-            ReleaseInactiveAppearanceLease();
-            AppearancePreviewStatus = "Terminal appearance saved.";
-            PublishAppearanceDraftState();
-        }
-
-        return result;
-    }
-
     public void ReleaseAppearanceEditing()
     {
         if (_appearancePreviewLease is null)
@@ -4836,6 +5007,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // queried or rebuilt.
         var mayRefreshEditor = !_disposed;
         var hadTerminalDraft = mayRefreshEditor && HasTerminalAppearanceDraft;
+        _terminalAppearanceSaveFailed = false;
         _appearancePreviewLease.Dispose();
         _appearancePreviewLease = null;
         if (!mayRefreshEditor)
@@ -4850,7 +5022,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         AppearancePreviewStatus =
-            "Application appearance saves automatically. Terminal previews use Apply terminal or Cancel.";
+            "Appearance saves automatically.";
         PublishAppearanceDraftState();
     }
 
@@ -4866,6 +5038,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         OnPropertyChanged(nameof(HasThemeAppearanceDraft));
         OnPropertyChanged(nameof(CanRetryAppearanceSave));
+        OnPropertyChanged(nameof(CanRetryTerminalAppearanceSave));
         OnPropertyChanged(nameof(HasTerminalAppearanceDraft));
         OnPropertyChanged(nameof(HasUnresolvedAppearanceDrafts));
     }
@@ -4881,11 +5054,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public void ApplyQuickTerminalRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result) =>
         TerminalSettings.ApplyQuickTerminalRegistration(
             configuredGesture,
-            activeGesture,
             result);
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<LayoutDefinition>>> CreateLayoutAsync(
@@ -5030,6 +5201,54 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public void DismissSavedScreenDeleteUndo() =>
         SavedScreenSettings.DismissDeleteUndo();
 
+    /// <summary>
+    /// Deletes a saved connection at once and leaves Undo in its place. Its
+    /// credentials stay until the Undo is gone.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteConnectionWithUndoAsync(
+        DefinitionKey key,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteConnectionAsync(key, revision, cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    /// <summary>
+    /// Deletes a saved workspace at once and leaves Undo in its place. An open
+    /// workspace's tabs keep running; an isolate is never deleted.
+    /// </summary>
+    public async ValueTask<DefinitionStoreResult<Unit>> DeleteWorkspaceWithUndoAsync(
+        WorkspaceId id,
+        long revision,
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.DeleteWorkspaceAsync(
+            id,
+            revision,
+            IsDefinitionOpen(new DefinitionKey(WorkspaceDefinition.Kind, id.Value))
+                || _openWorkspaces.Any(workspace =>
+                    TryGetWorkspaceDefinitionId(workspace.Id, out var open) && open == id),
+            cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public async ValueTask<DefinitionStoreResult<Unit>> UndoDefinitionDeleteAsync(
+        CancellationToken cancellationToken)
+    {
+        ClearError();
+        var result = await DefinitionDeleteUndo.UndoAsync(cancellationToken);
+        ApplyError(result.Error);
+        return result;
+    }
+
+    public ValueTask DismissDefinitionDeleteUndoAsync() =>
+        DefinitionDeleteUndo.DismissAsync();
+
     public bool IsDefinitionOpen(DefinitionKey key) =>
         RuntimeWorkspace is not null && _runtimeHistorySource?.SourceDefinition == key;
 
@@ -5123,7 +5342,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 && await ScheduleWorkspaceIsolationCleanup(runtimeWorkspace)
                     is { } releaseError)
             {
-                SetError(releaseError.Message);
+                SetError(WorkspaceIsolationText.Message(releaseError));
             }
         }
         return result;
@@ -5317,7 +5536,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return HostResult<CloseScopeResult>.Fail(
                 HostError.Create(
                     HostErrorCode.NotFound,
-                    "This File Viewer has no hosted session to close."),
+                    "This Files panel has no hosted session to close."),
                 currentRevision: 0);
         }
 
@@ -5438,7 +5657,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
     }
 
-    private async Task<bool> RemoveTabUnderGateAsync(
+    private async Task<bool> RemoveTabUnderGateCoreAsync(
         RuntimeWorkspaceViewModel workspace,
         RuntimeTabViewModel tab,
         CancellationToken cancellationToken,
@@ -5861,9 +6080,14 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             cancellationToken);
     }
 
+    private const string LauncherTabTitle = "New Tab";
+
+    // Recovery written before tab titles took title case.
+    private const string LegacyLauncherTabTitle = "New tab";
+
     private static RuntimeTabViewModel CreateLauncherTab()
     {
-        var tab = new RuntimeTabViewModel(TabInstanceId.New(), "New tab", "Launcher");
+        var tab = new RuntimeTabViewModel(TabInstanceId.New(), LauncherTabTitle, "Launcher");
         tab.AddPlaceholder(PanelSide.Right);
         return tab;
     }
@@ -5931,7 +6155,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!connection.PanelLaunchCapabilities.Supports(kind))
         {
-            SetError($"{connection.Name} cannot open {PanelTitle(kind)}.");
+            SetError($"“{connection.Name}” can't open {PanelTitle(kind)}. Choose another connection.");
             return false;
         }
 
@@ -6005,13 +6229,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!storedProfile.Value.Configuration.PanelLaunchCapabilities.Supports(kind))
         {
-            SetError($"{storedProfile.Value.Name} cannot open {PanelTitle(kind)}.");
+            SetError($"“{storedProfile.Value.Name}” can't open {PanelTitle(kind)}. Choose another connection.");
             return false;
         }
 
         if (_filePanelClient.Profiles.All(profile => !string.Equals(profile.Id, profileId.Value, StringComparison.Ordinal)))
         {
-            SetError("That file connection is not ready yet.");
+            SetError("That file connection isn't ready yet.");
             return false;
         }
 
@@ -6026,7 +6250,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace,
             tab,
             panel,
-            "File Viewer creation",
+            "Files panel creation",
             () =>
             {
                 tab.AddPanel(panel);
@@ -6143,7 +6367,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (connection.Endpoint is not (ConnectionEndpoint.Local or ConnectionEndpoint.Ssh))
             {
                 SetError(
-                    "That execution connection cannot back File Viewer. "
+                    "That connection can't open a Files panel. "
                     + "Choose a file connection from the panel selector.");
                 return false;
             }
@@ -6217,7 +6441,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         else
         {
-            SetError("This panel type does not support connection switching.");
+            SetError("This panel type doesn't support connection switching.");
             return false;
         }
 
@@ -6262,7 +6486,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             candidate.Panels.Any(panel => panel.Id == currentPanel.Id));
         if (workspace is null || tab is null)
         {
-            SetError("That File Viewer panel is no longer open.");
+            SetError("That Files panel is no longer open.");
             return false;
         }
 
@@ -6271,7 +6495,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             .SingleOrDefault(candidate => candidate.Id == currentPanel.Id);
         if (livePanel is null)
         {
-            SetError("The File Viewer changed before its connection could be switched.");
+            SetError("The Files panel changed before its connection could be switched.");
             return false;
         }
 
@@ -6285,7 +6509,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!tab.ReplacePanel(livePanel, replacement))
         {
             replacement.Dispose();
-            SetError("The File Viewer changed before its connection could be switched.");
+            SetError("The Files panel changed before its connection could be switched.");
             return false;
         }
 
@@ -6303,7 +6527,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var tab = workspace?.ActiveTab;
         if (workspace is null || tab is null)
         {
-            SetError("Open a workspace tab before adding a File Viewer panel.");
+            SetError("Open a workspace tab before adding a Files panel.");
             return false;
         }
 
@@ -6311,13 +6535,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace.Id,
             tab.Id,
             PanelInstanceId.New(),
-            "File Viewer",
+            PanelTypes.Files,
             deferInitialization: true);
         return await AddRuntimePanelUnderReceiptAsync(
             workspace,
             tab,
             panel,
-            "File Viewer creation",
+            "Files panel creation",
             () =>
             {
                 tab.AddPanel(panel);
@@ -6746,7 +6970,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!connection.PanelLaunchCapabilities.Supports(panel))
         {
-            SetError($"{connection.Name} cannot open {PanelTitle(panel)}.");
+            SetError($"“{connection.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
             return Task.FromResult(false);
         }
 
@@ -6763,7 +6987,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
                 if (!currentConnection.PanelLaunchCapabilities.Supports(panel))
                 {
-                    SetError($"{currentConnection.Name} cannot open {PanelTitle(panel)}.");
+                    SetError($"“{currentConnection.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
                     return null;
                 }
 
@@ -6805,13 +7029,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         if (!storedProfile.Value.Configuration.PanelLaunchCapabilities.Supports(panel))
         {
-            SetError($"{storedProfile.Value.Name} cannot open {PanelTitle(panel)}.");
+            SetError($"“{storedProfile.Value.Name}” can't open {PanelTitle(panel)}. Choose another connection.");
             return Task.FromResult(false);
         }
 
         if (_filePanelClient.Profiles.All(profile => !string.Equals(profile.Id, profileId.Value, StringComparison.Ordinal)))
         {
-            SetError("That file connection is not ready yet.");
+            SetError("That file connection isn't ready yet.");
             return Task.FromResult(false);
         }
 
@@ -7099,21 +7323,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static string SinglePanelTabTitle(PanelKind kind) => kind switch
     {
-        PanelKind.Browser => "Browser",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        PanelKind.Docker => "Docker",
-        PanelKind.Kubernetes => "Kubernetes",
-        PanelKind.Git => "Git",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        PanelKind.Terminal or PanelKind.Placeholder =>
+            throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        _ => PanelTypes.Name(kind),
     };
 
     private static string BrowserCreationFailure(RuntimePanelViewModel panel) =>
         panel is UnavailableRuntimePanelViewModel unavailable
             ? unavailable.CapabilityMessage
-            : "The embedded browser could not be initialized.";
+            : "The browser couldn't start. Restart Asura, then try again.";
 
     private bool CanAppendSavedDefinitionTab()
     {
@@ -7742,7 +7960,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         if (!CanOpenDefinition(recentSession.SourceDefinition))
         {
             SetError(
-                "The current saved definition for that recent session is missing or unavailable on this platform.");
+                "The workspace or screen that session came from no longer exists or isn't available on this computer.");
             return false;
         }
 
@@ -7769,7 +7987,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return await OpenWorkspaceAsync(new WorkspaceId(source.Value), cancellationToken);
         }
 
-        SetError("That recent-session definition type cannot be reopened here.");
+        SetError("That kind of recent session can't be reopened here.");
         return false;
     }
 
@@ -7829,7 +8047,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 new DefinitionKey(WorkspaceDefinition.Kind, item.Id.Value));
             item.IsOpen = runtime is not null;
             item.CanSaveLayout = runtime is not null && WorkspaceAutoSave.CanSaveLayout(runtime, item.Id);
-            item.IsInFront = _workspaceIsolationStartingWorkspaceId is { } startingId
+            item.IsInFront = IsWorkspaceIsolationProgressVisible
+                && _workspaceIsolationStartingWorkspaceId is { } startingId
                 ? item.Id == startingId
                 : runtime is not null && ReferenceEquals(runtime, RuntimeWorkspace);
             item.HasAttention = runtime?.HasAttention == true;
@@ -7842,6 +8061,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
 
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(HasWorkspaceAgentActivity));
     }
 
@@ -7854,7 +8075,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// rail is still visible from the chrome.
     /// </summary>
     public bool HasWorkspaceAttention =>
-        !ShowWorkspacesPanel && Workspaces.Any(item => item.HasAttention);
+        !IsWorkspaceRailVisible && Workspaces.Any(item => item.HasAttention);
+
+    /// <summary>
+    /// The Workspaces button as it is heard: "Workspaces", or "Workspaces, 1
+    /// needs attention" while it carries the mark. The mark is a dot, and a
+    /// dot says nothing to a screen reader.
+    /// </summary>
+    public string WorkspacesMenuName => AttentionLabel.Count(
+        "Workspaces",
+        HasWorkspaceAttention ? Workspaces.Count(item => item.HasAttention) : 0);
 
     public bool HasWorkspaceAgentActivity =>
         Workspaces.Any(item => item.HasAgentActivity);
@@ -7866,6 +8096,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// </summary>
     public bool HasRunningAgent =>
         _workspaceAgentChats.Values.Any(owned => owned.ViewModel.IsBusy);
+
+    /// <summary>
+    /// The agent in front waits on an approval, a question, or a permission.
+    /// The agent toggle wears a badge for it, not only the activity pulse.
+    /// </summary>
+    public bool IsAgentAwaitingDecision => AgentChat is { } chat
+        && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest);
+
+    /// <summary>The agent toggle's state, as assistive technology reads it.</summary>
+    public string AgentToggleStatus => AgentChat switch
+    {
+        { HasPendingApproval: true } or { HasPendingCapabilityRequest: true } => "Waiting for approval",
+        { HasPendingQuestion: true } => "Waiting for your answer",
+        _ => HasRunningAgent ? "Running" : string.Empty,
+    };
 
     /// <summary>
     /// The running instance of a saved workspace, if it is running. The rail
@@ -7922,7 +8167,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            SetError("The workspace layout could not be saved. Try again.");
+            SetError("Asura couldn't save the workspace layout. Try again.");
         }
         finally
         {
@@ -7959,6 +8204,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         StartRuntimeGraphWatch(runtime);
         RefreshWorkspaceRuntimeFlags();
         MarkVisibleNotificationsSeen();
+    }
+
+    /// <summary>
+    /// Opens a workspace without bringing it forward: its panels start and
+    /// the rail shows it running, while the workspace in front stays there.
+    /// Choosing it later reactivates it like any other open workspace.
+    /// </summary>
+    private void AdmitRuntimeWorkspaceBehindFront(
+        RuntimeWorkspaceViewModel runtime,
+        DefinitionKey sourceDefinition,
+        string durableTitle)
+    {
+        _runtimeSources[runtime.Id] = new RuntimeHistorySource(sourceDefinition, durableTitle);
+        WorkspaceAutoSave.TrackLayout(runtime);
+        // Just behind the one in front, so closing that one falls back here.
+        var front = RuntimeWorkspace is { } current ? _openWorkspaces.IndexOf(current) : -1;
+        _openWorkspaces.Insert(front < 0 ? _openWorkspaces.Count : front, runtime);
+        Notifications.Watch(runtime);
+        StartAcceptedRuntimePanels(runtime);
+        TrackRecentSessions(runtime.Tabs.SelectMany(tab => tab.Panels));
+        RefreshWorkspaceRuntimeFlags();
     }
 
     /// <summary>
@@ -8058,7 +8324,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 source.SourceDefinition))
             {
                 throw new InvalidOperationException(
-                    "The workspace definition is being changed while its runtime activates.");
+                    "The workspace's settings changed while it was opening. Try opening it again.");
             }
         }
 
@@ -8699,35 +8965,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
         };
 
-    private void BeginEdit(
-        DefinitionKey key,
-        long revision,
-        string name,
-        string? description)
-    {
-        DefinitionEdit.Begin(key, revision, name, description);
-        ShowOverlay(ShellOverlay.DefinitionEditor);
-    }
-
+    /// <summary>
+    /// Leaving for the workspace closes the transient overlay. The workspace
+    /// editor and the Layout Designer are windows beside this one now, so
+    /// using the workspace leaves them, and their edits, alone.
+    /// </summary>
     private bool TryDismissOverlayForNavigation()
     {
-        if (LayoutDesignerEditor?.RequestCancel()
-            == LayoutDesignerCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the layout changes before leaving this view.");
-            return false;
-        }
-
-        if (WorkspaceEditor?.RequestCancel()
-            == WorkspaceEditorCancelDisposition.ConfirmDiscard)
-        {
-            SetError("Save or discard the workspace changes before leaving this view.");
-            return false;
-        }
-
-        DefinitionSettings.DismissLayoutDesigner();
-        WorkspaceSettings.Dismiss();
-        DefinitionEdit.Clear();
         Overlay = ShellOverlay.None;
         return true;
     }
@@ -8808,7 +9052,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             screens,
             [.. snapshot.KubernetesConnections.Select(item => new LauncherConnectionViewModel(
                 new ConnectionId(item.Value.Id.Value), item.Revision, item.Value.Name, "Kubernetes", item.Value.ContextName,
-                "Validated on connect", item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
+                item.Value.IsEnabled ? "Validated on connect" : "Turned off in Settings",
+                item.Value.IsEnabled, [], SavedConnectionFamily.Kubernetes, item.Value.Id.Value))]);
         ReconcileAgentSavedScreenTemplate();
         // A rail item that was replaced arrives with its runtime flags cleared,
         // and the flags are derived rather than stored, so nothing else would
@@ -8816,10 +9061,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // revision — which is exactly what autosave does every time a tab is
         // added — and the rail forgot which workspace you were in.
         RefreshWorkspaceRuntimeFlags(snapshot);
-        // The active runtime does not change when its backing definition is
-        // edited. Re-resolve its shell accent from this newly published
-        // snapshot so an accent save retints the open workspace immediately.
-        SetActiveWorkspaceAccent(ShellAccentOf(RuntimeWorkspace, snapshot));
         FileProviderSettings.ApplyCatalog(snapshot);
         AiProviderSettings.ApplyCatalog(snapshot);
         RefreshMcpServerDefinitions(snapshot);
@@ -8843,6 +9084,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         // The mark on the menu stands in for the rail, so turning the rail on
         // or off decides whether it is needed.
         OnPropertyChanged(nameof(HasWorkspaceAttention));
+        OnPropertyChanged(nameof(WorkspacesMenuName));
         OnPropertyChanged(nameof(KeybindingConflictCount));
         RefreshRecentSessionAvailability();
         Launcher.RefreshSearchResults();
@@ -8871,7 +9113,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         _selectedAgentSavedScreenTemplate = null;
         AgentSavedScreenTargetStatus =
-            "The selected template changed or was removed. Select its current revision before creating a live target.";
+            "The saved screen changed or was removed. Choose it again before opening it in a tab.";
         NotifyAgentSavedScreenTargetChanged();
     }
 
@@ -8974,10 +9216,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static string PanelLaunchLabel(PanelKind panel) => panel switch
     {
-        PanelKind.Terminal => "Open terminal",
-        PanelKind.FileViewer => "Open files",
-        PanelKind.Statistics => "Open statistics",
-        PanelKind.ProcessMonitor => "Open processes",
+        PanelKind.Terminal => "Open Terminal",
+        PanelKind.FileViewer => "Open Files",
+        PanelKind.Statistics => "Open Statistics",
+        PanelKind.ProcessMonitor => "Open Processes",
         PanelKind.Docker => "Open Docker",
         PanelKind.Kubernetes => "Open Kubernetes",
         PanelKind.Git => "Open Git",
@@ -9155,9 +9397,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     ? "Credential missing"
                     : "Enabled for new runs";
         var baselineDetail = !profile.IsTrusted
-            ? "Review this server definition before testing or enabling it."
+            ? "Review this server's settings before testing or turning it on."
             : !profile.IsEnabled
-            ? "Testing is available, but agent runs cannot select this server."
+            ? "You can test this server, but the agent can't use it."
             : hasNoEnabledTools
                 ? "Choose at least one tool before enabling this server."
                 : missingSecretCount > 0
@@ -9239,11 +9481,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return null;
         }
 
-        var session = summary.SessionId[..Math.Min(8, summary.SessionId.Length)];
-        var kind = summary.SessionKind == McpServerSessionKind.Test
-            ? "Test"
-            : "Live session";
-        var detail = $"{kind} {session} · {summary.Events[^1].Message}";
+        // The stable code, said in the reader's words; the session ID and
+        // the host's own sentence are for the diagnostic history, not the row.
+        var detail = McpDiagnosticText.Describe(summary);
         return summary.State switch
         {
             McpServerLifecycleState.Testing => ("Testing", detail),
@@ -9392,21 +9632,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 stored.Revision,
                 McpServerTestPresentationState.Failed,
                 "Test failed",
-                "The test result did not match the saved server settings.");
+                "The test result didn't match the saved server settings.");
         }
 
-        var discovered = report.DiscoveredToolCount == 1
-            ? "1 tool"
-            : $"{report.DiscoveredToolCount} tools";
-        var enabled = report.EnabledToolCount == 1
-            ? "1 enabled tool matched."
-            : $"{report.EnabledToolCount} enabled tools matched.";
+        var discovered = CountText.OrNone(report.DiscoveredToolCount, "tool", "tools");
+        var enabled = report.EnabledToolCount switch
+        {
+            0 => "No enabled tools matched.",
+            1 => "1 enabled tool matched.",
+            var count => $"{CountText.Of(count, "enabled tool", "enabled tools")} matched.",
+        };
         var eligibility = report.EnabledToolCount == 0
                 ? " No tools are enabled for agent runs."
                 : string.Empty;
-        var completed = report.CompletedAtUtc.ToString(
-            "yyyy-MM-dd HH:mm:ss 'UTC'",
-            System.Globalization.CultureInfo.InvariantCulture);
+        // In the reader's own time and date style, like every other date
+        // the app shows.
+        var completed = DisplayDates.Format(report.CompletedAtUtc);
         return new McpServerTestPresentation(
             stored.Revision,
             McpServerTestPresentationState.Succeeded,
@@ -9420,114 +9661,76 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         var activeBindings = ActiveApplicationKeymap.Bindings
             .ToLookup(binding => binding.CommandId);
         var candidates = new List<LauncherSearchResultViewModel>();
-        var savedDefinitionAction = HasRuntimeWorkspace ? "Add tab" : "Open";
 
         var canStartFileViewer = RuntimeWorkspace?.ActiveTab is not null
             || Workspaces.Count > 0
             || Connections.Any(connection => connection.CanOpen);
-        var canStartBrowser = CanStartBrowserSession;
         var canStartDatabase = _databaseConnectionCatalog is not null;
+
+        // One row per panel type, by the name and sentence the launcher and
+        // the Add Panel chooser use. The old names stay searchable.
         candidates.AddRange(
         [
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Terminal),
-                Symbol.WindowConsole,
-                "Create · terminal",
-                "New terminal",
-                "Start a local PTY in a new tab.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "terminal", "local", "pty", "panel", "tab"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Browser),
-                Symbol.Globe,
-                "Create · browser",
-                "New browser",
-                "Open an embedded Chromium browser panel.",
-                canStartBrowser ? "Open" : "Unavailable",
-                canStartBrowser,
-                canStartBrowser
-                    ? null
-                    : "The embedded browser is unavailable in this build.",
-                ["create", "new", "browser", "web", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.FileViewer),
-                Symbol.Folder,
-                "Create · files",
-                "New File Viewer",
-                "Browse local or configured file providers.",
-                canStartFileViewer ? "Open" : "Unavailable",
-                canStartFileViewer,
+            CreatePanelResult(
+                PanelKind.Terminal,
+                unavailableReason: null,
+                ["create", "new", "terminal", "local", "shell", "pty", "panel", "tab"]),
+            CreatePanelResult(
+                PanelKind.Browser,
+                BrowserSessionUnavailableReason,
+                ["create", "new", "browser", "web", "chromium", "panel"]),
+            CreatePanelResult(
+                PanelKind.FileViewer,
                 canStartFileViewer
                     ? null
-                    : "Open or save a workspace or connection first.",
-                ["create", "new", "file", "files", "viewer", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Statistics),
-                Symbol.PulseSquare,
-                "Create · statistics",
-                "New statistics panel",
-                "Watch live system metrics on this host.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "statistics", "stats", "local", "host", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.ProcessMonitor),
-                Symbol.Gauge,
-                "Create · process monitor",
-                "New process monitor",
-                "Watch running processes on this host.",
-                "Open",
-                IsAvailable: true,
-                UnavailableReason: null,
-                ["create", "new", "process", "monitor", "local", "host", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.DatabaseViewer),
-                Symbol.Database,
-                "Create · database",
-                "New database viewer",
-                "Query SQLite, PostgreSQL, or MySQL.",
-                canStartDatabase ? "Open" : "Unavailable",
-                canStartDatabase,
+                    : "Open a workspace or save a connection first.",
+                ["create", "new", "file", "files", "viewer", "file viewer", "panel"]),
+            CreatePanelResult(
+                PanelKind.Statistics,
+                unavailableReason: null,
+                ["create", "new", "statistics", "stats", "metrics", "local", "host", "panel"]),
+            CreatePanelResult(
+                PanelKind.ProcessMonitor,
+                unavailableReason: null,
+                ["create", "new", "process", "processes", "process monitor", "local", "host", "panel"]),
+            CreatePanelResult(
+                PanelKind.DatabaseViewer,
                 canStartDatabase
                     ? null
-                    : "The database drivers are unavailable in this build.",
+                    : "This build of Asura doesn't include the database drivers.",
                 ["create", "new", "database", "sql", "sqlite", "postgres", "mysql", "panel"]),
-            new LauncherSearchResultViewModel(new LauncherSearchTarget.CreatePanel(PanelKind.Kubernetes), Symbol.Grid,
-                "Create · Kubernetes", "New Kubernetes panel", "Browse cluster resources, manifests and pod logs.", "Open",
-                true, null, ["create", "new", "kubernetes", "k8s", "cluster", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Docker),
-                Symbol.Box,
-                "Create · Docker",
-                "New Docker panel",
-                "Manage containers, images, volumes, and networks locally or over SSH.",
-                _dockerEngineClient is null ? "Unavailable" : "Open",
-                _dockerEngineClient is not null,
+            CreatePanelResult(
+                PanelKind.Kubernetes,
+                unavailableReason: null,
+                ["create", "new", "kubernetes", "k8s", "cluster", "panel"]),
+            CreatePanelResult(
+                PanelKind.Docker,
                 _dockerEngineClient is null
-                    ? "Docker support is unavailable in this build."
+                    ? "This build of Asura doesn't include Docker support."
                     : null,
                 ["create", "new", "docker", "container", "image", "volume", "network", "panel"]),
-            new LauncherSearchResultViewModel(
-                new LauncherSearchTarget.CreatePanel(PanelKind.Git),
-                Symbol.BranchFork,
-                "Create · Git",
-                "New Git panel",
-                "Stage, commit, and browse history locally or over SSH.",
-                _gitRepositoryClient is null ? "Unavailable" : "Open",
-                _gitRepositoryClient is not null,
+            CreatePanelResult(
+                PanelKind.Git,
                 _gitRepositoryClient is null
-                    ? "Git support is unavailable in this build."
+                    ? "This build of Asura doesn't include Git support."
                     : null,
                 ["create", "new", "git", "repository", "commit", "branch", "diff", "panel"]),
         ]);
 
+        // Captured once: the window reads the focused element's facts, which
+        // takes a walk of the visual tree.
+        var captured = CaptureCommandInvocation();
+        var menuShortcuts = OperatingSystem.IsMacOS()
+            ? CreateMenuShortcutResolver()
+            : null;
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
+            // A command the active profile does not bind is still listed, once
+            // per invocation its presets know, but without another profile's
+            // shortcut: that key would do nothing here.
             var bindings = activeBindings[command.Id].ToArray();
-            if (bindings.Length == 0)
+            var isBoundHere = bindings.Length > 0;
+            if (!isBoundHere)
             {
                 bindings = [.. command.DefaultBindings];
             }
@@ -9547,7 +9750,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 candidates.Add(CreateCommandLauncherResult(
                     command,
                     ImmutableDictionary<string, string>.Empty,
-                    "Unbound"));
+                    PaletteShortcut(menuShortcuts, command.Id, ImmutableDictionary<string, string>.Empty, null),
+                    captured));
                 continue;
             }
 
@@ -9555,16 +9759,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 CreateCommandLauncherResult(
                     command,
                     invocation.Target.Arguments,
-                    invocation.Binding.Sequence.ToString())));
+                    PaletteShortcut(
+                        menuShortcuts,
+                        command.Id,
+                        invocation.Target.Arguments,
+                        isBoundHere ? invocation.Binding.Sequence : null),
+                    captured)));
         }
 
         candidates.AddRange(Connections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Connection(connection.Id),
             Symbol.Server,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9578,10 +9787,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             new LauncherSearchTarget.FileConnection(
                 new FileProviderProfileId(connection.TargetId)),
             Symbol.Folder,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9593,16 +9802,17 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             ])));
         candidates.AddRange(Launcher.KubernetesConnections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.KubernetesConnection(new KubernetesConnectionProfileId(connection.TargetId)), Symbol.Grid,
-            "Kubernetes connection", connection.Name, connection.Detail, "Open", connection.CanOpen, null,
+            "Connection · Kubernetes", connection.Name, connection.Detail, string.Empty, connection.CanOpen,
+            connection.CanOpen ? null : connection.Status,
             ["kubernetes", "k8s", "cluster", connection.Name, connection.Detail])));
         candidates.AddRange(DatabaseConnections.Select(connection => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.DatabaseConnection(
                 new DatabaseConnectionProfileId(connection.TargetId)),
             Symbol.Database,
-            $"CONNECTION · {connection.Kind}",
+            $"Connection · {connection.Kind}",
             connection.Name,
             connection.Detail,
-            connection.CanOpen ? savedDefinitionAction : "Unavailable",
+            string.Empty,
             connection.CanOpen,
             connection.CanOpen ? null : connection.Status,
             [
@@ -9615,10 +9825,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         candidates.AddRange(Screens.Select(screen => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Screen(screen.Id),
             Symbol.Grid,
-            $"SAVED SCREEN · {screen.Layout}",
+            $"Saved Screen · {screen.Layout}",
             screen.Name,
-            $"{screen.Description} · {CountLabel(screen.PanelCount, "panel")}",
-            savedDefinitionAction,
+            JoinCaption(screen.Description, CountLabel(screen.PanelCount, "panel")),
+            string.Empty,
             IsAvailable: true,
             UnavailableReason: null,
             ["screen", "saved screen", screen.Id.Value, screen.Description, screen.Layout])));
@@ -9627,22 +9837,22 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             workspace.IconSymbol,
             "Workspace",
             workspace.Name,
-            workspace.Description,
-            CountLabel(workspace.ItemCount, "item"),
+            JoinCaption(workspace.Description, CountLabel(workspace.ItemCount, "item")),
+            string.Empty,
             IsAvailable: true,
             UnavailableReason: null,
             ["workspace", workspace.Id.Value, workspace.Description])));
         candidates.AddRange(HistorySessions.Select(recent => new LauncherSearchResultViewModel(
             new LauncherSearchTarget.RecentSession(recent.SessionId),
             Symbol.History,
-            $"RECENT SESSION · {recent.SourceKind}",
+            $"Recent Session · {recent.SourceKind}",
             recent.Title,
-            recent.Detail,
-            recent.LastUsed,
+            JoinCaption(recent.Detail, recent.LastUsed),
+            string.Empty,
             recent.CanOpen,
             recent.CanOpen
                 ? null
-                : "The current saved definition no longer exists or is unavailable on this platform.",
+                : "The workspace or screen that session came from no longer exists or isn't available on this computer.",
             [
                 "recent",
                 "recent session",
@@ -9654,28 +9864,154 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return candidates;
     }
 
+    /// <summary>
+    /// The shortcut a palette row shows. On macOS that is the one the menu bar
+    /// shows for the command, found the way the menu finds it: the active
+    /// application keymap, then the active terminal's keymap, then Apple's
+    /// standard key. A command only a key sequence reaches, such as a tmux
+    /// prefix, shows that sequence.
+    /// </summary>
+    private static string PaletteShortcut(
+        MenuShortcutResolver? menuShortcuts,
+        CommandId command,
+        IReadOnlyDictionary<string, string> arguments,
+        KeySequence? boundSequence)
+    {
+        if (menuShortcuts?.Resolve(command, arguments) is { } menuStroke)
+        {
+            return KeySequenceDisplay.Format(menuStroke);
+        }
+
+        return boundSequence is { } sequence
+            ? KeySequenceDisplay.Format(sequence)
+            : string.Empty;
+    }
+
+    /// <summary>
+    /// Resolves menu shortcuts against this window's keymaps: the active
+    /// application profile and the active terminal's keymap, as the menu bar does.
+    /// </summary>
+    internal MenuShortcutResolver CreateMenuShortcutResolver()
+    {
+        var terminalKeymap = ActivePanel is TerminalRuntimePanelViewModel { Keymap: { } snapshot }
+            ? snapshot.Bindings
+            : BuiltInKeymaps.TerminalFor(HostPlatform.Current).Bindings;
+        return new MenuShortcutResolver(ActiveApplicationKeymap.Bindings, terminalKeymap);
+    }
+
+    /// <summary>
+    /// A palette row that opens a new tab of one panel type. It is named and
+    /// described as the launcher and the Add Panel chooser name it.
+    /// </summary>
+    private static LauncherSearchResultViewModel CreatePanelResult(
+        PanelKind kind,
+        string? unavailableReason,
+        IReadOnlyList<string> searchTerms) =>
+        new(
+            new LauncherSearchTarget.CreatePanel(kind),
+            PanelTypes.Icon(kind),
+            "New Tab",
+            PanelTypes.Name(kind),
+            PanelTypes.Description(kind),
+            string.Empty,
+            IsAvailable: unavailableReason is null,
+            unavailableReason,
+            searchTerms);
+
+    /// <summary>
+    /// A palette row's glyph: what the command is about, so a list of
+    /// commands is not a column of identical code brackets. A few commands
+    /// carry their own; the rest take their category's.
+    /// </summary>
+    internal static Symbol CommandIcon(CommandDefinition command)
+    {
+        if (CommandIcons.TryGetValue(command.Id, out var own))
+        {
+            return own;
+        }
+
+        return command.Category switch
+        {
+            "Agent" => Symbol.Bot,
+            "Application" => Symbol.Apps,
+            "Edit" => Symbol.Edit,
+            "Git" => PanelTypes.Icon(PanelKind.Git),
+            "Docker" => PanelTypes.Icon(PanelKind.Docker),
+            "Kubernetes" => PanelTypes.Icon(PanelKind.Kubernetes),
+            "Files" => PanelTypes.Icon(PanelKind.FileViewer),
+            "Database" => PanelTypes.Icon(PanelKind.DatabaseViewer),
+            "Processes" => PanelTypes.Icon(PanelKind.ProcessMonitor),
+            "Redis" => PanelTypes.Icon(PanelKind.DatabaseViewer),
+            "Help" => Symbol.QuestionCircle,
+            "Panels" => Symbol.LayoutColumnTwoSplitRight,
+            "Tabs" => Symbol.TabDesktop,
+            "Terminal" => Symbol.WindowConsole,
+            "View" => Symbol.PanelLeft,
+            "Window" => Symbol.WindowMultiple,
+            "Workspaces" => Symbol.Board,
+            _ => Symbol.Code,
+        };
+    }
+
+    private static readonly Dictionary<CommandId, Symbol> CommandIcons = new()
+    {
+        [BuiltInCommands.About] = Symbol.Info,
+        [BuiltInCommands.ShowSettings] = Symbol.Settings,
+        [BuiltInCommands.CheckForUpdates] = Symbol.ArrowSync,
+        [BuiltInCommands.EditFind] = Symbol.Search,
+        [BuiltInCommands.EditFindNext] = Symbol.Search,
+        [BuiltInCommands.EditFindPrevious] = Symbol.Search,
+        [BuiltInCommands.EditUseSelectionForFind] = Symbol.Search,
+        [BuiltInCommands.EditPanelSearch] = Symbol.Search,
+        [BuiltInCommands.Find] = Symbol.Search,
+        [BuiltInCommands.EditUndo] = Symbol.ArrowUndo,
+        [BuiltInCommands.EditRedo] = Symbol.ArrowRedo,
+        [BuiltInCommands.EditCopy] = Symbol.Copy,
+        [BuiltInCommands.Copy] = Symbol.Copy,
+        [BuiltInCommands.EditPaste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.Paste] = Symbol.ClipboardPaste,
+        [BuiltInCommands.EditCut] = Symbol.Cut,
+        [BuiltInCommands.ShowKeyboardShortcuts] = Symbol.Keyboard,
+        [BuiltInCommands.ReportIssue] = Symbol.Bug,
+        [BuiltInCommands.NewWindow] = Symbol.WindowNew,
+        [BuiltInCommands.NewTab] = Symbol.TabAdd,
+        [BuiltInCommands.NewTerminalTab] = Symbol.TabAdd,
+        [BuiltInCommands.ShowCommandPalette] = Symbol.Search,
+    };
+
+    /// <summary>
+    /// A command as a palette row: its title (naming the invocation when the
+    /// command takes arguments), its menu category, and its shortcut. The
+    /// command identifier and raw arguments stay searchable but are never
+    /// shown: they are the program's words, not the person's.
+    /// </summary>
     private LauncherSearchResultViewModel CreateCommandLauncherResult(
         CommandDefinition command,
         IReadOnlyDictionary<string, string> arguments,
-        string shortcut)
+        string shortcut,
+        CommandInvocation captured)
     {
         var argumentSummary = string.Join(
             " · ",
             arguments
                 .OrderBy(argument => argument.Key, StringComparer.Ordinal)
                 .Select(argument => argument.Value));
-        var argumentDetail = string.Join(
-            ", ",
-            arguments
-                .OrderBy(argument => argument.Key, StringComparer.Ordinal)
-                .Select(argument => $"{argument.Key}={argument.Value}"));
-        var isAvailable = IsCommandAvailable(command.Id, arguments);
+        var isAvailable = IsCommandAvailable(command.Id, arguments, captured);
         var searchTerms = new List<string>
         {
             "command",
             command.Id.Value,
+            command.Title,
             command.Category,
         };
+        if (command.StateTitle is { } stateTitle)
+        {
+            // Both verbs find it: "hide" and "show" each reach Show Sidebar.
+            searchTerms.Add(stateTitle.Title);
+        }
+
+        // Named for the current state, as the menu bar names it.
+        var title = command.TitleFor(arguments, captured);
         foreach (var argument in arguments)
         {
             searchTerms.Add(argument.Key);
@@ -9685,45 +10021,59 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
         return new LauncherSearchResultViewModel(
             new LauncherSearchTarget.Command(command.Id, arguments),
-            Symbol.Code,
-            $"COMMAND · {command.Category}",
+            CommandIcon(command),
+            command.Category,
             argumentSummary.Length == 0
-                ? command.Title
-                : $"{command.Title} · {argumentSummary}",
-            argumentDetail.Length == 0
-                ? command.Id.Value
-                : $"{command.Id.Value} · {argumentDetail}",
+                    || !string.Equals(command.TitleFor(arguments), command.Title, StringComparison.Ordinal)
+                ? title
+                : $"{title} · {argumentSummary}",
+            string.Empty,
             shortcut,
             isAvailable,
-            isAvailable ? null : "Unavailable in the current route.",
+            isAvailable ? null : "Not available here",
             searchTerms);
     }
+
+    private static string JoinCaption(string first, string second) =>
+        string.IsNullOrWhiteSpace(first)
+            ? second
+            : string.IsNullOrWhiteSpace(second) ? first : $"{first} · {second}";
 
     private static string CountLabel(int count, string singular) =>
         $"{count} {(count == 1 ? singular : $"{singular}s")}";
 
+    /// <summary>
+    /// Whether a palette row can run: the registry's contexts and facts, read
+    /// from <paramref name="captured"/>, and then this view model's own limits.
+    /// </summary>
     private bool IsCommandAvailable(
         CommandId id,
-        IReadOnlyDictionary<string, string> arguments)
+        IReadOnlyDictionary<string, string> arguments,
+        CommandInvocation captured)
     {
         if (id == BuiltInCommands.NewTab)
         {
             return true;
         }
 
-        if (!BuiltInCommands.Registry.TryGet(id, out var definition)
-            || definition is null)
-        {
-            return false;
-        }
+        return BuiltInCommands.Registry.TryGet(id, out var definition)
+            && definition is not null
+            && definition.IsAvailable(new CommandInvocation(
+                captured.ActiveContexts,
+                arguments,
+                captured.State))
+            && AllowsCommand(id, arguments);
+    }
 
-        if (!definition.IsAvailable(new CommandInvocation(
-                ActiveCommandContexts,
-                arguments)))
-        {
-            return false;
-        }
-
+    /// <summary>
+    /// The limits the registry cannot express, such as a tab position past the
+    /// last tab. Callers check the registry's contexts and facts themselves,
+    /// against the facts the window captured.
+    /// </summary>
+    internal bool AllowsCommand(
+        CommandId id,
+        IReadOnlyDictionary<string, string> arguments)
+    {
         if (id == BuiltInCommands.MoveTabLeft
             || id == BuiltInCommands.MoveTabRight)
         {
@@ -9773,21 +10123,39 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 && position < Workspaces.Count;
         }
 
-        var hasTab = RuntimeWorkspace?.ActiveTab is not null;
-        var hasPanel = ActivePanel is not null;
-        var hasTerminal = ActivePanel is TerminalRuntimePanelViewModel;
-        return (id == BuiltInCommands.SplitPanel && hasPanel)
-            || (id == BuiltInCommands.FocusPanel && hasPanel)
-            || (id == BuiltInCommands.TogglePanelZoom && hasPanel)
-            || (id == BuiltInCommands.ClosePanel && hasPanel)
-            || (id == BuiltInCommands.RenameTab && hasTab)
-            || id == BuiltInCommands.CloseTab
-            || id == BuiltInCommands.NextTab
-            || id == BuiltInCommands.PreviousTab
-            || id == BuiltInCommands.LastTab
-            || id == BuiltInCommands.SelectTab
-            || (id == BuiltInCommands.EnterTerminalCopyMode && hasTerminal)
-            || (id == BuiltInCommands.SendPrefix && hasTerminal);
+        if (id == BuiltInCommands.SelectTab)
+        {
+            return arguments.TryGetValue("position", out var value)
+                && int.TryParse(
+                    value,
+                    System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var position)
+                && position < RuntimeWorkspace?.Tabs.Count;
+        }
+
+        if (id == BuiltInCommands.SplitPanel
+            || id == BuiltInCommands.FocusPanel
+            || id == BuiltInCommands.TogglePanelZoom
+            || id == BuiltInCommands.ClosePanel)
+        {
+            return ActivePanel is not null;
+        }
+
+        if (id == BuiltInCommands.RenameTab || id == BuiltInCommands.ChangeTabIcon)
+        {
+            return RuntimeWorkspace?.ActiveTab is not null;
+        }
+
+        if (id == BuiltInCommands.EnterTerminalCopyMode
+            || id == BuiltInCommands.SendPrefix)
+        {
+            return ActivePanel is TerminalRuntimePanelViewModel;
+        }
+
+        // The rest are decided by their contexts and the facts the window
+        // reports, which the registry has already checked.
+        return true;
     }
 
     private RuntimeTabViewModel CreateConnectionTab(
@@ -9920,34 +10288,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
     }
 
-    /// <summary>
-    /// The shell accent a restored workspace should come up wearing.
-    ///
-    /// The snapshot does not carry it — it records the colour the workspace is
-    /// recognised by, which is a different field — so it is read back from the
-    /// definition the restored workspace came from. A workspace with no
-    /// definition behind it, or one whose definition is gone, leaves the shell
-    /// wearing its own accent, which is what it would have done anyway.
-    /// </summary>
-    private string? ShellAccentOf(RuntimeWorkspaceViewModel? runtime) =>
-        ShellAccentOf(runtime, _catalog.Snapshot);
-
-    private string? ShellAccentOf(
-        RuntimeWorkspaceViewModel? runtime,
-        DefinitionCatalogSnapshot snapshot)
-    {
-        if (runtime is null
-            || !_runtimeSources.TryGetValue(runtime.Id, out var source)
-            || source.SourceDefinition.Kind != WorkspaceDefinition.Kind)
-        {
-            return null;
-        }
-
-        return snapshot.Workspaces
-            .FirstOrDefault(item => string.Equals(item.Value.Id.Value, source.SourceDefinition.Value, StringComparison.Ordinal))
-            ?.Value.Accent;
-    }
-
     private RuntimeWorkspaceViewModel RestoreWorkspace(
         RuntimeWorkspaceRecoveryPayload recovered,
         WorkspaceInstanceId runtimeId,
@@ -10057,7 +10397,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             // A recovered launcher title/icon keeps the ownership recorded by
             // the current recovery schema.
             hasChosenTitle: recovered.HasChosenTitle
-                ?? !string.Equals(recovered.Title, "New tab", StringComparison.Ordinal),
+                ?? !(string.Equals(recovered.Title, LauncherTabTitle, StringComparison.Ordinal)
+                    || string.Equals(recovered.Title, LegacyLauncherTabTitle, StringComparison.Ordinal)),
             hasChosenIcon: recovered.HasChosenIcon ?? recovered.Icon is not null);
         try
         {
@@ -10286,7 +10627,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKind.ProcessMonitor,
                     recovered.Title,
-                    "Process monitor",
+                    PanelTypes.Processes,
                     "The recovered monitoring connection is no longer available.");
             }
 
@@ -10314,7 +10655,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             PanelKindFromRecovery(recovered.KindLabel),
             recovered.Title,
             recovered.KindLabel!,
-            "This recovered panel type is not available in the current build.");
+            "This recovered panel type isn't available in the current build.");
     }
 
     private RuntimeTabViewModel CreateRuntimeTab(
@@ -10417,7 +10758,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                             PanelInstanceId.New(),
                             PanelKind.FileViewer,
                             title,
-                            "File viewer",
+                            PanelTypes.Files,
                             "This panel has an invalid startup location. Repair the saved screen with a location supported by its file provider.");
                     }
                 }
@@ -10489,9 +10830,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     PanelInstanceId.New(),
                     PanelKindFromDefinition(panel.Kind),
                     title,
-                    panel.Kind == ScreenPanelKind.Statistics
-                        ? "Statistics"
-                        : "Process monitor",
+                    PanelTypes.Name(panel.Kind),
                     "The connection this panel monitors is no longer in the catalog. "
                     + "Repair the saved screen with a connection that still exists, or remove "
                     + "it from the panel to monitor the local host.");
@@ -10573,7 +10912,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKindFromDefinition(panel.Kind),
                 title,
                 KindBadges.Panel(panel.Kind),
-                $"{panel.Kind} panels are defined, but their native adapter arrives in a later milestone.");
+                $"{PanelTypes.Name(panel.Kind)} panels aren't available in this version of Asura.");
         }
 
         var connection = panel.ConnectionId is { } connectionId
@@ -10588,7 +10927,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKind.Terminal,
                 title,
                 "Terminal",
-                "This panel references a connection that is not available. Repair the saved screen in Settings.");
+                "This panel references a connection that isn't available. Repair the saved screen in Settings.");
         }
 
         return CreateTerminalPanel(workspaceId, tabId, connection, title, panel.Startup);
@@ -10692,7 +11031,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     panelId,
                     PanelKind.FileViewer,
                     title,
-                    "File Viewer");
+                    PanelTypes.Files);
             }
 
             var workspaceProfile = isolated.FilePanelClient.Profiles.First();
@@ -10777,7 +11116,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             previewers: null,
             _inMemoryDatabaseRegistry,
             _filePreviewPreferences,
-            FileTransferClipboard);
+            FileTransferClipboard,
+            trash: FileTrash.ForThisMachine);
     }
 
     private FileProviderProfileDescriptor? ResolveFileProfile(
@@ -10828,7 +11168,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 PanelKind.Browser,
                 title,
                 "Browser",
-                "This browser route is not a local or SSH connection.");
+                "This browser route isn't a local or SSH connection.");
         }
 
         var pinned = profile is null
@@ -10925,7 +11265,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         }
         catch (Exception exception)
         {
-            SetError($"The browser could not open the link: {exception.Message}");
+            SecretSafeDiagnostics.WriteTrace("browser.new-tab-link.failed", exception);
+            SetError("The browser couldn't open the link. Try opening it again.");
         }
     }
 
@@ -11031,7 +11372,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 panelId,
                 kind,
                 title,
-                kind == PanelKind.Statistics ? "Statistics" : "Process monitor");
+                PanelTypes.Name(kind));
         }
 
         var owner = new SessionOwner(
@@ -11174,7 +11515,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     _secretVault.Availability.CanPersist
                         ? StoreDatabasePasswordAsync
                         : null,
-                    DatabasePasswordStoreLabel(_secretVault.Availability.Adapter),
+                    PlatformTerms.SaveInSecretStore,
                     deferStoredCredentialAccess: deferStoredCredentialAccess,
                     sessionPassword: sessionPassword,
                     recovery: recovery,
@@ -11202,22 +11543,13 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 passwordPersister: _secretVault.Availability.CanPersist
                     ? StoreDatabasePasswordAsync
                     : null,
-                passwordStoreLabel: DatabasePasswordStoreLabel(
-                    _secretVault.Availability.Adapter),
+                passwordStoreLabel: PlatformTerms.SaveInSecretStore,
                 deferStoredCredentialAccess: deferStoredCredentialAccess,
                 sessionPassword: sessionPassword,
                 recovery: recovery,
                 persistedConnection: persistedConnection,
                 transientConnection: transientConnection);
     }
-
-    private static string DatabasePasswordStoreLabel(string adapter) => adapter switch
-    {
-        "macos-keychain" => "Save in macOS Keychain",
-        "windows-dpapi" => "Save securely for this Windows user",
-        "linux-secret-service" => "Save in Secret Service",
-        _ => "Save in system credential store",
-    };
 
     private RuntimePanelViewModel CreateDockerPanel(
         PanelInstanceId panelId,
@@ -11856,7 +12188,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             if (!inline.UseAgent)
             {
                 SetError(
-                    "Tunnel passwords live in the OS keychain. "
+                    $"Tunnel passwords are kept in {PlatformTerms.SecretStore}. "
                     + "Save the connection to use a password tunnel.");
                 return false;
             }
@@ -12243,7 +12575,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             if (!panel.HasRouteError)
             {
-                SetError(exception.Message);
+                SecretSafeDiagnostics.WriteTrace("browser.panel.initialize.failed", exception);
+                SetError("The browser couldn't start. Close the panel and open it again.");
                 return;
             }
 
@@ -12464,7 +12797,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             profile.Name,
             FileProviderKindLabel(profile.ProviderKind),
             FileProviderEndpoint(profile.Configuration),
-            "Validated on open",
+            _fileProviderRuntime is not null
+                ? "Validated on open"
+                : "File connections aren't available in this build",
             _fileProviderRuntime is not null,
             [],
             SavedConnectionFamily.Files,
@@ -12647,6 +12982,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     {
         try
         {
+            // A delete still waiting for Undo is final once the window goes.
+            await DefinitionDeleteUndo.CommitPendingAsync();
+
             await DefaultAgentPolicySettings.QuiesceAsync().ConfigureAwait(false);
 
             if (_agentRuntimeFactory is null)
@@ -12795,6 +13133,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         DefinitionEdit.PropertyChanged -= OnDefinitionEditPropertyChanged;
         DefinitionSettings.PropertyChanged -= OnDefinitionSettingsPropertyChanged;
         TerminalSettings.PropertyChanged -= OnTerminalSettingsPropertyChanged;
+        StopFollowingAutoAppliedEditors();
         AppearanceSettings.PropertyChanged -= OnAppearanceSettingsPropertyChanged;
         AppearanceSettings.BackgroundSaveStarting -= OnAppearanceBackgroundSaveStarting;
         AppearanceSettings.BackgroundSaveCompleted -= OnAppearanceBackgroundSaveCompleted;
@@ -12829,6 +13168,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         TerminalConnectionSettings.Dispose();
         McpServerSettings.Dispose();
         LocalMcpServerSettings.Dispose();
+        NotificationSettings.Dispose();
         FileProviderSettings.Dispose();
         AiProviderSettings.Dispose();
         AgentWorkspaceScope.Dispose();
@@ -12868,20 +13208,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         private readonly IGovernedAgentRuntime _runtime;
         private readonly Action _runFinished;
         private readonly Action _runningStateChanged;
+        private readonly Action<bool> _decisionChanged;
         private readonly Action<AgentToolActivityViewModel?> _activityChanged;
+        private object? _pendingDecision;
 
         public WorkspaceAgentChat(
             IGovernedAgentRuntime runtime,
             AgentChatViewModel viewModel,
             Action runFinished,
             Action runningStateChanged,
+            Action<bool> decisionChanged,
             Action<AgentToolActivityViewModel?> activityChanged)
         {
             _runtime = runtime;
             ViewModel = viewModel;
             _runFinished = runFinished;
             _runningStateChanged = runningStateChanged;
+            _decisionChanged = decisionChanged;
             _activityChanged = activityChanged;
+            _pendingDecision = viewModel.PendingDecisionId;
             ViewModel.RunFinished += OnRunFinished;
             ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
@@ -12922,6 +13267,18 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             {
                 _runningStateChanged();
             }
+
+            if (eventArgs.PropertyName is nameof(AgentChatViewModel.HasPendingApproval)
+                or nameof(AgentChatViewModel.HasPendingQuestion)
+                or nameof(AgentChatViewModel.HasPendingCapabilityRequest))
+            {
+                // Snapshots rebuild the pending records on every refresh, so
+                // a decision is new only when its id is.
+                var decision = ViewModel.PendingDecisionId;
+                var isNew = decision is not null && !Equals(decision, _pendingDecision);
+                _pendingDecision = decision;
+                _decisionChanged(isNew);
+            }
         }
     }
 
@@ -12953,33 +13310,10 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     private static Symbol WorkspaceIconSymbol(string icon) => WorkspaceIcons.SymbolFor(icon);
 
-    private static string PanelTitle(ScreenPanelKind kind) => kind switch
-    {
-        ScreenPanelKind.Terminal => "Terminal",
-        ScreenPanelKind.Browser => "Browser",
-        ScreenPanelKind.FileViewer => "Files",
-        ScreenPanelKind.Statistics => "Statistics",
-        ScreenPanelKind.ProcessMonitor => "Processes",
-        ScreenPanelKind.DatabaseViewer => "Database",
-        ScreenPanelKind.Docker => "Docker",
-        ScreenPanelKind.Kubernetes => "Kubernetes",
-        ScreenPanelKind.Git => "Git",
-        _ => "Panel",
-    };
+    private static string PanelTitle(ScreenPanelKind kind) =>
+        Enum.IsDefined(kind) ? PanelTypes.Name(kind) : "Panel";
 
-    private static string PanelTitle(PanelKind kind) => kind switch
-    {
-        PanelKind.Terminal => "Terminal",
-        PanelKind.Browser => "Browser",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        PanelKind.Docker => "Docker",
-        PanelKind.Kubernetes => "Kubernetes",
-        PanelKind.Git => "Git",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    private static string PanelTitle(PanelKind kind) => PanelTypes.Name(kind);
 
     private static PanelKind PanelKindFromDefinition(ScreenPanelKind kind) => kind switch
     {
@@ -13000,15 +13334,16 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         {
             "TERMINAL" => PanelKind.Terminal,
             "BROWSER" => PanelKind.Browser,
-            "FILEVIEWER" => PanelKind.FileViewer,
+            // The panel type names, and the labels older snapshots stored.
+            "FILES" or "FILEVIEWER" => PanelKind.FileViewer,
             "STATISTICS" => PanelKind.Statistics,
-            "PROCESSMONITOR" => PanelKind.ProcessMonitor,
+            "PROCESSES" or "PROCESSMONITOR" => PanelKind.ProcessMonitor,
             "DATABASE" or "DATABASEVIEWER" => PanelKind.DatabaseViewer,
             "DOCKER" => PanelKind.Docker,
             "KUBERNETES" => PanelKind.Kubernetes,
             "GIT" => PanelKind.Git,
             _ => throw new InvalidOperationException(
-                "The recovered panel kind is not supported by this build."),
+                "The recovered panel kind isn't supported by this build."),
         };
 
     private static string RequireName(string value, string fallback) =>

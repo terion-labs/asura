@@ -19,14 +19,21 @@ public sealed partial class MainWindow
 {
     private RuntimeTabDragController? _runtimeTabDrag;
 
-    private RuntimeTabDragController RuntimeTabDrag => _runtimeTabDrag ??= new(
-        this,
-        ViewModel,
-        new RuntimeTabDragPresentation(
-            ShowDragGhost,
-            MoveDragGhost,
-            HideDragGhost),
-        _lifetime.Token);
+    private RuntimeTabDragController RuntimeTabDrag => _runtimeTabDrag ??= CreateRuntimeTabDrag();
+
+    private RuntimeTabDragController CreateRuntimeTabDrag()
+    {
+        var controller = new RuntimeTabDragController(
+            this,
+            ViewModel,
+            new RuntimeTabDragPresentation(
+                ShowDragGhost,
+                MoveDragGhost,
+                HideDragGhost),
+            _lifetime.Token);
+        AddHandler(KeyDownEvent, controller.KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
+        return controller;
+    }
 
     public async Task RequestNewTerminalAsync()
     {
@@ -123,7 +130,7 @@ public sealed partial class MainWindow
 
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a File Viewer.");
+            ViewModel.SetError("Open a workspace or connection before adding a Files panel.");
             return;
         }
 
@@ -153,7 +160,7 @@ public sealed partial class MainWindow
         ViewModel.ShowWorkspace();
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a browser.");
+            ViewModel.SetError("Open a workspace or connection before adding a Browser panel.");
             return;
         }
 
@@ -180,7 +187,7 @@ public sealed partial class MainWindow
         ViewModel.ShowWorkspace();
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
-            ViewModel.SetError("Open a workspace or connection before adding a database viewer.");
+            ViewModel.SetError("Open a workspace or connection before adding a Database panel.");
             return;
         }
 
@@ -369,38 +376,6 @@ public sealed partial class MainWindow
         }
     }
 
-    public async Task RequestClosePanelAsync()
-    {
-        if (ViewModel.HasOverlay)
-        {
-            _ = await TryCloseOverlayAsync();
-            return;
-        }
-
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        await ExecuteCommandAsync(BuiltInCommands.ClosePanel);
-    }
-
-    public async Task RequestCloseTabAsync()
-    {
-        if (ViewModel.HasOverlay)
-        {
-            _ = await TryCloseOverlayAsync();
-            return;
-        }
-
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        await ExecuteCommandAsync(BuiltInCommands.CloseTab);
-    }
-
     private async Task OpenDefaultLocalTerminalAsync()
     {
         var connection = ViewModel.Connections.FirstOrDefault(item =>
@@ -585,8 +560,9 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Places an empty panel against an edge of the canvas. It asks what to open
-    /// once it is there, so the choice happens in the space the panel will fill.
+    /// Places an empty panel against an edge of the canvas, then asks what to
+    /// open in it from the Add Panel popover on the "+". Dismissing the popover
+    /// leaves the empty panel, which asks the same question itself.
     /// </summary>
     private async void OnAddPanelToSideRequested(object? sender, PanelSide side)
     {
@@ -595,7 +571,8 @@ public sealed partial class MainWindow
         {
             if (await ViewModel.AddPlaceholderPanelAsync(side, _lifetime.Token))
             {
-                FocusActivePanel();
+                // Then what goes there, in a popover on the "+" that asked.
+                ShowNewPanelChooser(AddPanelButton());
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -808,13 +785,13 @@ public sealed partial class MainWindow
             });
             if (process is null)
             {
-                ViewModel.SetError("The Docker installation guide could not be opened.");
+                ViewModel.SetError("The Docker installation guide couldn’t be opened.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
-            ViewModel.SetError("The Docker installation guide could not be opened.");
+            ViewModel.SetError("The Docker installation guide couldn’t be opened.");
         }
     }
 
@@ -908,7 +885,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.PanelConnection(exception));
         }
     }
 
@@ -1028,7 +1005,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.PanelConnection(exception));
         }
     }
 
@@ -1084,7 +1061,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1180,7 +1157,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1218,7 +1195,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1433,7 +1410,7 @@ public sealed partial class MainWindow
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.BrowserNavigation(exception));
         }
     }
 
@@ -1713,12 +1690,12 @@ public sealed partial class MainWindow
             }
             catch (ArgumentException exception)
             {
-                destination.ReportValidationError(exception.Message);
+                destination.ReportValidationError(ShellFailureText.FileTransfer(exception));
                 queuedAll = false;
             }
             catch (InvalidOperationException exception)
             {
-                destination.ReportValidationError(exception.Message);
+                destination.ReportValidationError(ShellFailureText.FileTransfer(exception));
                 queuedAll = false;
             }
         }
@@ -1734,7 +1711,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var name = await new FileNameDialog("New folder", "Create")
+        var name = await new FileNameDialog("New Folder", "Create")
             .ShowDialog<string?>(this);
         if (name is not null)
         {
@@ -1772,7 +1749,7 @@ public sealed partial class MainWindow
         // rather than a path typed into a dialog.
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Download to folder",
+            Title = "Download to Folder",
             AllowMultiple = false,
         });
         if (folders.Count != 1 || folders[0].TryGetLocalPath() is not { } destination)
@@ -1797,7 +1774,7 @@ public sealed partial class MainWindow
 
         var selected = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Upload a file from Home",
+            Title = "Upload File",
             AllowMultiple = false,
         });
         var path = selected.Count == 1 ? selected[0].TryGetLocalPath() : null;
@@ -1817,11 +1794,11 @@ public sealed partial class MainWindow
         }
         catch (ArgumentException exception)
         {
-            panel.ReportValidationError(exception.Message);
+            panel.ReportValidationError(ShellFailureText.FileTransfer(exception));
         }
         catch (InvalidOperationException exception)
         {
-            panel.ReportValidationError(exception.Message);
+            panel.ReportValidationError(ShellFailureText.FileTransfer(exception));
         }
     }
 
@@ -1844,14 +1821,14 @@ public sealed partial class MainWindow
             if (process is null)
             {
                 panel.ReportValidationError(
-                    "The operating system did not provide an application for this file.");
+                    "No app is set to open this file.");
             }
         }
         catch (Exception exception) when (exception is InvalidOperationException
             or System.ComponentModel.Win32Exception)
         {
             panel.ReportValidationError(
-                "The operating system could not open this file with its default application.");
+                "The file couldn’t be opened with its default app.");
         }
     }
 
@@ -1869,7 +1846,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var name = await new FileNameDialog("Rename item", "Rename", selected.Name)
+        var name = await new FileNameDialog("Rename Item", "Rename", selected.Name)
             .ShowDialog<string?>(this);
         if (name is not null)
         {
@@ -1891,7 +1868,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        var kind = selected.IsDirectory ? "folder" : "file";
+        var kind = selected.IsDirectory ? "Folder" : "File";
         var confirmed = await Confirmations.FileDelete(
                 kind,
                 selected.Name,
@@ -1916,41 +1893,46 @@ public sealed partial class MainWindow
     private async void OnCloseRuntimeTabClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not Control { DataContext: RuntimeTabViewModel tab })
+        if (sender is Control { DataContext: RuntimeTabViewModel tab }
+            && await CloseRuntimeTabAsync(tab))
         {
-            return;
-        }
-
-        if (!await ConfirmDiscardDatabaseChangesAsync(tab.Panels))
-        {
-            return;
-        }
-
-        if (tab.Panels.All(panel => panel is FileRuntimePanelViewModel { HostedClient: null }
-                or UnavailableRuntimePanelViewModel
-                or TerminalRuntimePanelViewModel
-            { SessionRequest: null, MultiplexerSession: null }
-                or StatisticsRuntimePanelViewModel { HasHostedSession: false }
-                or ProcessMonitorRuntimePanelViewModel { HasHostedSession: false })
-            || await RunCloseFlowAsync(
-            (decision, cancellationToken) =>
-                ViewModel.CloseTabAsync(tab.Id, decision, cancellationToken)))
-        {
-            if (await ViewModel.RemoveTabAsync(tab.Id, _lifetime.Token))
-            {
-                FocusActivePanel();
-            }
+            FocusActivePanel();
         }
     }
+
+    /// <summary>
+    /// Closes one tab under the usual policy: unsaved database edits and
+    /// running sessions ask first. False when the person kept the tab.
+    /// </summary>
+    private async Task<bool> CloseRuntimeTabAsync(RuntimeTabViewModel tab)
+    {
+        if (!await ConfirmDiscardDatabaseChangesAsync(tab.Panels))
+        {
+            return false;
+        }
+
+        if (!tab.Panels.All(HoldsNothingToClose)
+            && !await RunCloseFlowAsync((decision, cancellationToken) =>
+                ViewModel.CloseTabAsync(tab.Id, decision, cancellationToken)))
+        {
+            return false;
+        }
+
+        return await ViewModel.RemoveTabAsync(tab.Id, _lifetime.Token);
+    }
+
+    private static bool HoldsNothingToClose(RuntimePanelViewModel panel) =>
+        panel is FileRuntimePanelViewModel { HostedClient: null }
+            or UnavailableRuntimePanelViewModel
+            or TerminalRuntimePanelViewModel { SessionRequest: null, MultiplexerSession: null }
+            or StatisticsRuntimePanelViewModel { HasHostedSession: false }
+            or ProcessMonitorRuntimePanelViewModel { HasHostedSession: false };
 
     private async void OnAddTerminalPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddConnectionPanelClick(object? sender, RoutedEventArgs e)
@@ -1961,20 +1943,15 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (await ViewModel.AddConnectionPanelAsync(connection.Id, _lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() =>
+            ViewModel.AddConnectionPanelAsync(connection.Id, _lifetime.Token));
     }
 
     private async void OnAddFilePanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddFilePanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddFilePanelAsync(_lifetime.Token));
     }
 
     private async void OnAddBrowserPanelClick(object? sender, RoutedEventArgs e)
@@ -1982,60 +1959,43 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         var profileId = ViewModel.SelectedBrowserPanelProfile?.Id;
-        if (await ViewModel.AddBrowserPanelAsync(profileId, _lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() =>
+            ViewModel.AddBrowserPanelAsync(profileId, _lifetime.Token));
     }
 
     private async void OnAddStatisticsPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddStatisticsPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddStatisticsPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddProcessMonitorPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddDatabasePanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddDatabasePanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddDatabasePanelAsync(_lifetime.Token));
     }
 
     private async void OnAddDockerPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddDockerPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddDockerPanelAsync(_lifetime.Token));
     }
 
     private async void OnAddGitPanelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        if (await ViewModel.AddGitPanelAsync(_lifetime.Token))
-        {
-            FocusActivePanel();
-        }
+        await AddPanelFromChooserAsync(() => ViewModel.AddGitPanelAsync(_lifetime.Token));
     }
 
     private async Task CloseActivePanelAsync()
@@ -2106,10 +2066,10 @@ public sealed partial class MainWindow
         }
 
         var title = await new FileNameDialog(
-            "Rename tab",
+            "Rename Tab",
             "Rename",
             tab.Title,
-            "This name identifies the live tab; saved screen definitions are unchanged.")
+            "This renames the open tab only. The saved screen keeps its name.")
             .ShowDialog<string?>(this);
         if (title is not null)
         {

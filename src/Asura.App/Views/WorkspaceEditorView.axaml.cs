@@ -184,15 +184,6 @@ public sealed partial class WorkspaceEditorView : UserControl
     /// </summary>
     public void ApplySampledColor(Color color) => _samplingPicker?.ApplySampled(color);
 
-    private void OnRenameWorkspaceClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        var input = this.FindControl<TextBox>("WorkspaceNameInput")!;
-        input.Focus();
-        input.SelectAll();
-    }
-
     private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -232,7 +223,7 @@ public sealed partial class WorkspaceEditorView : UserControl
 
         var picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Choose a host folder",
+            Title = "Choose a Host Folder",
             AllowMultiple = false,
         });
         if (picked.Count > 0 && picked[0].TryGetLocalPath() is { } path)
@@ -401,7 +392,7 @@ public sealed partial class WorkspaceEditorView : UserControl
     {
         if (!result.IsSuccess || result.EntryId is not { } entryId || Editor is not { } editor)
         {
-            ShowInteractionError(result.Error ?? "The workspace item could not be added.");
+            ShowInteractionError(result.Error ?? "The item couldn’t be added to the workspace.");
             return;
         }
         EntryListControl.SelectedItem = editor.Entries.Single(entry => entry.Id == entryId);
@@ -421,7 +412,7 @@ public sealed partial class WorkspaceEditorView : UserControl
         var result = editor.RemoveEntry(entry.Id);
         if (!result.IsSuccess)
         {
-            ShowInteractionError(result.Error ?? "The workspace item could not be removed.");
+            ShowInteractionError(result.Error ?? "The item couldn’t be removed from the workspace.");
             return;
         }
         EntryListControl.SelectedIndex = Math.Min(index, editor.Entries.Count - 1);
@@ -553,7 +544,7 @@ public sealed partial class WorkspaceEditorView : UserControl
         }
         catch (InvalidOperationException exception)
         {
-            ShowInteractionError(exception.Message);
+            ShowInteractionError(ShellFailureText.WorkspaceSave(exception));
         }
     }
 

@@ -132,6 +132,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         {
             if (SetProperty(ref _isEnabled, value))
             {
+                OnPropertyChanged(nameof(ShowsModelChoices));
                 OnPropertyChanged(nameof(IsValid));
                 Changed?.Invoke(this, EventArgs.Empty);
             }
@@ -245,6 +246,15 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
             }
         }
     }
+
+    public bool HasProviderOptions => ProviderOptions.Count > 0;
+
+    /// <summary>
+    /// Whether the override's model pickers are shown: with no provider
+    /// set up there is no model to choose, so only the provider row stays,
+    /// saying so.
+    /// </summary>
+    public bool ShowsModelChoices => IsEnabled && HasProviderOptions;
 
     public bool HasSingleProviderOption => ProviderOptions.Count == 1;
 
@@ -504,7 +514,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         var option = options.FirstOrDefault(candidate =>
             candidate.Selection == selection);
         return option ?? throw new ArgumentException(
-            "The configured agent model route is not present in the model catalog.",
+            "The configured agent model route isn't present in the model catalog.",
             nameof(selection));
     }
 
@@ -514,7 +524,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         var option = TitleModelOptions.FirstOrDefault(candidate =>
             candidate.Selection == selection);
         return option ?? throw new ArgumentException(
-            "The configured title model route is not present in the model catalog.",
+            "The configured title model route isn't present in the model catalog.",
             nameof(selection));
     }
 
@@ -607,16 +617,45 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
                 if (!Options.Contains(value))
                 {
                     throw new ArgumentException(
-                        "The selected permission cannot be saved.",
+                        "Asura can't save that permission. Choose another one.",
                         nameof(value));
                 }
 
                 if (SetProperty(ref _selectedOption, value))
                 {
+                    OnPropertyChanged(nameof(SelectedOptionIndex));
                     OnPropertyChanged(nameof(SelectedPermission));
                     OnPropertyChanged(nameof(IsOff));
                     OnPropertyChanged(nameof(IsAsk));
                     OnPropertyChanged(nameof(IsAuto));
+                }
+            }
+        }
+
+        /// <summary>
+        /// The chosen option's place in <see cref="Options"/>: the segment the
+        /// permission picker shows as chosen. A place outside the options, as
+        /// a picker reports while its segments are replaced, is ignored.
+        /// </summary>
+        public int SelectedOptionIndex
+        {
+            get
+            {
+                for (var index = 0; index < Options.Count; index++)
+                {
+                    if (Options[index] == SelectedOption)
+                    {
+                        return index;
+                    }
+                }
+
+                return -1;
+            }
+            set
+            {
+                if (value >= 0 && value < Options.Count)
+                {
+                    SelectedOption = Options[value];
                 }
             }
         }

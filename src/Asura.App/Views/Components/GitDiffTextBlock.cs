@@ -19,11 +19,22 @@ public sealed class GitDiffTextBlock : TextBlock
     private static readonly Dictionary<ThemeName, Registry> Registries = [];
     private bool _rendering;
 
+    // The control's own underline rather than the shared
+    // TextDecorations.Underline: that collection is an AvaloniaObject owned
+    // by whichever UI thread first touched it.
+    private TextDecorationCollection? _changeUnderline;
+
     public string SyntaxText { get => GetValue(SyntaxTextProperty); set => SetValue(SyntaxTextProperty, value); }
     public string? FileName { get => GetValue(FileNameProperty); set => SetValue(FileNameProperty, value); }
     public string? PeerText { get => GetValue(PeerTextProperty); set => SetValue(PeerTextProperty, value); }
     public bool ShowInvisibles { get => GetValue(ShowInvisiblesProperty); set => SetValue(ShowInvisiblesProperty, value); }
     public bool HighlightWords { get => GetValue(HighlightWordsProperty); set => SetValue(HighlightWordsProperty, value); }
+
+    // Styled as a TextBlock, so the diff's own rules for its text (the data
+    // font, its size and line height) reach this one too. Without this the
+    // selector "Border.GitDiffLine TextBlock" skipped the subclass and the
+    // code drew in the proportional interface font.
+    protected override Type StyleKeyOverride => typeof(TextBlock);
 
     public GitDiffTextBlock()
     {
@@ -118,7 +129,7 @@ public sealed class GitDiffTextBlock : TextBlock
             if (changed)
             {
                 run.FontWeight = FontWeight.Bold;
-                run.TextDecorations = Avalonia.Media.TextDecorations.Underline;
+                run.TextDecorations = _changeUnderline ??= [new TextDecoration { Location = TextDecorationLocation.Underline }];
             }
 
             Inlines!.Add(run);

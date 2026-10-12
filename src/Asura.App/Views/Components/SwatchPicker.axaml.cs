@@ -36,7 +36,7 @@ public sealed partial class SwatchPicker : UserControl
     /// otherwise announce three unlabelled buttons.
     /// </summary>
     public static readonly StyledProperty<string> PurposeProperty =
-        AvaloniaProperty.Register<SwatchPicker, string>(nameof(Purpose), "colour");
+        AvaloniaProperty.Register<SwatchPicker, string>(nameof(Purpose), "color");
 
     public static readonly StyledProperty<bool> CanSampleProperty =
         AvaloniaProperty.Register<SwatchPicker, bool>(nameof(CanSample));

@@ -20,8 +20,21 @@ public sealed partial class GitRuntimePanelView
         }
 
         var repository = selection.Repository;
-        var values = await ShowGitFormAsync("Clone " + repository.Name, $"Target: {viewModel.ConnectionDisplayName}",
-            new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]), new("path", "Destination path", viewModel.RepositoryPathInput));
+        var folderName = repository.Name[(repository.Name.LastIndexOf('/') + 1)..];
+        var values = await ShowGitFormAsync(new GitWorkflowForm(
+            "Clone " + repository.Name,
+            $"Connection: {viewModel.ConnectionDisplayName}",
+            new GitWorkflowAction("Clone"),
+            [
+                new("protocol", "Protocol", "HTTPS", Choices: ["HTTPS", "SSH"]),
+                new("path", "Destination path", viewModel.RepositoryPathInput)
+                {
+                    ChooseFolder = FolderChooser("Choose a Folder for the Clone", _ => folderName),
+                },
+            ])
+        {
+            Validate = viewModel.UsesSystemFolderPicker ? values => ValidateCloneDestination(values["path"], folderName) : null,
+        });
         if (values is not null)
         {
             await viewModel.CreateRepositoryAsync(values["path"], "main", string.Equals(values["protocol"], "SSH", StringComparison.Ordinal) ? repository.SshUrl : repository.CloneUrl, selection.Account);
@@ -53,7 +66,7 @@ public sealed partial class GitRuntimePanelView
         var gitlab = parsed.Host.Contains("gitlab", StringComparison.OrdinalIgnoreCase);
         if (string.Equals(action, "PullRequest", StringComparison.Ordinal))
         {
-            var values = await ShowGitFormAsync("Open pull request", "The hosting site opens with these branches. Review and submit the pull request there.",
+            var values = await ShowGitFormAsync("Open Pull Request", "Open Pull Request", "The hosting site opens with these branches. Review and submit the pull request there.",
                 new("base", "Target branch", "main"), new("head", "Source branch", viewModel.CurrentBranchName ?? ""));
             if (values is null)
             {

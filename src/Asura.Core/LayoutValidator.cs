@@ -145,7 +145,7 @@ public static class LayoutValidator
 
                 issues.Add(new(
                     DefinitionValidationCode.Overlap,
-                    $"Layout slots '{left.Id}' and '{right.Id}' overlap.",
+                    $"The slots “{left.Id}” and “{right.Id}” overlap.",
                     right.Id.Value));
             }
         }

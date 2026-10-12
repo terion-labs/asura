@@ -241,7 +241,7 @@ public sealed class CatalogFileProviderRuntime :
                 new FilePanelError(
                     FilePanelErrorCode.Conflict,
                     "file_transfer_not_retryable",
-                    "Only failed or cancelled transfers can be retried.",
+                    "Only failed or canceled transfers can be retried.",
                     false)));
         }
 
@@ -285,7 +285,7 @@ public sealed class CatalogFileProviderRuntime :
             return new FileProviderTestResult(
                 false,
                 "file_provider_test_cancelled",
-                "The provider test was cancelled.");
+                "The test was canceled.");
         }
         catch (FileProviderAdapterConfigurationException exception)
         {
@@ -293,7 +293,7 @@ public sealed class CatalogFileProviderRuntime :
         }
         catch (ArgumentException exception)
         {
-            return InvalidTest(exception.Message);
+            return InvalidTest(SafeConfigurationMessage(exception));
         }
         catch (IOException)
         {
@@ -632,7 +632,7 @@ public sealed class CatalogFileProviderRuntime :
                         null,
                         FileProviderRuntimeDiagnosticSeverity.Error,
                         "file_provider_refresh_failed",
-                        "The saved file-provider catalog could not be refreshed; the previous adapter set remains active."),
+                        "Asura couldn't reload the saved file locations, so it's still using the ones it loaded before."),
                 ];
             }
 
@@ -838,14 +838,27 @@ public sealed class CatalogFileProviderRuntime :
         }
     }
 
+    /// <summary>
+    /// What a file location that can't be set up says in Settings and in a
+    /// test. Asura's own configuration refusals are written for people. An
+    /// <see cref="ArgumentException"/> comes from a value type's checks
+    /// ("The value cannot be an empty string. (Parameter 'host')"), so it goes
+    /// to diagnostics and a sentence that says what to check is shown.
+    /// </summary>
     private static string SafeConfigurationMessage(Exception exception) => exception switch
     {
         FileProviderAdapterConfigurationException => exception.Message,
-        ArgumentException => exception.Message,
-        DirectoryNotFoundException => "The configured local root directory does not exist.",
-        UnauthorizedAccessException => "The configured provider root is not accessible.",
-        _ => "The file-provider adapter could not be materialized.",
+        ArgumentException => InvalidSettingsMessage(exception),
+        DirectoryNotFoundException => "The location's root folder doesn't exist. Choose another folder in Settings.",
+        UnauthorizedAccessException => "Asura doesn't have permission to open the location's root folder. Check its permissions, or choose another folder.",
+        _ => "Asura couldn't open this file location. Check its settings, then try again.",
     };
+
+    private static string InvalidSettingsMessage(Exception exception)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace("files.provider.configuration.invalid", exception);
+        return "Some of this file location's settings aren't complete or aren't valid. Check them, then try again.";
+    }
 
     private static FileProviderTestResult InvalidTest(string message) => new(
         false,
@@ -855,7 +868,7 @@ public sealed class CatalogFileProviderRuntime :
     private static FileProviderTestResult UnavailableTest() => new(
         false,
         "file_provider_unavailable",
-        "The provider could not be reached or initialized. Review its endpoint and credentials.");
+        "Asura couldn't reach this file location. Check its address and sign-in details, then test again.");
 
     private static FilePanelResult<T> MissingTransfer<T>() => FilePanelResult<T>.Failure(
         new FilePanelError(

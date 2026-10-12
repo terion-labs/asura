@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -5,13 +6,12 @@ using Avalonia.Platform.Storage;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitOutputDialog : Window
+public sealed partial class GitOutputDialog : DialogWindow
 {
     public GitOutputDialog() => InitializeComponent();
 
     public GitOutputDialog(string title, string output) : this()
     {
-        Title = title;
         Shell.Title = title;
         Output.Text = output;
     }
@@ -30,7 +30,7 @@ public sealed partial class GitOutputDialog : Window
     {
         try
         {
-            var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Save Git output", SuggestedFileName = "git-output.txt" });
+            var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions { Title = "Save Git Output", SuggestedFileName = "git-output.txt" });
             if (destination is null)
             {
                 return;
@@ -44,7 +44,7 @@ public sealed partial class GitOutputDialog : Window
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            Shell.Subtitle = "Could not save: " + exception.Message;
+            Shell.Subtitle = SaveFailure.Describe(exception);
         }
     }
 }

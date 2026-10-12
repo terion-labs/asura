@@ -21,7 +21,6 @@ public sealed class SettingsViewContractTests
             ["BrowserProfileEnabledChangedRequested"] = "OnBrowserProfileEnabledChanged",
             ["DeleteBrowserProfileRequested"] = "OnDeleteBrowserProfileClick",
             ["ClearKeybindingPrefixRequested"] = "OnClearKeybindingPrefixClick",
-            ["CheckForUpdatesRequested"] = "OnCheckForUpdatesClick",
             ["CloneKeybindingPresetRequested"] = "OnCloneKeybindingPresetClick",
             ["CreateAiProviderSecretRequested"] = "OnCreateAiProviderSecretClick",
             ["CreateConnectionSecretRequested"] = "OnCreateConnectionSecretClick",
@@ -34,7 +33,6 @@ public sealed class SettingsViewContractTests
             ["DeleteSecretRequested"] = "OnDeleteSecretClick",
             ["DeleteWorkspaceRequested"] = "OnDeleteWorkspaceClick",
             ["DiagnosticsSettingsRequested"] = "OnDiagnosticsSettingsClick",
-            ["DownloadUpdateRequested"] = "OnDownloadUpdateClick",
             ["DismissSavedScreenDeleteUndoRequested"] =
                 "OnDismissSavedScreenDeleteUndoClick",
             ["EditAiProviderRequested"] = "OnEditAiProviderClick",
@@ -57,7 +55,6 @@ public sealed class SettingsViewContractTests
             ["KeybindingSettingsRequested"] = "OnKeybindingSettingsClick",
             ["McpSettingsRequested"] = "OnMcpSettingsClick",
             ["NetworkingSettingsRequested"] = "OnNetworkingSettingsClick",
-            ["OpenThirdPartyNoticesRequested"] = "OnOpenThirdPartyNoticesClick",
             ["QuickTerminalSettingsRequested"] = "OnQuickTerminalSettingsClick",
             ["RecordKeybindingPrefixRequested"] = "OnRecordKeybindingPrefixClick",
             ["RecordKeybindingRequested"] = "OnRecordKeybindingClick",
@@ -65,7 +62,6 @@ public sealed class SettingsViewContractTests
             ["ResetKeybindingRequested"] = "OnResetKeybindingClick",
             ["ReviewHistoryPrivacyRequested"] = "OnReviewHistoryPrivacyClick",
             ["ReviewOnboardingRequested"] = "OnReviewOnboardingClick",
-            ["RestartToApplyUpdateRequested"] = "OnRestartToApplyUpdateClick",
             ["RestoreSessionsOnStartChangedRequested"] =
                 "OnRestoreSessionsOnStartChanged",
             ["ApplicationAppearanceChangedRequested"] =
@@ -73,23 +69,22 @@ public sealed class SettingsViewContractTests
             ["TerminalAppearanceChangedRequested"] = "OnTerminalAppearanceChanged",
             ["PickColorRequested"] = "OnPickColorRequested",
             ["SaveKeybindingsRequested"] = "OnSaveKeybindingsClick",
-            ["SaveQuickTerminalSettingsRequested"] =
-                "OnSaveQuickTerminalSettingsClick",
-            ["SaveDefaultAgentPolicyRequested"] =
-                "OnSaveDefaultAgentPolicyClick",
-            ["SaveTerminalProfileRequested"] = "OnSaveTerminalProfileClick",
             ["SecretsSettingsRequested"] = "OnSecretsSettingsClick",
             ["SelectTerminalPaletteRequested"] = "OnSelectTerminalPaletteClick",
-            ["SettingsBackRequested"] = "OnSettingsBackClick",
-            ["ShowCommandPaletteRequested"] = "OnShowCommandPaletteClick",
             ["ShowLayoutDesignerRequested"] = "OnShowLayoutDesignerClick",
-            ["ShowNewItemRequested"] = "OnShowNewItemClick",
             ["TerminalSettingsRequested"] = "OnTerminalSettingsClick",
             ["TestMcpServerRequested"] = "OnTestMcpServerClick",
             ["UnbindKeybindingRequested"] = "OnUnbindKeybindingClick",
             ["UndoDeletedSavedScreenRequested"] =
                 "OnUndoDeletedSavedScreenClick",
             ["WorkspaceSettingsRequested"] = "OnWorkspaceSettingsClick",
+            ["CreateWorkspaceRequested"] = "OnCreateWorkspaceClick",
+            ["CreateScreenRequested"] = "OnCreateScreenClick",
+            ["NotificationSettingsRequested"] = "OnNotificationSettingsClick",
+            ["OpenNotificationSystemSettingsRequested"] = "OnOpenNotificationSystemSettingsClick",
+            ["HistoryRetentionSelectionChangedRequested"] = "OnHistoryRetentionSelectionChanged",
+            ["AgentHistoryRetentionSelectionChangedRequested"] =
+                "OnAgentHistoryRetentionSelectionChanged",
         };
 
     [Fact]
@@ -103,16 +98,31 @@ public sealed class SettingsViewContractTests
         Assert.Equal("False", AttributeValue(expander, "IsExpanded"));
         Assert.Equal("Tool permissions", AttributeValue(expander, "Header"));
         Assert.Equal("Default agent tool permissions", AttributeValue(expander, "AutomationProperties.Name"));
-        Assert.Equal(["{Binding IsOff, Mode=TwoWay}", "{Binding IsAsk, Mode=TwoWay}", "{Binding IsAuto, Mode=TwoWay}"],
-            permissions.Descendants().Where(element => string.Equals(element.Name.LocalName, "ToggleButton", StringComparison.Ordinal))
-                .Select(element => AttributeValue(element, "IsChecked")), StringComparer.Ordinal);
+        // A row of its plate: the settings styles give it the row's height
+        // and insets, so a margin of its own would inset it a second time.
+        Assert.Null(AttributeValue(expander, "Margin"));
+        // One choice of three values: the shared segmented control, whose
+        // segments a screen reader hears as a radio group.
+        var picker = Assert.Single(permissions.Descendants(), element => string.Equals(
+            element.Name.LocalName, "SegmentedControl", StringComparison.Ordinal));
+        Assert.Equal("{Binding SelectedOptionIndex, Mode=TwoWay}", AttributeValue(picker, "SelectedIndex"));
+        Assert.Equal(["Off", "Ask", "Auto"],
+            picker.Elements().Where(element => string.Equals(element.Name.LocalName, "RadioButton", StringComparison.Ordinal))
+                .Select(element => AttributeValue(element, "Content")), StringComparer.Ordinal);
+        Assert.DoesNotContain(permissions.Descendants(), element => string.Equals(
+            element.Name.LocalName, "ToggleButton", StringComparison.Ordinal));
         var model = Assert.Single(settings.Descendants(), element => string.Equals(
             AttributeValue(element, "AutomationProperties.Name"), "Default AI model", StringComparison.Ordinal));
         Assert.DoesNotContain(expander, model.Ancestors());
     }
 
+    /// <summary>
+    /// Settings content is built from the main window's template but shown in
+    /// the Settings window: nothing in the main window hosts it, so opening
+    /// Settings never covers the workspace.
+    /// </summary>
     [Fact]
-    public void Main_window_defers_the_settings_route_behind_one_named_host()
+    public void Main_window_builds_settings_content_for_the_settings_window_without_hosting_it()
     {
         var mainWindow = LoadView("MainWindow");
         var settings = Assert.Single(
@@ -122,13 +132,17 @@ public sealed class SettingsViewContractTests
 
         Assert.Equal("DataTemplate", template.Name.LocalName);
         Assert.Equal("SettingsRouteTemplate", AttributeValue(template, "Key"));
-        var host = Assert.Single(
+        Assert.DoesNotContain(
             mainWindow.Descendants(),
             element => AttributeValue(element, "Name") == "SettingsRouteHost");
-        Assert.Equal(
-            "{Binding IsSettingsVisible}",
-            AttributeValue(host, "IsVisible"));
-        Assert.Empty(host.Elements());
+
+        var settingsWindow = LoadView("SettingsWindow");
+        var root = Assert.IsType<XElement>(settingsWindow.Root);
+        Assert.Equal("False", AttributeValue(root, "CanMinimize"));
+        Assert.Equal("False", AttributeValue(root, "CanMaximize"));
+        Assert.Single(
+            root.Descendants(),
+            element => AttributeValue(element, "Name") == "SettingsHost");
 
         foreach (var (interaction, handler) in ShellInteractions)
         {
@@ -202,53 +216,20 @@ public sealed class SettingsViewContractTests
                 StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// The About page shows the same About content as the About window, so the
+    /// version, update controls, and notices are written once.
+    /// </summary>
     [Fact]
-    public void About_exposes_source_aware_update_controls()
+    public void About_page_embeds_the_shared_about_content()
     {
         var settings = LoadView("SettingsView");
-        var about = Assert.Single(
-            settings.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Heading"),
-                "About Asura",
-                StringComparison.Ordinal))
-            .Parent!;
-        var visibleText = about
-            .Descendants()
-            .Select(element => AttributeValue(element, "Text"))
-            .Where(text => text is not null)
-            .ToArray();
+        var about = FindNamedElement(settings.Root!, "AboutSettingsPage");
 
-        Assert.Contains(
-            visibleText,
-            text => string.Equals(
-                text,
-                "{Binding ApplicationUpdates.Channel}",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            visibleText,
-            text => string.Equals(
-                text,
-                "{Binding ApplicationUpdates.Status}",
-                StringComparison.Ordinal));
-        Assert.Contains(
+        Assert.Equal("{Binding IsAboutSettingsVisible}", AttributeValue(about, "IsVisible"));
+        Assert.Single(
             about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Check for updates",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Download update",
-                StringComparison.Ordinal));
-        Assert.Contains(
-            about.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Content"),
-                "Restart to update",
-                StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "AboutAsuraView", StringComparison.Ordinal));
 
         var viewModel = File.ReadAllText(Path.Combine(
             ApplicationViews.RepositoryRoot,
@@ -268,7 +249,7 @@ public sealed class SettingsViewContractTests
             settings.Descendants(),
             element => string.Equals(element.Name.LocalName, "ShellNavigationItem"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Label"), "AI", StringComparison.Ordinal));
-        Assert.Equal("AI settings", AttributeValue(aiNavigation, "AutomationName"));
+        Assert.Equal("AI", AttributeValue(aiNavigation, "AutomationName"));
         Assert.DoesNotContain(
             settings.Descendants(),
             element => string.Equals(element.Name.LocalName, "ShellNavigationItem"
@@ -328,6 +309,7 @@ public sealed class SettingsViewContractTests
     public void Workspace_settings_expose_the_persisted_session_restore_toggle()
     {
         var settings = LoadView("SettingsView");
+        // A setting's boolean is a switch at the row's trailing edge.
         var toggle = Assert.Single(
             settings.Descendants(),
             element => string.Equals(element.Name.LocalName, "ToggleSwitch"
@@ -352,49 +334,48 @@ public sealed class SettingsViewContractTests
     {
         var settings = LoadView("SettingsView");
         var root = Assert.IsType<XElement>(settings.Root);
-        var surface = Assert.Single(
+        var body = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
 
-        Assert.Equal("Auto,*", AttributeValue(surface, "RowDefinitions"));
         Assert.Equal("Stretch", AttributeValue(root, "HorizontalContentAlignment"));
         Assert.Equal("Stretch", AttributeValue(root, "VerticalContentAlignment"));
-        var titleBar = Assert.Single(
+        // Laid out as System Settings: a sidebar the window's full height,
+        // with the window's buttons on its title band, and beside it the
+        // page's own title band with back and forward and the page's name.
+        // No shell chrome band and no "Preferences" header.
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(
-                AttributeValue(element, "Classes"),
-                "TopChrome",
-                StringComparison.Ordinal));
-        Assert.Equal(
-            "TitleBar",
-            AttributeValue(titleBar, "WindowDecorationProperties.ElementRole"));
-        Assert.Null(AttributeValue(titleBar, "PointerPressed"));
-        Assert.Equal(
-            "{Binding $parent[views:MainWindow].TitleBarChromeHeight}",
-            AttributeValue(titleBar, "MinHeight"));
+            element => string.Equals(AttributeValue(element, "Classes"), "TopChrome", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "Text"), "Preferences", StringComparison.Ordinal));
+        Assert.Equal("Auto,*", AttributeValue(body, "ColumnDefinitions"));
+        var sidebar = Assert.Single(
+            body.Elements(),
+            element => string.Equals(AttributeValue(element, "Name"), "SettingsSidebar", StringComparison.Ordinal));
+        Assert.Equal("{DynamicResource ShellSettingsSidebarWidth}", AttributeValue(sidebar, "Width"));
+        // The sidebar's plane is a style's, so the window can clear it over
+        // the platform's sidebar material.
+        Assert.Null(AttributeValue(sidebar, "Background"));
+        foreach (var band in new[] { "SettingsSidebarTitleBand", "SettingsTitleBand" })
+        {
+            var titleBand = FindNamedElement(root, band);
+            Assert.Equal("TitleBar", AttributeValue(titleBand, "WindowDecorationProperties.ElementRole"));
+            Assert.Equal("{DynamicResource ShellSettingsTitleBandHeight}", AttributeValue(titleBand, "Height"));
+        }
+
         Assert.Equal(
             "User",
-            AttributeValue(
-                FindNamedElement(root, "SettingsBackButton"),
-                "WindowDecorationProperties.ElementRole"));
-        Assert.Contains(
-            "ChromeNavigation",
-            AttributeValue(FindNamedElement(root, "SettingsBackButton"), "Classes")
-                ?.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                ?? [], StringComparer.Ordinal);
-
-        var body = Assert.Single(
-            surface.Elements(),
-            element => string.Equals(element.Name.LocalName, "Grid"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Grid.Row"), "1", StringComparison.Ordinal));
-        Assert.Equal("244,*", AttributeValue(body, "ColumnDefinitions"));
-        Assert.Contains(
-            body.Elements(),
-            element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Classes"),
-                    "FloatingSidebar",
-                    StringComparison.Ordinal));
+            AttributeValue(FindNamedElement(root, "SettingsHistoryCapsule"), "WindowDecorationProperties.ElementRole"));
+        Assert.Equal("Back", AttributeValue(FindNamedElement(root, "SettingsBackButton"), "AutomationProperties.Name"));
+        Assert.Equal("Forward", AttributeValue(FindNamedElement(root, "SettingsForwardButton"), "AutomationProperties.Name"));
+        var title = FindNamedElement(root, "SettingsPageTitle");
+        Assert.Equal("1", AttributeValue(title, "AutomationProperties.HeadingLevel"));
+        Assert.Equal("Bold", AttributeValue(title, "FontWeight"));
+        Assert.Equal("{Binding SettingsPage}", AttributeValue(root, "CurrentSettingsPage"));
+        var search = FindNamedElement(root, "SettingsSearch");
+        Assert.Equal("SearchField", search.Name.LocalName);
+        Assert.Equal("Search settings", AttributeValue(search, "AutomationProperties.Name"));
+        Assert.Null(AttributeValue(search, "Click"));
 
         var appearancePage = Assert.Single(
             root.Descendants(),
@@ -424,9 +405,8 @@ public sealed class SettingsViewContractTests
         Assert.Equal(
             "{Binding IsQuickTerminalSettingsVisible}",
             AttributeValue(quickTerminalPage, "IsVisible"));
-        Assert.Equal(
-            "OnQuickTerminalSettingsSaveRequested",
-            AttributeValue(quickTerminalPage, "SaveRequested"));
+        // Quick Terminal applies each setting as it changes.
+        Assert.Null(AttributeValue(quickTerminalPage, "SaveRequested"));
 
         var networkingPage = FindNamedElement(root, "NetworkingSettingsPage");
         Assert.Equal(
@@ -445,9 +425,9 @@ public sealed class SettingsViewContractTests
         var pageHeaders = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal))
             .ToArray();
-        // AI is one navigation page with two explicit groups: agent defaults/providers
-        // and MCP servers. Every other page has one page header.
-        Assert.Equal(InlineSettingsPageVisibilityBindings.Length + 1, pageHeaders.Length);
+        // AI is one navigation page: MCP is a section of it under its own
+        // heading, not a second page header. Every page has one.
+        Assert.Equal(InlineSettingsPageVisibilityBindings.Length, pageHeaders.Length);
         Assert.All(pageHeaders, header =>
         {
             Assert.False(string.IsNullOrWhiteSpace(AttributeValue(header, "Heading")));
@@ -518,12 +498,12 @@ public sealed class SettingsViewContractTests
         var content = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
-        // Sections are one step apart on the spacing scale. This page and Quick
-        // Terminal used to say 22 and 20 for the same intent, which is the drift
-        // the scale exists to stop; a literal pinned here would reintroduce it.
-        Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
-            AttributeValue(content, "Spacing"));
+        // The page's rhythm is the settings page's: plates a group's gap
+        // apart and a headed section a section's gap below, from one style
+        // rather than a number written here. This page and Quick Terminal
+        // used to say 22 and 20 for the same intent.
+        Assert.Equal("SettingsPage", AttributeValue(content, "Classes"));
+        Assert.Null(AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
 
@@ -532,7 +512,7 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
         Assert.Equal("Appearance", AttributeValue(header, "Heading"));
         Assert.Equal(
-            "Customize how the app looks — colour scheme, accent, and window chrome.",
+            "Customize how the app looks — color scheme, accent, and window style.",
             AttributeValue(header, "Description"));
 
         foreach (var controlName in AppearanceControlNames)
@@ -552,7 +532,7 @@ public sealed class SettingsViewContractTests
                      ("AppearanceModeLight", "Color mode Light"),
                      ("PlatformProfilePicker", "Platform profile"),
                      ("AccentModePicker", "Accent mode"),
-                     ("CustomAccentText", "Custom accent colour"),
+                     ("CustomAccentText", "Custom accent color"),
                      ("ApplicationTextScalePicker", "Application text size"),
                  })
         {
@@ -563,11 +543,23 @@ public sealed class SettingsViewContractTests
                     "AutomationProperties.Name"));
         }
 
-        // The colour-mode tiles are the control: one exclusive group, so the
-        // preview a user clicks is the same element that carries the choice.
-        // Their shared parent scopes the group to this page, even while detached.
-        var appearanceModeParent = FindNamedElement(root, "AppearanceModeSystem").Parent;
-        Assert.NotNull(appearanceModeParent);
+        // The colour-mode tiles are the control, so the preview a user clicks
+        // is the same element that carries the choice. System is the visible
+        // default; Dark and Light are overrides under one disclosure. No group
+        // name, so a detached page cannot reach another page's tiles; the page
+        // keeps the three exclusive itself.
+        var overrideDisclosure = FindNamedElement(root, "AppearanceOverrideExpander");
+        Assert.Equal("Expander", overrideDisclosure.Name.LocalName);
+        Assert.Equal("Override system appearance", AttributeValue(overrideDisclosure, "AutomationProperties.Name"));
+        // The header is a wrapping line, so a large text size keeps it on
+        // the plate rather than running it off the edge.
+        var overrideHeader = Assert.Single(overrideDisclosure.Descendants(), element =>
+            string.Equals(element.Name.LocalName, "TextBlock", StringComparison.Ordinal)
+            && element.Ancestors().Any(ancestor => string.Equals(ancestor.Name.LocalName, "Expander.Header", StringComparison.Ordinal)));
+        Assert.Equal("Override system appearance", AttributeValue(overrideHeader, "Text"));
+        Assert.Equal("Wrap", AttributeValue(overrideHeader, "TextWrapping"));
+        var overrideParent = FindNamedElement(root, "AppearanceModeDark").Parent;
+        Assert.NotNull(overrideParent);
         foreach (var tileName in new[]
                  {
                      "AppearanceModeSystem",
@@ -578,16 +570,24 @@ public sealed class SettingsViewContractTests
             var tile = FindNamedElement(root, tileName);
             Assert.Equal("RadioButton", tile.Name.LocalName);
             Assert.Null(AttributeValue(tile, "GroupName"));
-            Assert.Same(appearanceModeParent, tile.Parent);
-            Assert.Equal("PresetCard", AttributeValue(tile, "Classes"));
+            // ModeTile: the tile keeps its width at 100% and grows with the
+            // text, so a large size neither cuts its preview nor runs its
+            // name into its check.
+            Assert.Equal("PresetCard ModeTile", AttributeValue(tile, "Classes"));
+            Assert.Equal("OnAppearanceModeChanged", AttributeValue(tile, "IsCheckedChanged"));
+            Assert.Equal(
+                !string.Equals(tileName, "AppearanceModeSystem", StringComparison.Ordinal),
+                tile.Ancestors().Contains(overrideDisclosure));
         }
+
+        Assert.Same(overrideParent, FindNamedElement(root, "AppearanceModeLight").Parent);
 
         var accentMode = FindNamedElement(root, "AccentModePicker");
         Assert.Equal(
             "OnAccentModeSelectionChanged",
             AttributeValue(accentMode, "SelectionChanged"));
         Assert.Equal(
-            new[] { "Follow host", "Asura bronze", "Custom" },
+            new[] { "Follow System", "Asura Orange", "Custom" },
             accentMode.Elements()
                 .Where(element => string.Equals(element.Name.LocalName, "ComboBoxItem", StringComparison.Ordinal))
                 .Select(element => AttributeValue(element, "Content"))
@@ -661,7 +661,7 @@ public sealed class SettingsViewContractTests
     }
 
     [Fact]
-    public void Quick_terminal_settings_page_owns_layout_and_save_relay()
+    public void Quick_terminal_settings_page_owns_layout_and_applies_as_it_changes()
     {
         var quickTerminal = LoadSettingsPage("QuickTerminalSettingsPageView");
         var root = Assert.IsType<XElement>(quickTerminal.Root);
@@ -672,12 +672,12 @@ public sealed class SettingsViewContractTests
         var content = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
-        // The gap between sections comes from the spacing scale, not from a number
-        // written here. A literal is a gap the density and text-scale settings
-        // cannot reach, and pinning one in a test is how it would stay that way.
-        Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
-            AttributeValue(content, "Spacing"));
+        // The gap between sections comes from the settings page's style, not
+        // from a number written here. A literal is a gap the density and
+        // text-scale settings cannot reach, and pinning one in a test is how
+        // it would stay that way.
+        Assert.Equal("SettingsPage", AttributeValue(content, "Classes"));
+        Assert.Null(AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
 
@@ -689,17 +689,11 @@ public sealed class SettingsViewContractTests
             "A global drop-down terminal that stays one keystroke away. Configure where it appears and how it behaves.",
             AttributeValue(header, "Description"));
 
-        Assert.Contains(
+        // Every setting on the page applies as it changes; there is no Save.
+        Assert.DoesNotContain(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Content"),
-                    "Save settings",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Click"),
-                    "OnSaveQuickTerminalSettingsClick",
-                    StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && (AttributeValue(element, "Content") ?? string.Empty).Contains("Save", StringComparison.Ordinal));
 
         foreach (var automationName in QuickTerminalAutomationNames)
         {
@@ -749,13 +743,17 @@ public sealed class SettingsViewContractTests
             element => string.Equals(element.Name.LocalName, "SettingRow"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Description"),
-                    "Active window follows whichever app is in front and falls back to Asura where unsupported. Asura window follows this app; Primary always uses the OS primary display.",
+                    "Active window follows whichever app is in front, or Asura where that isn’t possible. Asura window follows Asura. Primary display always uses the main display.",
                     StringComparison.Ordinal));
 
+        // Every on/off option of the drop-down is a trailing switch.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal));
         var toggles = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(6, toggles.Length);
+        Assert.Equal(7, toggles.Length);
         Assert.Equal(
             new[]
             {
@@ -763,6 +761,7 @@ public sealed class SettingsViewContractTests
                 "{Binding QuickTerminalSettingsEditor.AnimateSlide}",
                 "{Binding QuickTerminalSettingsEditor.ReduceMotion}",
                 "{Binding QuickTerminalSettingsEditor.HideOnFocusLoss}",
+                "{Binding QuickTerminalSettingsEditor.HideOnEscape}",
                 "{Binding QuickTerminalSettingsEditor.RestoreLastSession}",
                 "{Binding QuickTerminalSettingsEditor.RestoreOnStart}",
             },
@@ -783,10 +782,7 @@ public sealed class SettingsViewContractTests
 
         var codeBehind = ApplicationViews.FindUniqueCodeBehindSourceContaining(
             "public sealed partial class QuickTerminalSettingsPageView");
-        Assert.Contains(
-            "SaveRequested?.Invoke(sender, e);",
-            codeBehind,
-            StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveRequested", codeBehind, StringComparison.Ordinal);
         Assert.Contains(
             "RecordHotkeyRequested?.Invoke(sender, e);",
             codeBehind,
@@ -827,12 +823,18 @@ public sealed class SettingsViewContractTests
                 AttributeValue(element, "Text"),
                 "{Binding Description, ElementName=Root}",
                 StringComparison.Ordinal));
-        Assert.All(
-            textBlocks,
-            element => Assert.StartsWith(
-                "{DynamicResource ShellLineHeight",
-                AttributeValue(element, "LineHeight"),
-                StringComparison.Ordinal));
+        // The heading takes the Title 1 role, which brings its size, weight
+        // and leading; the description keeps an explicit leading token.
+        var heading = Assert.Single(textBlocks, element => string.Equals(
+            AttributeValue(element, "Text"), "{Binding Heading, ElementName=Root}", StringComparison.Ordinal));
+        Assert.Equal("Title1", AttributeValue(heading, "Classes"));
+        Assert.Null(heading.Attribute("FontSize"));
+        Assert.Null(heading.Attribute("FontWeight"));
+        var description = Assert.Single(textBlocks, element => !ReferenceEquals(element, heading));
+        Assert.StartsWith(
+            "{DynamicResource ShellLineHeight",
+            AttributeValue(description, "LineHeight"),
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -876,12 +878,12 @@ public sealed class SettingsViewContractTests
             Assert.Contains(typedCall, mainWindowCode, StringComparison.Ordinal);
         }
 
+        Assert.Contains("\"SettingsRouteTemplate\"", mainWindowCode, StringComparison.Ordinal);
         Assert.Contains(
-            "MaterializeRoute<SettingsView>(",
+            "SettingsWindow.Present(this, viewModel, SettingsRoute)",
             mainWindowCode,
             StringComparison.Ordinal);
-        Assert.Contains("\"SettingsRouteTemplate\"", mainWindowCode, StringComparison.Ordinal);
-        Assert.Contains("\"SettingsRouteHost\"", mainWindowCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SettingsRouteHost\"", mainWindowCode, StringComparison.Ordinal);
 
         foreach (var extractedName in ExtractedControlNames)
         {
@@ -900,7 +902,7 @@ public sealed class SettingsViewContractTests
         }
 
         Assert.Contains(
-            "new AvaloniaDiagnosticsBundleDestinationPicker(this)",
+            "new AvaloniaDiagnosticsBundleDestinationPicker(() => SettingsDialogOwner)",
             mainWindowCode,
             StringComparison.Ordinal);
         Assert.Contains("_recoveryDataControlViewModel.Start();", mainWindowCode);
@@ -958,6 +960,422 @@ public sealed class SettingsViewContractTests
                 "IsVisible"));
     }
 
+    /// <summary>
+    /// A credential form that is missing a choice says so under the picker it
+    /// is about, and focuses it, rather than in the window's error corner.
+    /// </summary>
+    [Fact]
+    public void Credential_form_problems_are_said_under_the_picker_they_are_about()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        foreach (var (field, picker) in new[]
+                 {
+                     ("SecretConnectionField", "SecretConnectionPicker"),
+                     ("SecretKindField", "SecretKindPicker"),
+                     ("SecretFileProviderField", "SecretFileProviderPicker"),
+                     ("FileProviderSecretKindField", "FileProviderSecretKindPicker"),
+                     ("AiProviderSecretProfileField", "AiProviderSecretProfilePicker"),
+                     ("McpServerSecretTargetField", "McpServerSecretTargetPicker"),
+                     ("McpServerSecretKindField", "McpServerSecretKindPicker"),
+                 })
+        {
+            var labeled = FindNamedElement(root, field);
+            Assert.Equal("LabeledField", labeled.Name.LocalName);
+            Assert.Single(
+                labeled.Descendants(),
+                element => string.Equals(AttributeValue(element, "Name"), picker, StringComparison.Ordinal));
+        }
+
+        // The pickers that start empty say what to choose.
+        foreach (var picker in new[] { "SecretConnectionPicker", "SecretFileProviderPicker" })
+        {
+            Assert.False(string.IsNullOrWhiteSpace(
+                AttributeValue(FindNamedElement(root, picker), "PlaceholderText")));
+        }
+
+        var handlers = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Views",
+            "MainWindow.Settings.cs"));
+        Assert.Contains("SettingsRoute.ShowCredentialFormError(", handlers, StringComparison.Ordinal);
+        foreach (var form in new[] { "Connection", "FileProvider", "AiProvider", "McpServer" })
+        {
+            Assert.Contains($"CredentialForm.{form},", handlers, StringComparison.Ordinal);
+        }
+
+        Assert.DoesNotContain("ViewModel.SetError(\"Choose a", handlers, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewModel.SetError(\"Choose an", handlers, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// One rule for booleans, as in macOS System Settings: a setting that is
+    /// on or off is a switch at its row's trailing edge, the label on the
+    /// left. A checkbox leading the row with the setting's name beside it
+    /// was the older Mac shape, and read as a form in a settings window.
+    /// </summary>
+    [Theory]
+    [InlineData("SettingsView")]
+    [InlineData("SettingsPages/NetworkingSettingsPageView")]
+    [InlineData("SettingsPages/LocalMcpServerSettingsView")]
+    [InlineData("SettingsPages/GitSettingsPageView")]
+    [InlineData("SettingsPages/QuickTerminalSettingsPageView")]
+    [InlineData("SettingsPages/AppearanceSettingsPageView")]
+    [InlineData("WorkspaceEditorView")]
+    public void Settings_rows_put_their_switch_at_the_trailing_edge(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        var rows = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "SettingRow", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(rows);
+        foreach (var row in rows)
+        {
+            Assert.Null(AttributeValue(row, "IsLeading"));
+            Assert.DoesNotContain(
+                row.Elements(),
+                child => string.Equals(child.Name.LocalName, "CheckBox", StringComparison.Ordinal));
+        }
+
+        // A switch in a row is named by that row's label, which search finds.
+        foreach (var row in rows.Where(row => row.Elements().Any(child =>
+                     string.Equals(child.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal))))
+        {
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(row, "Label")));
+            Assert.Null(AttributeValue(row, "IsStacked"));
+        }
+    }
+
+    /// <summary>
+    /// Data &amp; Diagnostics lists its storage and its recovery runs as rows of
+    /// one neutral card, as every settings list is. Each used to be a card of
+    /// its own filled with the notice tone, inside the section's card, so
+    /// the page read as a stack of blue boxes.
+    /// </summary>
+    [Theory]
+    [InlineData("LocalArtifactControlView", "LocalArtifactList")]
+    [InlineData("RecoveryDataControlView", "RecoveryRunList")]
+    public void Diagnostics_lists_are_rows_of_one_neutral_card(string view, string listName)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => element.Name.LocalName is "SurfaceCard" or "Callout"
+                && element.Ancestors().Any(ancestor => string.Equals(
+                    ancestor.Name.LocalName,
+                    "DataTemplate",
+                    StringComparison.Ordinal)));
+
+        // The rows are the list itself, in the plate of the section's
+        // settings group: no card of their own, no notice tone.
+        var rows = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Name"), listName, StringComparison.Ordinal));
+        Assert.Contains("Separated", AttributeValue(rows, "Classes") ?? string.Empty, StringComparison.Ordinal);
+        var group = Assert.Single(
+            rows.Ancestors(),
+            ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.False(string.IsNullOrWhiteSpace(AttributeValue(group, "Heading")));
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => element.Name.LocalName is "SurfaceCard" or "Callout");
+
+        // The section is a page section, not a card of its own, and its
+        // heading is the group's, a section heading's rank.
+        Assert.NotEqual("SurfaceCard", root.Elements().First().Name.LocalName, StringComparer.Ordinal);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Classes"), "Headline", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// A notice is information, not an alert: its card is the neutral
+    /// secondary surface, and a callout tints only its glyph.
+    /// </summary>
+    [Fact]
+    public void Notice_tone_draws_a_neutral_surface()
+    {
+        var designSystem = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "DesignSystem.axaml"));
+        var start = designSystem.IndexOf("<Style Selector=\"^:tone-notice\">", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = designSystem.IndexOf("</Style>", start, StringComparison.Ordinal);
+        var notice = designSystem[start..end];
+        Assert.Contains("ShellSurfaceRaisedBrush", notice, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShellInfo", notice, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Style Selector=\"^:tone-notice /template/ icons|SymbolIcon#PART_Glyph\">",
+            designSystem,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Every list on a settings page is one card holding its rows edge to
+    /// edge with hairlines between them, and the + and – that act on it sit
+    /// in a bar along the card's bottom edge rather than loose under it.
+    /// </summary>
+    [Theory]
+    [InlineData("SettingsView")]
+    [InlineData("SettingsPages/NetworkingSettingsPageView")]
+    [InlineData("SettingsPages/GitSettingsPageView")]
+    public void Settings_lists_are_cards_with_their_actions_in_a_bottom_bar(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        var lists = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "ListBox", StringComparison.Ordinal)
+                && (AttributeValue(element, "Classes") ?? string.Empty).Contains("Rows", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(lists);
+        foreach (var list in lists)
+        {
+            // A list is a plate of the grouped form, under its section's
+            // heading, as any other group of settings is.
+            Assert.Contains("Separated", AttributeValue(list, "Classes"), StringComparison.Ordinal);
+            var group = list.Ancestors().FirstOrDefault(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+            Assert.True(group is not null, $"{AttributeValue(list, "AutomationProperties.Name")} is not a plate of a settings group.");
+            Assert.False(string.IsNullOrWhiteSpace(AttributeValue(group!, "Heading")));
+            Assert.DoesNotContain(
+                list.Ancestors().TakeWhile(ancestor => !ReferenceEquals(ancestor, group)),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        }
+
+        var listActions = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "SymbolIcon", StringComparison.Ordinal)
+                && AttributeValue(element, "Symbol") is "Add" or "Subtract"
+                && element.Parent is { } button
+                && string.Equals(button.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(button, "Classes"), "IconButton", StringComparison.Ordinal))
+            .ToArray();
+        Assert.NotEmpty(listActions);
+        foreach (var action in listActions)
+        {
+            var bar = action.Ancestors().FirstOrDefault(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "Border", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(ancestor, "Classes"), "ListActionBar", StringComparison.Ordinal));
+            Assert.True(bar is not null, $"{AttributeValue(action.Parent!, "AutomationProperties.Name")} is not in a list's action bar.");
+            Assert.Contains(
+                bar!.Ancestors(),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// Every settings page has System Settings' one rhythm: plates a group's
+    /// gap apart, and a headed section a section's gap further down, from the
+    /// settings page's style. Pages used 24, Keyboard Shortcuts, About and AI
+    /// used 16, so the rhythm changed from one page to the next.
+    /// </summary>
+    [Fact]
+    public void Every_settings_page_uses_one_section_gap()
+    {
+        const string page = "SettingsPage";
+        var settings = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var pages = settings.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && (AttributeValue(element, "Name") ?? string.Empty).EndsWith("SettingsPage", StringComparison.Ordinal))
+            .ToArray();
+        Assert.True(pages.Length >= 10, $"Found {pages.Length} inline settings pages.");
+        foreach (var inline in pages)
+        {
+            Assert.Equal(page, AttributeValue(inline, "Classes"));
+            Assert.Null(AttributeValue(inline, "Spacing"));
+        }
+
+        // The AI page's sections stand in the page itself, as every page's
+        // do, so its hidden opening line and its first heading take the
+        // page's rules: a stack of its own around them stood the page's
+        // heading 10 off the edge every other page's stands on. MCP is a
+        // section of the page under its own heading.
+        Assert.Equal("SettingsSection", AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Classes"));
+        var ai = FindNamedElement(settings, "AiSettingsPage");
+        Assert.Contains(ai.Elements(), element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
+        Assert.Contains(ai.Elements(), element => string.Equals(element.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            ai.Elements(),
+            element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && AttributeValue(element, "Classes") is null);
+        foreach (var inline in pages)
+        {
+            Assert.Contains(inline.Elements(), element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
+        }
+
+        // A stack inside a page stacks its plates the same gap apart.
+        Assert.DoesNotContain(
+            pages.SelectMany(inline => inline.Descendants()),
+            element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Spacing"), "{DynamicResource ShellSpaceSection}", StringComparison.Ordinal));
+
+        foreach (var view in new[] { "AppearanceSettingsPageView", "GitSettingsPageView", "NetworkingSettingsPageView", "QuickTerminalSettingsPageView" })
+        {
+            var root = Assert.IsType<XElement>(LoadSettingsPage(view).Root);
+            var stack = root.Elements().First(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
+            Assert.Equal(page, AttributeValue(stack, "Classes"));
+            Assert.Null(AttributeValue(stack, "Spacing"));
+        }
+
+        var styles = File.ReadAllText(Path.Combine(
+            ApplicationViews.RepositoryRoot,
+            "src",
+            "Asura.App",
+            "Styles",
+            "SettingsStyles.axaml"));
+        Assert.Contains("<Style Selector=\"StackPanel.SettingsPage\">", styles, StringComparison.Ordinal);
+        Assert.Contains(
+            "<Style Selector=\"StackPanel.SettingsPage controls|SettingsGroup:headed\">",
+            styles,
+            StringComparison.Ordinal);
+        Assert.Contains("ShellSettingsSectionInset", styles, StringComparison.Ordinal);
+        // The first section shown opens the page under the title band; which
+        // one that is is the group's to know, not a child count's.
+        Assert.Contains(
+            "<Style Selector=\"StackPanel.SettingsPage > controls|SettingsGroup:headed:first-shown\">",
+            styles,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingsGroup:headed:nth-child", styles, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Data &amp; Diagnostics shows each state of its two lists — loading,
+    /// empty, couldn't load — in the card the list would fill, so the page
+    /// keeps one shape. The cache section's empty state sat in a card while
+    /// the recovery section's sat bare on the page, and one failure was a
+    /// warning callout while the other was a retry state.
+    /// </summary>
+    [Theory]
+    [InlineData("LocalArtifactControlView")]
+    [InlineData("RecoveryDataControlView")]
+    public void Diagnostics_states_sit_in_the_card_their_list_fills(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "EmptyStatePanel", StringComparison.Ordinal));
+        var states = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(
+            ["Loading", "Empty", "Retry"],
+            states.Select(state => AttributeValue(state, "Kind")),
+            StringComparer.Ordinal);
+        foreach (var state in states)
+        {
+            // In the one plate the list fills, in the panel the list stands
+            // in, not in a card of its own.
+            var plate = state.Ancestors().First(ancestor =>
+                string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+            Assert.Contains(
+                plate.Descendants(),
+                element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                    && (AttributeValue(element, "Classes") ?? string.Empty).Contains("Separated", StringComparison.Ordinal));
+            Assert.DoesNotContain(
+                state.Ancestors().TakeWhile(ancestor => !ReferenceEquals(ancestor, plate)),
+                ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+            Assert.Equal("{controls:Inset Xl}", AttributeValue(state, "Margin"));
+        }
+    }
+
+    /// <summary>
+    /// The + popover for a browser profile adds a persistent profile on
+    /// Return and says a refused name inside itself.
+    /// </summary>
+    [Fact]
+    public void Browser_profile_popover_adds_on_return_and_refuses_in_place()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var persistent = FindNamedElement(root, "AddPersistentBrowserProfileButton");
+        var @private = FindNamedElement(root, "AddPrivateBrowserProfileButton");
+        Assert.Equal("True", AttributeValue(persistent, "IsDefault"));
+        Assert.Null(AttributeValue(@private, "IsDefault"));
+        foreach (var button in new[] { persistent, @private })
+        {
+            // The command makes the profile; the popover closes when the
+            // editor says it exists, not on the click, which closed it before
+            // the name was checked.
+            Assert.NotNull(AttributeValue(button, "Command"));
+            Assert.Null(AttributeValue(button, "Click"));
+        }
+
+        var error = FindNamedElement(root, "BrowserProfileCreationError");
+        Assert.Equal("{Binding CreationError}", AttributeValue(error, "Text"));
+        Assert.Equal(
+            "{Binding BrowserProfileSettingsEditor}",
+            AttributeValue(FindNamedElement(root, "BrowserProfilePopover"), "DataContext"));
+        Assert.Contains(
+            persistent.Ancestors(),
+            ancestor => string.Equals(ancestor.Name.LocalName, "Flyout", StringComparison.Ordinal)
+                && ancestor.Descendants().Contains(error));
+    }
+
+    /// <summary>
+    /// With no layouts, the layouts card says so rather than drawing an
+    /// empty rounded outline.
+    /// </summary>
+    [Fact]
+    public void Layouts_card_says_when_it_has_no_layouts()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var layouts = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Layouts}", StringComparison.Ordinal));
+        var card = layouts.Ancestors().First(ancestor => string.Equals(ancestor.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.Equal("Layouts", AttributeValue(card, "Heading"));
+        var empty = Assert.Single(
+            card.Descendants(),
+            element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal));
+        Assert.Equal("Empty", AttributeValue(empty, "Kind"));
+        Assert.Equal("{Binding !Layouts.Count}", AttributeValue(empty, "IsVisible"));
+    }
+
+    /// <summary>
+    /// MCP is a section of the AI page, so its heading has a section
+    /// heading's rank, not a page title's, and keeps its heading level.
+    /// </summary>
+    [Fact]
+    public void Mcp_section_heading_has_section_rank()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var section = FindNamedElement(root, "McpSettingsSection");
+        var heading = Assert.Single(
+            section.Descendants(),
+            element => string.Equals(AttributeValue(element, "Text"), "MCP", StringComparison.Ordinal));
+        Assert.Equal("Headline", AttributeValue(heading, "Classes"));
+        Assert.Equal("2", AttributeValue(heading, "AutomationProperties.HeadingLevel"));
+    }
+
+    /// <summary>
+    /// The terminal palette applies as it changes; Revert is the page's only
+    /// palette action, and nothing on it says Apply.
+    /// </summary>
+    [Fact]
+    public void Appearance_applies_the_terminal_palette_as_it_changes()
+    {
+        var root = Assert.IsType<XElement>(LoadSettingsPage("AppearanceSettingsPageView").Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && (AttributeValue(element, "Content") ?? string.Empty).StartsWith("Apply", StringComparison.Ordinal));
+        var revert = FindNamedElement(root, "RevertTerminalButton");
+        Assert.Equal("Revert", AttributeValue(revert, "Content"));
+        Assert.Equal("TextButton", AttributeValue(revert, "Classes"));
+        Assert.Equal("{Binding CanRevertTerminalAppearance}", AttributeValue(revert, "IsEnabled"));
+
+        // One home for each setting: the cursor lives on the Terminal page,
+        // the terminal font here.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Cursor shape", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Blink cursor", StringComparison.Ordinal)
+                || string.Equals(AttributeValue(element, "Text"), "Set on the Terminal page", StringComparison.Ordinal));
+    }
+
     private static readonly string[] InlineSettingsPageVisibilityBindings =
     [
         "IsWorkspaceSettingsVisible",
@@ -969,6 +1387,7 @@ public sealed class SettingsViewContractTests
         "IsAgentSettingsVisible",
         "IsDiagnosticsSettingsVisible",
         "IsAboutSettingsVisible",
+        "IsNotificationSettingsVisible",
     ];
 
     private static readonly string[] AppearanceControlNames =
@@ -984,9 +1403,8 @@ public sealed class SettingsViewContractTests
 
     private static readonly string[] QuickTerminalAutomationNames =
     [
-        "Save Quick Terminal settings",
-        "Quick Terminal global hotkey",
-        "Record Quick Terminal global hotkey",
+        "Quick Terminal global shortcut",
+        "Record Quick Terminal global shortcut",
         "Quick Terminal display",
         "Quick Terminal panel height",
         "Quick Terminal background opacity",
@@ -995,6 +1413,7 @@ public sealed class SettingsViewContractTests
         "Reduce Quick Terminal motion",
         "Quick Terminal animation duration",
         "Hide Quick Terminal on focus loss",
+        "Escape hides Quick Terminal",
         "Keep Quick Terminal session",
     ];
 
@@ -1017,7 +1436,6 @@ public sealed class SettingsViewContractTests
         "CaptureAiProviderSecretForm()",
         "CaptureMcpServerSecretForm()",
         "BindOperationalViewModels(",
-        "FocusBackButton()",
         "FocusSavedScreenUndo()",
     ];
 
@@ -1039,7 +1457,6 @@ public sealed class SettingsViewContractTests
         "SettingsRoute.CaptureFileProviderSecretForm()",
         "SettingsRoute.CaptureAiProviderSecretForm()",
         "SettingsRoute.CaptureMcpServerSecretForm()",
-        "FocusNavigator.FocusSettingsBackButton()",
         "FocusNavigator.FocusSavedScreenUndo()",
     ];
 
@@ -1068,7 +1485,7 @@ public sealed class SettingsViewContractTests
         "SecretKindPicker",
         "SecretLabelInput",
         "SecretValueInput",
-        "SettingsBackButton",
+        "SettingsSearch",
         "UndoDeletedSavedScreenButton",
     ];
 

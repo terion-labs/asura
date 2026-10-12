@@ -11,6 +11,21 @@ internal static class RuntimeWorkspaceRecoveryCodec
     public const string SnapshotKey = "desktop.main-window";
     public const int SchemaVersion = 10;
 
+    /// <summary>
+    /// The snapshot key for one window's recovery slot. The first slot keeps
+    /// the key every earlier version wrote, so a single-window session from
+    /// before windows had slots still restores into the first window.
+    /// </summary>
+    public static string SnapshotKeyFor(int slot)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(slot);
+        return slot == 0
+            ? SnapshotKey
+            : string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"{SnapshotKey}.{slot + 1}");
+    }
+
     private const int MaximumTabs = WorkspaceInstance.MaximumPanelCount;
     private const int MaximumPanelsPerTab = WorkspaceInstance.MaximumPanelCount;
     private const int MaximumGridDimension = 64;
@@ -42,7 +57,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
         payload = null;
         if (snapshot.SchemaVersion != SchemaVersion)
         {
-            error = $"Runtime recovery schema {snapshot.SchemaVersion} is not supported.";
+            error = $"Runtime recovery schema {snapshot.SchemaVersion} isn't supported.";
             return false;
         }
 
@@ -54,7 +69,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
         }
         catch (JsonException)
         {
-            error = "Runtime recovery data is not valid JSON.";
+            error = "Runtime recovery data isn't valid JSON.";
             return false;
         }
         catch (NotSupportedException)
@@ -99,7 +114,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
             workspace.IsolationBinding?.ImageReference,
             workspace.NetworkIdentity);
 
-    private static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
+    internal static RuntimeTabRecoveryPayload CaptureTab(RuntimeTabViewModel tab) =>
         new(
             tab.Id.Value,
             tab.Title,
@@ -252,14 +267,14 @@ internal static class RuntimeWorkspaceRecoveryCodec
             panelCount += tab.Panels!.Length;
             if (panelCount > WorkspaceInstance.MaximumPanelCount)
             {
-                error = $"A recovered workspace cannot contain more than {WorkspaceInstance.MaximumPanelCount} panels.";
+                error = $"A restored workspace can't have more than {WorkspaceInstance.MaximumPanelCount} panels.";
                 return false;
             }
         }
 
         if (workspace.ActiveTabKey is not null && !tabKeys.Contains(workspace.ActiveTabKey))
         {
-            error = "The recovered active tab does not exist.";
+            error = "The recovered active tab doesn't exist.";
             return false;
         }
 
@@ -338,7 +353,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 || !string.Equals(tab.HistorySource.SourceKind, screenPolicySource.Kind
 , StringComparison.Ordinal) || !string.Equals(tab.HistorySource.SourceValue, screenPolicySource.Value, StringComparison.Ordinal)))
         {
-            error = "Recovered screen policy provenance does not match its history source.";
+            error = "Recovered screen policy provenance doesn't match its history source.";
             return false;
         }
 
@@ -358,7 +373,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
                 || screenPolicySource is null
                 && !tab.AgentPolicy.HasSamePolicyAs(workspacePolicy)))
         {
-            error = "Recovered tab policy does not match its workspace policy lineage.";
+            error = "Recovered tab policy doesn't match its workspace policy lineage.";
             return false;
         }
 
@@ -377,7 +392,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
 
         if (tab.ActivePanelKey is not null && !panelKeys.Contains(tab.ActivePanelKey))
         {
-            error = "The recovered active panel does not exist.";
+            error = "The recovered active panel doesn't exist.";
             return false;
         }
 
@@ -385,7 +400,7 @@ internal static class RuntimeWorkspaceRecoveryCodec
             && (!panelKeys.Contains(tab.ZoomedPanelKey)
                 || !string.Equals(tab.ZoomedPanelKey, tab.ActivePanelKey, StringComparison.Ordinal)))
         {
-            error = "The recovered zoomed panel does not match the active panel.";
+            error = "The recovered zoomed panel doesn't match the active panel.";
             return false;
         }
 

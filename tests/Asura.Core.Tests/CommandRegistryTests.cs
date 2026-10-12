@@ -13,6 +13,82 @@ public sealed class CommandRegistryTests
     }
 
     [Fact]
+    public void Built_in_categories_name_each_group_once()
+    {
+        // The palette shows the category on every row, so "Window" beside
+        // "Windows" reads as two groups for one menu.
+        var categories = BuiltInCommands.Registry.Commands
+            .Select(command => command.Category)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.DoesNotContain(
+            categories,
+            category => categories.Contains(category + "s", StringComparer.OrdinalIgnoreCase));
+        Assert.All(categories, category => Assert.True(char.IsUpper(category[0]), category));
+    }
+
+    [Fact]
+    public void Built_in_titles_read_as_the_menu_bar_reads()
+    {
+        // The palette and the Keyboard Shortcuts list show these titles, so
+        // they say Show or Hide rather than Toggle and end with "…" where the
+        // command opens a window or editor, as the menu bar does.
+        Assert.DoesNotContain(
+            BuiltInCommands.Registry.Commands,
+            command => command.Title.StartsWith("Toggle", StringComparison.Ordinal));
+        CommandId[] opening =
+        [
+            BuiltInCommands.ShowSettings,
+            BuiltInCommands.CheckForUpdates,
+            BuiltInCommands.NewTab,
+            BuiltInCommands.EditFind,
+            BuiltInCommands.ShowCommandPalette,
+            BuiltInCommands.AddPanel,
+            BuiltInCommands.ShowLayoutDesigner,
+            BuiltInCommands.RenameTab,
+            BuiltInCommands.ChangeTabIcon,
+            BuiltInCommands.ReportIssue,
+        ];
+        foreach (var id in opening)
+        {
+            Assert.True(BuiltInCommands.Registry.TryGet(id, out var command));
+            Assert.EndsWith("…", command!.Title, StringComparison.Ordinal);
+        }
+
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.About, out var about));
+        Assert.Equal("About Asura", about!.Title);
+        Assert.DoesNotContain(
+            BuiltInCommands.Registry.Commands,
+            command => command.Title.Contains("/", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("view.toggle-sidebar", CommandStates.IsSidebarVisible, "Show Sidebar", "Hide Sidebar")]
+    [InlineData("view.toggle-agent-panel", CommandStates.IsAgentPanelVisible, "Show Agent Panel", "Hide Agent Panel")]
+    [InlineData(
+        "view.toggle-quick-terminal",
+        CommandStates.IsQuickTerminalVisible,
+        "Show Quick Terminal",
+        "Hide Quick Terminal")]
+    [InlineData("window.toggle-full-screen", CommandStates.IsFullScreen, "Enter Full Screen", "Exit Full Screen")]
+    public void Show_and_hide_commands_name_the_action_they_take_now(
+        string id,
+        string state,
+        string titleWhenOff,
+        string titleWhenOn)
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(new CommandId(id), out var command));
+        var off = new CommandInvocation(CommandContext.Window);
+        var on = new CommandInvocation(CommandContext.Window, state: [KeyValuePair.Create(state, true)]);
+        var none = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        Assert.Equal(titleWhenOff, command!.Title);
+        Assert.Equal(titleWhenOff, command.TitleFor(none, off));
+        Assert.Equal(titleWhenOn, command.TitleFor(none, on));
+    }
+
+    [Fact]
     public void Availability_checks_context_parameters_and_runtime_predicate()
     {
         var schema = new CommandParameterSchema(
@@ -42,11 +118,23 @@ public sealed class CommandRegistryTests
         Assert.False(command.IsAvailable(invalidParameter));
     }
 
+    /// <summary>
+    /// A command ships with a keymap binding or a macOS menu shortcut, unless
+    /// Apple's standard menus leave it to the pointer and menu search, as they
+    /// do for About and Bring All to Front.
+    /// </summary>
     [Fact]
-    public void Every_built_in_command_has_a_default_binding()
+    public void Every_built_in_command_ships_with_a_shortcut_unless_it_is_unbound_by_design()
     {
         Assert.NotEmpty(BuiltInCommands.Registry.Commands);
-        Assert.All(BuiltInCommands.Registry.Commands, command => Assert.NotEmpty(command.DefaultBindings));
+        Assert.All(BuiltInCommands.Registry.Commands, command =>
+        {
+            var hasShortcut = !command.DefaultBindings.IsEmpty
+                || MacOsMenuShortcuts.All.Any(binding => binding.CommandId == command.Id);
+            Assert.True(
+                hasShortcut != BuiltInCommands.UnboundByDefault.Contains(command.Id),
+                $"{command.Id} must either ship with a shortcut or be listed in UnboundByDefault, not both.");
+        });
     }
 
     [Theory]
@@ -64,7 +152,54 @@ public sealed class CommandRegistryTests
 
     public static TheoryData<CommandId, string> TabMoveCommands => new()
     {
-        { BuiltInCommands.MoveTabLeft, "Move tab left" },
-        { BuiltInCommands.MoveTabRight, "Move tab right" },
+        { BuiltInCommands.MoveTabLeft, "Move Tab Left" },
+        { BuiltInCommands.MoveTabRight, "Move Tab Right" },
     };
+
+    [Theory]
+    [InlineData("left", "Focus Panel Left")]
+    [InlineData("right", "Focus Panel Right")]
+    [InlineData("up", "Focus Panel Up")]
+    [InlineData("down", "Focus Panel Down")]
+    [InlineData("next", "Focus Next Panel")]
+    public void Each_focus_panel_invocation_has_its_own_name(string direction, string expected)
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.FocusPanel, out var command));
+
+        Assert.Equal(
+            expected,
+            command!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal) { ["direction"] = direction }));
+    }
+
+    [Fact]
+    public void Positions_are_named_from_one_and_unparameterized_commands_keep_their_title()
+    {
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.MoveTabToWorkspace, out var move));
+        Assert.True(BuiltInCommands.Registry.TryGet(BuiltInCommands.CloseTab, out var close));
+
+        Assert.Equal(
+            "Move Tab to Workspace 3",
+            move!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal) { ["position"] = "2" }));
+        Assert.Equal("Close Tab", close!.TitleFor(new Dictionary<string, string>(StringComparer.Ordinal)));
+    }
+
+    [Fact]
+    public void Every_parameterized_built_in_binding_has_a_distinct_row_name()
+    {
+        foreach (var profile in BuiltInKeymaps.All)
+        {
+            var titles = profile.Bindings
+                .Where(binding => binding.Arguments.Count > 0)
+                .GroupBy(binding => binding.CommandId)
+                .Select(group => group
+                    .Select(binding =>
+                    {
+                        Assert.True(BuiltInCommands.Registry.TryGet(binding.CommandId, out var command));
+                        return command!.TitleFor(binding.Arguments);
+                    })
+                    .ToArray());
+
+            Assert.All(titles, group => Assert.Equal(group.Length, group.Distinct(StringComparer.Ordinal).Count()));
+        }
+    }
 }

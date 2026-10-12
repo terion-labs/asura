@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -47,6 +49,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     private string _remoteRoot = "/";
     private string _host = string.Empty;
     private int _port = 21;
+    private string? _unparsedPort;
     private string _username = string.Empty;
     private FileProviderSecretOption? _selectedCredential;
     private FtpSecurityMode _ftpSecurity = FtpSecurityMode.ExplicitTls;
@@ -59,7 +62,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     private string _baseUri = "https://";
     private bool _isTesting;
     private string _testStatus = "Not tested";
-    private string _testDetail = "Save is allowed without a test; opening validates the provider again.";
+    private string _testDetail = "You can save without testing.";
     private SshHostKeyReview? _hostKeyReview;
     private string _hostKeyReviewStatus = string.Empty;
     private bool _isApplyingHostKeyTrust;
@@ -98,7 +101,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit file connection" : "New file connection";
+    public string EditorTitle => IsEditing ? "Edit File Connection" : "New File Connection";
 
     public string ProfileId => _id.Value;
 
@@ -187,7 +190,38 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
     public string Host { get => _host; set => SetProperty(ref _host, value); }
 
-    public int Port { get => _port; set => SetProperty(ref _port, value); }
+    public int Port
+    {
+        get => _port;
+        set
+        {
+            if (SetProperty(ref _port, value))
+            {
+                _unparsedPort = null;
+                OnPropertyChanged(nameof(PortText));
+            }
+        }
+    }
+
+    /// <summary>The port field's text: the port, or what was typed when it isn't one.</summary>
+    public string PortText
+    {
+        get => _unparsedPort ?? PortNumber.Format(Port);
+        set
+        {
+            if (PortNumber.TryParse(value, out var port))
+            {
+                _unparsedPort = null;
+                Port = port;
+            }
+            else
+            {
+                _unparsedPort = value ?? string.Empty;
+            }
+
+            OnPropertyChanged();
+        }
+    }
 
     public string Username { get => _username; set => SetProperty(ref _username, value); }
 
@@ -295,8 +329,8 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     public string HostKeyReviewStatus => _hostKeyReviewStatus;
 
     public string HostKeyActionText => _hostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key"
-        : "Trust this key";
+        ? "Replace Trusted Key…"
+        : "Trust This Key…";
 
     public bool CanApplyHostKeyTrust => HasHostKeyReview && !IsTesting && !_isApplyingHostKeyTrust;
 
@@ -318,19 +352,22 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "file-provider.editor.test.refused",
+                exception,
+                "Asura can't test the file provider with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
 
         IsTesting = true;
         ClearHostKeyReview();
-        TestStatus = "Testing provider";
-        TestDetail = "Resolving the adapter and listing its configured root…";
+        TestStatus = "Testing file location";
+        TestDetail = "Connecting and listing the starting folder…";
         try
         {
             var result = await _runtime.TestAsync(profile, cancellationToken);
-            TestStatus = result.IsSuccess ? "Provider connected" : "Test failed";
+            TestStatus = result.IsSuccess ? "File location connected" : "Test failed";
             TestDetail = result.Message;
             if (!result.IsSuccess)
             {
@@ -345,13 +382,13 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The provider test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The provider test was canceled.";
         }
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The provider runtime could not complete the test.";
+            TestDetail = "Asura couldn't finish testing the file provider. Try again.";
             ReportError(TestDetail, TestStatus);
         }
         finally
@@ -379,7 +416,10 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            _hostKeyReviewStatus = exception.Message;
+            _hostKeyReviewStatus = FailureReason.Refusal(
+                "file-provider.editor.host-key.refused",
+                exception,
+                "Asura can't trust the host key until the provider's settings are complete. Check each value, then try again.");
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }
@@ -409,11 +449,11 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
 
             ClearHostKeyReview();
             TestStatus = "Host key trusted";
-            TestDetail = "The shared SSH host-key store was updated. Testing the provider again…";
+            TestDetail = "The server’s host key is trusted. Testing the file location again…";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            _hostKeyReviewStatus = "Host-key trust was cancelled.";
+            _hostKeyReviewStatus = "The host key wasn’t trusted because the review was canceled.";
             OnPropertyChanged(nameof(HostKeyReviewStatus));
             return;
         }
@@ -439,7 +479,7 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         var result = await _hostKeyRepair.InspectSshHostKeyAsync(profile, cancellationToken);
         if (result is ConnectionRuntimeResult<SshHostKeyReview>.Failure failure)
         {
-            TestDetail = $"{TestDetail} Host-key inspection failed: {failure.Error.Message}";
+            TestDetail = $"{TestDetail} Asura couldn’t check the server’s host key. {failure.Error.Message}";
             return;
         }
 
@@ -494,18 +534,20 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         FileProviderKind.S3 => new FileProviderConfiguration.S3(
             Required(BucketName, "Bucket name"),
             Optional(Region),
-            OptionalUri(ServiceUri),
+            string.IsNullOrWhiteSpace(ServiceUri) ? null : RequiredUri(ServiceUri, "Service URI"),
             ForcePathStyle,
             AllowInsecureTransport,
             SelectedCredential?.Reference,
             OptionalExact(RootPrefix)),
         FileProviderKind.Sftp => new FileProviderConfiguration.Sftp(
             SelectedSshConnection?.Id
-                ?? throw new ArgumentException("An SSH connection is required for SFTP."),
+                ?? throw InvalidField.Exception(
+                    nameof(SelectedSshConnection),
+                    "Choose the SSH connection for SFTP to use."),
             Required(RemoteRoot, "Remote root")),
         FileProviderKind.Ftp => new FileProviderConfiguration.Ftp(
             Required(Host, "FTP host"),
-            Port,
+            ValidPort(),
             Optional(Username),
             SelectedCredential?.Reference,
             FtpSecurity,
@@ -520,7 +562,9 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
             UsesSmbCredential ? Required(Username, "SMB username") : null,
             UsesSmbCredential
                 ? SelectedCredential?.Reference
-                    ?? throw new ArgumentException("An SMB password secret is required.")
+                    ?? throw InvalidField.Exception(
+                        nameof(SelectedCredential),
+                        "Choose the saved credential that holds the SMB password.")
                 : null,
             Required(RemoteRoot, "Remote root")),
         FileProviderKind.WebDav => new FileProviderConfiguration.WebDav(
@@ -643,11 +687,18 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
         return options.AsReadOnly();
     }
 
-    private static string Required(string value, string label)
+    /// <summary>
+    /// The trimmed value, or a failure naming the field it came from — the
+    /// property passed in — so the editor can show it under that field.
+    /// </summary>
+    private static string Required(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{label} is required.");
+            throw InvalidField.Exception(field, $"{label} is required.");
         }
 
         return value.Trim();
@@ -656,19 +707,24 @@ public sealed class FileProviderProfileEditorViewModel : ObservableObject
     private static string? Optional(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private int ValidPort() => _unparsedPort is null
+        ? Port
+        : throw InvalidField.Exception(nameof(Port), PortNumber.Requirement);
+
     private static string? OptionalExact(string value) =>
         string.IsNullOrEmpty(value) ? null : value;
 
-    private static Uri RequiredUri(string value, string label)
+    private static Uri RequiredUri(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
-        if (!Uri.TryCreate(Required(value, label), UriKind.Absolute, out var uri))
+        if (!Uri.TryCreate(Required(value, label, field), UriKind.Absolute, out var uri))
         {
-            throw new ArgumentException($"{label} must be an absolute URI.");
+            throw InvalidField.Exception(field, $"{label} must be an absolute URI.");
         }
 
         return uri;
     }
 
-    private static Uri? OptionalUri(string value) =>
-        string.IsNullOrWhiteSpace(value) ? null : RequiredUri(value, "Service URI");
 }

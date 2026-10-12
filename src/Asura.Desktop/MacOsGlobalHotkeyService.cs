@@ -18,18 +18,15 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
     private const uint TypeEventHotKeyId = 0x686B6964;
     private const uint AsuraSignature = 0x4753484C;
     private const uint AsuraHotKeyId = 1;
-    private const uint AsuraEscapeHotKeyId = 2;
     private const uint EventHotKeyExclusive = 1;
     private const uint CommandKey = 1U << 8;
     private const uint ShiftKey = 1U << 9;
     private const uint OptionKey = 1U << 11;
     private const uint ControlKey = 1U << 12;
-    private const uint EscapeVirtualKeyCode = 53;
 
     private readonly EventHandlerDelegate _eventHandler;
     private IntPtr _eventHandlerReference;
     private IntPtr _hotKeyReference;
-    private IntPtr _escapeHotKeyReference;
     private bool _disposed;
 
     public MacOsGlobalHotkeyService()
@@ -44,8 +41,6 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
 
     public event EventHandler? Pressed;
 
-    public event EventHandler? EscapePressed;
-
     public KeyStroke? RegisteredGesture { get; private set; }
 
     public GlobalHotkeyRegistrationResult Register(KeyStroke gesture)
@@ -57,13 +52,13 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
             return Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                 "global_hotkey_invalid_gesture",
-                "The selected shortcut is not supported by the macOS hot-key adapter.");
+                "macOS can't use this shortcut as a global shortcut. Choose another one.");
         }
 
         var installStatus = EnsureHandler();
         if (installStatus != NoError)
         {
-            return NativeFailure(installStatus);
+            return NativeFailure("handler-install", installStatus);
         }
 
         var hotKeyId = new EventHotKeyId(AsuraSignature, AsuraHotKeyId);
@@ -83,12 +78,12 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
                 EventHotKeyExistsError => Failure(
                     GlobalHotkeyRegistrationErrorCode.Conflict,
                     "global_hotkey_conflict",
-                    "Another application already owns this global shortcut."),
+                    "Another app already uses this shortcut."),
                 EventHotKeyInvalidError => Failure(
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
-                    "macOS rejected the selected global shortcut."),
-                _ => NativeFailure(registrationStatus),
+                    "macOS didn't accept this shortcut. Choose another one."),
+                _ => NativeFailure("register", registrationStatus),
             };
         }
 
@@ -108,56 +103,6 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
         RegisteredGesture = null;
     }
 
-    public GlobalHotkeyRegistrationResult BeginEscapeCapture()
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        EndEscapeCapture();
-        var installStatus = EnsureHandler();
-        if (installStatus != NoError)
-        {
-            return NativeFailure(installStatus);
-        }
-
-        var hotKeyId = new EventHotKeyId(AsuraSignature, AsuraEscapeHotKeyId);
-        var registrationStatus = RegisterEventHotKey(
-            EscapeVirtualKeyCode,
-            0,
-            hotKeyId,
-            GetApplicationEventTarget(),
-            EventHotKeyExclusive,
-            out _escapeHotKeyReference);
-        if (registrationStatus != NoError)
-        {
-            ReleaseUnexpectedRegistration(ref _escapeHotKeyReference);
-            RemoveHandlerIfUnused();
-            return registrationStatus switch
-            {
-                EventHotKeyExistsError => Failure(
-                    GlobalHotkeyRegistrationErrorCode.Conflict,
-                    "escape_capture_conflict",
-                    "Another application already owns Escape while Quick Terminal is open."),
-                EventHotKeyInvalidError => Failure(
-                    GlobalHotkeyRegistrationErrorCode.InvalidGesture,
-                    "escape_capture_invalid",
-                    "macOS rejected transient Escape capture."),
-                _ => NativeFailure(registrationStatus),
-            };
-        }
-
-        return new GlobalHotkeyRegistrationResult.Success(new KeyStroke("ESCAPE"));
-    }
-
-    public void EndEscapeCapture()
-    {
-        if (_escapeHotKeyReference != IntPtr.Zero)
-        {
-            _ = UnregisterEventHotKey(_escapeHotKeyReference);
-            _escapeHotKeyReference = IntPtr.Zero;
-        }
-
-        RemoveHandlerIfUnused();
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -165,7 +110,6 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
             return;
         }
 
-        EndEscapeCapture();
         Unregister();
         _disposed = true;
     }
@@ -187,17 +131,13 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
             return EventNotHandledError;
         }
 
-        switch (hotKeyId.Id)
+        if (hotKeyId.Id != AsuraHotKeyId)
         {
-            case AsuraHotKeyId:
-                Pressed?.Invoke(this, EventArgs.Empty);
-                return NoError;
-            case AsuraEscapeHotKeyId:
-                EscapePressed?.Invoke(this, EventArgs.Empty);
-                return NoError;
-            default:
-                return EventNotHandledError;
+            return EventNotHandledError;
         }
+
+        Pressed?.Invoke(this, EventArgs.Empty);
+        return NoError;
     }
 
     private int EnsureHandler()
@@ -237,8 +177,7 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
     private void RemoveHandlerIfUnused()
     {
         if (_eventHandlerReference == IntPtr.Zero
-            || _hotKeyReference != IntPtr.Zero
-            || _escapeHotKeyReference != IntPtr.Zero)
+            || _hotKeyReference != IntPtr.Zero)
         {
             return;
         }
@@ -370,10 +309,24 @@ internal sealed class MacOsGlobalHotkeyService : IGlobalHotkeyService
         string message) =>
         new GlobalHotkeyRegistrationResult.Failure(new(code, stableCode, message));
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(int status) => Failure(
-        GlobalHotkeyRegistrationErrorCode.NativeFailure,
-        "global_hotkey_native_failure",
-        $"macOS could not register the global shortcut (OSStatus {status}).");
+    /// <summary>
+    /// The diagnostic code for an OSStatus, such as
+    /// "desktop.hotkey.macos-native-failure.register.osstatus-neg9878".
+    /// </summary>
+    internal static string NativeFailureDiagnosticCode(string step, int status) =>
+        NativeStatusDiagnosticCode.Format($"desktop.hotkey.macos-native-failure.{step}", "osstatus", status);
+
+    // The OSStatus goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult NativeFailure(string step, int status)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            NativeFailureDiagnosticCode(step, status),
+            SecretSafeDiagnosticKind.Unexpected);
+        return Failure(
+            GlobalHotkeyRegistrationErrorCode.NativeFailure,
+            "global_hotkey_native_failure",
+            "macOS didn't accept this shortcut. Try again, or choose another one.");
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private readonly record struct EventTypeSpec(uint EventClass, uint EventKind);

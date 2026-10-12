@@ -83,9 +83,9 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.True(panel.HasHostedSession);
         Assert.Equal(SystemMonitorPanelState.Live, panel.State);
         Assert.Equal("37.5%", panel.CpuText);
-        Assert.Equal("2.0 KiB", panel.MemoryText);
-        Assert.Equal("1.5 KiB/s", panel.NetworkReceivedText);
-        Assert.Equal("3.0 KiB/s", panel.NetworkSentText);
+        Assert.Equal("2 KB", panel.MemoryText);
+        Assert.Equal("1.5 KB/s", panel.NetworkReceivedText);
+        Assert.Equal("3.1 KB/s", panel.NetworkSentText);
         Assert.Equal("9", panel.ProcessCountText);
         Assert.Equal("Resource details available for 7 of 9", panel.ProcessDetailText);
         Assert.Equal("1d 2h 3m", panel.UptimeText);
@@ -178,7 +178,7 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.Equal(77, process.ProcessId);
         Assert.Equal("dotnet helper", process.Name);
         Assert.Equal("8.5%", process.Cpu);
-        Assert.Equal("2.0 KiB", process.Memory);
+        Assert.Equal("2 KB", process.Memory);
         // How many are in the list, and nothing about how the sample was taken
         // — that belongs in the settings that bound it, not in every reading.
         Assert.Equal("1 process", panel.ShowingText);
@@ -277,6 +277,144 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ASessionHostRefusalSaysWhatToCheckInsteadOfTheHostsLogText()
+    {
+        var (client, host) = CreateHost();
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.StatisticsResults.Enqueue(HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.RevisionConflict, "Expected revision 3, but the current revision is 4."),
+            HostRevision));
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        host.ProcessResults.Enqueue(HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.EngineFailed, "Object reference not set to an instance of an object."),
+            HostRevision));
+        using var statistics = CreateStatisticsPanel(client);
+        using var processes = CreateProcessPanel(client);
+        await statistics.Start();
+        await processes.Start();
+
+        await statistics.RefreshAsync();
+        await processes.RefreshAsync();
+
+        Assert.Equal("Statistics refresh failed", statistics.IssueTitle);
+        Assert.StartsWith("Asura couldn't read statistics from", statistics.IssueMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision", statistics.IssueMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Process refresh failed", processes.IssueTitle);
+        Assert.StartsWith("Asura couldn't load the processes on", processes.IssueMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Object reference", processes.IssueMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StatisticsStaleFailureShowsItsReasonInANoticeUntilASampleArrives()
+    {
+        var (client, host) = CreateHost();
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.StatisticsResults.Enqueue(StatisticsCaptureFailure());
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample(cpu: 12)));
+        using var panel = CreateStatisticsPanel(client);
+        await panel.Start();
+        Assert.False(panel.ShowStaleNotice);
+
+        await panel.RefreshAsync();
+
+        Assert.True(panel.ShowStaleNotice);
+        Assert.Equal("Statistics refresh failed", panel.IssueTitle);
+        Assert.False(string.IsNullOrWhiteSpace(panel.IssueMessage));
+        AssertOneStatisticsState(panel, nameof(panel.ShowContent));
+
+        await panel.RefreshAsync();
+
+        Assert.False(panel.ShowStaleNotice);
+        Assert.Null(panel.IssueTitle);
+        Assert.Null(panel.IssueMessage);
+    }
+
+    [Fact]
+    public async Task StatisticsAlwaysShowsExactlyOneStateEvenAfterStoppingWithoutASample()
+    {
+        var (client, _) = CreateHost();
+        using var waiting = CreateStatisticsPanel(client);
+        AssertOneStatisticsState(waiting, nameof(waiting.ShowLoading));
+
+        var (failingClient, failingHost) = CreateHost();
+        failingHost.StatisticsResults.Enqueue(StatisticsCaptureFailure());
+        using var failed = CreateStatisticsPanel(failingClient);
+        await failed.Start();
+        AssertOneStatisticsState(failed, nameof(failed.ShowTerminalError));
+        Assert.False(failed.ShowStaleNotice);
+
+        var stopped = CreateStatisticsPanel(client);
+        stopped.Dispose();
+
+        Assert.Equal(SystemMonitorPanelState.Disposed, stopped.State);
+        AssertOneStatisticsState(stopped, nameof(stopped.ShowUnavailable));
+    }
+
+    [Fact]
+    public async Task ProcessFilterThatExcludesEveryRowSaysNoProcessesMatchUnderTheHeaders()
+    {
+        var (client, host) = CreateHost();
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        using var panel = CreateProcessPanel(client);
+        await panel.Start();
+        Assert.False(panel.ShowNoProcesses);
+
+        panel.Filter = "no-such-process";
+
+        Assert.Empty(panel.Processes);
+        Assert.True(panel.ShowContent);
+        Assert.True(panel.ShowNoProcesses);
+        Assert.Equal("No processes match", panel.NoProcessesHeading);
+        Assert.Contains("search by another name", panel.NoProcessesBody, StringComparison.Ordinal);
+
+        panel.Filter = string.Empty;
+
+        Assert.False(panel.ShowNoProcesses);
+        Assert.Equal(3, panel.Processes.Count);
+    }
+
+    [Fact]
+    public async Task ProcessListingWithNoRowsAndNoFilterSaysNoProcesses()
+    {
+        var (client, host) = CreateHost();
+        host.ProcessResults.Enqueue(ProcessSuccess(
+            new ProcessMonitorSnapshot(
+                new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
+                [],
+                0,
+                0,
+                false)));
+        using var panel = CreateProcessPanel(client);
+
+        await panel.Start();
+
+        Assert.True(panel.ShowNoProcesses);
+        Assert.Equal("No processes", panel.NoProcessesHeading);
+    }
+
+    [Fact]
+    public async Task ProcessesAlwaysShowExactlyOneStateEvenAfterStoppingWithoutASample()
+    {
+        var (client, _) = CreateHost();
+        using var waiting = CreateProcessPanel(client);
+        AssertOneProcessState(waiting, nameof(waiting.ShowLoading));
+
+        var (failingClient, failingHost) = CreateHost();
+        failingHost.ProcessResults.Enqueue(ProcessCaptureFailure());
+        using var failed = CreateProcessPanel(failingClient);
+        await failed.Start();
+        AssertOneProcessState(failed, nameof(failed.ShowTerminalError));
+        Assert.False(failed.ShowInlineIssue);
+
+        var stopped = CreateProcessPanel(client);
+        stopped.Dispose();
+
+        Assert.Equal(SystemMonitorPanelState.Disposed, stopped.State);
+        AssertOneProcessState(stopped, nameof(stopped.ShowUnavailable));
+        Assert.False(stopped.ShowNoProcesses);
+    }
+
+    [Fact]
     public async Task ProcessRecoverableFailurePreservesSnapshotAndFilteredRows()
     {
         var (client, host) = CreateHost();
@@ -318,6 +456,37 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.Equal(ProcessMonitorQuery.DefaultMaximumResults, panel.Processes.Count);
         Assert.Equal(originalRows, panel.Processes);
         Assert.Equal("1.0%", panel.Processes[0].Cpu);
+    }
+
+    /// <summary>
+    /// Rows are reused slots, so after a re-sort the selected rows show other
+    /// processes. The panel remembers the selected processes themselves and
+    /// hands the table the rows that show them now.
+    /// </summary>
+    [Fact]
+    public async Task ProcessSelectionFollowsTheProcessesAcrossARefreshThatReorders()
+    {
+        var (client, host) = CreateHost();
+        var first = ProcessRange(cpuOffset: 0);
+        host.ProcessResults.Enqueue(ProcessSuccess(first));
+        host.ProcessResults.Enqueue(ProcessSuccess(first with { Processes = [.. first.Processes.Reverse()] }));
+        using var panel = CreateProcessPanel(client);
+        await panel.Start();
+        panel.SetSelectedProcesses([panel.Processes[0], panel.Processes[1]]);
+        var raised = new List<string?>();
+        panel.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        await panel.RefreshAsync();
+
+        Assert.Contains(
+            nameof(ProcessMonitorRuntimePanelViewModel.SelectedProcesses),
+            raised,
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["process-2", "process-1"],
+            panel.SelectedProcesses.Select(process => process.Name),
+            StringComparer.Ordinal);
+        Assert.Same(panel.Processes[^1], panel.SelectedProcesses[^1]);
     }
 
     [Fact]
@@ -440,6 +609,32 @@ public sealed class SystemMonitorRuntimePanelViewModelTests
         Assert.False(recovered.ShowHidden);
         Assert.Null(recovered.Filter);
     }
+
+    private static void AssertOneStatisticsState(
+        StatisticsRuntimePanelViewModel panel,
+        string expected) =>
+        AssertOneState(
+            expected,
+            (nameof(panel.ShowLoading), panel.ShowLoading),
+            (nameof(panel.ShowContent), panel.ShowContent),
+            (nameof(panel.ShowTerminalError), panel.ShowTerminalError),
+            (nameof(panel.ShowUnavailable), panel.ShowUnavailable));
+
+    private static void AssertOneProcessState(
+        ProcessMonitorRuntimePanelViewModel panel,
+        string expected) =>
+        AssertOneState(
+            expected,
+            (nameof(panel.ShowLoading), panel.ShowLoading),
+            (nameof(panel.ShowContent), panel.ShowContent),
+            (nameof(panel.ShowTerminalError), panel.ShowTerminalError),
+            (nameof(panel.ShowUnavailable), panel.ShowUnavailable));
+
+    private static void AssertOneState(string expected, params (string Name, bool Shown)[] states) =>
+        Assert.Equal(
+            [expected],
+            states.Where(state => state.Shown).Select(state => state.Name),
+            StringComparer.Ordinal);
 
     private static StatisticsRuntimePanelViewModel CreateStatisticsPanel(
         ISessionHostClient sessionClient,

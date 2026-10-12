@@ -24,6 +24,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
     private readonly string? _connectionDisplayName;
     private BrowserRendererView? _rendererView;
     private BrowserAddress _currentAddress;
+    private string _pageTitle = string.Empty;
     private Task _initialization = Task.CompletedTask;
     private string? _routeErrorMessage;
     private bool _initializationStarted;
@@ -114,6 +115,7 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         _rendererViewFactory = rendererViewFactory
             ?? throw new ArgumentNullException(nameof(rendererViewFactory));
         _currentAddress = initialAddress;
+        _pageTitle = PageTitleFor(null, initialAddress);
         SessionRequest = new EnsureBrowserSessionRequest(
             SessionId.New(),
             owner,
@@ -168,6 +170,53 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasRouteError => RouteErrorMessage is not null;
 
+    /// <summary>
+    /// Starts the browser again after it couldn't start: the suggested action
+    /// on the unavailable card. Nothing happens while a start is under way or
+    /// once the browser is running.
+    /// </summary>
+    public Task RetryInitialization()
+    {
+        lock (_initializationGate)
+        {
+            if (_disposed || !HasRouteError || !_initialization.IsCompleted)
+            {
+                return _initialization;
+            }
+
+            _initializationStarted = false;
+        }
+
+        RouteErrorMessage = null;
+        return StartInitialization();
+    }
+
+    /// <summary>
+    /// The card's Try Again and the header's Reload while the browser
+    /// couldn't start. A second failure is already on the card and in
+    /// diagnostics, so nothing is left to observe here.
+    /// </summary>
+    public void TryAgain() => _ = ObserveRetryAsync(RetryInitialization());
+
+    private static async Task ObserveRetryAsync(Task retry)
+    {
+        try
+        {
+            await retry.ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // Reported by InitializeAsync on the card and in diagnostics.
+        }
+    }
+
+    /// <summary>Why the browser couldn't start, with what to do next.</summary>
+    internal static string RouteFailureMessage(Exception exception) => exception switch
+    {
+        TimeoutException => "The browser didn’t start in time. Try again, or choose another connection from the connection menu.",
+        _ => "Asura couldn’t start the browser on this connection. Try again, or choose another connection from the connection menu.",
+    };
+
     internal bool HasInteractiveAttachment =>
         RendererView?.Attachment?.Matches(
             SessionClient,
@@ -213,10 +262,35 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         private set => SetProperty(ref _currentAddress, value);
     }
 
+    /// <summary>
+    /// The name a page gives itself, or its host while it has none. Empty for
+    /// a blank page, which has neither.
+    /// </summary>
+    public string PageTitle
+    {
+        get => _pageTitle;
+        private set => SetProperty(ref _pageTitle, value);
+    }
+
+    internal static string PageTitleFor(string? title, BrowserAddress address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            return title.Trim();
+        }
+
+        var host = address.Value.IsAbsoluteUri ? address.Value.Host : string.Empty;
+        return host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+            ? host[4..]
+            : host;
+    }
+
     internal void ApplyBrowserState(BrowserSessionState state)
     {
         ArgumentNullException.ThrowIfNull(state);
         CurrentAddress = state.Address;
+        PageTitle = PageTitleFor(state.Title, state.Address);
         if (state.LoadState == BrowserLoadState.Ready && state.DocumentRevision > 0
             && (_recordedAddress != state.Address || _recordedRevision != state.DocumentRevision
                 || !string.Equals(_recordedTitle, state.Title, StringComparison.Ordinal)))
@@ -306,7 +380,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.search.failed", exception);
+            HistoryStatus = "Browsing history isn't available right now. Try again.";
             OnPropertyChanged(nameof(HistoryStatus));
             return [];
         }
@@ -336,7 +411,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            HistoryStatus = "Could not clear browser history: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.clear.failed", exception);
+            HistoryStatus = "Asura couldn't clear the browsing history. Try again.";
         }
         finally
         {
@@ -441,7 +517,8 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            HistoryStatus = "Browser history unavailable: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("browser.history.record.failed", exception);
+            HistoryStatus = "Browsing history isn't available right now. Pages you visit aren't being saved to it.";
             OnPropertyChanged(nameof(HistoryStatus));
         }
     }
@@ -473,7 +550,10 @@ public sealed class BrowserRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            RouteErrorMessage = exception.Message;
+            // The renderer's own text goes to diagnostics; the panel says what
+            // happened and what to do about it.
+            SecretSafeDiagnostics.WriteTrace("browser.renderer-route.failed", exception);
+            RouteErrorMessage = RouteFailureMessage(exception);
             throw;
         }
     }

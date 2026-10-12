@@ -1,3 +1,4 @@
+using Asura.App.ViewModels;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -15,7 +16,6 @@ namespace Asura.App.Controls;
 /// </summary>
 public sealed class TerminalPresentationHost : ContentControl
 {
-    private static readonly IBrush StartingBrush = Brush.Parse("#8B8B91");
 
     public static readonly StyledProperty<ISessionHostClient?> SessionClientProperty =
         AvaloniaProperty.Register<TerminalPresentationHost, ISessionHostClient?>(
@@ -52,6 +52,20 @@ public sealed class TerminalPresentationHost : ContentControl
                 TerminalStartupCommandDispatchState?>(
                 nameof(StartupCommandDispatchState));
 
+    /// <summary>The owning panel's title, used in the terminal's accessible name.</summary>
+    public static readonly StyledProperty<string?> AccessibleTitleProperty =
+        AvaloniaProperty.Register<TerminalPresentationHost, string?>(nameof(AccessibleTitle));
+
+    public static readonly StyledProperty<bool> IsCopyModeProperty =
+        AvaloniaProperty.Register<TerminalPresentationHost, bool>(nameof(IsCopyMode));
+
+    /// <summary>
+    /// Whether the context menu offers Split Right and Split Down. Only a host
+    /// that handles <see cref="SplitRequested"/> can place the new panel.
+    /// </summary>
+    public static readonly StyledProperty<bool> CanSplitProperty =
+        AvaloniaProperty.Register<TerminalPresentationHost, bool>(nameof(CanSplit));
+
     public static readonly DirectProperty<TerminalPresentationHost, bool> IsLiveProperty =
         AvaloniaProperty.RegisterDirect<TerminalPresentationHost, bool>(
             nameof(IsLive),
@@ -67,10 +81,10 @@ public sealed class TerminalPresentationHost : ContentControl
             nameof(StatusText),
             control => control.StatusText);
 
-    public static readonly DirectProperty<TerminalPresentationHost, IBrush> StatusBrushProperty =
-        AvaloniaProperty.RegisterDirect<TerminalPresentationHost, IBrush>(
-            nameof(StatusBrush),
-            control => control.StatusBrush);
+    public static readonly DirectProperty<TerminalPresentationHost, StatusTone> StatusToneProperty =
+        AvaloniaProperty.RegisterDirect<TerminalPresentationHost, StatusTone>(
+            nameof(StatusTone),
+            control => control.StatusTone);
 
     public static readonly DirectProperty<TerminalPresentationHost, bool> ShowFallbackProperty =
         AvaloniaProperty.RegisterDirect<TerminalPresentationHost, bool>(
@@ -86,7 +100,7 @@ public sealed class TerminalPresentationHost : ContentControl
     private bool _isLive;
     private string? _initializationError;
     private string _statusText = "Starting";
-    private IBrush _statusBrush = StartingBrush;
+    private StatusTone _statusTone = StatusTone.Neutral;
     private bool _showFallback;
     private string _statusMessage = string.Empty;
 
@@ -104,6 +118,8 @@ public sealed class TerminalPresentationHost : ContentControl
         _presentation.SessionSnapshotChanged += OnSessionSnapshotChanged;
         _presentation.SessionInitializationFailed += OnSessionInitializationFailed;
         _presentation.StartupCommandDispatchCompleted += OnStartupCommandDispatchCompleted;
+        _presentation.Surface.CopyModeExitRequested += OnCopyModeExitRequested;
+        _presentation.Surface.SplitRequested += OnSplitRequested;
 
         _presentation.PropertyChanged += OnPresentationPropertyChanged;
         Content = _presentation;
@@ -117,6 +133,30 @@ public sealed class TerminalPresentationHost : ContentControl
 
     public event EventHandler<TerminalStartupCommandDispatchEventArgs>?
         StartupCommandDispatchCompleted;
+
+    /// <summary>Escape was pressed in copy mode; the owner leaves it.</summary>
+    public event EventHandler<EventArgs>? CopyModeExitRequested;
+
+    /// <summary>Split Right or Split Down was chosen from the context menu.</summary>
+    public event EventHandler<PanelSplitOrientation>? SplitRequested;
+
+    public string? AccessibleTitle
+    {
+        get => GetValue(AccessibleTitleProperty);
+        set => SetValue(AccessibleTitleProperty, value);
+    }
+
+    public bool IsCopyMode
+    {
+        get => GetValue(IsCopyModeProperty);
+        set => SetValue(IsCopyModeProperty, value);
+    }
+
+    public bool CanSplit
+    {
+        get => GetValue(CanSplitProperty);
+        set => SetValue(CanSplitProperty, value);
+    }
 
     public ISessionHostClient? SessionClient
     {
@@ -182,10 +222,10 @@ public sealed class TerminalPresentationHost : ContentControl
         private set => SetAndRaise(StatusTextProperty, ref _statusText, value);
     }
 
-    public IBrush StatusBrush
+    public StatusTone StatusTone
     {
-        get => _statusBrush;
-        private set => SetAndRaise(StatusBrushProperty, ref _statusBrush, value);
+        get => _statusTone;
+        private set => SetAndRaise(StatusToneProperty, ref _statusTone, value);
     }
 
     public bool ShowFallback
@@ -259,6 +299,12 @@ public sealed class TerminalPresentationHost : ContentControl
 
     internal bool RequestInputFocus() => _presentation.RequestInputFocus();
 
+    /// <summary>Runs a terminal command (Copy, Paste, Find…) on this terminal.</summary>
+    internal ValueTask<TerminalCommandDispatchResult> ExecuteCommandAsync(
+        CommandId commandId,
+        CancellationToken cancellationToken = default) =>
+        _presentation.Surface.ExecuteCommandAsync(commandId, cancellationToken);
+
     protected override void OnGotFocus(FocusChangedEventArgs e)
     {
         base.OnGotFocus(e);
@@ -277,7 +323,10 @@ public sealed class TerminalPresentationHost : ContentControl
             || change.Property == StartupCommandDispatcherProperty
             || change.Property == StartupCommandDispatchStateProperty
             || change.Property == RenderProfileProperty
-            || change.Property == BackgroundOpacityProperty)
+            || change.Property == BackgroundOpacityProperty
+            || change.Property == AccessibleTitleProperty
+            || change.Property == IsCopyModeProperty
+            || change.Property == CanSplitProperty)
         {
             SynchronizeChildProperties();
         }
@@ -292,6 +341,21 @@ public sealed class TerminalPresentationHost : ContentControl
         _presentation.BackgroundOpacity = BackgroundOpacity;
         _presentation.ClientId = ClientId;
         _presentation.StartupCommandDispatcher = StartupCommandDispatcher;
+        _presentation.Surface.AccessibleTitle = AccessibleTitle;
+        _presentation.Surface.IsCopyMode = IsCopyMode;
+        _presentation.Surface.CanSplit = CanSplit;
+    }
+
+    private void OnCopyModeExitRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        CopyModeExitRequested?.Invoke(this, e);
+    }
+
+    private void OnSplitRequested(object? sender, PanelSplitOrientation orientation)
+    {
+        _ = sender;
+        SplitRequested?.Invoke(this, orientation);
     }
 
     private void OnPresentationPropertyChanged(
@@ -302,7 +366,7 @@ public sealed class TerminalPresentationHost : ContentControl
         if (e.Property.Name is nameof(IsLive)
             or nameof(InitializationError)
             or nameof(StatusText)
-            or nameof(StatusBrush)
+            or nameof(StatusTone)
             or nameof(ShowFallback)
             or nameof(StatusMessage))
         {
@@ -315,7 +379,7 @@ public sealed class TerminalPresentationHost : ContentControl
         IsLive = _presentation.IsLive;
         InitializationError = _presentation.InitializationError;
         StatusText = _presentation.StatusText;
-        StatusBrush = _presentation.StatusBrush;
+        StatusTone = _presentation.StatusTone;
         ShowFallback = _presentation.ShowFallback;
         StatusMessage = _presentation.StatusMessage;
 

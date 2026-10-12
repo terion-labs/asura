@@ -67,6 +67,80 @@ public sealed class KubernetesMaintenanceUiTests
     }
 
     [Fact]
+    public async Task HelmReviewAndOutcomeReadAsWordsNotEnumOrBooleanValues()
+    {
+        var session = new KubernetesUiSession { ExtraFeatures = KubernetesSessionFeatures.HelmChanges };
+        using var panel = Create(session);
+        await panel.Initialization;
+        panel.SelectedRelease = new("api", "production", 7, "deployed", "api-1.0", "1.0", "today");
+        panel.ChartReference = $"oci://registry.test/charts/api@sha256:{new string('a', 64)}";
+        panel.ChartVersion = "2.0.0";
+        await panel.ReviewHelmChangeAsync();
+
+        Assert.StartsWith("Upgrade: ", panel.HelmChangeStatus, StringComparison.Ordinal);
+        Assert.Contains("Hooks skipped · Current values kept", panel.HelmChangeStatus, StringComparison.Ordinal);
+        Assert.DoesNotContain("True", panel.HelmChangeStatus, StringComparison.Ordinal);
+        Assert.DoesNotContain("False", panel.HelmChangeStatus, StringComparison.Ordinal);
+
+        await panel.ConfirmHelmChangeAsync();
+        Assert.Equal("The Helm change was applied. Reload releases to inspect the result.", panel.HelmChangeStatus);
+    }
+
+    [Fact]
+    public async Task HelmChangePopUpListsTitleCaseWordsAndFollowsTheSelectedKind()
+    {
+        var session = new KubernetesUiSession { ExtraFeatures = KubernetesSessionFeatures.HelmChanges };
+        using var panel = Create(session);
+        await panel.Initialization;
+
+        Assert.Equal(["Upgrade", "Roll Back", "Uninstall"], panel.HelmChangeKindOptions.Select(option => option.Label), StringComparer.Ordinal);
+        Assert.Equal(KubernetesHelmChangeKind.Upgrade, panel.SelectedHelmChangeKindOption.Value);
+
+        var changed = new List<string?>();
+        panel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        panel.SelectedHelmChangeKindOption = panel.HelmChangeKindOptions[1];
+
+        Assert.Equal(KubernetesHelmChangeKind.Rollback, panel.HelmChangeKind);
+        Assert.True(panel.IsHelmRollback);
+        Assert.Contains(nameof(KubernetesRuntimePanelViewModel.SelectedHelmChangeKindOption), changed, StringComparer.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(KubernetesMutationOutcome.Applied, "was applied")]
+    [InlineData(KubernetesMutationOutcome.NotDispatched, "wasn’t sent to the cluster")]
+    [InlineData(KubernetesMutationOutcome.OutcomeUnknown, "outcome unknown")]
+    [InlineData(KubernetesMutationOutcome.DryRun, "checked but not applied")]
+    public void HelmOutcomeIsASentence(KubernetesMutationOutcome outcome, string expected)
+    {
+        var text = KubernetesHelmChangeText.Outcome(outcome);
+
+        Assert.Contains(expected, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(outcome.ToString(), text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RefusedHelmInputPointsAtTheInputAndKeepsTheTableStatus()
+    {
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.HelmChanges,
+            HelmReviewFailure = new(KubernetesErrorCode.InvalidConfiguration, "Upgrade requires an exact chart version."),
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        var status = panel.Status;
+        panel.SelectedRelease = new("api", "production", 7, "deployed", "api-1.0", "1.0", "today");
+        panel.ChartReference = $"oci://registry.test/charts/api@sha256:{new string('a', 64)}";
+        panel.ChartVersion = "2.x";
+        await panel.ReviewHelmChangeAsync();
+
+        Assert.Contains("an exact chart version", panel.Issue, StringComparison.Ordinal);
+        Assert.DoesNotContain("Edit the connection", panel.Issue, StringComparison.Ordinal);
+        Assert.Equal(status, panel.Status);
+        Assert.False(panel.CanConfirmHelm);
+    }
+
+    [Fact]
     public void ServiceNamedPortResolutionUsesOnlyReadyTcpPods()
     {
         using var ports = JsonDocument.Parse("[{\"port\":80,\"targetPort\":\"http\"},{\"port\":53,\"protocol\":\"UDP\",\"targetPort\":53}]");

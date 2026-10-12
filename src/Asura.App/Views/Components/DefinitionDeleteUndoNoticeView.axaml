@@ -1,0 +1,48 @@
+<!-- A deleted connection or workspace leaves this behind instead of a
+     question asked first: Undo puts back exactly what was deleted, and the
+     next delete, Dismiss or closing the window makes it final. It shows in
+     the main window and in Settings, where either delete can be made, so
+     Undo is always in the window the delete came from. -->
+<UserControl x:Class="Asura.App.Views.Components.DefinitionDeleteUndoNoticeView"
+             x:DataType="vm:MainWindowViewModel"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Asura.App.ViewModels"
+             xmlns:controls="using:Asura.App.Controls"
+             IsVisible="{CompiledBinding DefinitionDeleteUndo.HasPending}">
+  <controls:SurfaceCard Tone="Notice"
+      Padding="{DynamicResource ShellCardPaddingCompact}"
+      AutomationProperties.LiveSetting="Polite"
+      AutomationProperties.Name="{CompiledBinding DefinitionDeleteUndo.Status}"
+      AutomationProperties.HelpText="Undo restores exactly what was deleted.">
+    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+        <TextBlock Text="{CompiledBinding DefinitionDeleteUndo.Status}" TextWrapping="Wrap" />
+        <TextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="{CompiledBinding DefinitionDeleteUndo.Detail}"
+            TextWrapping="Wrap"
+            IsVisible="{CompiledBinding DefinitionDeleteUndo.HasDetail}" />
+      </StackPanel>
+      <Button
+          x:Name="UndoDeletedDefinitionButton"
+          Grid.Column="1"
+          VerticalAlignment="Center"
+          Classes="SecondaryButton"
+          Click="OnUndoClick"
+          Content="Undo"
+          IsEnabled="{CompiledBinding DefinitionDeleteUndo.CanUndo}"
+          AutomationProperties.Name="Undo delete"
+          AutomationProperties.HelpText="Restore exactly what was just deleted." />
+      <Button
+          Grid.Column="2"
+          VerticalAlignment="Center"
+          Classes="TextButton"
+          Click="OnDismissClick"
+          Content="Dismiss"
+          IsEnabled="{CompiledBinding DefinitionDeleteUndo.CanUndo}"
+          AutomationProperties.Name="Dismiss delete notice" />
+    </Grid>
+  </controls:SurfaceCard>
+</UserControl>

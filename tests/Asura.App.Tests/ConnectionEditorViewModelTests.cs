@@ -57,6 +57,39 @@ public sealed class ConnectionEditorViewModelTests
         Assert.Equal(profile.Authentication, editor.CreateSaveRequest().Profile.Authentication);
     }
 
+    [Fact]
+    public async Task A_test_refused_by_the_profile_names_the_field_in_plain_words()
+    {
+        var editor = new ConnectionEditorViewModel(new StubConnectionRuntime())
+        {
+            Name = "SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "example.test",
+            Port = 0,
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal("The port must be a number from 1 to 65535.", editor.TestDetail);
+
+        editor.Port = 22;
+        editor.StartupCommand = "cd /srv\nmake";
+        var refusal = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+        Assert.Equal(nameof(ConnectionEditorViewModel.StartupCommand), InvalidField.Of(refusal));
+        Assert.DoesNotContain("control characters", refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_profile_rule_the_form_doesnt_check_reads_as_what_to_do_next()
+    {
+        var text = ConnectionEditorViewModel.DescribeRefusal(
+            new ArgumentException("The value cannot be an empty string.", "value"),
+            "Asura can't save the connection with these settings. Check each value, then try again.");
+
+        Assert.Equal("Asura can't save the connection with these settings. Check each value, then try again.", text);
+    }
+
     private static SecretMetadataViewModel Credential(string id, string label, SecretKind kind, SecretScope scope) =>
         new(new SecretRef(id), label, kind.ToString(), "", "", "", scope, "", 0);
 
@@ -143,6 +176,39 @@ public sealed class ConnectionEditorViewModelTests
         Assert.Equal("Configuration validated", editor.TestStatus);
         Assert.Contains("terminal starts", editor.TestDetail, StringComparison.OrdinalIgnoreCase);
         Assert.False(editor.IsTesting);
+    }
+
+    [Theory]
+    [InlineData(WorkspaceIsolationErrorCode.PrepareFailed)]
+    [InlineData(WorkspaceIsolationErrorCode.Timeout)]
+    [InlineData(WorkspaceIsolationErrorCode.RuntimeUnavailable)]
+    [InlineData(WorkspaceIsolationErrorCode.RuntimeMissing)]
+    [InlineData(WorkspaceIsolationErrorCode.WorkingDirectoryNotMounted)]
+    [InlineData(WorkspaceIsolationErrorCode.PersistentEnvironmentResetRequired)]
+    public async Task AWorkspaceEnvironmentFailureStatesItsNextStepOnce(WorkspaceIsolationErrorCode code)
+    {
+        var runtime = new StubConnectionRuntime
+        {
+            TestResult = ConnectionRuntimeResult<ConnectionTestReport>.Fail(
+                WorkspaceIsolatedConnectionRuntime.ConnectionError(WorkspaceIsolationError.Create(code))),
+        };
+        var editor = new ConnectionEditorViewModel(runtime)
+        {
+            Name = "Password SSH",
+            Kind = ConnectionKind.Ssh,
+            Host = "host.example",
+            Authentication = ConnectionAuthenticationChoice.Password,
+            SecretReference = "secret-password",
+            HostKeyPolicy = SshHostKeyPolicy.Strict,
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        // The detail reads exactly as the window says it: one next step, never
+        // "Try again. Try again." or a step that points at the connection.
+        Assert.Equal("Test failed", editor.TestStatus);
+        Assert.Equal(WorkspaceIsolationText.Curated(code), editor.TestDetail);
+        Assert.DoesNotContain("Edit the connection", editor.TestDetail, StringComparison.Ordinal);
     }
 
     [Fact]

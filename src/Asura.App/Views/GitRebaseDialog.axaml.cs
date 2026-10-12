@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -8,7 +9,7 @@ using Avalonia.VisualTree;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitRebaseDialog : Window
+public sealed partial class GitRebaseDialog : DialogWindow
 {
     private readonly ObservableCollection<GitRebaseRowViewModel> _rows = [];
     private readonly string _baseRevision = "";
@@ -27,6 +28,17 @@ public sealed partial class GitRebaseDialog : Window
         }
 
         Rows.ItemsSource = _rows;
+        _rows.CollectionChanged += (_, _) => UpdatePositions();
+        UpdatePositions();
+    }
+
+    /// <summary>The first step can't move earlier and the last can't move later.</summary>
+    private void UpdatePositions()
+    {
+        for (var index = 0; index < _rows.Count; index++)
+        {
+            _rows[index].SetPosition(index, _rows.Count);
+        }
     }
 
     private void OnCancel(object? sender, RoutedEventArgs e) => Close(null);
@@ -87,6 +99,7 @@ public sealed partial class GitRebaseDialog : Window
         if (target >= 0 && target < _rows.Count)
         {
             _rows.Move(index, target);
+            Rows.SelectedItem = row;
         }
     }
 

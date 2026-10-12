@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -6,7 +7,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class AiProviderProfileEditorDialog : Window
+public sealed partial class AiProviderProfileEditorDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
 
@@ -78,7 +79,7 @@ public sealed partial class AiProviderProfileEditorDialog : Window
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            ShowValidationError("Authentication could not be started.");
+            ShowValidationError("Couldn’t open the sign-in page. Try again.");
         }
     }
 
@@ -104,11 +105,22 @@ public sealed partial class AiProviderProfileEditorDialog : Window
         }
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
-            ShowValidationError(exception.Message);
+            // Under the field it is about, with everything typed kept; a
+            // failure about the whole provider goes to the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ShowValidationError(AiProviderProfileEditorViewModel.DescribeRefusal(
+                    exception,
+                    "Asura can't save the provider with these settings. Check each value, then try again."));
+            }
         }
     }
 
-    private void ShowValidationError(string message) => ViewModel.ErrorNotices.Report(message);
+    private void ShowValidationError(string message)
+    {
+        ViewModel.ErrorNotices.Report(message);
+        this.FindControl<Control>("FormErrors")?.BringIntoView();
+    }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

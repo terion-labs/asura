@@ -23,8 +23,8 @@ public sealed class DefinitionEditSessionViewModel : ObservableObject
     public bool HasSession => _definition is not null;
 
     public string EditorTitle => _definition?.Kind == WorkspaceDefinition.Kind
-        ? "Edit workspace"
-        : "Edit saved screen";
+        ? "Edit Workspace"
+        : "Edit Saved Screen";
 
     public string EditorName
     {
@@ -140,7 +140,7 @@ public sealed class DefinitionEditSessionViewModel : ObservableObject
                 cancellationToken));
         }
 
-        return Fail("This definition type cannot be edited here.");
+        return Fail("This item can't be edited here.");
     }
 
     private static DefinitionStoreResult<Unit> ToUnit<T>(

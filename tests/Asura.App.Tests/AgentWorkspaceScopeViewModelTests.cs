@@ -65,7 +65,7 @@ public sealed class AgentWorkspaceScopeViewModelTests
         var scope = Create(WindowInstanceId.New());
 
         Assert.False(scope.TryCreateTarget(out _, out var error));
-        Assert.Contains("Open a terminal", error, StringComparison.Ordinal);
+        Assert.Contains("Open a Terminal, Browser, Files", error, StringComparison.Ordinal);
 
         scope.Dispose();
 

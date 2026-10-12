@@ -25,7 +25,7 @@ public sealed class MainWindowSavedScreenDeleteUndoTests
         Assert.True(surface.HasPending);
         Assert.True(surface.CanUndo);
         Assert.False(surface.IsRestoring);
-        Assert.Contains("Running instances were not changed", surface.Status);
+        Assert.Contains("Running instances weren't changed", surface.Status);
         Assert.Contains(nameof(surface.Pending), changed, StringComparer.Ordinal);
         Assert.Contains(nameof(surface.HasPending), changed, StringComparer.Ordinal);
         Assert.Contains(nameof(surface.CanUndo), changed, StringComparer.Ordinal);
@@ -116,7 +116,7 @@ public sealed class MainWindowSavedScreenDeleteUndoTests
         Assert.Equal(screen.Name, receipt.ScreenName);
         Assert.True(viewModel.SavedScreenDeleteUndo.CanUndo);
         Assert.Contains(
-            "Running instances were not changed",
+            "Running instances weren't changed",
             viewModel.SavedScreenDeleteUndo.Status,
             StringComparison.Ordinal);
 
@@ -211,7 +211,7 @@ public sealed class MainWindowSavedScreenDeleteUndoTests
         Assert.Same(receipt, viewModel.SavedScreenDeleteUndo.Pending);
         Assert.True(viewModel.SavedScreenDeleteUndo.CanUndo);
         Assert.Contains(
-            "Retry or dismiss",
+            "Try again, or dismiss",
             viewModel.SavedScreenDeleteUndo.Status,
             StringComparison.Ordinal);
 
@@ -259,7 +259,7 @@ public sealed class MainWindowSavedScreenDeleteUndoTests
         Assert.False(viewModel.SavedScreenDeleteUndo.IsRestoring);
         Assert.True(viewModel.SavedScreenDeleteUndo.CanUndo);
         Assert.Contains(
-            "Restore cancelled",
+            "was canceled",
             viewModel.SavedScreenDeleteUndo.Status,
             StringComparison.Ordinal);
     }

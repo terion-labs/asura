@@ -47,8 +47,17 @@ public sealed class QuickTerminalTabViewModel : ObservableObject, IRuntimeTabStr
     public string Title
     {
         get => _title;
-        private set => SetProperty(ref _title, value);
+        private set
+        {
+            if (SetProperty(ref _title, value))
+            {
+                OnPropertyChanged(nameof(DisplayTitle));
+            }
+        }
     }
+
+    /// <summary>A Quick Terminal tab always reads its durable title.</summary>
+    public string DisplayTitle => _title;
 
     public string Icon => _icon;
 

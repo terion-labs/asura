@@ -232,7 +232,7 @@ internal static class ProcessAgentToolParser
     private static ProcessAgentIntentResult UnavailableTool() =>
         new ProcessAgentIntentResult.Rejected(
             "tool_not_available",
-            "No eligible Process Monitor panel is available in the fresh scope.");
+            "No eligible Processes panel is available in the fresh scope.");
 
     private static ProcessAgentIntentResult Invalid(string message) =>
         new ProcessAgentIntentResult.Rejected(

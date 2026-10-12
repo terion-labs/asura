@@ -8,13 +8,16 @@ namespace Asura.App.Tests;
 
 public sealed class ApplicationKeySequenceResolverTests
 {
-    [Fact]
-    public void EveryDeclaredApplicationBindingResolvesWithItsArgumentsIntact()
+    [Theory]
+    [InlineData("builtin.application.tmux")]
+    [InlineData("builtin.application.macos")]
+    public void EveryDeclaredApplicationBindingResolvesWithItsArgumentsIntact(string profileId)
     {
-        var resolver = new ApplicationKeySequenceResolver(BuiltInKeymaps.TmuxApplication);
+        var profile = BuiltInKeymaps.All.Single(item => string.Equals(item.Id.Value, profileId, StringComparison.Ordinal));
+        var resolver = new ApplicationKeySequenceResolver(profile);
         var timestamp = DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
-        foreach (var binding in BuiltInKeymaps.TmuxApplication.Bindings)
+        foreach (var binding in profile.Bindings)
         {
             resolver.Reset();
 
@@ -42,7 +45,7 @@ public sealed class ApplicationKeySequenceResolverTests
     [Fact]
     public void TimedOutPrefixDoesNotConsumeTheFollowingTerminalKey()
     {
-        var resolver = new ApplicationKeySequenceResolver(BuiltInKeymaps.TmuxApplication);
+        var resolver = new ApplicationKeySequenceResolver(DiscardProfile());
         var timestamp = DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
         _ = resolver.Resolve(
@@ -61,7 +64,7 @@ public sealed class ApplicationKeySequenceResolverTests
     [Fact]
     public void UnknownSuffixUsesTheProfilesDiscardAndHintPolicy()
     {
-        var resolver = new ApplicationKeySequenceResolver(BuiltInKeymaps.TmuxApplication);
+        var resolver = new ApplicationKeySequenceResolver(DiscardProfile());
         var timestamp = DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
 
         _ = resolver.Resolve(
@@ -75,6 +78,83 @@ public sealed class ApplicationKeySequenceResolverTests
 
         Assert.Equal(ApplicationKeyResolutionKind.Rejected, result.Kind);
         Assert.True(result.ShouldHandle);
+    }
+
+    /// <summary>
+    /// A lone Control-B, or Control-B and an unbound key, is readline's or a
+    /// nested tmux's. The built-in prefix hands both back instead of eating them.
+    /// </summary>
+    [Fact]
+    public void TmuxPrefixHandsAnUnknownSuffixBackToTheTerminal()
+    {
+        var prefix = new KeyStroke("B", CoreKeyModifiers.Control);
+        var resolver = new ApplicationKeySequenceResolver(BuiltInKeymaps.TmuxApplication);
+        var timestamp = DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+
+        _ = resolver.Resolve(prefix, CommandContext.Workspace, timestamp);
+        var unknown = resolver.Resolve(
+            new KeyStroke("Q"),
+            CommandContext.Workspace,
+            timestamp.AddMilliseconds(10));
+        _ = resolver.Resolve(prefix, CommandContext.Workspace, timestamp.AddSeconds(5));
+        var expired = resolver.Expire(timestamp.AddSeconds(6));
+
+        Assert.Equal(ApplicationKeyResolutionKind.PassedThrough, unknown.Kind);
+        Assert.Equal([prefix, new KeyStroke("Q")], unknown.ReplayStrokes);
+        Assert.Equal(ApplicationKeyResolutionKind.Expired, expired.Kind);
+        Assert.Equal([prefix], expired.ReplayStrokes);
+    }
+
+    /// <summary>
+    /// A text field, the code editor, or a web page keeps Control-B: the prefix
+    /// never arms there, while direct shortcuts still work.
+    /// </summary>
+    [Fact]
+    public void PrefixStaysAnOrdinaryKeyWhileTextInputHasFocus()
+    {
+        var resolver = new ApplicationKeySequenceResolver(BuiltInKeymaps.TmuxApplication);
+        var timestamp = DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+
+        var prefix = resolver.Resolve(
+            new KeyStroke("B", CoreKeyModifiers.Control),
+            CommandContext.Workspace | CommandContext.Tab | CommandContext.Panel,
+            timestamp,
+            canArmPrefix: false);
+        var workspace = resolver.Resolve(
+            new KeyStroke("1", CoreKeyModifiers.Meta),
+            CommandContext.Window,
+            timestamp.AddMilliseconds(10),
+            canArmPrefix: false);
+
+        Assert.Equal(ApplicationKeyResolutionKind.NotHandled, prefix.Kind);
+        Assert.False(prefix.ShouldHandle);
+        Assert.Equal(ApplicationKeyResolutionKind.Matched, workspace.Kind);
+        Assert.Equal(BuiltInCommands.SelectWorkspace, workspace.Binding?.CommandId);
+    }
+
+    /// <summary>
+    /// Key capture names Grave after its key cap; a stored binding may name it
+    /// after its character. Both are the same shortcut.
+    /// </summary>
+    [Fact]
+    public void DirectBindingMatchesTheSameKeyUnderAnotherName()
+    {
+        var binding = new CommandBinding(
+            BuiltInCommands.NewTab,
+            KeySequence.Of(new KeyStroke("GRAVE", CoreKeyModifiers.Control | CoreKeyModifiers.Alt)),
+            CommandContext.Workspace);
+        var resolver = new ApplicationKeySequenceResolver(new KeymapProfile(
+            new KeymapProfileId("test.application.grave"),
+            "Grave",
+            KeymapLayer.Application,
+            [binding]));
+
+        var result = resolver.Resolve(
+            ApplicationKeyStrokeMapper.Map(Key.OemTilde, AvaloniaKeyModifiers.Control | AvaloniaKeyModifiers.Alt),
+            CommandContext.Workspace,
+            DateTimeOffset.Parse("2026-07-22T12:00:00Z", System.Globalization.CultureInfo.InvariantCulture));
+
+        Assert.Same(binding, result.Binding);
     }
 
     [Fact]
@@ -268,6 +348,21 @@ public sealed class ApplicationKeySequenceResolverTests
                 repeatable: false,
                 FailedSequenceBehavior.PassThrough));
     }
+
+    private static KeymapProfile DiscardProfile()
+    {
+        var prefix = BuiltInKeymaps.TmuxApplication.Prefix!;
+        return new KeymapProfile(
+            new KeymapProfileId("test.application.discard"),
+            "Discarding application",
+            KeymapLayer.Application,
+            BuiltInKeymaps.TmuxApplication.Bindings,
+            new PrefixConfiguration(
+                prefix.Stroke,
+                prefix.Timeout,
+                prefix.Repeatable,
+                FailedSequenceBehavior.DiscardAndShowHint));
+    }
 }
 
 public sealed class ApplicationKeyControllerTests
@@ -295,8 +390,12 @@ public sealed class ApplicationKeyControllerTests
         Assert.Same(binding, executed);
     }
 
+    /// <summary>
+    /// With no focused terminal there is no program to hand the prefix back to.
+    /// The keys are dropped as they would have been, without an error banner.
+    /// </summary>
     [Fact]
-    public async Task Pass_through_without_an_active_terminal_reports_the_boundary_error()
+    public async Task Pass_through_without_a_focused_terminal_drops_the_keys_quietly()
     {
         string? error = null;
         using var controller = CreateController(
@@ -311,7 +410,7 @@ public sealed class ApplicationKeyControllerTests
 
         Assert.NotEqual(ApplicationKeyResolutionKind.NotHandled, handling.Kind);
         Assert.True(handling.ShouldHandle);
-        Assert.Contains("no terminal is active", error, StringComparison.Ordinal);
+        Assert.Null(error);
     }
 
     [Fact]
@@ -345,6 +444,20 @@ public sealed class ApplicationKeyControllerTests
             () => { },
             setError ?? (_ => { })),
         CancellationToken.None);
+
+    [Fact]
+    public void Prefix_does_not_arm_while_the_snapshot_reports_text_focus()
+    {
+        using var controller = CreateController(_ => Task.CompletedTask);
+        var prefix = new KeyStroke("B", CoreKeyModifiers.Control);
+        var profile = PassThroughProfile(prefix, TimeSpan.FromSeconds(1));
+
+        var handling = controller.Resolve(
+            prefix,
+            Snapshot(profile) with { FocusOwnsTextInput = true });
+
+        Assert.Equal(ApplicationKeyResolutionKind.NotHandled, handling.Kind);
+    }
 
     private static ApplicationKeyProfileSnapshot Snapshot(KeymapProfile profile) =>
         new(profile, Revision: 1, profile.Name, CommandContext.Workspace);
@@ -380,9 +493,11 @@ public sealed class ApplicationKeyControllerTests
 public sealed class ApplicationCommandRouterTests
 {
     [Fact]
-    public void EveryDeclaredTmuxBindingRoutesThroughTheCommandRegistry()
+    public void EveryDeclaredApplicationBindingRoutesThroughTheCommandRegistry()
     {
-        foreach (var binding in BuiltInKeymaps.TmuxApplication.Bindings)
+        foreach (var binding in BuiltInKeymaps.All
+            .Where(profile => profile.Layer == KeymapLayer.Application)
+            .SelectMany(profile => profile.Bindings))
         {
             var result = ApplicationCommandRouter.Route(
                 binding.CommandId,
@@ -430,7 +545,23 @@ public sealed class ApplicationCommandRouterTests
             CommandContext.Panel);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("invalid arguments", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't available here", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("window.focus-next-area", true)]
+    [InlineData("window.focus-previous-area", false)]
+    public void FocusAreaCommandsRouteFromAnyWindow(string commandId, bool forward)
+    {
+        var expected = forward
+            ? ApplicationCommandActionKind.FocusNextArea
+            : ApplicationCommandActionKind.FocusPreviousArea;
+        var result = ApplicationCommandRouter.Route(
+            new CommandId(commandId),
+            new Dictionary<string, string>(StringComparer.Ordinal),
+            CommandContext.Global | CommandContext.Window);
+
+        Assert.Equal(expected, Assert.IsType<ApplicationCommandAction>(result.Action).Kind);
     }
 
     [Theory]
@@ -459,7 +590,7 @@ public sealed class ApplicationCommandRouterTests
             CommandContext.Workspace);
 
         Assert.False(result.IsSuccess);
-        Assert.Contains("unavailable", result.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't available here", result.Error, StringComparison.OrdinalIgnoreCase);
     }
 
     private static ApplicationCommandAction Route(CommandBinding binding)

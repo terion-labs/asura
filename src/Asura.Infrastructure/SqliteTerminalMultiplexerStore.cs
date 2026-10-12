@@ -186,7 +186,7 @@ public sealed class SqliteTerminalMultiplexerStore :
     private static ApplicationRunResult<T> Cancelled<T>() =>
         ApplicationRunResult<T>.Failure(new ApplicationRunError(
             ApplicationRunErrorCode.Cancelled,
-            "The operation was cancelled."));
+            "The operation was canceled."));
 
     private static ApplicationRunResult<T> Failure<T>(string message) =>
         ApplicationRunResult<T>.Failure(new ApplicationRunError(

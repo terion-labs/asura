@@ -30,7 +30,7 @@ public sealed class DockerFilePanelClient : IFilePanelClient
         _resource = resource ?? throw new ArgumentNullException(nameof(resource));
         if (resource.Kind == DockerResourceKind.Network)
         {
-            throw new ArgumentException("Docker networks do not have files.", nameof(resource));
+            throw new ArgumentException("Docker networks don't have files.", nameof(resource));
         }
 
         var root = Location("/");
@@ -239,7 +239,7 @@ public sealed class DockerFilePanelClient : IFilePanelClient
             error = new FilePanelError(
                 FilePanelErrorCode.InvalidLocation,
                 "docker_file_location_invalid",
-                "This location does not belong to the selected Docker resource.",
+                "This location doesn't belong to the selected Docker resource.",
                 false);
             return false;
         }

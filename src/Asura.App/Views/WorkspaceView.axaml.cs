@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -24,6 +25,128 @@ public sealed partial class WorkspaceView : UserControl
         AddHandler(PanelChrome.CollapseRequestedEvent, OnCollapsePanelRequested);
         AddHandler(PanelChrome.ExpandRequestedEvent, OnExpandPanelRequested);
         DetachedFromVisualTree += (_, e) => EndPanelPreviewRequested?.Invoke(this, e);
+        AgentOverlay.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == IsVisibleProperty || e.Property == BoundsProperty)
+            {
+                KeepFileTransfersBesideAgentPanel();
+                UpdateAgentPanelReservedWidth();
+            }
+        };
+        AgentWorkspaceSurface.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == BoundsProperty)
+            {
+                KeepFileTransfersBesideAgentPanel();
+                UpdateAgentPanelReservedWidth();
+            }
+        };
+        // The composer moves inside the panel as a prompt grows or a card
+        // opens above it, without the panel's own bounds changing; a
+        // transfers card stacked above the composer has to follow it.
+        AgentWorkspaceSurface.LayoutUpdated += (_, _) =>
+        {
+            if (FileTransferManager.IsVisible && AgentOverlay.IsVisible)
+            {
+                KeepFileTransfersBesideAgentPanel();
+            }
+        };
+    }
+
+    public static readonly DirectProperty<WorkspaceView, double> AgentPanelReservedWidthProperty =
+        AvaloniaProperty.RegisterDirect<WorkspaceView, double>(
+            nameof(AgentPanelReservedWidth),
+            view => view.AgentPanelReservedWidth);
+
+    private double _agentPanelReservedWidth;
+
+    /// <summary>
+    /// How much of the bottom-right corner the agent panel takes, measured
+    /// from this view's right edge, or zero when the panel is hidden or ends
+    /// above the bottom. The window's error notices open from that corner and
+    /// stand off by this much, so they never cover the composer's send button
+    /// or model picker.
+    /// </summary>
+    public double AgentPanelReservedWidth
+    {
+        get => _agentPanelReservedWidth;
+        private set => SetAndRaise(AgentPanelReservedWidthProperty, ref _agentPanelReservedWidth, value);
+    }
+
+    private void UpdateAgentPanelReservedWidth()
+    {
+        // A floating panel that stops this close to the bottom still shares
+        // the corner: a notice there would cover its composer.
+        const double bottomReach = 64;
+        var reserved = 0d;
+        if (AgentOverlay.IsVisible
+            && AgentWorkspaceSurface.IsVisible
+            && AgentWorkspaceSurface.TranslatePoint(default, this) is { } topLeft
+            && topLeft.Y + AgentWorkspaceSurface.Bounds.Height >= Bounds.Height - bottomReach)
+        {
+            reserved = Math.Max(0, Bounds.Width - topLeft.X);
+        }
+
+        AgentPanelReservedWidth = reserved;
+    }
+
+    /// <summary>
+    /// The transfer manager and the agent panel both open from the
+    /// bottom-right corner. Open together, the transfers card would cover the
+    /// composer's send button and model picker, so it moves to the agent
+    /// panel's left edge, leaving the same gap it keeps from the window edge,
+    /// and narrows to the room left there. A window too narrow to hold a
+    /// readable card beside the panel stacks the card above the composer
+    /// instead, so it never covers the place where a message is written.
+    /// </summary>
+    private void KeepFileTransfersBesideAgentPanel()
+    {
+        const double minimumTransferWidth = 280;
+        const double designedMaxHeight = 400;
+        // Lg, not the canvas gutter: at the gutter's width the card's edge
+        // lay on the panel frame beneath it.
+        var gap = this.TryFindResource("ShellSpaceLg", ActualThemeVariant, out var space)
+            && space is double spacing
+                ? spacing
+                : 16;
+        var right = gap;
+        var bottom = gap;
+        var maxWidth = double.PositiveInfinity;
+        var maxHeight = designedMaxHeight;
+        if (AgentOverlay.IsVisible
+            && FileTransferManager.Parent is Visual host
+            && AgentWorkspaceSurface.TranslatePoint(default, host) is { } agentPanelLeft)
+        {
+            if (agentPanelLeft.X - (2 * gap) >= minimumTransferWidth)
+            {
+                right = host.Bounds.Width - agentPanelLeft.X + gap;
+                maxWidth = agentPanelLeft.X - (2 * gap);
+            }
+            else if (AgentWorkspaceSurface.FindControl<Control>("AgentComposer") is { IsVisible: true } composer
+                && composer.TranslatePoint(default, host) is { } composerTop)
+            {
+                bottom = Math.Max(gap, host.Bounds.Height - composerTop.Y + gap);
+                maxHeight = Math.Clamp(composerTop.Y - (2 * gap), 0, designedMaxHeight);
+            }
+        }
+
+        // Runs after every agent layout pass, so it writes only what changed:
+        // an equal value set again would start another pass.
+        var margin = new Thickness(0, 0, right, bottom);
+        if (FileTransferManager.Margin != margin)
+        {
+            FileTransferManager.Margin = margin;
+        }
+
+        if (!FileTransferManager.MaxWidth.Equals(maxWidth))
+        {
+            FileTransferManager.MaxWidth = maxWidth;
+        }
+
+        if (!FileTransferManager.MaxHeight.Equals(maxHeight))
+        {
+            FileTransferManager.MaxHeight = maxHeight;
+        }
     }
 
     /// <summary>
@@ -86,7 +209,26 @@ public sealed partial class WorkspaceView : UserControl
     public event EventHandler<RoutedEventArgs>? OpenWorkspaceRequested;
 
     public event EventHandler<RoutedEventArgs>? CloseWorkspaceRequested;
+
+    /// <summary>
+    /// Terminate Workspace from the Workspaces menu: unlike the rail's close
+    /// button, it always asks first.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? TerminateWorkspaceRequested;
     public event EventHandler<RoutedEventArgs>? SaveWorkspaceLayoutRequested;
+
+    /// <summary>Edit Workspace… from a rail tile's menu; the sender carries the workspace.</summary>
+    public event EventHandler<RoutedEventArgs>? EditWorkspaceRequested;
+
+    private void OnEditWorkspaceClick(object? sender, RoutedEventArgs e) =>
+        EditWorkspaceRequested?.Invoke(sender, e);
+
+    /// <summary>
+    /// Terminate Workspace… from a rail tile's menu: the same request, and the
+    /// same question, as the Workspaces menu's.
+    /// </summary>
+    private void OnRailTerminateWorkspaceClick(object? sender, RoutedEventArgs e) =>
+        OnWorkspacesMenuTerminateClick(sender, e);
 
     private void OnSaveWorkspaceLayoutClick(object? sender, RoutedEventArgs e) =>
         SaveWorkspaceLayoutRequested?.Invoke(sender, e);
@@ -366,29 +508,6 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnShowNewItemClick(object? sender, RoutedEventArgs e) =>
         ShowNewItemRequested?.Invoke(sender, e);
-
-    /// <summary>
-    /// The shell reads which workspace was chosen from the sender's data
-    /// context, and hiding the menu first takes that context away with the
-    /// popup — so the click arrived describing nothing and nothing happened.
-    /// </summary>
-    private void OnWorkspacesMenuOpenClick(object? sender, RoutedEventArgs e)
-    {
-        OpenWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
-    private void OnWorkspacesMenuCloseClick(object? sender, RoutedEventArgs e)
-    {
-        if (sender is not Control { DataContext: LauncherWorkspaceViewModel { CanClose: true } })
-        {
-            return;
-        }
-
-        CloseWorkspaceRequested?.Invoke(sender, e);
-        WorkspacesMenuButton.Flyout?.Hide();
-    }
-
 
     private void OnShowNewPanelClick(object? sender, RoutedEventArgs e) =>
         ShowNewPanelRequested?.Invoke(sender, e);

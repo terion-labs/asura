@@ -20,9 +20,12 @@ public sealed class CardGridPanel : Panel
     public static readonly StyledProperty<int> MaxColumnsProperty =
         AvaloniaProperty.Register<CardGridPanel, int>(nameof(MaxColumns), int.MaxValue);
 
+    public static readonly StyledProperty<bool> BalancesRowsProperty =
+        AvaloniaProperty.Register<CardGridPanel, bool>(nameof(BalancesRows));
+
     static CardGridPanel()
     {
-        AffectsMeasure<CardGridPanel>(MinItemWidthProperty, SpacingProperty, MaxColumnsProperty);
+        AffectsMeasure<CardGridPanel>(MinItemWidthProperty, SpacingProperty, MaxColumnsProperty, BalancesRowsProperty);
     }
 
     /// <summary>The narrowest a card may become before a column is dropped.</summary>
@@ -49,6 +52,20 @@ public sealed class CardGridPanel : Panel
     {
         get => GetValue(MaxColumnsProperty);
         set => SetValue(MaxColumnsProperty, value);
+    }
+
+    /// <summary>
+    /// Whether a fixed set of tiles is spread evenly over the fewest rows the
+    /// width allows, each row as full as the others, the tiles stretching to
+    /// share the width. Six presets that fit four to a row stand three and
+    /// three rather than four over two, and six that fit in one row take it
+    /// whole. Capped at a fixed count of columns instead, they stood narrow
+    /// on the left of wide columns with the rest of each column empty.
+    /// </summary>
+    public bool BalancesRows
+    {
+        get => GetValue(BalancesRowsProperty);
+        set => SetValue(BalancesRowsProperty, value);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -88,26 +105,28 @@ public sealed class CardGridPanel : Panel
         }
 
         var metrics = Resolve(finalSize.Width);
-        var x = 0d;
         var y = 0d;
-        var rowHeight = 0d;
 
-        for (var index = 0; index < Children.Count; index++)
+        // Every card in a row is as tall as the tallest one in it. Arranged at
+        // their own heights, a card with a two-line description stood taller
+        // than its neighbours and the row's bottom edge came out ragged.
+        for (var rowStart = 0; rowStart < Children.Count; rowStart += metrics.Columns)
         {
-            var child = Children[index];
-            rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
-            child.Arrange(new Rect(x, y, metrics.ItemWidth, child.DesiredSize.Height));
-
-            if ((index + 1) % metrics.Columns == 0)
+            var rowEnd = Math.Min(rowStart + metrics.Columns, Children.Count);
+            var rowHeight = 0d;
+            for (var index = rowStart; index < rowEnd; index++)
             {
-                x = 0;
-                y += rowHeight + Spacing;
-                rowHeight = 0;
+                rowHeight = Math.Max(rowHeight, Children[index].DesiredSize.Height);
             }
-            else
+
+            var x = 0d;
+            for (var index = rowStart; index < rowEnd; index++)
             {
+                Children[index].Arrange(new Rect(x, y, metrics.ItemWidth, rowHeight));
                 x += metrics.ItemWidth + Spacing;
             }
+
+            y += rowHeight + Spacing;
         }
 
         return finalSize;
@@ -124,6 +143,11 @@ public sealed class CardGridPanel : Panel
             (int)Math.Floor((width + spacing) / (minimum + spacing)),
             1,
             Math.Max(1, MaxColumns));
+        if (BalancesRows && Children.Count > 0)
+        {
+            var rows = (Children.Count + columns - 1) / columns;
+            columns = (Children.Count + rows - 1) / rows;
+        }
 
         // Column count follows the available width, never the number of cards. It
         // used to be clamped to the child count, which made a single card stretch

@@ -143,7 +143,7 @@ public sealed partial class FilePanelClient
             record.Snapshot = record.Snapshot with
             {
                 CancellationRequested = true,
-                Stage = "Cancelling",
+                Stage = "Canceling",
             };
             cancellation = record.Cancellation;
         }
@@ -170,7 +170,7 @@ public sealed partial class FilePanelClient
             ? Failure<FilePanelTransferSnapshot>(
                 FilePanelErrorCode.Conflict,
                 "file_transfer_not_retryable",
-                "Only failed or cancelled transfers can be retried.")
+                "Only failed or canceled transfers can be retried.")
             : await EnqueueAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
@@ -215,11 +215,11 @@ public sealed partial class FilePanelClient
             UpdateRecord(record, snapshot => snapshot with
             {
                 State = FilePanelTransferState.Cancelled,
-                Stage = "Cancelled",
+                Stage = "Canceled",
                 Error = new FilePanelError(
                     FilePanelErrorCode.Cancelled,
                     "file_transfer_cancelled",
-                    "The transfer was cancelled.",
+                    "The transfer was canceled.",
                     true),
                 CompletedAt = _timeProvider.GetUtcNow(),
             });
@@ -272,7 +272,7 @@ public sealed partial class FilePanelClient
             result = Failure<long>(
                 FilePanelErrorCode.IoFailure,
                 "file_transfer_unexpected_failure",
-                "The transfer failed unexpectedly inside the provider boundary.",
+                "The transfer stopped because of an unexpected problem.",
                 retryable: true);
         }
 
@@ -282,11 +282,11 @@ public sealed partial class FilePanelClient
             UpdateRecord(record, snapshot => snapshot with
             {
                 State = FilePanelTransferState.Cancelled,
-                Stage = "Cancelled",
+                Stage = "Canceled",
                 Error = new FilePanelError(
                     FilePanelErrorCode.Cancelled,
                     "file_transfer_cancelled",
-                    "The transfer was cancelled.",
+                    "The transfer was canceled.",
                     true),
                 CompletedAt = _timeProvider.GetUtcNow(),
             });
@@ -405,11 +405,11 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_transfer_operation_unsupported",
-                "This provider does not support the requested transfer operation.");
+                "This location doesn't support that transfer.");
         }
 
         var progress = new InlineProgress<FileTransferProgress>(value =>
-            ReportProgress(record, value.Stage.ToString(), value.BytesTransferred, value.TotalBytes));
+            ReportProgress(record, StageText(value.Stage), value.BytesTransferred, value.TotalBytes));
         var result = await provider.TransferAsync(
                 new FileTransferRequest(
                     source!,
@@ -442,7 +442,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_streaming_unsupported",
-                "Cross-provider transfer requires bounded reads and streaming writes.");
+                "Asura can't transfer files between these two locations.");
         }
 
         if (sourceEntry.Kind != FileEntryKind.File || sourceEntry.Size is not { } contentLength)
@@ -450,7 +450,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_directory_unsupported",
-                "Cross-provider queue transfers currently require a regular file with known size.");
+                "Between these locations, Asura can transfer only files whose size is known.");
         }
 
         return await StreamFileAsync(
@@ -485,7 +485,7 @@ public sealed partial class FilePanelClient
             return Failure<long>(
                 FilePanelErrorCode.UnsupportedCapability,
                 "file_cross_provider_size_unknown",
-                "The source provider did not report a bounded file size.");
+                "The source location didn't report the file's size, so Asura can't transfer it.");
         }
 
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -792,6 +792,18 @@ public sealed partial class FilePanelClient
         TransfersChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    // The stage is shown beside the transfer, so it is written in words
+    // rather than as the provider's enum names.
+    private static string StageText(FileTransferStage stage) => stage switch
+    {
+        FileTransferStage.Reading => "Reading source",
+        FileTransferStage.Writing => "Writing destination",
+        FileTransferStage.Committing => "Finishing",
+        FileTransferStage.DeletingSource => "Deleting source",
+        FileTransferStage.Completed => "Completed",
+        _ => stage.ToString(),
+    };
+
     private void ReportProgress(
         TransferRecord record,
         string stage,
@@ -836,7 +848,7 @@ public sealed partial class FilePanelClient
         Failure<T>(
             FilePanelErrorCode.Cancelled,
             "file_operation_cancelled",
-            "The file operation was cancelled.",
+            "The file operation was canceled.",
             retryable: true);
 
     private sealed class TransferRecord(

@@ -54,7 +54,7 @@ public sealed partial record AgentContextPanel
         if (kind != PanelKind.FileViewer && session.FileMetadata is not null)
         {
             throw new ArgumentException(
-                "Only File Viewer sessions can expose trusted file metadata.",
+                "Only Files panel sessions can expose trusted file metadata.",
                 nameof(session));
         }
 

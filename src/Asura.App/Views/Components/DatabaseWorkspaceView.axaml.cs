@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -6,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Views.Components;
 
@@ -92,7 +94,11 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         CellExpandEditor.GrammarExtension = DatabaseValueGrammar.DetectExtension(
             cell.Column.ValueKind,
             cell.IsNull ? null : cell.EditText);
-        CellExpandPopup.PlacementTarget = e.EditingElement;
+        // Anchored to the cell rather than its editing element, which has
+        // not been laid out yet and sits inside the cell's padding.
+        var anchor = e.EditingElement.FindAncestorOfType<DataGridCell>() ?? e.EditingElement;
+        CellExpandPopup.PlacementTarget = anchor;
+        PlaceCellExpandPopup(anchor);
         CellExpandPopup.IsOpen = true;
         Dispatcher.UIThread.Post(
             () =>
@@ -103,6 +109,48 @@ public sealed partial class DatabaseWorkspaceView : UserControl
                 }
             },
             DispatcherPriority.Input);
+    }
+
+    /// <summary>
+    /// Keeps the expanded editor over the result grid rather than over the
+    /// inspector or the toolbar: as wide as the grid allows up to its designed
+    /// width, under the cell or above it when the grid has more room there,
+    /// and slid left instead of past the grid's right edge. The surface's
+    /// shadow margin is taken back out of the offsets, so its visible edge
+    /// meets the cell.
+    /// </summary>
+    private void PlaceCellExpandPopup(Control cell)
+    {
+        const double DesignedEditorWidth = 320;
+        const double NarrowestEditorWidth = 160;
+        var grid = ResultDataGrid.Bounds.Size;
+        if (cell.TranslatePoint(default, ResultDataGrid) is not { } origin
+            || grid.Width <= 0
+            || grid.Height <= 0)
+        {
+            return;
+        }
+
+        // Sized from the surface's own chrome rather than by measuring it:
+        // the editor inside is not in the visual tree until the popup opens.
+        // The tallest the editor grows decides whether it fits below.
+        var shadow = CellExpandSurface.Margin;
+        var padding = CellExpandSurface.Padding;
+        var border = CellExpandSurface.BorderThickness;
+        var chromeWidth = padding.Left + padding.Right + border.Left + border.Right;
+        var chromeHeight = padding.Top + padding.Bottom + border.Top + border.Bottom;
+        CellExpandEditor.Width = Math.Clamp(grid.Width - chromeWidth, NarrowestEditorWidth, DesignedEditorWidth);
+        var width = CellExpandEditor.Width + chromeWidth;
+        var height = CellExpandEditor.MaxHeight + chromeHeight;
+
+        var left = Math.Max(0, Math.Min(origin.X, grid.Width - width));
+        var below = grid.Height - (origin.Y + cell.Bounds.Height);
+        var opensAbove = below < height && origin.Y > below;
+        CellExpandPopup.Placement = opensAbove
+            ? PlacementMode.TopEdgeAlignedLeft
+            : PlacementMode.BottomEdgeAlignedLeft;
+        CellExpandPopup.HorizontalOffset = left - origin.X - shadow.Left;
+        CellExpandPopup.VerticalOffset = opensAbove ? shadow.Bottom : -shadow.Top;
     }
 
     private void CloseCellExpandEditor()
@@ -160,60 +208,11 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         OpenInViewerRequested?.Invoke(this, e);
     }
 
-    private void SyncEmbeddedModeButtons()
-    {
-        var panel = _observedPanel;
-        EmbeddedDataModeButton.IsChecked = panel?.SelectedMode == DatabaseWorkspaceMode.Data;
-        EmbeddedStructureModeButton.IsChecked =
-            panel?.SelectedMode == DatabaseWorkspaceMode.Structure;
-        EmbeddedIndexesModeButton.IsChecked =
-            panel?.SelectedMode == DatabaseWorkspaceMode.Indexes;
-        var hasObject = panel?.SelectedObject is not null;
-        EmbeddedStructureModeButton.IsEnabled = hasObject;
-        EmbeddedIndexesModeButton.IsEnabled = hasObject;
-        EmbeddedObjectsOverviewButton.IsChecked = panel?.IsDatabaseObjectsOverview == true;
-        EmbeddedDiagramOverviewButton.IsChecked = panel?.IsDatabaseDiagramOverview == true;
-    }
-
-    private void OnEmbeddedDataModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Data);
-
-    private void OnEmbeddedStructureModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Structure);
-
-    private void OnEmbeddedIndexesModeClick(object? sender, RoutedEventArgs e) =>
-        SetEmbeddedMode(DatabaseWorkspaceMode.Indexes);
-
-    private void SetEmbeddedMode(DatabaseWorkspaceMode mode)
-    {
-        Panel?.SetMode(mode);
-        // Clicking an already-selected ToggleButton tries to uncheck it. The
-        // workspace mode is exclusive, so restore all three from source state.
-        SyncEmbeddedModeButtons();
-    }
-
-    private void OnEmbeddedObjectsOverviewClick(object? sender, RoutedEventArgs e)
+    private void OnEmbeddedDiagramShown(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        Panel?.ShowDatabaseOverview();
-        SyncEmbeddedModeButtons();
-    }
-
-    private async void OnEmbeddedDiagramOverviewClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (Panel is { } panel)
-        {
-            await panel.ShowDatabaseDiagramAsync();
-        }
-
-        SyncEmbeddedModeButtons();
-        if (Panel?.IsDatabaseDiagramOverview == true)
-        {
-            FocusDiagram();
-        }
+        FocusDiagram();
     }
 
     internal void FocusDiagram() => MermaidDiagramRenderer.Focus();
@@ -229,7 +228,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
 
         RebuildResultColumns();
         SyncSelectedRow();
-        SyncEmbeddedModeButtons();
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -242,15 +240,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         {
             InvalidateDatabaseContextMenu(closePopup: true);
             CloseCellExpandEditor();
-        }
-
-        if (e.PropertyName is null
-            or nameof(DatabaseRuntimePanelViewModel.SelectedMode)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedObject)
-            or nameof(DatabaseRuntimePanelViewModel.SelectedDatabaseOverviewMode)
-            or nameof(DatabaseRuntimePanelViewModel.IsDatabaseOverview))
-        {
-            SyncEmbeddedModeButtons();
         }
 
         if (e.PropertyName is null or nameof(DatabaseRuntimePanelViewModel.ResultColumns))
@@ -325,7 +314,14 @@ public sealed partial class DatabaseWorkspaceView : UserControl
         _syncingSelection = true;
         try
         {
-            ResultDataGrid.SelectedItem = _observedPanel?.SelectedRow;
+            // A row already in an extended selection is left as it is:
+            // assigning SelectedItem would collapse the selection to it.
+            if (_observedPanel?.SelectedRow is not { } selected
+                || !ResultDataGrid.SelectedItems.Contains(selected))
+            {
+                ResultDataGrid.SelectedItem = _observedPanel?.SelectedRow;
+            }
+
             if (_observedPanel is { SelectedRow: { } row } panel)
             {
                 // ResultRows and SelectedRow are published back-to-back when a
@@ -488,11 +484,16 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             return;
         }
 
+        // The inspector follows the row the grid reports as its selected
+        // item; the rest of an extended selection rides along for Copy and
+        // Delete.
         var selected = ResultDataGrid.SelectedItem as DatabaseResultRowViewModel;
         if (!ReferenceEquals(panel.SelectedRow, selected))
         {
             panel.SelectRow(selected);
         }
+
+        panel.SelectRows(ResultDataGrid.SelectedItems.OfType<DatabaseResultRowViewModel>());
     }
 
     private void OnResultSorting(object? sender, DataGridColumnEventArgs e)
@@ -622,6 +623,35 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             sender as Button);
     }
 
+    // The inspector's Copy As pull-down: the menu item is the click, the
+    // button it hangs from is what answers with the check.
+    private async void OnInspectorCopyJsonClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await CopySelectedRowAsync(
+            static (panel, row) => panel.BuildRowJsonAsync(row),
+            InspectorCopyAsButton);
+    }
+
+    private async void OnInspectorCopyCsvClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await CopySelectedRowAsync(
+            static (panel, row) => panel.BuildRowCsvAsync(row),
+            InspectorCopyAsButton);
+    }
+
+    private async void OnInspectorCopyInsertClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await CopySelectedRowAsync(
+            static (panel, row) => panel.BuildRowSqlInsertAsync(row),
+            InspectorCopyAsButton);
+    }
+
     private async Task CopySelectedRowAsync(
         Func<DatabaseRuntimePanelViewModel, DatabaseResultRowViewModel, Task<(string Text, long Revision)>> build,
         Button? source = null)
@@ -647,7 +677,7 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             catch (Exception exception)
             {
                 panel.ReportInteractionError(
-                    $"Could not format the selected database row: {exception.Message}");
+                    $"Asura couldn’t copy the selected row. {FailureReason.Report("database.row.copy.failed", exception)}");
             }
         }
     }
@@ -678,7 +708,35 @@ public sealed partial class DatabaseWorkspaceView : UserControl
             && ReferenceEquals(Panel, panel) && panel.SelectedRowFields.Contains(field))
         {
             field.BeginEdit();
+            FocusFieldDraft(sender as Control);
         }
+    }
+
+    /// <summary>
+    /// Editing starts in the field: its draft takes focus, ring and all, once
+    /// the editor the template swaps in is on screen.
+    /// </summary>
+    private static void FocusFieldDraft(Control? editButton)
+    {
+        if (editButton?.FindAncestorOfType<Border>() is not { } row)
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                var descendants = row.GetVisualDescendants().OfType<Control>().ToArray();
+                if (descendants.OfType<CodeEditBox>().FirstOrDefault(editor => editor.IsEffectivelyVisible) is { } text)
+                {
+                    text.FocusEditor(caretToEnd: true);
+                }
+                else if (descendants.OfType<ComboBox>().FirstOrDefault(box => box.IsEffectivelyVisible) is { } choice)
+                {
+                    _ = choice.Focus(NavigationMethod.Tab);
+                }
+            },
+            DispatcherPriority.Input);
     }
 
     private void OnFieldApplyClick(object? sender, RoutedEventArgs e)
@@ -731,45 +789,6 @@ public sealed partial class DatabaseWorkspaceView : UserControl
 
     public event EventHandler<Asura.Application.DatabaseTableDescriptor>?
         OpenObjectInPanelRequested;
-
-    private void OnObjectOpenInTabClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            OpenObjectInTabRequested?.Invoke(this, item.Descriptor);
-        }
-    }
-
-    private void OnObjectOpenInPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            OpenObjectInPanelRequested?.Invoke(this, item.Descriptor);
-        }
-    }
-
-    private async void OnObjectOpenStructureClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (Panel is { } panel
-            && sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            await panel.PreviewTableAsync(item);
-            panel.SetMode(DatabaseWorkspaceMode.Structure);
-        }
-    }
-
-    private async void OnObjectCopyNameClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (Panel is { } panel
-            && sender is Control { DataContext: DatabaseTableItemViewModel item })
-        {
-            _ = await CopyTextAsync(item.Name, panel);
-        }
-    }
 
     private void OnDatabaseHeaderClick(object? sender, RoutedEventArgs e)
     {

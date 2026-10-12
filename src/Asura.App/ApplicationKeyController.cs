@@ -2,11 +2,16 @@ using Asura.Core;
 
 namespace Asura.App;
 
+/// <param name="FocusOwnsTextInput">
+/// True while a text field, code editor, or web page has keyboard focus; the
+/// application prefix is then left to that control.
+/// </param>
 internal readonly record struct ApplicationKeyProfileSnapshot(
     KeymapProfile Profile,
     long Revision,
     string Name,
-    CommandContext ActiveContexts);
+    CommandContext ActiveContexts,
+    bool FocusOwnsTextInput = false);
 
 internal delegate ValueTask<bool> ApplicationKeyReplay(
     IReadOnlyList<KeyStroke> strokes,
@@ -28,8 +33,10 @@ internal sealed class ApplicationKeyController : IDisposable
     private readonly ApplicationKeyPresentation _presentation;
     private readonly CancellationTokenSource _lifetime;
     private readonly TimeProvider _timeProvider;
-    private ApplicationKeySequenceResolver _resolver = new(BuiltInKeymaps.TmuxApplication);
-    private KeymapProfileId _activeProfileId = BuiltInKeymaps.TmuxApplicationId;
+    private ApplicationKeySequenceResolver _resolver =
+        new(BuiltInKeymaps.ApplicationFor(HostPlatform.Current));
+    private KeymapProfileId _activeProfileId =
+        BuiltInKeymaps.ApplicationFor(HostPlatform.Current).Id;
     private long _activeProfileRevision;
     private CancellationTokenSource? _hintLifetime;
     private bool _disposed;
@@ -53,7 +60,8 @@ internal sealed class ApplicationKeyController : IDisposable
         return _resolver.Resolve(
             stroke,
             profile.ActiveContexts,
-            _timeProvider.GetUtcNow());
+            _timeProvider.GetUtcNow(),
+            canArmPrefix: !profile.FocusOwnsTextInput);
     }
 
     public void Reset()
@@ -87,7 +95,7 @@ internal sealed class ApplicationKeyController : IDisposable
             && resolution.ShouldHandle)
         {
             ShowTimedHint(
-                "That key is not bound after the application prefix.",
+                "That key isn't bound after the application prefix.",
                 TimeSpan.FromSeconds(2));
             return;
         }
@@ -128,7 +136,7 @@ internal sealed class ApplicationKeyController : IDisposable
     {
         var cancellationToken = ReplaceHintLifetime();
         _presentation.ShowHint(
-            $"{prefix.Stroke} — waiting for a command · {profileName}");
+            $"{ShortcutText.Format(prefix.Stroke, HostPlatform.Current)} — waiting for a command · {profileName}");
         _ = ExpireAsync(prefix.Timeout, replay, cancellationToken);
     }
 
@@ -180,22 +188,17 @@ internal sealed class ApplicationKeyController : IDisposable
         ApplicationKeyReplay? replay,
         IReadOnlyList<KeyStroke>? strokes)
     {
-        if (strokes is null || strokes.Count == 0)
+        // Without a focused terminal the prefix had no program to reach; it is
+        // dropped as the key would have been.
+        if (strokes is null || strokes.Count == 0 || replay is null)
         {
-            return;
-        }
-
-        if (replay is null)
-        {
-            _presentation.SetError(
-                "The application shortcut could not be passed through because no terminal is active.");
             return;
         }
 
         if (!await replay(strokes, _lifetime.Token))
         {
             _presentation.SetError(
-                "The application shortcut could not be passed through safely.");
+                "Asura couldn't send that shortcut to the panel. Try again.");
         }
     }
 

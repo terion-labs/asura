@@ -14,14 +14,15 @@ public sealed record RecoveryRunItemViewModel
     {
         var displayNumber = displayIndex.ToString(CultureInfo.InvariantCulture);
         RunId = runId;
-        Title = $"Saved recovery {displayNumber}";
+        Title = $"Saved Recovery {displayNumber}";
         ClearAutomationName = $"Clear saved recovery {displayNumber}";
         SnapshotLabel =
-            $"{snapshotCount.ToString("N0", CultureInfo.InvariantCulture)} "
+            $"{snapshotCount.ToString("N0", CultureInfo.CurrentCulture)} "
             + $"snapshot{(snapshotCount == 1 ? string.Empty : "s")}";
-        SizeLabel = FormatBytes(payloadBytes);
-        UpdatedLabel =
-            $"Last saved {lastUpdatedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture)}";
+        // Sizes and moments read as they do everywhere else in the app: the
+        // shared byte units, and local time in the reader's own convention.
+        SizeLabel = ByteSize.Format(payloadBytes);
+        UpdatedLabel = $"Last saved {DisplayDates.Format(lastUpdatedAt)}";
     }
 
     internal string RunId { get; }
@@ -35,19 +36,6 @@ public sealed record RecoveryRunItemViewModel
     public string SizeLabel { get; }
 
     public string UpdatedLabel { get; }
-
-    private static string FormatBytes(long bytes)
-    {
-        const long kibibyte = 1024;
-        const long mebibyte = kibibyte * 1024;
-        return bytes switch
-        {
-            < kibibyte => $"{bytes.ToString("N0", CultureInfo.InvariantCulture)} B",
-            < mebibyte =>
-                $"{(bytes / (double)kibibyte).ToString("0.0", CultureInfo.InvariantCulture)} KiB",
-            _ => $"{(bytes / (double)mebibyte).ToString("0.0", CultureInfo.InvariantCulture)} MiB",
-        };
-    }
 }
 
 /// <summary>
@@ -132,6 +120,8 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _hasError, value))
             {
                 OnPropertyChanged(nameof(HasNoRuns));
+                OnPropertyChanged(nameof(CanClearAll));
+                OnPropertyChanged(nameof(CanClearRuns));
             }
         }
     }
@@ -248,7 +238,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
         if (!discarded.IsSuccess)
         {
             await PublishAsync(
-                () => ApplyFailure(discarded.Error!, $"The {subject} could not be cleared."),
+                () => ApplyFailure(discarded.Error!, $"Asura couldn't clear the {subject}. Try again."),
                 cancellationToken).ConfigureAwait(false);
             return;
         }
@@ -268,18 +258,14 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await PublishAsync(
-                () => ApplyPostDiscardRefreshFailure(
-                    discardStatus,
-                    ApplicationRunErrorCode.Cancelled),
+                () => ApplyPostDiscardRefreshFailure(discardStatus),
                 CancellationToken.None).ConfigureAwait(false);
             return;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             await PublishAsync(
-                () => ApplyPostDiscardRefreshFailure(
-                    discardStatus,
-                    ApplicationRunErrorCode.StorageFailure),
+                () => ApplyPostDiscardRefreshFailure(discardStatus),
                 CancellationToken.None).ConfigureAwait(false);
             return;
         }
@@ -288,7 +274,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
         {
             if (!inventory.IsSuccess)
             {
-                ApplyPostDiscardRefreshFailure(discardStatus, inventory.Error!.Code);
+                ApplyPostDiscardRefreshFailure(discardStatus);
                 return;
             }
 
@@ -324,7 +310,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
                 await PublishAsync(() =>
                 {
                     HasError = false;
-                    StatusMessage = "The recovery data operation was cancelled.";
+                    StatusMessage = "The recovery data operation was canceled.";
                 }, CancellationToken.None).ConfigureAwait(false);
             }
             catch (ObjectDisposedException)
@@ -370,7 +356,7 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
         {
             ApplyFailure(
                 result.Error!,
-                "Crash recovery metadata could not be loaded.");
+                "Asura couldn't load details about its crash recovery data. Try again.");
             return;
         }
 
@@ -414,21 +400,19 @@ public sealed class RecoveryDataControlViewModel : ObservableObject, IDisposable
     }
 
     private void ApplyPostDiscardRefreshFailure(
-        string discardStatus,
-        ApplicationRunErrorCode errorCode)
+        string discardStatus)
     {
         HasError = true;
         StatusMessage =
-            $"{discardStatus} The remaining recovery metadata could not be loaded. "
-            + $"({errorCode})";
+            $"{discardStatus} Asura couldn't load details about the remaining recovery data. Refresh to try again.";
     }
 
     private void ApplyFailure(ApplicationRunError error, string fallback)
     {
         HasError = error.Code != ApplicationRunErrorCode.Cancelled;
         StatusMessage = error.Code == ApplicationRunErrorCode.Cancelled
-            ? "The recovery data operation was cancelled."
-            : $"{fallback} ({error.Code})";
+            ? "The recovery data operation was canceled."
+            : fallback;
     }
 
     private static string DiscardStatus(long deleted, string subject) =>

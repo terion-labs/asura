@@ -1,14 +1,34 @@
+using System.ComponentModel;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
+using Asura.Core;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Views.RuntimePanels;
 
-public sealed partial class KubernetesRuntimePanelView : UserControl
+/// <summary>The inspector's views, in the order its segmented control shows them.</summary>
+internal enum KubernetesInspectorView
 {
+    Overview,
+    Manifest,
+    Logs,
+    Ports,
+    Actions,
+}
+
+public sealed partial class KubernetesRuntimePanelView : UserControl, IPanelCommandTarget
+{
+    private const int ManifestEditMode = 0;
+    private const int ManifestReviewMode = 1;
+    private readonly TypeSelectBuffer _navigationTypeSelect = new();
+    private readonly TypeSelectBuffer _resourceTypeSelect = new();
     private KubernetesRuntimePanelViewModel? _observed;
     private bool _resizingNavigator;
     private double _resizeOriginX;
@@ -24,6 +44,8 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
             finally { Inspector.Classes.Remove("resizing"); }
         };
         DataContextChanged += OnDataContextChanged;
+        NavigationList.AddHandler(TextInputEvent, OnNavigationTextInput, RoutingStrategies.Tunnel);
+        ResourceList.AddHandler(TextInputEvent, OnResourceTextInput, RoutingStrategies.Tunnel);
     }
 
     public event EventHandler<KubernetesForwardViewModel>? ForwardBrowserRequested;
@@ -37,8 +59,68 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
+        _observed?.PropertyChanged -= OnModelPropertyChanged;
         _observed = DataContext as KubernetesRuntimePanelViewModel;
+        _observed?.PropertyChanged += OnModelPropertyChanged;
         UpdateLayoutMode();
+        KeepInspectorViewAvailable();
+    }
+
+    /// <summary>
+    /// A view whose segment has just been dimmed — Logs when the selection
+    /// stops being a pod, Review when the dry run is invalidated — is not left
+    /// showing: the inspector steps back to a view that applies.
+    /// </summary>
+    private void OnModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(KubernetesRuntimePanelViewModel.HasSelection)
+            or nameof(KubernetesRuntimePanelViewModel.CanReadLogs)
+            or nameof(KubernetesRuntimePanelViewModel.HasForwardTools)
+            or nameof(KubernetesRuntimePanelViewModel.HasInspectorActions)
+            or nameof(KubernetesRuntimePanelViewModel.HasMutationPreview)
+            or nameof(KubernetesRuntimePanelViewModel.HasInspectorContent))
+        {
+            KeepInspectorViewAvailable();
+        }
+    }
+
+    internal KubernetesInspectorView InspectorView
+    {
+        get => (KubernetesInspectorView)Math.Max(0, InspectorSegments.SelectedIndex);
+        set => InspectorSegments.SelectedIndex = (int)value;
+    }
+
+    private bool IsInspectorViewAvailable(KubernetesInspectorView view) => _observed is { } model && view switch
+    {
+        KubernetesInspectorView.Overview or KubernetesInspectorView.Manifest => model.HasSelection,
+        KubernetesInspectorView.Logs => model.CanReadLogs,
+        KubernetesInspectorView.Ports => model.HasForwardTools,
+        KubernetesInspectorView.Actions => model.HasInspectorActions,
+        _ => false,
+    };
+
+    private void KeepInspectorViewAvailable()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        if (!IsInspectorViewAvailable(InspectorView))
+        {
+            var fallback = model.HasSelection ? KubernetesInspectorView.Overview
+                : model.HasForwardTools ? KubernetesInspectorView.Ports
+                : (KubernetesInspectorView?)null;
+            if (fallback is { } view && view != InspectorView)
+            {
+                InspectorView = view;
+            }
+        }
+
+        if (!model.HasMutationPreview && ManifestModeSegments.SelectedIndex == ManifestReviewMode)
+        {
+            ManifestModeSegments.SelectedIndex = ManifestEditMode;
+        }
     }
 
     private void UpdateLayoutMode() => _observed?.SetViewportWidth(Bounds.Width);
@@ -48,8 +130,64 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     private void OnNavigationClick(object? sender, RoutedEventArgs e)
     {
         ResourcesTab.IsSelected = true;
-        OverviewTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Overview;
         _observed?.CompleteNavigation();
+    }
+
+    /// <summary>
+    /// Typing a name in the navigator shows the first resource type, among
+    /// the families that are open, whose name starts with it, and keeps focus
+    /// on its row so the next letters keep narrowing — type-to-select, as in a
+    /// Finder sidebar or any Mac list.
+    /// </summary>
+    private void OnNavigationTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        if (_observed is not { } model
+            || _navigationTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(
+                model.NavigationGroups
+                    .Where(group => group.IsOpen)
+                    .SelectMany(group => group.Items)
+                    .Where(item => item.IsVisible),
+                item => item.Title,
+                prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ResourcesTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Overview;
+        match.SelectCommand.Execute(null);
+        if (NavigationList.GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault(row => ReferenceEquals(row.DataContext, match)) is { } row)
+        {
+            row.Focus(NavigationMethod.Directional);
+            row.BringIntoView();
+        }
+    }
+
+    /// <summary>
+    /// Typing a name in the table selects the first row, in the order the
+    /// table is showing, whose name starts with it.
+    /// </summary>
+    private void OnResourceTextInput(object? sender, TextInputEventArgs e)
+    {
+        _ = sender;
+        var rows = ResourceList.CollectionView?.OfType<KubernetesResourceRow>()
+            ?? _observed?.Rows
+            ?? [];
+        if (_resourceTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
+            || TypeSelectBuffer.FindMatch(rows, row => row.Name, prefix) is not { } match)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        ResourceList.SelectedItem = match;
+        ResourceList.ScrollIntoView(match, null);
     }
 
     private void OnNavigatorResizePressed(object? sender, PointerPressedEventArgs e)
@@ -126,7 +264,7 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     {
         if (_observed is { } model) { model.ShowForwardManager = true; }
         ResourcesTab.IsSelected = true;
-        ForwardTab.IsSelected = true;
+        InspectorView = KubernetesInspectorView.Ports;
         UpdateLayoutMode();
     }
 
@@ -136,12 +274,35 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
         UpdateLayoutMode();
     }
 
-    private async void OnFollowLogsClick(object? sender, RoutedEventArgs e)
+    private void OnShowDryRunResultClick(object? sender, RoutedEventArgs e)
     {
-        if (_observed is { } model) { await model.FollowLogsAsync(); }
+        InspectorView = KubernetesInspectorView.Manifest;
+        ManifestModeSegments.SelectedIndex = ManifestReviewMode;
     }
 
-    private void OnPauseLogsClick(object? sender, RoutedEventArgs e) => _observed?.StopFollowingLogs();
+    /// <summary>
+    /// Follow is one switch: pressed, new lines stream in; released, they
+    /// stop. The switch shows the panel's state afterwards, so a follow that
+    /// could not start does not stay pressed.
+    /// </summary>
+    private async void OnFollowLogsToggled(object? sender, RoutedEventArgs e)
+    {
+        if (_observed is not { } model) { return; }
+        // SetCurrentValue keeps the IsChecked binding to FollowingLogs; a
+        // plain assignment would replace it after the first click.
+        if (model.FollowingLogs) { model.StopFollowingLogs(); }
+        else
+        {
+            var follow = model.FollowLogsAsync();
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
+            await follow;
+        }
+
+        if (ReferenceEquals(_observed, model))
+        {
+            FollowLogsToggle.SetCurrentValue(ToggleButton.IsCheckedProperty, model.FollowingLogs);
+        }
+    }
 
     private async void OnLoadMetricHistoryClick(object? sender, RoutedEventArgs e) { if (_observed is { } model) { await model.LoadMetricHistoryAsync(); } }
     private async void OnLoadMetricsClick(object? sender, RoutedEventArgs e) { if (_observed is { } model) { await model.LoadMetricsAsync(); } }
@@ -185,6 +346,209 @@ public sealed partial class KubernetesRuntimePanelView : UserControl
     private void OnShellClick(object? sender, RoutedEventArgs e)
     {
         if (_observed is { } model) { ShellRequested?.Invoke(this, model); }
+    }
+
+    /// <summary>
+    /// A secondary click on a row selects it, as Finder does, unless it is
+    /// already part of a multiple selection, and offers what the inspector
+    /// offers for it. Commands that act on one resource are dimmed while more
+    /// than one is selected; copying names works on all of them.
+    /// </summary>
+    private void OnResourceContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (_observed is null || e.Source is not Control source)
+        {
+            return;
+        }
+
+        var row = source.GetSelfAndVisualAncestors().OfType<DataGridRow>().FirstOrDefault()?.DataContext as KubernetesResourceRow;
+        if (row is null && ResourceList.SelectedItem is KubernetesResourceRow selected && !e.TryGetPosition(ResourceList, out _))
+        {
+            row = selected;
+        }
+
+        if (row is null)
+        {
+            return;
+        }
+
+        if (!ResourceList.SelectedItems.Contains(row))
+        {
+            ResourceList.SelectedItem = row;
+        }
+
+        e.Handled = true;
+        CreateResourceContextMenu().Open(source);
+    }
+
+    /// <summary>
+    /// The resource menu: its views and tools first, then copying, then the
+    /// one destructive command on its own at the end.
+    /// </summary>
+    internal ContextMenu CreateResourceContextMenu()
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(Item(BuiltInCommands.KubernetesShowLogs));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesOpenTerminal));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesPortForward));
+        menu.Items.Add(Item(BuiltInCommands.KubernetesEditManifest));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(
+            BuiltInCommands.KubernetesCopyName,
+            SelectedNames().Length > 1 ? PanelCommandTargets.StateTitle(BuiltInCommands.KubernetesCopyName) : null));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(BuiltInCommands.KubernetesDelete));
+        return menu;
+
+        MenuItem Item(CommandId command, string? title = null) =>
+            PanelCommandTargets.MenuItem(command, CanRun(command), () => RunAsync(command), title);
+    }
+
+    private string[] SelectedNames() =>
+        [.. ResourceList.SelectedItems.OfType<KubernetesResourceRow>().Select(row => row.Name)];
+
+    /// <summary>
+    /// Whether a resource command can run now. Commands that act on one
+    /// resource need exactly one selected; copying names takes them all. The
+    /// context menu and the menu bar's Kubernetes items both ask here.
+    /// </summary>
+    private bool CanRun(CommandId command)
+    {
+        if (_observed is not { } model)
+        {
+            return false;
+        }
+
+        var names = SelectedNames();
+        var single = names.Length == 1 && model.HasSelection;
+        if (command == BuiltInCommands.KubernetesShowLogs)
+        {
+            return single && model.CanReadLogs;
+        }
+
+        if (command == BuiltInCommands.KubernetesOpenTerminal)
+        {
+            return single && model.CanOpenShell;
+        }
+
+        if (command == BuiltInCommands.KubernetesPortForward)
+        {
+            return single && model.CanForward;
+        }
+
+        if (command == BuiltInCommands.KubernetesEditManifest)
+        {
+            return single;
+        }
+
+        if (command == BuiltInCommands.KubernetesCopyName)
+        {
+            return names.Length > 0;
+        }
+
+        return command == BuiltInCommands.KubernetesDelete && single && model.CanRequestDelete;
+    }
+
+    private Task RunAsync(CommandId command)
+    {
+        if (command == BuiltInCommands.KubernetesShowLogs)
+        {
+            return ShowLogsAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesOpenTerminal)
+        {
+            return OpenShellAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesPortForward)
+        {
+            InspectorView = KubernetesInspectorView.Ports;
+            return Task.CompletedTask;
+        }
+
+        if (command == BuiltInCommands.KubernetesEditManifest)
+        {
+            return EditManifestAsync();
+        }
+
+        if (command == BuiltInCommands.KubernetesCopyName)
+        {
+            return CopyTextAsync(string.Join(Environment.NewLine, SelectedNames()));
+        }
+
+        return command == BuiltInCommands.KubernetesDelete ? ReviewDeleteAsync() : Task.CompletedTask;
+    }
+
+    bool IPanelCommandTarget.CanExecute(CommandId command) => CanRun(command);
+
+    Task IPanelCommandTarget.ExecuteAsync(CommandId command) =>
+        CanRun(command) ? RunAsync(command) : Task.CompletedTask;
+
+    IEnumerable<KeyValuePair<string, bool>> IPanelCommandTarget.States =>
+        [new(CommandStates.HasMultipleSelection, SelectedNames().Length > 1)];
+
+    private async Task ShowLogsAsync()
+    {
+        InspectorView = KubernetesInspectorView.Logs;
+        if (_observed is { Logs.Length: 0 } model)
+        {
+            await model.LoadLogsAsync();
+        }
+    }
+
+    /// <summary>
+    /// Opens the shell straight away when the pod leaves nothing to choose,
+    /// and otherwise shows the terminal's container choice in Actions.
+    /// </summary>
+    private async Task OpenShellAsync()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        await model.SelectionLoading;
+        if (model.CanLaunchShell)
+        {
+            ShellRequested?.Invoke(this, model);
+            return;
+        }
+
+        InspectorView = KubernetesInspectorView.Actions;
+    }
+
+    private Task EditManifestAsync()
+    {
+        InspectorView = KubernetesInspectorView.Manifest;
+        ManifestModeSegments.SelectedIndex = ManifestEditMode;
+        Dispatcher.UIThread.Post(() => ManifestEditor.FocusEditor(caretToEnd: false), DispatcherPriority.Loaded);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Delete is reviewed before it is done: this asks the server for its dry
+    /// run and shows the result in Actions beside the confirmation, which is
+    /// what the ellipsis promises.
+    /// </summary>
+    private async Task ReviewDeleteAsync()
+    {
+        if (_observed is not { } model)
+        {
+            return;
+        }
+
+        InspectorView = KubernetesInspectorView.Actions;
+        await model.SelectionLoading;
+        await model.ReviewDeleteAsync();
+    }
+
+    private async Task CopyTextAsync(string text)
+    {
+        if (text.Length > 0 && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+        {
+            await clipboard.SetTextAsync(text);
+        }
     }
 
     private void OnCloseClick(object? sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, e);

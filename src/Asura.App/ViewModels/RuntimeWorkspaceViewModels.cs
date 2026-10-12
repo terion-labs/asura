@@ -325,7 +325,7 @@ public sealed record RuntimeHistorySource
         if (normalizedTitle.Length > 256 || normalizedTitle.Contains('\0'))
         {
             throw new ArgumentException(
-                "The history source title must be at most 256 characters and cannot contain null characters.",
+                "The history source title must be at most 256 characters and can't contain null characters.",
                 nameof(durableTitle));
         }
 
@@ -356,6 +356,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     private string _title;
     private string _icon;
     private bool _hasChosenTitle;
+    private BrowserRuntimePanelViewModel? _pageTitleSource;
     private bool _hasChosenIcon;
     private bool _isActive;
     private bool _canClose = true;
@@ -405,6 +406,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
         _dockLayout.LayoutChanged += (_, _) =>
             OnPropertyChanged(nameof(DockLayoutRevision));
         Panels.CollectionChanged += (_, _) => RefreshPanelVisibility();
+        Panels.CollectionChanged += (_, _) => FollowBrowserPageTitle();
         FloatingPanels.CollectionChanged += (_, _) => OnPropertyChanged(nameof(IsDockEmpty));
     }
 
@@ -413,7 +415,48 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     public string Title
     {
         get => _title;
-        private set => SetProperty(ref _title, value);
+        private set
+        {
+            if (SetProperty(ref _title, value))
+            {
+                OnPropertyChanged(nameof(DisplayTitle));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The tab's title as the strip writes it. A tab that holds one browser
+    /// and was never renamed reads its page's title or host: four tabs all
+    /// called "Browser" could not be told apart. The durable title stays as
+    /// it was, because it is part of the graph the session host checks.
+    /// </summary>
+    public string DisplayTitle =>
+        !_hasChosenTitle && _pageTitleSource is { PageTitle.Length: > 0 } browser
+            ? browser.PageTitle
+            : Title;
+
+    private void FollowBrowserPageTitle()
+    {
+        var contentPanels = Panels.Where(panel => panel.Kind != PanelKind.Placeholder).ToArray();
+        var source = contentPanels is [BrowserRuntimePanelViewModel browser] ? browser : null;
+        if (ReferenceEquals(source, _pageTitleSource))
+        {
+            return;
+        }
+
+        _pageTitleSource?.PropertyChanged -= OnPageTitleSourceChanged;
+        _pageTitleSource = source;
+        _pageTitleSource?.PropertyChanged += OnPageTitleSourceChanged;
+        OnPropertyChanged(nameof(DisplayTitle));
+    }
+
+    private void OnPageTitleSourceChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (e.PropertyName is null or nameof(BrowserRuntimePanelViewModel.PageTitle))
+        {
+            OnPropertyChanged(nameof(DisplayTitle));
+        }
     }
 
     /// <summary>
@@ -985,6 +1028,7 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
 
         Title = title.Trim();
         _hasChosenTitle = true;
+        OnPropertyChanged(nameof(DisplayTitle));
         return true;
     }
 
@@ -2338,6 +2382,9 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     public StartupCommandDeliveryFailurePolicy StartupCommandDeliveryFailurePolicy =>
         StartupCommandDispatchState.FailurePolicy;
 
+    /// <summary>The terminal keymap this session launched with.</summary>
+    internal TerminalKeymapSnapshot? Keymap => _keymap;
+
     public bool IsCopyMode
     {
         get => _isCopyMode;
@@ -2415,7 +2462,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
 
             if (_startupCommandFailureStopped)
             {
-                return $"{error.Message} The saved startup commands will not be retried automatically. The terminal remains open.";
+                return $"{error.Message} The saved startup commands won't be retried automatically. The terminal remains open.";
             }
 
             return error.Retryable && StartupCommands.Count > 0
@@ -2581,8 +2628,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         ?? "No previously trusted key";
 
     public string TrustHostKeyLabel => HostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key…"
-        : "Trust host key…";
+        ? "Replace Trusted Key…"
+        : "Trust Host Key…";
 
     public bool CanTrustHostKey => HostKeyReview?.Disposition is
         SshHostKeyDisposition.Unknown or SshHostKeyDisposition.Changed;
@@ -2593,8 +2640,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         && IsConnecting;
 
     public string CancelConnectionLabel => ReconnectAttempt > 0
-        ? "Cancel reconnect"
-        : "Cancel connection";
+        ? "Cancel Reconnect"
+        : "Cancel Connection";
 
     public string ReconnectStatus => ReconnectState switch
     {
@@ -2605,7 +2652,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         ConnectionReconnectState.WaitingForSession => "Waiting for the reconnected terminal",
         ConnectionReconnectState.Connected => "Connection restored",
         ConnectionReconnectState.Exhausted => "Automatic reconnect attempts exhausted",
-        ConnectionReconnectState.Cancelled => "Automatic reconnect cancelled",
+        ConnectionReconnectState.Cancelled => "Automatic reconnect canceled",
         _ => string.Empty,
     };
 
@@ -2616,15 +2663,15 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 ? "Proceed without continuity to open a plain terminal and install tmux or GNU Screen on the remote host. Then open a new terminal to use continuity. "
                 : "To start a fresh session, close this failed tab and reopen the connection. ")
             + "Proceed without continuity applies only to this tab. Your workspace setting stays unchanged.",
-        ConnectionRecoveryAction.InstallRuntime => "Install the required runtime, then retry.",
-        ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault, then retry.",
-        ConnectionRecoveryAction.ProvideAuthentication => "Update authentication in the connection profile.",
-        ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
-        ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",
-        ConnectionRecoveryAction.SelectContainer => "Choose a running container in the connection profile.",
-        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution.",
-        ConnectionRecoveryAction.EditProfile => "Repair the saved connection profile.",
-        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Retry the connection.",
+        ConnectionRecoveryAction.InstallRuntime => "Install the program this connection needs, then try again.",
+        ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
+        ConnectionRecoveryAction.ProvideAuthentication => "Check the sign-in settings for this connection, then try again.",
+        ConnectionRecoveryAction.ReviewHostKey => "Review the host key, then connect again.",
+        ConnectionRecoveryAction.GrantPermission => "Allow access in the system settings, then try again.",
+        ConnectionRecoveryAction.SelectContainer => "Edit the connection to choose a running container.",
+        ConnectionRecoveryAction.SelectDistribution => "Edit the connection to choose an installed WSL distribution.",
+        ConnectionRecoveryAction.EditProfile => "Edit the connection, then try again.",
+        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Try again.",
         _ => string.Empty,
     };
 
@@ -2670,8 +2717,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         NextReconnectDelay = null;
         ConnectionState = ConnectionPanelState.Failed;
         ConnectionStatus = ReconnectAttempt > 0
-            ? "Reconnect cancelled"
-            : "Connection cancelled";
+            ? "Reconnect canceled"
+            : "Connection canceled";
         ConnectionDetail = "The terminal remains disconnected. Retry when you are ready.";
     }
 
@@ -2990,14 +3037,14 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
                 ConnectionState = ConnectionPanelState.CredentialBrokerRequired;
                 ReconnectState = ConnectionReconnectState.Idle;
                 ConnectionStatus = "Credential delivery unavailable";
-                ConnectionDetail = "The saved credential passed vault preflight, but this build cannot deliver it to an SSH terminal process without exposing secret material. Diagnostics can still authenticate through the secure adapter boundary.";
+                ConnectionDetail = "The saved password is ready, but this version of Asura can't pass it to an SSH terminal without exposing it. Testing the connection in Settings still signs in with it.";
                 return;
             }
 
             ConnectionError = outcome.Error;
             ConnectionState = ConnectionPanelState.Failed;
             ConnectionStatus = "Connection unavailable";
-            ConnectionDetail = outcome.Error?.Message ?? "The connection could not be prepared.";
+            ConnectionDetail = outcome.Error?.Message ?? "Asura couldn't prepare the connection. Try again.";
             if (outcome.Error is null || !ShouldReconnect(outcome.Error))
             {
                 ReconnectState = ConnectionReconnectState.Idle;
@@ -3201,7 +3248,7 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
             ConnectionPlanWarning.RemoteEnvironmentRequiresServerAcceptance =>
                 "SSH environment forwarding requires matching AcceptEnv rules on the remote server.",
             ConnectionPlanWarning.SshStartupDirectoryRequiresPosixShell =>
-                "SSH startup directories require a POSIX-compatible remote target with /bin/sh; Windows OpenSSH targets are not supported for this option.",
+                "Starting in a working directory over SSH needs a host with /bin/sh. Hosts that run Windows OpenSSH don't support this option.",
             _ => throw new ArgumentOutOfRangeException(nameof(warnings), warning, null),
         });
         return string.Join(' ', messages);
@@ -3232,7 +3279,7 @@ public class UnavailableRuntimePanelViewModel(
 {
     public string CapabilityMessage { get; protected set; } = capabilityMessage;
 
-    public virtual string StateHeading => "Adapter unavailable";
+    public virtual string StateHeading => "Panel unavailable";
 
     public virtual string? StateActionLabel => null;
 

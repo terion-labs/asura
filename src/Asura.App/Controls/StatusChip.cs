@@ -23,10 +23,15 @@ internal enum ChipShape
 /// </summary>
 internal sealed class StatusChip : ContentControl
 {
+    /// <summary>
+    /// What the chip says about its state. Neutral unless a view says
+    /// otherwise: a chip that only names a kind is not good news, and the
+    /// success green it used to default to read as a verdict.
+    /// </summary>
     public static readonly StyledProperty<SurfaceTone> ToneProperty =
         AvaloniaProperty.Register<StatusChip, SurfaceTone>(
             nameof(Tone),
-            SurfaceTone.Success);
+            SurfaceTone.Default);
 
     /// <summary>
     /// A chip is a pill by default. Some carry a transport or a kind rather than a

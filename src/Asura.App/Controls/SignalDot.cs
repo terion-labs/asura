@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 
@@ -14,7 +15,17 @@ namespace Asura.App.Controls;
 /// colour: an attention dot sits on top of whatever it is marking, including a
 /// saturated workspace tile, and without the ring it disappears into the ones
 /// it happens to match.
+///
+/// The dot itself is silent to assistive technology. It is a mark on another
+/// control, and that control carries the state in its own name or status —
+/// "Workspaces, 1 needs attention", "Restore Terminal, needs attention" —
+/// where it is heard together with the thing it is about.
 /// </summary>
 internal sealed class SignalDot : TemplatedControl
 {
+    static SignalDot()
+    {
+        AutomationProperties.AccessibilityViewProperty.OverrideDefaultValue<SignalDot>(
+            AccessibilityView.Raw);
+    }
 }

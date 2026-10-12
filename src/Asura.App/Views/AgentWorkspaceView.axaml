@@ -18,7 +18,7 @@
           ToolTip.Tip="{Binding SecretDisclosureExplanation}"
           AutomationProperties.Name="{Binding SecretDisclosureExplanation}">
         <Grid>
-          <icons:SymbolIcon Symbol="LockClosed" FontSize="12" IsVisible="{Binding !ExposeSecretsOnNextRequest}" />
+          <icons:SymbolIcon Symbol="LockClosed" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !ExposeSecretsOnNextRequest}" />
           <!-- Fluent UI ic_fluent_lock_open_12_regular from microsoft/fluentui-system-icons. -->
           <Path Width="12" Height="12" Stretch="Uniform"
               IsVisible="{Binding ExposeSecretsOnNextRequest}"
@@ -29,18 +29,31 @@
     </DataTemplate>
   </UserControl.Resources>
   <UserControl.Styles>
-    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Border#SwitchTrack">
-      <Setter Property="Width" Value="28" />
-      <Setter Property="Height" Value="16" />
+    <!-- A file dragged over the composer lights the composer itself, so
+         the place it will land is the place that reacts. -->
+    <!-- The resting border is a style, not a local value, so the drop
+         target style below can replace it. -->
+    <Style Selector="Border#AgentComposer">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
     </Style>
-    <Style Selector="ToggleSwitch.SecretDisclosure /template/ Ellipse#SwitchKnob">
-      <Setter Property="Width" Value="12" />
-      <Setter Property="Height" Value="12" />
+    <!-- The raw-secrets help dims with its checkbox, as one option. -->
+    <Style Selector="TextBlock#AgentSendRawSecretsHelp:disabled">
+      <Setter Property="Opacity" Value="0.48" />
     </Style>
+    <!-- A conversation that can't be opened reads as disabled, but its row
+         stays enabled so its context menu and Delete still reach it. -->
+    <Style Selector="Button.ConversationRow.unavailable StackPanel.ConversationRowText">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
+    <Style Selector="Border#AgentComposer.dropTarget">
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
+    </Style>
+    <!-- Sized for 13 pt text and grown with the text-size setting, so a
+         label or glyph at 200% still fits rather than clipping. -->
     <Style Selector="Button.ComposerControl">
-      <Setter Property="Height" Value="32" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 32}" />
       <Setter Property="Margin" Value="{controls:Inset Right=Xs}" />
-      <Setter Property="MinHeight" Value="0" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
@@ -58,15 +71,27 @@
     <Style Selector="Button.ComposerControl:disabled /template/ ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
     </Style>
+    <!-- The model menu's list reads as menu rows on the popover's own
+         surface rather than as a framed list box set into it. -->
+    <Style Selector="ListBox.AgentModelList">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.AgentModelList ListBoxItem">
+      <Setter Property="MinHeight" Value="{controls:TextScaled 44}" />
+      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+    </Style>
     <Style Selector="Button.ComposerSelector">
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.ComposerAction">
-      <Setter Property="Width" Value="34" />
+      <Setter Property="MinWidth" Value="{controls:TextScaled 34}" />
       <Setter Property="Margin" Value="{controls:Inset Left=Xs}" />
-      <Setter Property="Height" Value="34" />
-      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 34}" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
       <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -76,8 +101,10 @@
     <!-- A live run is visible from every surface hosting the shared agent
          panel. The ordinary icon remains beneath this accent copy, so the
          five-second opacity cycle reads as a slow colour pulse rather than a
-         blinking status light. -->
-    <Style Selector="icons|SymbolIcon.AgentActivityPulse.running">
+         blinking status light. Reduce Motion holds the accent copy at full
+         strength instead (the still form lives with the shell's other motion
+         rules in DesignSystem.axaml). -->
+    <Style Selector="Window:not(.motion-disabled) icons|SymbolIcon.AgentActivityPulse.running">
       <Style.Animations>
         <Animation Duration="0:0:5" IterationCount="INFINITE">
           <KeyFrame Cue="0%">
@@ -171,7 +198,7 @@
     <Style Selector="ToggleButton.ReasoningTraceDisclosure">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-      <Setter Property="MinHeight" Value="32" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 32}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs, Vertical=Xs}" />
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
@@ -198,13 +225,20 @@
     <Style Selector="ToggleButton.ReasoningTraceDisclosure:focus-visible /template/ Border">
       <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
     </Style>
+    <!-- A checkbox's explanation dims with its checkbox, as a disabled
+         control's own label does. -->
+    <Style Selector="TextBlock.dimmed">
+      <Setter Property="Opacity" Value="0.48" />
+    </Style>
   </UserControl.Styles>
   <!--
-    Keep the agent surface free of AutomationProperties.LiveSetting. Avalonia
-    12.0.5's macOS bridge can raise a native live-region notification with a
-    nil announcement while streaming controls are updated or detached, which
-    terminates the process. Stable names, help text, and keyboard focus remain
-    available to assistive technology without that unsafe native callback.
+    Keep the agent surface free of AutomationProperties.LiveSetting. Its one
+    status region lives in WorkspaceView, outside the panel, so events are
+    heard while the panel is hidden. Avalonia 12.0.5's macOS bridge can raise a native
+    live-region notification with a nil announcement while streaming controls
+    are updated or detached, which terminates the process. Stable names, help
+    text, and keyboard focus remain available to assistive technology without
+    that unsafe native callback.
   -->
   <Panel ClipToBounds="False">
   <!-- The floating panel's backdrop: whatever the window has already painted
@@ -229,23 +263,22 @@
         <Grid VerticalAlignment="Center">
           <icons:SymbolIcon
               Symbol="Bot"
-              FontSize="16"
+              FontSize="{DynamicResource ShellIconSizeMd}"
               Foreground="{DynamicResource ShellTextBrush}" />
           <icons:SymbolIcon
               x:Name="AgentActivityPulseIcon"
               Classes="AgentActivityPulse"
               Classes.running="{Binding AgentChat.IsBusy}"
               Symbol="Bot"
-              FontSize="16"
+              FontSize="{DynamicResource ShellIconSizeMd}"
               Foreground="{DynamicResource ShellAccentBrush}"
               Opacity="0" />
         </Grid>
         <TextBlock
             Grid.Column="1"
             VerticalAlignment="Center"
-            FontSize="{DynamicResource ShellFontSize14}"
-            FontWeight="SemiBold"
-            Text="AI agent" />
+            Classes="Headline"
+            Text="AI Agent" />
         <controls:StatusChip
             Grid.Column="2"
             VerticalAlignment="Center"
@@ -260,13 +293,12 @@
             IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNotNull}}"
             ToolTip.Tip="Conversations"
             AutomationProperties.Name="Open saved AI conversations">
-          <icons:SymbolIcon Symbol="History" FontSize="13" />
+          <icons:SymbolIcon Symbol="History" FontSize="{DynamicResource ShellIconSizeSm}" />
           <Button.Flyout>
             <Flyout Placement="BottomEdgeAlignedRight" FlyoutPresenterClasses="AgentConversationMenu">
               <Grid Width="380" MaxHeight="620" RowDefinitions="Auto,*,Auto">
                 <Border Padding="{controls:Inset Sm}">
-                  <TextBox
-                      Padding="{controls:Inset Horizontal=Md}"
+                  <controls:SearchField
                       PlaceholderText="Filter conversations"
                       Text="{Binding AgentChat.ConversationSearch, Mode=TwoWay}"
                       AutomationProperties.Name="Filter saved AI conversations" />
@@ -280,37 +312,35 @@
                     <ItemsControl ItemsSource="{Binding AgentChat.FilteredConversations}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:AgentConversationItemViewModel">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <Button
-                                Grid.Column="0"
-                                MinHeight="48"
-                                Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-                                HorizontalContentAlignment="Stretch"
-                                Classes="FlyoutMenuItem"
-                                Classes.current="{Binding IsCurrent}"
-                                Click="OnOpenConversationClick"
-                                Tag="{Binding RunId}"
-                                IsEnabled="{Binding IsAvailable}"
-                                AutomationProperties.Name="{Binding Title, StringFormat={}Open conversation {0}}">
-                              <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                                <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
-                              </StackPanel>
-                            </Button>
-                            <Button
-                                Grid.Column="1"
-                                Width="34"
-                                Height="34"
-                                Margin="{controls:Inset Right=Xs}"
-                                VerticalAlignment="Center"
-                                Classes="IconButton Danger"
-                                Click="OnDeleteConversationClick"
-                                Tag="{Binding RunId}"
-                                ToolTip.Tip="Delete conversation"
-                                AutomationProperties.Name="{Binding Title, StringFormat={}Delete conversation {0}}">
-                              <icons:SymbolIcon Symbol="Delete" FontSize="12" />
-                            </Button>
-                          </Grid>
+                          <!-- A saved conversation is deleted the macOS list way: from
+                               its context menu, or with Delete on the focused row. A red
+                               trash on every row made the destructive action the loudest
+                               thing in the list. A damaged or unavailable row can't be
+                               opened, but stays enabled and dimmed so it can still be
+                               deleted. -->
+                          <Button
+                              MinHeight="48"
+                              Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch"
+                              Classes="FlyoutMenuItem ConversationRow"
+                              Classes.current="{Binding IsCurrent}"
+                              Classes.unavailable="{Binding !IsAvailable}"
+                              Click="OnOpenConversationClick"
+                              KeyDown="OnConversationRowKeyDown"
+                              Tag="{Binding RunId}"
+                              AutomationProperties.Name="{Binding AccessibleName}"
+                              AutomationProperties.HelpText="Press Delete to delete this conversation.">
+                            <Button.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="{x:Static views:AgentWorkspaceView.DeleteConversationTitle}" Click="OnDeleteConversationClick" Tag="{Binding RunId}" />
+                              </ContextMenu>
+                            </Button.ContextMenu>
+                            <StackPanel Classes="ConversationRowText" Spacing="{DynamicResource ShellSpaceXs}">
+                              <TextBlock FontWeight="SemiBold" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Details}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                          </Button>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -318,14 +348,14 @@
                         Margin="{controls:Inset Md}"
                         HorizontalAlignment="Center"
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="No matching conversations"
                         IsVisible="{Binding AgentChat.HasNoConversationMatches}" />
                     <TextBlock
                         Margin="{controls:Inset Md}"
                         HorizontalAlignment="Center"
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="No saved conversations yet"
                         IsVisible="{Binding !AgentChat.HasConversationHistory}" />
                   </StackPanel>
@@ -343,8 +373,8 @@
                         Click="OnStartNewConversationClick"
                         AutomationProperties.Name="Start a new AI conversation">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                        <icons:SymbolIcon Symbol="Add" FontSize="13" />
-                        <TextBlock Text="New conversation" />
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                        <TextBlock Text="New Conversation" />
                       </StackPanel>
                     </Button>
                   </StackPanel>
@@ -364,8 +394,8 @@
             ToolTip.Tip="{Binding AgentPanelPinTip}"
             AutomationProperties.Name="Pin or unpin the AI agent panel">
           <Panel>
-            <icons:SymbolIcon Symbol="Pin" FontSize="12" IsVisible="{Binding !IsAgentPanelDocked}" />
-            <icons:SymbolIcon Symbol="PinOff" FontSize="12" IsVisible="{Binding IsAgentPanelDocked}" />
+            <icons:SymbolIcon Symbol="Pin" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding !IsAgentPanelDocked}" />
+            <icons:SymbolIcon Symbol="PinOff" FontSize="{DynamicResource ShellIconSizeSm}" IsVisible="{Binding IsAgentPanelDocked}" />
           </Panel>
         </Button>
       </Grid>
@@ -440,7 +470,7 @@
                           IsVisible="{Binding HasMessageText}"
                           ToolTip.Tip="Copy message"
                           AutomationProperties.Name="Copy this message">
-                        <icons:SymbolIcon Symbol="Copy" FontSize="12" />
+                        <icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                     </StackPanel>
                   </StackPanel>
@@ -461,26 +491,26 @@
                           <icons:SymbolIcon
                               VerticalAlignment="Center"
                               Symbol="BrainCircuit"
-                              FontSize="13"
+                              FontSize="{DynamicResource ShellIconSizeSm}"
                               Foreground="{DynamicResource ShellMutedBrush}" />
                           <TextBlock
                               Grid.Column="1"
                               VerticalAlignment="Center"
                               Classes="Muted"
-                              FontSize="{DynamicResource ShellFontSize10}"
+                              FontSize="{DynamicResource ShellSecondaryFontSize}"
                               Text="{Binding ReasoningTitle}" />
                           <icons:SymbolIcon
                               Grid.Column="2"
                               VerticalAlignment="Center"
                               Symbol="ChevronDown"
-                              FontSize="12"
+                              FontSize="{DynamicResource ShellIconSizeSm}"
                               Foreground="{DynamicResource ShellMutedBrush}"
                               IsVisible="{Binding !IsChecked, ElementName=CommittedReasoningDisclosure}" />
                           <icons:SymbolIcon
                               Grid.Column="2"
                               VerticalAlignment="Center"
                               Symbol="ChevronUp"
-                              FontSize="12"
+                              FontSize="{DynamicResource ShellIconSizeSm}"
                               Foreground="{DynamicResource ShellMutedBrush}"
                               IsVisible="{Binding IsChecked, ElementName=CommittedReasoningDisclosure}" />
                         </Grid>
@@ -505,7 +535,7 @@
                             SecretRuntime="{Binding SecretRuntime}" />
                     <TextBlock
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         Text="{Binding UsageLabel}"
                         IsVisible="{Binding HasUsage}"
                         AutomationProperties.Name="{Binding UsageLabel, StringFormat={}AI token usage · {0}}" />
@@ -521,7 +551,7 @@
                           IsVisible="{Binding HasMessageText}"
                           ToolTip.Tip="Copy message"
                           AutomationProperties.Name="Copy this message">
-                        <icons:SymbolIcon Symbol="Copy" FontSize="12" />
+                        <icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                       <Button
                           Classes="IconButton"
@@ -530,7 +560,7 @@
                           IsVisible="{Binding CanFork}"
                           ToolTip.Tip="Fork conversation here"
                           AutomationProperties.Name="Fork conversation from this message">
-                        <icons:SymbolIcon Symbol="BranchFork" FontSize="12" />
+                        <icons:SymbolIcon Symbol="BranchFork" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                     </StackPanel>
                   </StackPanel>
@@ -554,7 +584,7 @@
                             IsVisible="{Binding HasMessageText}"
                             ToolTip.Tip="Copy message"
                             AutomationProperties.Name="{Binding QuestionAnswerLabel, StringFormat={}Copy {0}}">
-                          <icons:SymbolIcon Symbol="Copy" FontSize="12" />
+                          <icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Button>
                       </Grid>
                       <components:MarkdownPreviewView
@@ -583,21 +613,21 @@
                     ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <TextBlock
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="Reasoning"
                       AutomationProperties.Name="Reasoning status" />
                   <icons:SymbolIcon
                       Grid.Column="1"
                       VerticalAlignment="Center"
                       Symbol="ChevronDown"
-                      FontSize="12"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellMutedBrush}"
                       IsVisible="{Binding !IsChecked, ElementName=ProvisionalReasoningDisclosure}" />
                   <icons:SymbolIcon
                       Grid.Column="1"
                       VerticalAlignment="Center"
                       Symbol="ChevronUp"
-                      FontSize="12"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellMutedBrush}"
                       IsVisible="{Binding IsChecked, ElementName=ProvisionalReasoningDisclosure}" />
                   <ProgressBar
@@ -659,10 +689,12 @@
             </StackPanel>
           </controls:SurfaceCard>
           <components:AgentQuestionCardView
+              x:Name="AgentQuestionCard"
               DeclineRequested="OnDeclineAgentQuestionClick"
               ResponseKeyDownRequested="OnAgentQuestionResponseKeyDown"
               SubmitRequested="OnSubmitAgentQuestionClick" />
           <components:AgentCapabilityRequestCardView
+              x:Name="AgentCapabilityRequestCard"
               EnableAskRequested="OnEnableAgentCapabilityAskClick"
               KeepOffRequested="OnKeepAgentCapabilityOffClick" />
           <!--
@@ -683,18 +715,30 @@
                 <icons:SymbolIcon
                     VerticalAlignment="Center"
                     Symbol="WindowConsole"
-                    FontSize="13"
-                    Foreground="{DynamicResource ShellAccentBrush}" />
+                    FontSize="{DynamicResource ShellIconSizeSm}"
+                    Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     Classes="Eyebrow Accent"
-                    Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Running in {0}}"
+                    Text="{Binding AgentChat.ActiveTool.TargetDisplayTitle, StringFormat={}Running in {0}}"
                     TextTrimming="CharacterEllipsis" />
                 <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding AgentChat.ActiveTool.Risk}" />
               </Grid>
               <TextBlock FontWeight="SemiBold" Text="{Binding AgentChat.ActiveTool.ToolTitle}" TextWrapping="Wrap" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding AgentChat.ActiveTool.ToolName}" TextWrapping="Wrap" />
+              <!-- Identifiers bind the action; they are for checking it, not
+                   for reading what it is. -->
+              <Expander
+                  x:Name="AgentToolActivityDetails"
+                  Header="Details"
+                  HorizontalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch"
+                  AutomationProperties.Name="Show AI agent tool details">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Top=Xs}">
+                  <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AgentChat.ActiveTool.ToolName, StringFormat={}Tool: {0}}" TextWrapping="Wrap" />
+                  <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AgentChat.ActiveTool.TargetTitle, StringFormat={}Target: {0}}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Expander>
               <Button
                   Margin="{controls:Inset Top=Xs}"
                   HorizontalAlignment="Left"
@@ -707,6 +751,7 @@
             </StackPanel>
           </Border>
           <components:AgentApprovalCardView
+              x:Name="AgentApprovalCard"
               ApproveRequested="OnApproveAgentActionClick"
               DenyRequested="OnDenyAgentActionClick"
               IsVisible="{Binding AgentChat.HasPendingApproval, FallbackValue=False}" />
@@ -723,26 +768,26 @@
                 <icons:SymbolIcon
                     VerticalAlignment="Center"
                     Symbol="History"
-                    FontSize="14"
-                    Foreground="{DynamicResource ShellAccentBrush}" />
+                    FontSize="{DynamicResource ShellIconSizeSm}"
+                    Foreground="{DynamicResource ShellMutedBrush}" />
                 <TextBlock
                     Grid.Column="1"
                     VerticalAlignment="Center"
                     FontWeight="SemiBold"
-                    Text="Audit evidence" />
+                    Text="Recorded actions" />
                 <TextBlock
                     Grid.Column="2"
                     VerticalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding AgentChat.AuditSummary}" />
               </Grid>
             </Expander.Header>
             <StackPanel Margin="{controls:Inset Top=Sm}" Spacing="{DynamicResource ShellSpaceSm}">
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize9}"
-                  Text="Recorded actions only. Sensitive content is not shown."
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="Only the actions are recorded. Sensitive content isn’t shown."
                   TextWrapping="Wrap" />
               <ProgressBar
                   Height="3"
@@ -765,7 +810,6 @@
                           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                             <TextBlock
                                 Classes="Eyebrow Accent"
-                                FontSize="{DynamicResource ShellFontSize9}"
                                 Text="{Binding Kind}" />
                             <TextBlock
                                 FontWeight="SemiBold"
@@ -778,34 +822,56 @@
                         </Grid>
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
-                            Text="{Binding ToolName}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
+                            Text="{Binding Summary}"
                             TextWrapping="Wrap"
-                            IsVisible="{Binding HasToolName}" />
+                            IsVisible="{Binding HasSummary}" />
                         <TextBlock
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
-                            Text="{Binding Evidence}"
-                            TextWrapping="Wrap" />
-                        <TextBlock
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding Timeline}"
-                            TextWrapping="Wrap" />
+                            TextWrapping="Wrap"
+                            IsVisible="{Binding HasTimeline}" />
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding Result}"
                             TextWrapping="Wrap"
                             IsVisible="{Binding HasResult}" />
                         <TextBlock
                             Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
-                            Text="{Binding TargetBinding}"
-                            TextWrapping="Wrap" />
-                        <TextBlock
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
+                            FontSize="{DynamicResource ShellSecondaryFontSize}"
                             Text="{Binding OccurredAt}" />
+                        <!-- The tool ID, policy generation, target digest, and
+                             result or error code bind the record to one exact
+                             action. They are for checking it against a log, so
+                             they wait behind a disclosure, a label over each
+                             value, as the approval card's Details do. -->
+                        <Expander
+                            Header="Details"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            IsVisible="{Binding HasDetails}"
+                            AutomationProperties.Name="{Binding Title, StringFormat={}Details for {0}}">
+                          <ItemsControl Margin="{controls:Inset Top=Xs}" ItemsSource="{Binding Details}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate><StackPanel Spacing="{DynamicResource ShellSpaceSm}" /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:AgentApprovalFactViewModel">
+                                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                                  <TextBlock
+                                      Classes="Muted"
+                                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                      Text="{Binding Label}" />
+                                  <SelectableTextBlock
+                                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                      Text="{Binding Value}"
+                                      TextWrapping="Wrap" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </Expander>
                       </StackPanel>
                     </Border>
                   </DataTemplate>
@@ -813,24 +879,24 @@
               </ItemsControl>
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize9}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{Binding AgentChat.AuditStatus}"
                   TextWrapping="Wrap"
-                  AutomationProperties.Name="AI agent audit status" />
+                  AutomationProperties.Name="Recorded agent actions status" />
               <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                 <Button
                     Classes="SecondaryButton"
                     Click="OnRefreshAgentAuditClick"
                     Content="Refresh"
                     IsEnabled="{Binding AgentChat.CanRefreshAudit}"
-                    AutomationProperties.Name="Refresh current AI agent audit evidence" />
+                    AutomationProperties.Name="Refresh recorded agent actions" />
                 <Button
                     Grid.Column="1"
                     Classes="TextButton"
                     Click="OnLoadOlderAgentAuditClick"
-                    Content="Load older"
+                    Content="Load Older"
                     IsEnabled="{Binding AgentChat.CanLoadOlderAudit}"
-                    AutomationProperties.Name="Load older AI agent audit evidence" />
+                    AutomationProperties.Name="Load older recorded agent actions" />
               </Grid>
             </StackPanel>
           </Expander>
@@ -845,12 +911,12 @@
           IsVisible="{Binding AgentChat, Converter={x:Static ObjectConverters.IsNull}}"
           Kind="PermissionRequired"
           Heading="AI setup required"
-          Body="Choose the primary, compaction, and title models in AI settings.">
+          Body="Choose the models the agent uses in AI Settings.">
         <Button
             Classes="PrimaryButton"
             Click="OnShowAgentSettingsClick"
-            Content="Configure AI"
-            AutomationProperties.Name="Configure AI models" />
+            Content="AI Settings…"
+            AutomationProperties.Name="AI Settings…" />
       </controls:StateOverlay>
 
       <controls:StateOverlay
@@ -863,8 +929,8 @@
           Heading="Connect an AI provider"
           Body="Add a model provider to start using the AI agent.">
         <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
-          <Button Classes="PrimaryButton" Click="OnShowAgentSettingsClick" Content="Open AI settings" AutomationProperties.Name="Open AI settings" AutomationProperties.HelpText="Configure agent defaults and AI services for this local Asura profile. Credentials remain in the operating-system vault." />
-          <Button Classes="TextButton" Click="OnClearAgentChatClick" Content="Clear agent session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear the retained AI agent session" />
+          <Button Classes="PrimaryButton" Click="OnShowAgentSettingsClick" Content="AI Settings…" AutomationProperties.Name="AI Settings…" AutomationProperties.HelpText="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Choose agent defaults and connect AI providers. Credentials stay in {0}.'}" />
+          <Button Classes="DestructiveButton" Click="OnClearAgentChatClick" Content="Clear Agent Session" IsVisible="{Binding AgentChat.CanClear}" AutomationProperties.Name="Clear agent session" />
         </StackPanel>
       </controls:StateOverlay>
       <controls:StateOverlay
@@ -876,18 +942,35 @@
           Kind="Retry"
           Heading="{Binding AgentChat.FailureHeading}"
           Body="{Binding AgentChat.Status}">
+        <!-- Neither action is the obvious next step, so neither is primary.
+             Clearing a run that left nothing saved is routine; clearing one
+             whose conversation was saved deletes it, so that is a separate,
+             destructive button, and the host confirms first. Both sit beside
+             AI Settings… at the same size. -->
         <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button
-              Classes="PrimaryButton"
+              x:Name="AgentClearFailedRunButton"
+              Classes="SecondaryButton"
               Click="OnClearAgentChatClick"
-              Content="Reset to retry"
+              Content="Clear Failed Run"
+              IsVisible="{Binding !AgentChat.ClearDeletesConversation, FallbackValue=True}"
               IsEnabled="{Binding AgentChat.CanClear}"
-              AutomationProperties.Name="Clear the failed AI agent run and try again" />
+              AutomationProperties.Name="Clear the failed AI agent run"
+              AutomationProperties.HelpText="Discards this run so you can send the message again." />
           <Button
-              Classes="TextButton"
+              x:Name="AgentDeleteFailedConversationButton"
+              Classes="DestructiveButton"
+              Click="OnClearAgentChatClick"
+              Content="Delete Conversation…"
+              IsVisible="{Binding AgentChat.ClearDeletesConversation, FallbackValue=False}"
+              IsEnabled="{Binding AgentChat.CanClear}"
+              AutomationProperties.Name="{Binding AgentChat.ClearFailedRunAccessibleName}"
+              AutomationProperties.HelpText="Deletes the saved conversation with its failed run, after you confirm." />
+          <Button
+              Classes="SecondaryButton"
               Click="OnShowAgentSettingsClick"
-              Content="Provider settings"
-              AutomationProperties.Name="Open AI settings" />
+              Content="AI Settings…"
+              AutomationProperties.Name="AI Settings…" />
         </StackPanel>
       </controls:StateOverlay>
 
@@ -942,7 +1025,7 @@
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
                           Symbol="ReOrderDotsVertical"
-                          FontSize="14"
+                          FontSize="{DynamicResource ShellIconSizeSm}"
                           Foreground="{DynamicResource ShellTextMutedBrush}" />
                     </Border>
                     <TextBlock
@@ -954,7 +1037,7 @@
                     <TextBox
                         Grid.Column="1"
                         VerticalAlignment="Center"
-                        MinHeight="32"
+                        MinHeight="{controls:TextScaled 32}"
                         Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
                         Text="{Binding EditDraft, Mode=TwoWay}"
                         IsVisible="{Binding IsEditing}"
@@ -968,30 +1051,28 @@
                         AutomationProperties.Name="Send this queued message at the next safe boundary" />
                     <Button
                         Grid.Column="3"
-                        Width="32"
-                        Height="32"
+                        MinWidth="{controls:TextScaled 32}"
+                        MinHeight="{controls:TextScaled 32}"
                         Classes="IconButton Danger"
                         Command="{Binding DeleteCommand}"
                         IsVisible="{Binding IsReadOnly}"
                         ToolTip.Tip="Delete queued message"
                         AutomationProperties.Name="Delete queued agent message">
-                      <icons:SymbolIcon Symbol="Delete" FontSize="12" />
+                      <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                     </Button>
                     <Button
                         Grid.Column="4"
-                        Width="32"
-                        Height="32"
+                        MinWidth="{controls:TextScaled 32}"
+                        MinHeight="{controls:TextScaled 32}"
                         Classes="IconButton"
                         IsVisible="{Binding IsReadOnly}"
                         ToolTip.Tip="Queued message options"
                         AutomationProperties.Name="Queued agent message options">
-                      <icons:SymbolIcon Symbol="MoreVertical" FontSize="12" />
+                      <icons:SymbolIcon Symbol="MoreCircle" FontSize="{DynamicResource ShellIconSizeSm}" />
                       <Button.Flyout>
-                        <Flyout Placement="TopEdgeAlignedRight">
-                          <StackPanel Width="180">
-                            <Button Classes="FlyoutMenuItem" HorizontalContentAlignment="Left" Command="{Binding BeginEditCommand}" Content="Edit" />
-                          </StackPanel>
-                        </Flyout>
+                        <MenuFlyout Placement="TopEdgeAlignedRight">
+                          <MenuItem Header="Edit Message" Command="{Binding BeginEditCommand}" />
+                        </MenuFlyout>
                       </Button.Flyout>
                     </Button>
                     <StackPanel
@@ -1012,10 +1093,14 @@
         </ItemsControl>
         <Border
           x:Name="AgentComposer"
+          DragDrop.AllowDrop="True"
+          DragDrop.DragEnter="OnAgentComposerDragOver"
+          DragDrop.DragOver="OnAgentComposerDragOver"
+          DragDrop.DragLeave="OnAgentComposerDragLeave"
+          DragDrop.Drop="OnAgentComposerDrop"
           Margin="{controls:Inset Horizontal=Md, Bottom=Md}"
           Padding="{controls:Inset Sm}"
           Background="{DynamicResource ShellSurfaceBrush}"
-          BorderBrush="{DynamicResource ShellBorderBrush}"
           BorderThickness="1"
           CornerRadius="{DynamicResource ShellCardCornerRadius}"
           IsVisible="{Binding AgentChat.ShowComposer, FallbackValue=False}">
@@ -1035,12 +1120,12 @@
                       Background="{DynamicResource ShellSurfaceRaisedBrush}"
                       CornerRadius="{DynamicResource ShellControlCornerRadius}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="Image" FontSize="14" VerticalAlignment="Center" />
-                      <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
-                          Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                      <icons:SymbolIcon Symbol="Image" FontSize="{DynamicResource ShellIconSizeSm}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" MaxWidth="{controls:TextScaled 180}" VerticalAlignment="Center"
+                          Classes="MiddleTruncated" Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}" />
                       <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentImageClick" Tag="{Binding}"
                           ToolTip.Tip="Remove image" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached image {0}}">
-                        <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                        <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                     </Grid>
                   </Border>
@@ -1061,12 +1146,12 @@
                       Background="{DynamicResource ShellSurfaceRaisedBrush}"
                       CornerRadius="{DynamicResource ShellControlCornerRadius}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="Document" FontSize="14" VerticalAlignment="Center" />
-                      <TextBlock Grid.Column="1" MaxWidth="180" VerticalAlignment="Center"
-                          Text="{Binding FileName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding FileName}" />
+                      <icons:SymbolIcon Symbol="Document" FontSize="{DynamicResource ShellIconSizeSm}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Column="1" MaxWidth="{controls:TextScaled 180}" VerticalAlignment="Center"
+                          Classes="MiddleTruncated" Text="{Binding FileName}" ToolTip.Tip="{Binding FileName}" />
                       <Button Grid.Column="2" Classes="IconButton" Click="OnRemoveAgentFileClick" Tag="{Binding}"
                           ToolTip.Tip="Remove file" AutomationProperties.Name="{Binding FileName, StringFormat={}Remove attached file {0}}">
-                        <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+                        <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
                       </Button>
                     </Grid>
                   </Border>
@@ -1076,19 +1161,33 @@
           </StackPanel>
           <Border Grid.Row="4" BorderThickness="0,1,0,0"
               BorderBrush="{DynamicResource ShellBorderBrush}" Padding="{controls:Inset Top=Xs}">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-              <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding !AgentChat.HasFailedTurn}">
-                <ToggleSwitch Classes="SecretDisclosure" IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
-                    IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-                    AutomationProperties.Name="Send raw secrets" />
-                <TextBlock Text="Send raw secrets" FontSize="{DynamicResource ShellFontSize11}" VerticalAlignment="Center" Classes="Muted" />
-                <Button Classes="TextButton" Padding="0" MinWidth="20" MinHeight="22"
-                    ToolTip.Tip="{Binding AgentChat.SendRawSecretsExplanation}"
-                    AutomationProperties.Name="How sending raw secrets works">
-                  <icons:SymbolIcon Symbol="Info" FontSize="13" />
-                </Button>
-              </StackPanel>
-              <ComboBox Grid.Column="2" Width="104" Margin="4,0" MinHeight="26"
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+              <!-- A minor option for one message, so a checkbox rather than a
+                   switch, and its consequence is written out rather than kept
+                   in a tooltip. The whole row, box and label, is the 28 pt
+                   hit target. -->
+              <CheckBox
+                  x:Name="AgentSendRawSecrets"
+                  MinHeight="{controls:TextScaled 28}"
+                  VerticalAlignment="Center"
+                  FontSize="{DynamicResource ShellFontSize11}"
+                  Content="Send raw secrets"
+                  IsChecked="{Binding AgentChat.SendRawSecrets, Mode=TwoWay}"
+                  IsEnabled="{Binding AgentChat.CanUseComposerOptions}"
+                  IsVisible="{Binding !AgentChat.HasFailedTurn}"
+                  AutomationProperties.Name="Send raw secrets"
+                  AutomationProperties.HelpText="{Binding AgentChat.SendRawSecretsExplanation}" />
+              <TextBlock
+                  x:Name="AgentSendRawSecretsHelp"
+                  Grid.Row="1"
+                  Grid.ColumnSpan="4"
+                  Classes="Muted"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="{Binding AgentChat.SendRawSecretsHelp}"
+                  TextWrapping="Wrap"
+                  Classes.dimmed="{Binding !AgentChat.CanUseComposerOptions}"
+                  IsVisible="{Binding !AgentChat.HasFailedTurn}" />
+              <ComboBox Grid.Column="2" MinWidth="{controls:TextScaled 104}" Margin="4,0" MinHeight="{controls:TextScaled 26}"
                   VerticalAlignment="Center"
                   FontSize="{DynamicResource ShellFontSize11}"
                   ItemsSource="{Binding AgentChat.ReasoningEfforts}"
@@ -1100,61 +1199,13 @@
                   <DataTemplate x:DataType="vm:AgentReasoningEffortOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <Button
-                  Grid.Column="3"
-                  Width="26"
-                  Height="26"
-                  Margin="0"
-                  Padding="0"
-                  HorizontalAlignment="Right"
-                  VerticalAlignment="Center"
-                  HorizontalContentAlignment="Center"
-                  VerticalContentAlignment="Center"
-                  Classes="IconButton ComposerControl"
-                  IsVisible="{Binding AgentChat.HasContextWindow}"
-                  ToolTip.Tip="{Binding AgentChat.ContextWindowUsageLabel}"
-                  AutomationProperties.Name="{Binding AgentChat.ContextWindowUsageLabel}">
-                <controls:ContextWindowDonut
-                    Width="17"
-                    Height="17"
-                    Percentage="{Binding AgentChat.ContextWindowPercent}"
-                    TrackBrush="{DynamicResource ShellBorderBrush}"
-                    IndicatorBrush="{DynamicResource ShellAccentBrush}"
-                    StrokeThickness="2" />
-                <Button.Flyout>
-                  <Flyout Placement="TopEdgeAlignedRight">
-                    <StackPanel Width="210" Spacing="{DynamicResource ShellSpaceSm}">
-                      <TextBlock FontWeight="SemiBold" Text="Context window" />
-                      <ProgressBar
-                          Minimum="0"
-                          Maximum="100"
-                          Value="{Binding AgentChat.ContextWindowPercent}" />
-                      <TextBlock
-                          Classes="Muted"
-                          Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
-                      <Button
-                          Content="{Binding AgentChat.CompactLabel}"
-                          Command="{Binding AgentChat.CompactCommand}"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Center"
-                          AutomationProperties.Name="Compact conversation context now"
-                          ToolTip.Tip="Summarize older context while preserving the latest turn and your chat history" />
-                      <TextBlock
-                          Text="{Binding AgentChat.CompactionStatus}"
-                          IsVisible="{Binding AgentChat.HasCompactionStatus}"
-                          TextWrapping="Wrap"
-                          Classes="Muted" />
-                    </StackPanel>
-                  </Flyout>
-                </Button.Flyout>
-              </Button>
             </Grid>
           </Border>
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"
-              MinHeight="56"
-              MaxHeight="150"
+              MinHeight="{controls:TextScaled 56}"
+              MaxHeight="{controls:TextScaled 150}"
               Padding="{controls:Inset Sm}"
               Background="Transparent"
               BorderThickness="0"
@@ -1164,23 +1215,22 @@
               Text="{Binding AgentChat.Prompt, Mode=TwoWay}"
               PastingFromClipboard="OnAgentPromptPasting"
               IsEnabled="{Binding AgentChat.CanEnterPrompt}"
-              IsVisible="{Binding !AgentChat.HasFailedTurn}"
               PlaceholderText="{Binding AgentChat.PromptPlaceholder}"
               AutomationProperties.Name="AI agent prompt" />
           <Grid
               x:Name="AgentComposerToolbar"
               Grid.Row="2"
-              ColumnDefinitions="Auto,*,*,Auto,Auto"
+              ColumnDefinitions="Auto,*,*,Auto,Auto,Auto"
               ColumnSpacing="0"
               IsVisible="{Binding !AgentChat.HasFailedTurn}">
             <Button
-                Width="32"
+                MinWidth="{controls:TextScaled 32}"
                 Classes="IconButton ComposerControl"
                 Click="OnAttachAgentImageClick"
                 IsEnabled="{Binding AgentChat.CanAttachFiles}"
                 ToolTip.Tip="Attach file"
                 AutomationProperties.Name="Attach a file to the AI agent prompt">
-              <icons:SymbolIcon Symbol="Add" FontSize="15" />
+              <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeMd}" />
             </Button>
             <Button
                 x:Name="AgentAccessModeButton"
@@ -1189,6 +1239,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Classes="TextButton ComposerControl ComposerSelector"
+                IsEnabled="{Binding AgentChat.CanUseComposerOptions, FallbackValue=False}"
                 ToolTip.Tip="{Binding AgentChat.AccessModeLabel}"
                 AutomationProperties.Name="Choose how AI actions are approved">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1196,26 +1247,29 @@
                     VerticalAlignment="Center"
                     Text="{Binding AgentChat.AccessModeLabel}"
                     TextTrimming="CharacterEllipsis" />
-                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="10" VerticalAlignment="Center" />
+                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" VerticalAlignment="Center" />
               </Grid>
+              <!-- A pop-up menu of the two modes, the current one checked: the
+                   button's label is always one of the item titles. -->
               <Button.Flyout>
-                <Flyout Placement="TopEdgeAlignedLeft">
-                  <StackPanel Width="300" Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="Muted" Text="How should agent actions be approved?" />
-                    <Button
-                        HorizontalContentAlignment="Left"
-                        Classes="FlyoutMenuItem"
-                        Click="OnDisableAgentYoloClick"
-                        Content="Ask for approval"
-                        AutomationProperties.Name="Ask for approval for agent actions" />
-                    <Button
-                        HorizontalContentAlignment="Left"
-                        Classes="FlyoutMenuItem"
-                        Click="OnEnableAgentYoloClick"
-                        Content="Full access for agent actions"
-                        AutomationProperties.Name="Enable full access for agent actions" />
-                  </StackPanel>
-                </Flyout>
+                <MenuFlyout Placement="TopEdgeAlignedLeft">
+                  <MenuItem
+                      x:Name="AgentAskForApprovalItem"
+                      Header="Ask for Approval"
+                      ToggleType="Radio"
+                      GroupName="AgentApprovalMode"
+                      IsChecked="{Binding AgentChat.IsAskForApprovalSelected, Mode=OneWay, FallbackValue=False}"
+                      Click="OnDisableAgentYoloClick"
+                      ToolTip.Tip="Ask before each agent action that changes something" />
+                  <MenuItem
+                      x:Name="AgentFullAccessItem"
+                      Header="Full Access"
+                      ToggleType="Radio"
+                      GroupName="AgentApprovalMode"
+                      IsChecked="{Binding AgentChat.IsFullAccessSelected, Mode=OneWay, FallbackValue=False}"
+                      Click="OnEnableAgentYoloClick"
+                      ToolTip.Tip="Let the agent act without asking for the rest of this run" />
+                </MenuFlyout>
               </Button.Flyout>
             </Button>
             <Button
@@ -1226,7 +1280,7 @@
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 Classes="TextButton ComposerControl ComposerSelector"
-                IsEnabled="{Binding AgentChat.CanBrowseModels}"
+                IsEnabled="{Binding AgentChat.CanUseModelPicker}"
                 ToolTip.Tip="{Binding AgentChat.SelectedModelName}"
                 AutomationProperties.Name="Choose AI provider and model">
               <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
@@ -1234,29 +1288,36 @@
                     VerticalAlignment="Center"
                     Text="{Binding AgentChat.SelectedModelName}"
                     TextTrimming="CharacterEllipsis" />
-                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="10" VerticalAlignment="Center" />
+                <icons:SymbolIcon Grid.Column="1" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" VerticalAlignment="Center" />
               </Grid>
               <Button.Flyout>
-                <Flyout Placement="TopEdgeAlignedRight" FlyoutPresenterClasses="AgentModelMenu">
-                  <Grid Width="330" MaxHeight="460" RowDefinitions="Auto,*,Auto">
+                <!-- A menu that can be filtered, which a plain menu cannot be: a
+                     search field above a list with a selection role. The model
+                     in use is checked; arrows move through the list, and Return
+                     or a click chooses the model and closes the menu. -->
+                <Flyout
+                    Placement="TopEdgeAlignedRight"
+                    FlyoutPresenterClasses="AgentModelMenu"
+                    Opened="OnModelMenuOpened">
+                  <Grid Width="{controls:TextScaled 330}" MaxHeight="{controls:TextScaled 460}" RowDefinitions="Auto,*,Auto">
                     <Border Padding="{controls:Inset Sm}">
-                      <Grid>
-                        <TextBox
-                            Padding="{controls:Inset Left=Md, Right=Xl}"
+                      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                        <controls:SearchField
+                            x:Name="AgentModelFilter"
                             PlaceholderText="Filter models"
                             Text="{Binding AgentChat.ModelSearch, Mode=TwoWay}"
+                            KeyDown="OnModelFilterKeyDown"
                             AutomationProperties.Name="Filter available AI models" />
                         <Button
-                            Width="30"
-                            Height="30"
-                            Margin="{controls:Inset Right=Xs}"
-                            HorizontalAlignment="Right"
+                            Grid.Column="1"
+                            MinWidth="{controls:TextScaled 30}"
+                            MinHeight="{controls:TextScaled 30}"
                             VerticalAlignment="Center"
                             Classes="IconButton"
                             Click="OnRefreshModelsClick"
                             ToolTip.Tip="Refresh models from provider"
                             AutomationProperties.Name="Refresh models from provider">
-                          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="12" />
+                          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeSm}" />
                         </Button>
                       </Grid>
                     </Border>
@@ -1267,70 +1328,84 @@
                         VerticalAlignment="Bottom"
                         IsIndeterminate="True"
                         IsVisible="{Binding AgentChat.IsDiscoveringModels}" />
-                    <ScrollViewer
-                        Grid.Row="1"
-                        MaxHeight="310"
-                        HorizontalScrollBarVisibility="Disabled"
-                      VerticalScrollBarVisibility="Auto">
-                      <StackPanel Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}">
-                        <ItemsControl ItemsSource="{Binding AgentChat.FilteredModels}">
-                          <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:AgentModelPickerItemViewModel">
-                              <Grid ColumnDefinitions="*,Auto">
-                                <Button
-                                    Grid.Column="0"
-                                    MinHeight="48"
-                                    Padding="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-                                    HorizontalContentAlignment="Stretch"
-                                    Classes="FlyoutMenuItem"
-                                    Click="OnSelectModelClick"
-                                    Tag="{Binding Model}"
-                                    ToolTip.Tip="{Binding Id}"
-                                    AutomationProperties.Name="{Binding DisplayName, StringFormat={}Use model {0}}">
-                                  <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                                    <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
-                                  </StackPanel>
-                                </Button>
-                                <Button
-                                    Grid.Column="1"
-                                    Width="34"
-                                    Height="34"
-                                    Margin="{controls:Inset Right=Xs}"
-                                    VerticalAlignment="Center"
-                                    Classes="IconButton"
-                                    Click="OnToggleFavoriteModelClick"
-                                    Tag="{Binding}"
-                                    ToolTip.Tip="{Binding FavoriteAccessibleName}"
-                                    AutomationProperties.Name="{Binding FavoriteAccessibleName}">
-                                  <Grid>
-                                    <icons:SymbolIcon Symbol="Star" IsVisible="{Binding !IsFavorite}" />
-                                    <icons:SymbolIcon
-                                        Symbol="Star"
-                                        Foreground="{DynamicResource ShellAccentBrush}"
-                                        IsVisible="{Binding IsFavorite}" />
-                                  </Grid>
-                                </Button>
-                              </Grid>
-                            </DataTemplate>
-                          </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock
-                            Margin="{controls:Inset Md}"
-                            HorizontalAlignment="Center"
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
-                            Text="No matching models"
-                            IsVisible="{Binding AgentChat.HasNoModelMatches}" />
-                        <TextBlock
-                            Margin="{controls:Inset Sm}"
-                            Classes="Muted"
-                            FontSize="{DynamicResource ShellFontSize9}"
-                            Text="{Binding AgentChat.ModelDiscoveryStatus}"
-                            TextWrapping="Wrap"
-                            IsVisible="{Binding AgentChat.HasModelDiscoveryStatus}" />
-                      </StackPanel>
-                    </ScrollViewer>
+                    <Grid Grid.Row="1" Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}" RowDefinitions="*,Auto,Auto">
+                      <ListBox
+                          x:Name="AgentModelList"
+                          MaxHeight="{controls:TextScaled 310}"
+                          Classes="AgentModelList"
+                          SelectionMode="Single"
+                          ItemsSource="{Binding AgentChat.FilteredModels}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          KeyDown="OnModelListKeyDown"
+                          AutomationProperties.Name="Models">
+                        <!-- Each row names its model and provider, and says
+                             which model is in use; the check is only drawn. -->
+                        <ListBox.ItemContainerTheme>
+                          <ControlTheme TargetType="ListBoxItem" x:DataType="vm:AgentModelPickerItemViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+                            <Setter Property="AutomationProperties.ItemStatus" Value="{Binding AccessibleStatus}" />
+                          </ControlTheme>
+                        </ListBox.ItemContainerTheme>
+                        <ListBox.ItemTemplate>
+                          <DataTemplate x:DataType="vm:AgentModelPickerItemViewModel">
+                            <!-- The row carries its model so the hosts that choose
+                                 it read it from the sender, as from a button. -->
+                            <Grid
+                                Tag="{Binding Model}"
+                                ColumnDefinitions="Auto,*,Auto"
+                                ColumnSpacing="{DynamicResource ShellSpaceSm}"
+                                ToolTip.Tip="{Binding Id}">
+                              <Panel Width="{DynamicResource ShellIconSizeSm}" VerticalAlignment="Center">
+                                <icons:SymbolIcon
+                                    x:Name="CurrentModelMark"
+                                    Symbol="Checkmark"
+                                    FontSize="{DynamicResource ShellIconSizeSm}"
+                                    IsVisible="{Binding IsCurrent}" />
+                              </Panel>
+                              <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                                <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ProviderName}" TextTrimming="CharacterEllipsis" />
+                              </StackPanel>
+                              <Button
+                                  Grid.Column="2"
+                                  MinWidth="{controls:TextScaled 34}"
+                                  MinHeight="{controls:TextScaled 34}"
+                                  VerticalAlignment="Center"
+                                  Classes="IconButton"
+                                  Click="OnToggleFavoriteModelClick"
+                                  Tag="{Binding}"
+                                  ToolTip.Tip="{Binding FavoriteAccessibleName}"
+                                  AutomationProperties.Name="{Binding FavoriteAccessibleName}">
+                                <Grid>
+                                  <icons:SymbolIcon Symbol="Star" IsVisible="{Binding !IsFavorite}" />
+                                  <icons:SymbolIcon
+                                      Symbol="Star"
+                                      IconVariant="Filled"
+                                      Foreground="{DynamicResource ShellAccentBrush}"
+                                      IsVisible="{Binding IsFavorite}" />
+                                </Grid>
+                              </Button>
+                            </Grid>
+                          </DataTemplate>
+                        </ListBox.ItemTemplate>
+                      </ListBox>
+                      <TextBlock
+                          Grid.Row="1"
+                          Margin="{controls:Inset Md}"
+                          HorizontalAlignment="Center"
+                          Classes="Muted"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
+                          Text="No matching models"
+                          IsVisible="{Binding AgentChat.HasNoModelMatches}" />
+                      <TextBlock
+                          Grid.Row="2"
+                          Margin="{controls:Inset Sm}"
+                          Classes="Muted"
+                          FontSize="{DynamicResource ShellSecondaryFontSize}"
+                          Text="{Binding AgentChat.ModelDiscoveryStatus}"
+                          TextWrapping="Wrap"
+                          IsVisible="{Binding AgentChat.HasModelDiscoveryStatus}" />
+                    </Grid>
                     <Border
                         Grid.Row="2"
                         Padding="{controls:Inset Sm}"
@@ -1369,20 +1444,101 @@
                 </Flyout>
               </Button.Flyout>
             </Button>
+            <!-- How full the context window is. Named in words, with the same
+                 words as its tooltip, and kept in the toolbar beside Send
+                 rather than in the row that belongs to the raw-secrets option. -->
+            <Button
+                x:Name="AgentContextWindowButton"
+                Grid.Column="3"
+                MinWidth="{controls:TextScaled 32}"
+                Padding="0"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                HorizontalContentAlignment="Center"
+                VerticalContentAlignment="Center"
+                Classes="IconButton ComposerControl"
+                IsVisible="{Binding AgentChat.HasContextWindow}"
+                ToolTip.Tip="{Binding AgentChat.ContextWindowAccessibleName}"
+                AutomationProperties.Name="{Binding AgentChat.ContextWindowAccessibleName}"
+                AutomationProperties.HelpText="{Binding AgentChat.ContextWindowUsageLabel}">
+              <controls:ContextWindowDonut
+                  Width="17"
+                  Height="17"
+                  Percentage="{Binding AgentChat.ContextWindowPercent}"
+                  TrackBrush="{DynamicResource ShellBorderBrush}"
+                  IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                  StrokeThickness="2" />
+              <Button.Flyout>
+                <Flyout Placement="TopEdgeAlignedRight">
+                  <StackPanel Width="{controls:TextScaled 240}" Margin="{DynamicResource ShellInsetMd}" Spacing="{DynamicResource ShellSpaceSm}">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                      <Panel Width="44" Height="44">
+                        <controls:ContextWindowDonut
+                            x:Name="AgentContextWindowGauge"
+                            Percentage="{Binding AgentChat.ContextWindowPercent}"
+                            TrackBrush="{DynamicResource ShellBorderBrush}"
+                            IndicatorBrush="{DynamicResource ShellAccentBrush}"
+                            StrokeThickness="4"
+                            AutomationProperties.Name="{Binding AgentChat.ContextWindowAccessibleName}" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            FontSize="{DynamicResource ShellFontSize10}"
+                            FontWeight="SemiBold"
+                            Text="{Binding AgentChat.ContextWindowPercentLabel}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                      </Panel>
+                      <TextBlock
+                          Grid.Column="1"
+                          VerticalAlignment="Center"
+                          Classes="Headline"
+                          Text="Context window" />
+                    </Grid>
+                    <TextBlock
+                        Classes="Muted"
+                        LineHeight="{DynamicResource ShellLineHeight13}"
+                        Text="{Binding AgentChat.ContextWindowUsageLabel}" TextWrapping="Wrap" />
+                    <Button
+                        Classes="SecondaryButton"
+                        Content="{Binding AgentChat.CompactLabel}"
+                        Command="{Binding AgentChat.CompactCommand}"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Center"
+                        ToolTip.ShowOnDisabled="True"
+                        AutomationProperties.Name="Compact conversation context now"
+                        AutomationProperties.HelpText="{Binding AgentChat.CompactUnavailableReason}"
+                        ToolTip.Tip="Summarize older context while preserving the latest turn and your chat history" />
+                    <TextBlock
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellLineHeight11}"
+                        Text="{Binding AgentChat.CompactUnavailableReason}"
+                        IsVisible="{Binding AgentChat.HasCompactUnavailableReason}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Text="{Binding AgentChat.CompactionStatus}"
+                        IsVisible="{Binding AgentChat.HasCompactionStatus}"
+                        LineHeight="{DynamicResource ShellLineHeight13}"
+                        TextWrapping="Wrap"
+                        Classes="Muted" />
+                  </StackPanel>
+                </Flyout>
+              </Button.Flyout>
+            </Button>
             <Button
                 x:Name="AgentSendButton"
-                Grid.Column="3"
+                Grid.Column="4"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnSendAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanSubmitPrompt}"
                 IsVisible="{Binding AgentChat.ShowPrimaryAction}"
                 ToolTip.Tip="{Binding AgentChat.PrimaryActionAccessibleName}"
                 AutomationProperties.Name="{Binding AgentChat.PrimaryActionAccessibleName}">
-              <icons:SymbolIcon Symbol="ArrowUp" FontSize="15" />
+              <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeMd}" />
             </Button>
             <Button
                 x:Name="AgentStopButton"
-                Grid.Column="4"
+                Grid.Column="5"
                 Classes="PrimaryButton ComposerAction"
                 Click="OnCancelAgentChatClick"
                 IsEnabled="{Binding AgentChat.CanRequestStop}"
@@ -1407,7 +1563,7 @@
           IsVisible="{Binding AgentChat.ShowFooterStatus, FallbackValue=False}">
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             HorizontalAlignment="Center"
             Text="{Binding AgentChat.Status}"
             TextAlignment="Center"

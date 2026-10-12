@@ -125,11 +125,14 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
             new WorkspaceInstanceId("qa-workspace"),
             new TabInstanceId("qa-tab"),
             new PanelInstanceId("qa-panel"));
+        // The run is held for the person's decision, the state the product is
+        // in while a capability card waits; RunningTool showed the card over
+        // a run that claimed to be working.
         _snapshot = Offline with
         {
-            State = GovernedAgentState.RunningTool,
+            State = GovernedAgentState.AwaitingCapabilityDecision,
             Target = target,
-            TargetTitle = "Process Monitor · local machine",
+            TargetTitle = "Processes · local machine",
             Messages =
             [
                 new AgentChatMessage(
@@ -143,7 +146,7 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
                 "Process inspection",
                 ["List local processes"],
                 target,
-                "Process Monitor · local machine",
+                "Processes · local machine",
                 policyGeneration: 1,
                 expiresAtUtc: new DateTimeOffset(2026, 12, 31, 12, 0, 0, TimeSpan.Zero)),
             CapabilityNotice =
@@ -166,6 +169,30 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
             State = GovernedAgentState.AwaitingApproval,
             Target = target,
             TargetTitle = "Browser",
+            // The run's view of its window, as the product reports it: the
+            // titles Details names the target by, beside the identifiers the
+            // approval binds to.
+            ContextItems =
+            [
+                new GovernedAgentContextItem(
+                    target.WindowId,
+                    target.WorkspaceId,
+                    target.TabId,
+                    target.PanelId,
+                    new SessionId("01a0df93caed71e99e7d2b4623b40c49"),
+                    PanelKind.Browser,
+                    workspaceTitle: "Operations",
+                    tabTitle: "production-api",
+                    panelTitle: "Browser",
+                    connectionBoundary: null,
+                    workingDirectory: null,
+                    SessionLifecycle.Active,
+                    SessionHealth.Healthy,
+                    isVisible: true,
+                    isFocused: true,
+                    hasActiveWork: false,
+                    [BuiltInAgentTools.BrowserNavigate]),
+            ],
             PendingApproval = new GovernedAgentApproval(
                 new AgentApprovalId("qa-action-approval"),
                 "browser.navigate", "Navigate browser", AgentActionRisk.Mutation, AgentPermission.Ask,

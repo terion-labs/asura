@@ -1,17 +1,13 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.AddWorkspaceTabDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Asura.App.Views"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    xmlns:icons="using:FluentIcons.Avalonia"
-    Title="Add a tab"
     Width="560"
     Height="620"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <!--
     One list, because a tab holds one thing. The three flyouts this replaces
     made the choice look like three unrelated actions, and put "create one just
@@ -20,23 +16,19 @@
   -->
   <controls:DialogShell
       Chrome="Utility"
-      Title="Add a tab"
+      Title="Add Tab"
       Subtitle="A tab opens one connection or one screen."
       Scrolls="False"
       Padding="{controls:Inset None}">
     <!-- The list scrolls itself and the options band bleeds to the window's
          edges, so the body keeps no inset of its own. -->
     <Grid RowDefinitions="Auto,*,Auto">
-      <TextBox
+      <controls:SearchField
           x:Name="SearchInput"
           Margin="{controls:Inset Horizontal=Lg, Top=Md}"
-          PlaceholderText="Search connections and screens…"
+          PlaceholderText="Filter connections and screens"
           TextChanged="OnSearchChanged"
-          AutomationProperties.Name="Search connections and screens">
-        <TextBox.InnerLeftContent>
-          <icons:SymbolIcon Margin="{controls:Inset Left=Sm}" Symbol="Search" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" />
-        </TextBox.InnerLeftContent>
-      </TextBox>
+          AutomationProperties.Name="Filter connections and screens" />
 
       <ListBox
           x:Name="SourceList"
@@ -61,8 +53,14 @@
                     Foreground="{DynamicResource ShellTextBrush}"
                     Symbol="{Binding Symbol}" />
               </controls:ListItem.Leading>
+              <!-- A connection's kind is its detail line and its glyph, so
+                   only a screen carries a badge. -->
               <controls:ListItem.Trailing>
-                <controls:StatusChip Shape="Rounded" Tone="Default" Content="{Binding Kind}" />
+                <controls:StatusChip
+                    Shape="Rounded"
+                    Tone="Default"
+                    Content="{Binding Badge}"
+                    IsVisible="{Binding Badge, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               </controls:ListItem.Trailing>
             </controls:ListItem>
           </DataTemplate>
@@ -72,10 +70,18 @@
       <!-- What the chosen thing needs beyond being chosen: a name and a layout
            for a new screen, or the link-or-copy decision for a saved one. Only
            one of the two is ever relevant, so only one is ever shown. -->
-      <Border Grid.Row="2" Background="{DynamicResource ShellSurfaceRaisedBrush}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
+      <!-- Nothing to show until something is chosen: the subtitle already
+           says what a tab opens. -->
+      <Border
+          x:Name="SelectionOptions"
+          Grid.Row="2"
+          Background="{DynamicResource ShellSurfaceRaisedBrush}"
+          BorderBrush="{DynamicResource ShellBorderBrush}"
+          BorderThickness="0,1,0,0"
+          IsVisible="False">
         <StackPanel Margin="{controls:Inset Horizontal=Lg, Vertical=Md}" Spacing="{DynamicResource ShellSpaceSm}">
           <StackPanel x:Name="NewScreenOptions" Spacing="{DynamicResource ShellSpaceSm}" IsVisible="False">
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="This screen belongs to the workspace. Nothing else opens it, and editing it changes nothing else." TextWrapping="Wrap" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="This screen belongs to the workspace. Nothing else opens it, and editing it changes nothing else." TextWrapping="Wrap" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
               <TextBox
                   x:Name="NewScreenName"
@@ -96,29 +102,24 @@
                 x:Name="CopyScreen"
                 Content="Copy it into this workspace"
                 AutomationProperties.Name="Copy the screen into this workspace instead of linking it" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" Text="Linked, the screen stays shared and later edits to it apply here. Copied, this workspace keeps its own." TextWrapping="Wrap" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Linked, the screen stays shared and later edits to it apply here. Copied, this workspace keeps its own." TextWrapping="Wrap" />
           </StackPanel>
-
-          <TextBlock
-              x:Name="EmptySelectionHint"
-              Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize11}"
-              Text="Choose what the tab opens." />
         </StackPanel>
       </Border>
     </Grid>
 
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
             x:Name="ConfirmButton"
             MinWidth="110"
             Classes="PrimaryButton"
             Click="OnConfirmClick"
-            Content="Add tab"
+            Content="Add Tab"
+            IsDefault="True"
             IsEnabled="False" />
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

@@ -116,7 +116,7 @@ public sealed partial class GovernedAgentRuntime
                             ? "workspace_connections_failed"
                             : WorkspaceLayoutAgentToolResultJson.OutcomeUnknownStableCode,
                         request is AgentWorkspaceLayoutRequest.ConnectionList
-                            ? "The workspace connection observation was cancelled."
+                            ? "The workspace connection observation was canceled."
                             : "The workspace layout mutation may have completed."),
                     structuralContext.Revision);
             }

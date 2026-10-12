@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Text;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -20,13 +22,12 @@ namespace Asura.App.Views.Components;
 /// </summary>
 internal sealed class SelectableMarkdownDocument : Control
 {
-    private const double BodyFontSize = 13;
-    private const double BodyLineHeight = 20;
     private const double BlockSpacing = 8;
     private const double ListLevelIndent = 18;
     private const double ListMarkerWidth = 20;
-    private static readonly double[] HeadingSizes = [23, 19, 16, 14, 13, 13];
     private static WeakReference<SelectableMarkdownDocument>? s_selectionOwner;
+    private static readonly Cursor TextCursor = new(StandardCursorType.Ibeam);
+    private static readonly Cursor LinkCursor = new(StandardCursorType.Hand);
 
     private readonly ImmutableArray<SourceBlock> _sourceBlocks;
     private readonly string _plainText;
@@ -36,6 +37,7 @@ internal sealed class SelectableMarkdownDocument : Control
     private int _selectionAnchor;
     private int _selectionEnd;
     private bool _selecting;
+    private string? _pressedLink;
 
     internal SelectableMarkdownDocument(ImmutableArray<MarkdownBlock> blocks)
     {
@@ -47,9 +49,13 @@ internal sealed class SelectableMarkdownDocument : Control
         }
 
         Focusable = true;
-        Cursor = new Cursor(StandardCursorType.Ibeam);
+        Cursor = TextCursor;
+        ContextRequested += OnContextRequested;
         (_sourceBlocks, _plainText) = BuildSource(blocks);
         ActualThemeVariantChanged += (_, _) => InvalidateDocumentLayout();
+        // Type sizes are read from the published ramp at layout time, so a
+        // text-size change has to lay the document out again to reach it.
+        ResourcesChanged += (_, _) => InvalidateDocumentLayout();
     }
 
     internal string Text => _plainText;
@@ -73,6 +79,9 @@ internal sealed class SelectableMarkdownDocument : Control
                 block.Layout.TextLines.Count,
                 [.. block.Layout.TextLines.Skip(1).Select(line => line.Start)]))];
 
+    internal ImmutableArray<FlowDirection> BlockDirections =>
+        [.. _sourceBlocks.Select(block => block.Direction)];
+
     internal int MathFormulaCount =>
         _sourceBlocks.Sum(block =>
             block.Runs.Count(run => run.Style.HasFlag(MarkdownRunStyle.Math)));
@@ -84,6 +93,9 @@ internal sealed class SelectableMarkdownDocument : Control
         _selectionEnd = _plainText.Length;
         InvalidateVisual();
     }
+
+    protected override AutomationPeer OnCreateAutomationPeer() =>
+        new SelectableMarkdownDocumentAutomationPeer(this);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -155,6 +167,7 @@ internal sealed class SelectableMarkdownDocument : Control
 
         _ = Focus();
         ActivateSelection();
+        _pressedLink = LinkAt(e.GetPosition(this));
         _selectionAnchor = HitTest(e.GetPosition(this));
         _selectionEnd = _selectionAnchor;
         _selecting = true;
@@ -168,6 +181,15 @@ internal sealed class SelectableMarkdownDocument : Control
         base.OnPointerMoved(e);
         if (!_selecting || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
+            // A pointing hand over what a click opens; the text beam over
+            // everything else, links that only copy included.
+            var hovered = _selecting ? null : LinkAt(e.GetPosition(this));
+            var cursor = hovered is not null && MarkdownLinks.OpensOnClick(hovered) ? LinkCursor : TextCursor;
+            if (!ReferenceEquals(Cursor, cursor))
+            {
+                Cursor = cursor;
+            }
+
             return;
         }
 
@@ -188,6 +210,17 @@ internal sealed class SelectableMarkdownDocument : Control
         _selecting = false;
         e.Pointer.Capture(null);
         e.Handled = true;
+        // A click on a link opens it; a drag that starts on one selects text,
+        // as it does in any Mac text view.
+        var pressed = _pressedLink;
+        _pressedLink = null;
+        if (pressed is not null
+            && _selectionAnchor == _selectionEnd
+            && string.Equals(LinkAt(e.GetPosition(this)), pressed, StringComparison.Ordinal))
+        {
+            MarkdownLinks.Open(this, pressed);
+        }
+
         InvalidateVisual();
     }
 
@@ -212,7 +245,7 @@ internal sealed class SelectableMarkdownDocument : Control
         base.OnKeyDown(e);
     }
 
-    private async Task CopySelectionAsync()
+    internal async Task CopySelectionAsync()
     {
         try
         {
@@ -242,6 +275,8 @@ internal sealed class SelectableMarkdownDocument : Control
         }
 
         _layoutWidth = width;
+        var bodyFontSize = MarkdownTypography.FontSize(this, MarkdownTypography.BodyPoints);
+        var bodyLineHeight = MarkdownTypography.ProseLineHeight(bodyFontSize);
         var blocks = ImmutableArray.CreateBuilder<LayoutBlock>(_sourceBlocks.Length);
         var y = 0d;
         for (var index = 0; index < _sourceBlocks.Length; index++)
@@ -255,16 +290,25 @@ internal sealed class SelectableMarkdownDocument : Control
             var top = TopMargin(source);
             var bottom = BottomMargin(source);
             y += top;
-            var x = ContentOffset(source);
+            var indent = ContentOffset(source);
             var markerWidth = source.Kind == MarkdownBlockKind.ListItem
                 ? ListMarkerWidth
                 : 0;
-            var contentX = x + markerWidth;
-            var contentWidth = Math.Max(1, width - contentX);
-            var fontSize = FontSize(source);
+            var contentWidth = Math.Max(1, width - indent - markerWidth);
+            // A right-to-left paragraph mirrors its indent and list marker
+            // into the right edge, where its reading starts.
+            var direction = source.Direction;
+            var (x, contentX) = direction == FlowDirection.RightToLeft
+                ? (Math.Max(0, width - indent - markerWidth), 0d)
+                : (indent, indent + markerWidth);
+            var fontSize = source.Kind == MarkdownBlockKind.Heading
+                ? MarkdownTypography.FontSize(
+                    this,
+                    MarkdownTypography.HeadingPointsFor(source.Level))
+                : bodyFontSize;
             var lineHeight = source.Kind == MarkdownBlockKind.Heading
-                ? Math.Round(fontSize * 1.3)
-                : BodyLineHeight;
+                ? MarkdownTypography.HeadingLineHeight(fontSize)
+                : bodyLineHeight;
             var layout = CreateTextLayout(source, contentWidth, fontSize, lineHeight);
             TextLayout? marker = null;
             if (source.Kind == MarkdownBlockKind.ListItem)
@@ -272,15 +316,17 @@ internal sealed class SelectableMarkdownDocument : Control
                 marker = new TextLayout(
                     source.Prefix.TrimEnd(),
                     Typeface(FontWeight.Normal),
-                    BodyFontSize,
+                    bodyFontSize,
                     MutedBrush(),
+                    textAlignment: TextAlignment.Start,
                     textWrapping: TextWrapping.NoWrap,
+                    flowDirection: direction,
                     maxWidth: ListMarkerWidth,
-                    lineHeight: BodyLineHeight);
+                    lineHeight: bodyLineHeight);
             }
 
             var height = source.Kind == MarkdownBlockKind.ThematicBreak
-                ? 13
+                ? bodyFontSize
                 : Math.Max(layout.Height, marker?.Height ?? 0);
             blocks.Add(new LayoutBlock(
                 source.Kind,
@@ -322,9 +368,15 @@ internal sealed class SelectableMarkdownDocument : Control
         return new TextLayout(
             textSource,
             new GenericTextParagraphProperties(
+                source.Direction,
+                TextAlignment.Start,
+                firstLineInParagraph: true,
+                alwaysCollapsible: false,
                 defaultProperties,
-                textWrapping: TextWrapping.Wrap,
-                lineHeight: lineHeight),
+                TextWrapping.Wrap,
+                lineHeight,
+                indent: 0,
+                letterSpacing: 0),
             maxWidth: maxWidth,
             maxHeight: double.PositiveInfinity);
     }
@@ -345,14 +397,23 @@ internal sealed class SelectableMarkdownDocument : Control
         var fontStyle = style.HasFlag(MarkdownRunStyle.Italic)
             ? FontStyle.Italic
             : FontStyle.Normal;
-        var foreground = style.HasFlag(MarkdownRunStyle.Code) || run.IsLink
+        // A link is the one thing in prose drawn in the accent, because it is
+        // the one thing that acts. Inline code is set apart by its face and a
+        // quiet fill, as in Xcode's documentation, not by a colour that would
+        // say it can be clicked.
+        var foreground = run.IsLink
             ? AccentBrush()
             : source.Kind == MarkdownBlockKind.Quote || run.IsMuted
                 ? MutedBrush()
                 : ForegroundBrush();
+        var background = style.HasFlag(MarkdownRunStyle.Code) && !run.IsLink
+            ? CodeBackgroundBrush()
+            : null;
         TextDecorationCollection? decorations = null;
-        if (run.IsLink)
+        if (run.IsLink && !string.IsNullOrWhiteSpace(run.Text))
         {
+            // Underlined word by word: the spaces of a link are separate runs,
+            // so a link wrapped at a space draws no underline under it.
             decorations = TextDecorations.Underline;
         }
         else if (style.HasFlag(MarkdownRunStyle.Strikethrough))
@@ -364,7 +425,8 @@ internal sealed class SelectableMarkdownDocument : Control
             new Typeface(family, fontStyle, weight),
             fontSize,
             decorations,
-            foreground);
+            foreground,
+            background);
     }
 
     private void DrawSelection(DrawingContext context, LayoutBlock block, IBrush brush)
@@ -410,6 +472,55 @@ internal sealed class SelectableMarkdownDocument : Control
                     rect.Width,
                     rect.Height));
         }
+    }
+
+    /// <summary>The link under a point, or null over anything else.</summary>
+    private string? LinkAt(Point point)
+    {
+        foreach (var (block, source) in _layoutBlocks.Zip(_sourceBlocks))
+        {
+            if (point.Y < block.ContentOrigin.Y || point.Y > block.Origin.Y + block.Height)
+            {
+                continue;
+            }
+
+            var hit = block.Layout.HitTestPoint(
+                new Point(point.X - block.ContentOrigin.X, point.Y - block.ContentOrigin.Y));
+            if (!hit.IsInside)
+            {
+                return null;
+            }
+
+            var offset = 0;
+            foreach (var run in source.Runs)
+            {
+                if (hit.TextPosition < offset + run.Text.Length)
+                {
+                    return run.LinkTarget;
+                }
+
+                offset += run.Text.Length;
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Over a link the menu offers the link itself; anywhere else the
+    /// document has no menu of its own.
+    /// </summary>
+    private void OnContextRequested(object? sender, ContextRequestedEventArgs e)
+    {
+        if (!e.TryGetPosition(this, out var point) || LinkAt(point) is not { } target)
+        {
+            return;
+        }
+
+        MarkdownLinks.ShowMenu(this, target);
+        e.Handled = true;
     }
 
     private int HitTest(Point point)
@@ -502,7 +613,8 @@ internal sealed class SelectableMarkdownDocument : Control
                 prefix,
                 text,
                 runs,
-                start));
+                start,
+                MarkdownTypography.ParagraphDirection(text)));
             previous = block;
         }
 
@@ -513,15 +625,13 @@ internal sealed class SelectableMarkdownDocument : Control
     {
         if (block.Kind == MarkdownBlockKind.ThematicBreak)
         {
-            return [new SourceRun("────────────────", MarkdownRunStyle.None, false, true)];
+            return [new SourceRun("────────────────", MarkdownRunStyle.None, null, true)];
         }
 
-        return [.. block.Runs
-            .Select(run => new SourceRun(
-                run.Text,
-                run.Style,
-                run.LinkTarget is not null,
-                false))];
+        return [.. block.Runs.SelectMany(run => run.LinkTarget is null
+            ? [new SourceRun(run.Text, run.Style, null, false)]
+            : MarkdownLinks.SplitAtWhitespace(run.Text)
+                .Select(part => new SourceRun(part, run.Style, run.LinkTarget, false)))];
     }
 
     private static double ContentOffset(SourceBlock block) => block.Kind switch
@@ -530,10 +640,6 @@ internal sealed class SelectableMarkdownDocument : Control
         MarkdownBlockKind.Quote => 14,
         _ => 0,
     };
-
-    private static double FontSize(SourceBlock block) => block.Kind == MarkdownBlockKind.Heading
-        ? HeadingSizes[Math.Clamp(block.Level, 1, HeadingSizes.Length) - 1]
-        : BodyFontSize;
 
     private static double TopMargin(SourceBlock block) => block.Kind switch
     {
@@ -566,9 +672,14 @@ internal sealed class SelectableMarkdownDocument : Control
 
     private IBrush MutedBrush() => ResourceBrush("ShellMutedBrush", Brushes.Gray);
 
-    private IBrush AccentBrush() => ResourceBrush("ShellAccentBrush", Brushes.Orange);
+    private IBrush AccentBrush() => ResourceBrush("ShellAccentTextBrush", Brushes.Orange);
 
     private IBrush BorderBrush() => ResourceBrush("ShellBorderBrush", Brushes.Gray);
+
+    private IBrush CodeBackgroundBrush() =>
+        ResourceBrush(
+            "ShellSurfaceHoverBrush",
+            new SolidColorBrush(Color.FromArgb(28, 128, 128, 128)));
 
     private IBrush SelectionBrush() =>
         ResourceBrush(
@@ -584,8 +695,11 @@ internal sealed class SelectableMarkdownDocument : Control
     private sealed record SourceRun(
         string Text,
         MarkdownRunStyle Style,
-        bool IsLink,
-        bool IsMuted);
+        string? LinkTarget,
+        bool IsMuted)
+    {
+        public bool IsLink => LinkTarget is not null;
+    }
 
     private sealed record SourceBlock(
         MarkdownBlockKind Kind,
@@ -593,7 +707,34 @@ internal sealed class SelectableMarkdownDocument : Control
         string Prefix,
         string Text,
         ImmutableArray<SourceRun> Runs,
-        int GlobalStart);
+        int GlobalStart,
+        FlowDirection Direction);
+
+    /// <summary>
+    /// The document is drawn, not composed of text controls, so without its own
+    /// peer a screen reader finds a focusable box with nothing in it. It reads
+    /// as one document whose content is the same plain text a copy produces.
+    /// </summary>
+    private sealed class SelectableMarkdownDocumentAutomationPeer(
+        SelectableMarkdownDocument owner) : ControlAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() =>
+            AutomationControlType.Document;
+
+        protected override string GetClassNameCore() => "MarkdownDocument";
+
+        protected override string GetNameCore()
+        {
+            var name = AutomationProperties.GetName(Owner);
+            return string.IsNullOrEmpty(name)
+                ? ((SelectableMarkdownDocument)Owner).Text
+                : name;
+        }
+
+        protected override bool IsContentElementCore() => true;
+
+        protected override bool IsControlElementCore() => true;
+    }
 
     private sealed class MarkdownTextSource : ITextSource
     {

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 
 namespace Asura.App.Controls;
 
@@ -266,6 +267,12 @@ internal sealed partial class PanelChrome : ContentControl
 
         IsNotificationPulseActiveProperty.Changed.AddClassHandler<PanelChrome>(
             (chrome, _) => chrome.UpdateNotificationPulseClass());
+        // The header's dot is drawn for the eye; the panel's own status is
+        // where a screen reader hears that it is asking for you.
+        HasAttentionProperty.Changed.AddClassHandler<PanelChrome>(
+            (chrome, change) => Avalonia.Automation.AutomationProperties.SetItemStatus(
+                chrome,
+                change.GetNewValue<bool>() ? "Needs attention" : null));
         AffectsArrange<PanelChrome>(MinimumHeaderContentWidthProperty, CanSplitProperty, HasAttentionProperty);
     }
 
@@ -588,7 +595,13 @@ internal sealed partial class PanelChrome : ContentControl
 
     private static double HeaderSlotWidth(object? slot)
     {
-        if (slot is not Control control)
+        // A slot is set while the view's XAML loads, before it is in a
+        // window. Measuring it then styles it from the detached tree alone,
+        // and a control is styled once: the application's styles never reach
+        // it afterwards, so a toolbar's icon buttons kept the theme's text
+        // padding and rounded fills. Before the first arrange every slot is
+        // shown anyway, so a detached slot weighs nothing.
+        if (slot is not Control control || !((ILogical)control).IsAttachedToLogicalTree)
         {
             return 0;
         }

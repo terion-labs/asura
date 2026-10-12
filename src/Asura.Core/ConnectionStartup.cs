@@ -17,7 +17,7 @@ public sealed record ConnectionStartup
         if (duplicate is not null)
         {
             throw new ArgumentException(
-                $"Environment variable '{duplicate.Key}' is defined more than once.",
+                $"The environment variable “{duplicate.Key}” is set more than once.",
                 nameof(environment));
         }
     }

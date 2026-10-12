@@ -52,7 +52,7 @@ public sealed class TerminalStartupCommandDispatchState : IDisposable
             throw new ArgumentOutOfRangeException(
                 nameof(failurePolicy),
                 failurePolicy,
-                "The startup-command delivery failure policy is not recognized.");
+                "The startup-command delivery failure policy isn't recognized.");
         }
 
         _panelId = panelId;

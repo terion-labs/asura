@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.Previews;
 using Asura.Core;
@@ -77,6 +78,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private string _queryText = string.Empty;
     private bool _isBusy;
     private bool _isConnected;
+    private bool _connectionFailed;
     private string? _errorMessage;
     private string? _interchangeNotice;
     private string _resultSummary = string.Empty;
@@ -85,6 +87,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private IReadOnlyList<DatabaseResultColumnViewModel> _resultColumns = [];
     private IReadOnlyList<DatabaseResultRowViewModel> _resultRows = [];
     private DatabaseResultRowViewModel? _selectedRow;
+    private IReadOnlyList<DatabaseResultRowViewModel> _selectedRows = [];
     private IReadOnlyList<DatabaseRowFieldViewModel> _selectedRowFields = [];
     private DatabaseTableItemViewModel? _selectedObject;
     private DatabaseObjectDetails? _selectedObjectDetails;
@@ -112,18 +115,18 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _sqlLanguageLoadCancellation;
     private ISqlLanguageSession? _sqlLanguageSession;
     private long _sqlLanguageLoadGeneration;
-    private string _sqlLanguageStatus = "SQL intelligence is unavailable in this build.";
+    private string _sqlLanguageStatus = "SQL completion and validation aren't available in this version of Asura.";
 
     private static readonly IReadOnlyList<DatabaseFilterOperatorViewModel> AllFilterOperators =
     [
         new(DatabaseFilterOperator.Equal, "Equals"),
-        new(DatabaseFilterOperator.NotEqual, "Does not equal"),
+        new(DatabaseFilterOperator.NotEqual, "Doesn't equal"),
         new(DatabaseFilterOperator.LessThan, "Less than"),
         new(DatabaseFilterOperator.GreaterThan, "Greater than"),
         new(DatabaseFilterOperator.LessThanOrEqual, "At most"),
         new(DatabaseFilterOperator.GreaterThanOrEqual, "At least"),
         new(DatabaseFilterOperator.Contains, "Contains"),
-        new(DatabaseFilterOperator.NotContains, "Does not contain"),
+        new(DatabaseFilterOperator.NotContains, "Doesn't contain"),
         new(DatabaseFilterOperator.StartsWith, "Starts with"),
         new(DatabaseFilterOperator.EndsWith, "Ends with"),
         new(DatabaseFilterOperator.In, "In"),
@@ -146,7 +149,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ISqlLanguageService? sqlLanguageService = null,
         Func<DatabaseConnectionProfileId, string, CancellationToken,
             Task<DatabaseConnectionProfile?>>? passwordPersister = null,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
         DatabaseRecoveryState? recovery = null,
@@ -169,7 +172,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
         _passwordPersister = passwordPersister;
         PasswordStoreLabel = string.IsNullOrWhiteSpace(passwordStoreLabel)
-            ? "Save in system credential store"
+            ? PlatformTerms.SaveInSecretStore
             : passwordStoreLabel;
         _forcedReadOnlyReason = string.IsNullOrWhiteSpace(forcedReadOnlyReason)
             ? null
@@ -199,6 +202,21 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 return Task.CompletedTask;
             },
             () => IsConnected && CanChangeConnection);
+        ToggleConnectionCommand = new AsyncActionCommand(
+            () =>
+            {
+                if (!IsConnected)
+                {
+                    return ConnectAsync();
+                }
+
+                Disconnect();
+                return Task.CompletedTask;
+            },
+            () => CanChangeConnection && (IsConnected || HasConnectionTarget));
+        ReconnectCommand = new AsyncActionCommand(
+            ConnectAsync,
+            () => IsConnected && CanChangeConnection && HasConnectionTarget);
         RunQueryCommand = new AsyncActionCommand(
             RunQueryAsync,
             () => !IsBusy && IsConnected && !HasPendingChanges);
@@ -314,6 +332,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(RecoveryTarget));
         OnPropertyChanged(nameof(TunnelConnectionId));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         _ = ConnectAsync();
     }
 
@@ -419,6 +438,19 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public ICommand DisconnectCommand { get; }
 
+    /// <summary>
+    /// The toolbar's one connection button: it connects without a session and
+    /// disconnects with one. Connect and Disconnect side by side, both
+    /// enabled while connected, asked people to work out which applied.
+    /// </summary>
+    public ICommand ToggleConnectionCommand { get; }
+
+    /// <summary>
+    /// Opens the session again on the same target. A secondary action, so it
+    /// lives in the connection button's context menu, not beside it.
+    /// </summary>
+    public ICommand ReconnectCommand { get; }
+
     public ICommand RunQueryCommand { get; }
 
     public DatabaseWorkspaceMode SelectedMode
@@ -507,7 +539,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         if (format != DatabaseDiagramExport.MermaidMarkdown)
         {
-            throw new InvalidOperationException("The diagram must render before SVG can be exported. Choose Mermaid Markdown to export the complete schema without rendering.");
+            throw FailureReason.Readable(new InvalidOperationException("The diagram must render before SVG can be exported. Choose Mermaid Markdown to export the complete schema without rendering."));
         }
 
         await _client.ExportDatabaseSchemaSourceAsync(SelectedDriver.Id,
@@ -720,7 +752,25 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool CanDeleteSelectedRow => CanMutateRows && SelectedRow is not null;
 
-    public bool CanDuplicateSelectedRow => CanMutateRows && SelectedRow?.IsValid == true;
+    /// <summary>
+    /// The Add Row button's tooltip, naming its key as the context menu does:
+    /// ⌥⌘N on a Mac, Ctrl+Shift+N elsewhere.
+    /// </summary>
+    public static string AddRowTip { get; } = KeySequenceDisplay.WithShortcut(
+        "Add a row",
+        new KeyStroke(
+            "N",
+            HostPlatform.Current == HostOperatingSystem.MacOS
+                ? KeyModifiers.Alt | KeyModifiers.Meta
+                : KeyModifiers.Control | KeyModifiers.Shift));
+
+    /// <summary>
+    /// Duplicate copies one row. With several selected it is unavailable
+    /// rather than quietly copying only the inspected one.
+    /// </summary>
+    public bool CanDuplicateSelectedRow => CanMutateRows
+        && SelectedRow?.IsValid == true
+        && !HasMultipleSelectedRows;
 
     public bool CanCopySelectedRowAsInsert => _selectedObjectDetails?.Object.Kind
         == DatabaseTableKind.Table
@@ -799,7 +849,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ?? (_selectedObjectDetails is null
             ? _resultSource == DatabaseResultSource.RawQuery
                 ? _rawQueryCanBrowse
-                    ? "This query result does not map exactly to one editable table."
+                    ? "This query result doesn't map exactly to one editable table."
                     : "This statement result can be copied or exported, but not rerun, "
                         + "filtered, sorted, or edited safely."
                 : "Run a table preview to edit rows."
@@ -819,7 +869,33 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public long TotalRows => _totalRows;
 
-    public string TotalRowsText => TotalRows.ToString(CultureInfo.InvariantCulture);
+    /// <summary>
+    /// The matching-row count as the pager states it: "6 rows", in the reader's
+    /// own digit grouping.
+    /// </summary>
+    public string TotalRowsText => TotalRows == 1
+        ? "1 row"
+        : $"{TotalRows.ToString("N0", CultureInfo.CurrentCulture)} rows";
+
+    /// <summary>
+    /// Where the page on screen sits in the result: "Page 2 of 5" when the
+    /// total is known, "Page 2" while it is not.
+    /// </summary>
+    public string PagePositionText => PagePosition(_tableQuery.Offset, _tableQuery.Limit, TotalRows);
+
+    internal static string PagePosition(int offset, int limit, long totalRows)
+    {
+        var size = Math.Max(1, limit);
+        var page = (offset / size) + 1;
+        var text = $"Page {page.ToString("N0", CultureInfo.CurrentCulture)}";
+        if (totalRows <= 0)
+        {
+            return text;
+        }
+
+        var pages = Math.Max(page, (totalRows + size - 1) / size);
+        return $"{text} of {pages.ToString("N0", CultureInfo.CurrentCulture)}";
+    }
 
     public string PageLimitText
     {
@@ -877,8 +953,11 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 InvalidateHostedBinding();
                 SetConnected(false);
                 ClearSelectedObject();
+                _connectionFailed = false;
                 OnPropertyChanged(nameof(MaskedConnectionString));
                 OnPropertyChanged(nameof(AddressBarText));
+                PublishConnectionStatus();
+                RaiseCommandStates();
             }
         }
     }
@@ -955,6 +1034,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 RaiseCommandStates();
                 PublishInteractionStates();
+                PublishConnectionStatus();
             }
         }
     }
@@ -993,7 +1073,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public string StatusText => IsBusy
         ? "Working…"
         : IsConnected
-            ? $"Connected · {Tables.Count} objects"
+            ? Tables.Count == 1
+                ? "Connected · 1 object"
+                : $"Connected · {Tables.Count.ToString("N0", CultureInfo.CurrentCulture)} objects"
             : "Not connected";
 
     public string ResultSummary
@@ -1024,6 +1106,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 OnPropertyChanged(nameof(HasResults));
                 OnPropertyChanged(nameof(ShowEmptyHint));
+                // A selection is of rows on this page; a row the page no
+                // longer holds is no longer selected.
+                if (_selectedRows.Count > 0)
+                {
+                    var onPage = value.ToHashSet(ReferenceEqualityComparer.Instance);
+                    PublishSelectedRows([.. _selectedRows.Where(onPage.Contains)]);
+                }
             }
         }
     }
@@ -1036,7 +1125,22 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasSelectedRow => _selectedRow is not null;
 
-    public string SelectedRowTitle => _selectedRow is { } row ? $"Row {row.Number}" : string.Empty;
+    /// <summary>
+    /// Every row the grid has selected, in page order. The SQL result grid
+    /// selects the way a Mac table does — Shift and Command extend it — so
+    /// Copy and Delete act on all of them, while <see cref="SelectedRow"/>
+    /// is the one the inspector shows.
+    /// </summary>
+    public IReadOnlyList<DatabaseResultRowViewModel> SelectedRows => _selectedRows;
+
+    /// <summary>Whether the grid's selection is more than one row.</summary>
+    public bool HasMultipleSelectedRows => _selectedRows.Count > 1;
+
+    public string SelectedRowTitle => _selectedRow is not { } row
+        ? string.Empty
+        : _selectedRows.Count > 1
+            ? $"Row {row.Number} · {_selectedRows.Count.ToString(CultureInfo.CurrentCulture)} selected"
+            : $"Row {row.Number}";
 
     public IReadOnlyList<DatabaseRowFieldViewModel> SelectedRowFields
     {
@@ -1059,12 +1163,45 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         _selectedRow = row;
         row?.IsSelected = true;
+        _selectedRows = row is null ? [] : [row];
 
         RefreshSelectedRowFields();
         OnPropertyChanged(nameof(SelectedRow));
         OnPropertyChanged(nameof(HasSelectedRow));
         OnPropertyChanged(nameof(SelectedRowTitle));
+        OnPropertyChanged(nameof(SelectedRows));
+        OnPropertyChanged(nameof(HasMultipleSelectedRows));
         PublishInteractionStates();
+    }
+
+    /// <summary>
+    /// Takes the grid's whole selection. Rows that are not on this page are
+    /// ignored, and the inspected row stays part of the selection.
+    /// </summary>
+    public void SelectRows(IEnumerable<DatabaseResultRowViewModel> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        var chosen = rows.ToHashSet(ReferenceEqualityComparer.Instance);
+        if (_selectedRow is { } inspected)
+        {
+            chosen.Add(inspected);
+        }
+
+        PublishSelectedRows([.. ResultRows.Where(chosen.Contains)]);
+    }
+
+    private void PublishSelectedRows(IReadOnlyList<DatabaseResultRowViewModel> rows)
+    {
+        if (rows.SequenceEqual(_selectedRows, ReferenceEqualityComparer.Instance))
+        {
+            return;
+        }
+
+        _selectedRows = rows;
+        OnPropertyChanged(nameof(SelectedRows));
+        OnPropertyChanged(nameof(HasMultipleSelectedRows));
+        OnPropertyChanged(nameof(SelectedRowTitle));
+        OnPropertyChanged(nameof(CanDuplicateSelectedRow));
     }
 
     private void RefreshSelectedRowFields()
@@ -1113,7 +1250,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     internal void RequireImportedConnection()
     {
         _importedConnectionRequired = true;
-        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials were not imported.";
+        ErrorMessage = "This imported database panel needs a connection. Its device-local target and credentials weren't imported.";
         OnPropertyChanged(nameof(RecoveryTarget));
     }
 
@@ -1133,7 +1270,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             {
                 if (!saved)
                 {
-                    ErrorMessage = "The database target could not be saved in the credential store. The previous saved target is unchanged.";
+                    ErrorMessage = $"Asura couldn't save the connection in {PlatformTerms.SecretStore}. The previously saved connection is unchanged.";
                     if (_recovery.CleanupIncomplete)
                     {
                         ErrorMessage += " An unused recovery credential may need removal in Security & secrets.";
@@ -1173,7 +1310,36 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     public bool HasConnectionTarget => !string.IsNullOrWhiteSpace(ConnectionString);
 
     /// <summary>One button reads as the action it would perform.</summary>
-    public string ConnectButtonLabel => IsConnected ? "Reconnect" : "Connect";
+    public string ConnectionActionLabel => IsConnected ? "Disconnect" : "Connect";
+
+    /// <summary>
+    /// The header's status mark: what the connection is doing, as a tone the
+    /// dot draws and, with Differentiate Without Color, a glyph.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => IsConnected
+        ? StatusTone.Success
+        : _connectionFailed
+            ? StatusTone.Danger
+            : IsConnecting
+                ? StatusTone.Warning
+                : StatusTone.Neutral;
+
+    /// <summary>
+    /// A connection attempt is in flight: not yet connected or failed, with a
+    /// target to reach and the panel busy reaching it.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
+
+    /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
+    public string ConnectionStatusLabel => IsConnected
+        ? $"Connected to {ConnectionDisplayName}"
+        : _connectionFailed
+            ? $"Couldn't connect to {ConnectionDisplayName}"
+            : IsConnecting
+                ? $"Connecting to {ConnectionDisplayName}"
+                : HasConnectionTarget
+                    ? "Not connected"
+                    : "No connection";
 
     /// <summary>Session facts read after connecting; empty when unknown.</summary>
     public DatabaseSessionInfo SessionInfo
@@ -1242,7 +1408,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
             if (_tunnelConnection is { } tunnel)
             {
-                facts.Add($"SSH:{tunnel.Name}");
+                facts.Add($"SSH {tunnel.Name}");
             }
 
             if (details.Username is { } user)
@@ -1261,7 +1427,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 facts.Add(selected.Name);
             }
 
-            return string.Join(" : ", facts);
+            // The middle dot is the status bar's one separator in every panel.
+            return string.Join(" · ", facts);
         }
     }
 
@@ -1439,24 +1606,47 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
 
         ClearSelectedObject();
         SelectedDatabaseOverviewMode = DatabaseOverviewMode.Objects;
-        var columns = new[]
-        {
-            new DatabaseColumnDescriptor("Schema", "TEXT", DatabaseValueKind.Text),
-            new DatabaseColumnDescriptor("Name", "TEXT", DatabaseValueKind.Text),
-            new DatabaseColumnDescriptor("Kind", "TEXT", DatabaseValueKind.Text),
-        };
-        double[] widths = [180, 280, 100];
+        // An engine without schemas — SQLite — gets no Schema column at all
+        // rather than one that says NULL on every row; one with them shows an
+        // empty cell for an object that has none.
+        var hasSchemas = _allTables.Any(table =>
+            !string.IsNullOrEmpty(table.Descriptor.Schema ?? table.Descriptor.Catalog));
+        DatabaseColumnDescriptor[] columns = hasSchemas
+            ?
+            [
+                new("Schema", "TEXT", DatabaseValueKind.Text),
+                new("Name", "TEXT", DatabaseValueKind.Text),
+                new("Kind", "TEXT", DatabaseValueKind.Text),
+            ]
+            :
+            [
+                new("Name", "TEXT", DatabaseValueKind.Text),
+                new("Kind", "TEXT", DatabaseValueKind.Text),
+            ];
+        double[] widths = hasSchemas ? [180, 280, 100] : [280, 100];
         ResultColumns = [.. columns.Select((column, ordinal) => new DatabaseResultColumnViewModel(column, widths[ordinal]))];
         ResultRows = [.. _allTables
             .Select((table, index) => new DatabaseResultRowViewModel(
                 index + 1,
-                [
-                    table.Descriptor.Schema ?? table.Descriptor.Catalog,
-                    table.Descriptor.Name,
-                    table.KindLabel,
-                ],
+                hasSchemas
+                    ?
+                    [
+                        table.Descriptor.Schema ?? table.Descriptor.Catalog ?? string.Empty,
+                        table.Descriptor.Name,
+                        table.KindLabel,
+                    ]
+                    : [table.Descriptor.Name, table.KindLabel],
                 widths))];
-        ResultSummary = $"{_allTables.Count} objects · {CurrentDatabaseLabel}";
+        // The pager counts what the grid shows: every object, on one page.
+        _totalRows = _allTables.Count;
+        _hasNextPage = false;
+        _tableQuery = _tableQuery with { Offset = 0 };
+        OnPropertyChanged(nameof(TotalRows));
+        OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
+        OnPropertyChanged(nameof(HasPreviousPage));
+        OnPropertyChanged(nameof(HasNextPage));
+        ResultSummary = $"{CountText.OrNone(_allTables.Count, "object", "objects")} · {CurrentDatabaseLabel}";
         _isDatabaseOverview = true;
         OnPropertyChanged(nameof(IsDatabaseOverview));
         OnPropertyChanged(nameof(IsDatabaseObjectsOverview));
@@ -1493,7 +1683,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.OpenDiagram, async cancellationToken =>
         {
             _diagramCancellation?.Cancel();
             _diagramCancellation?.Dispose();
@@ -1545,6 +1735,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         SetDatabases([]);
         SessionInfo = new DatabaseSessionInfo();
         ErrorMessage = null;
+        _connectionFailed = false;
+        PublishConnectionStatus();
         InvalidateHostedSession();
     }
 
@@ -1571,6 +1763,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         InvalidateHostedBinding();
         OnPropertyChanged(nameof(TunnelConnectionId));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         SetConnected(false);
         ClearSelectedObject();
         if (!string.IsNullOrWhiteSpace(ConnectionString))
@@ -1599,7 +1792,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        await RunGuardedAsync(async cancellationToken =>
+        // A new attempt is in flight, not the last one's failure.
+        _connectionFailed = false;
+        await RunGuardedAsync(DatabaseOperation.Connect, async cancellationToken =>
         {
             _latestResolvedRecoveryBinding = null;
             var input = CaptureRecoveryInput();
@@ -1626,6 +1821,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             QueueHostedSessionEnsure(connectionString);
         });
 
+        // An attempt that ended without a session and with an error failed;
+        // the mark says so until the next attempt or a disconnect.
+        _connectionFailed = !IsConnected && HasError;
+        PublishConnectionStatus();
         if (IsConnected)
         {
             BeginSqlLanguageInitialization();
@@ -1800,7 +1999,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             candidate.Operator == filterOperator);
         if (option is null)
         {
-            ErrorMessage = $"{filterOperator} is not available for {cell.Column.Name}.";
+            ErrorMessage = $"{filterOperator} isn't available for {cell.Column.Name}.";
             return;
         }
 
@@ -1808,7 +2007,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             string.Equals(column.Name, cell.Column.Name, StringComparison.Ordinal));
         if (filterColumn is null)
         {
-            ErrorMessage = $"Column '{cell.Column.Name}' is no longer available.";
+            ErrorMessage = $"The column “{cell.Column.Name}” is no longer available.";
             return;
         }
 
@@ -1823,7 +2022,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && filterOperator is not (DatabaseFilterOperator.IsNull
                 or DatabaseFilterOperator.IsNotNull))
         {
-            ErrorMessage = $"{cell.Column.Name} does not contain a valid filter value.";
+            ErrorMessage = $"{cell.Column.Name} doesn't contain a valid filter value.";
             return;
         }
 
@@ -1994,7 +2193,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (!CanMutateRows || ResultColumns.Count == 0)
         {
-            ErrorMessage = ReadOnlyReason ?? "Rows cannot be imported right now.";
+            ErrorMessage = ReadOnlyReason ?? "Rows can't be imported right now. Try again when the current change finishes.";
             return false;
         }
 
@@ -2007,7 +2206,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (exception is InvalidDataException or ArgumentException)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = FailureReason.Refusal(
+                "database.csv.parse.refused",
+                exception,
+                "Asura couldn't read the CSV file. Check that it's comma-separated text with the column names in the first row, then import again.");
             return false;
         }
 
@@ -2025,7 +2227,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (InvalidDataException exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = FailureReason.Refusal(
+                "database.csv.size.refused",
+                exception,
+                "The import is too large to stage at once. Import fewer rows at a time.");
             return false;
         }
 
@@ -2039,13 +2244,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             var header = document.Headers[index];
             if (!columnsByName.TryGetValue(header, out var match))
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' does not exist in this table.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” isn't in this table.";
                 return false;
             }
 
             if (match.column.Descriptor.IsReadOnly || match.column.Descriptor.IsIdentity)
             {
-                ErrorMessage = $"CSV column '{DatabaseGridCsv.DescribeHeader(header)}' is owned by the database and cannot be imported.";
+                ErrorMessage = $"The CSV column “{DatabaseGridCsv.DescribeHeader(header)}” is filled in by the database, so it can't be imported.";
                 return false;
             }
 
@@ -2063,7 +2268,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 var cell = row.Cells[imported.Ordinal];
                 if (!cell.CanSetText)
                 {
-                    ErrorMessage = $"CSV column '{imported.Column.Name}' cannot accept text values.";
+                    ErrorMessage = $"The column “{imported.Column.Name}” can't hold text, so it can't be imported from CSV.";
                     return false;
                 }
 
@@ -2107,6 +2312,10 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         return true;
     }
 
+    /// <summary>
+    /// Stages the deletion of every selected row: one press for one row or
+    /// for a Shift-selected run of them.
+    /// </summary>
     public void DeleteSelectedRow()
     {
         if (!CanDeleteSelectedRow || SelectedRow is not { } row)
@@ -2114,12 +2323,19 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        if (!row.IsNew)
+        var doomed = _selectedRows.Count > 0
+            ? _selectedRows.ToHashSet(ReferenceEqualityComparer.Instance)
+            : [row];
+        doomed.Add(row);
+        foreach (var candidate in ResultRows.Where(doomed.Contains))
         {
-            _deletedRows.Add(row);
+            if (!candidate.IsNew)
+            {
+                _deletedRows.Add(candidate);
+            }
         }
 
-        ResultRows = [.. ResultRows.Where(candidate => !ReferenceEquals(candidate, row))];
+        ResultRows = [.. ResultRows.Where(candidate => !doomed.Contains(candidate))];
         SelectRow(null);
         PublishPendingChanges();
     }
@@ -2223,7 +2439,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.SaveChanges, async cancellationToken =>
         {
             var selectedObject = SelectedObject;
             if (selectedObject is null)
@@ -2252,8 +2468,18 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             }
 
             AcceptCommittedChanges();
-            ResultSummary = $"Saved {result.TotalAffected} change(s).";
-            await ReloadResultsWithinOperationAsync(cancellationToken);
+            ResultSummary = result.TotalAffected == 1
+                ? "Saved 1 change"
+                : $"Saved {result.TotalAffected.ToString("N0", CultureInfo.CurrentCulture)} changes";
+            try
+            {
+                await ReloadResultsWithinOperationAsync(cancellationToken);
+            }
+            catch (Exception exception) when (IsRecoverableDatabaseException(exception))
+            {
+                // The commit stands; only the refresh after it failed.
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.ReloadAfterSave, exception);
+            }
         });
     }
 
@@ -2301,8 +2527,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             && cell.Column.ValueKind == DatabaseValueKind.Text
             && string.Equals(SelectedDriver.Id, "oracle", StringComparison.Ordinal))
         {
-            error = $"Oracle stores empty text as SQL NULL. Column '{cell.Column.Name}' "
-                + "must use explicit SQL NULL or a non-empty value.";
+            error = $"Oracle stores empty text as NULL. Enter a value for “{cell.Column.Name}”, "
+                + "or set it to NULL.";
             return false;
         }
 
@@ -2414,14 +2640,14 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResetSqlLanguageSession();
         if (_sqlLanguageService?.IsAvailable != true || !IsConnected)
         {
-            SqlLanguageStatus = "SQL intelligence worker is not installed.";
+            SqlLanguageStatus = "SQL completion and validation aren't installed with this copy of Asura.";
             return;
         }
 
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         _sqlLanguageLoadCancellation = cancellation;
         var generation = _sqlLanguageLoadGeneration;
-        SqlLanguageStatus = "Loading the database catalog for SQL intelligence…";
+        SqlLanguageStatus = "Loading the database catalog for SQL completion…";
         SqlLanguageInitialization = InitializeSqlLanguageAsync(
             generation,
             cancellation.Token);
@@ -2469,7 +2695,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     ? $"SQL completion and validation know {catalogFacts} from a limited catalog. {catalog.Limitation} {coverageStatus}".TrimEnd()
                     : $"SQL completion and validation know {catalogFacts}. {coverageStatus}".TrimEnd()
                 : SqlLanguageSession?.UnavailableReason
-                    ?? "SQL intelligence worker is unavailable.";
+                    ?? "SQL completion and validation aren't available.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -2481,7 +2707,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 && !cancellationToken.IsCancellationRequested
                 && IsConnected)
             {
-                SqlLanguageStatus = $"SQL intelligence is unavailable: {exception.Message}";
+                SecretSafeDiagnostics.WriteTrace("database.sql-language.catalog.failed", exception);
+                SqlLanguageStatus = "SQL completion and validation aren't available for this connection. Reconnect to try again.";
             }
         }
         finally
@@ -2550,7 +2777,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     private async Task ExecuteQueryAsync(string sql) =>
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.RunStatement, async cancellationToken =>
         {
             var connectionString = await ResolveEffectiveConnectionStringAsync(cancellationToken);
             var canBrowse = IsBrowsableResultQuery(sql);
@@ -2658,7 +2885,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (generation == _tableLoadGeneration)
             {
-                ErrorMessage = exception.Message;
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.LoadRows, exception);
             }
         }
         finally
@@ -2728,7 +2955,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (generation == _tableLoadGeneration)
             {
-                ErrorMessage = exception.Message;
+                ErrorMessage = DatabaseErrorText.Describe(DatabaseOperation.LoadRows, exception);
             }
         }
         finally
@@ -2895,7 +3122,9 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             ClearSelectedObject();
             var elapsed = result.Elapsed.TotalMilliseconds
                 .ToString("0", CultureInfo.InvariantCulture);
-            ResultSummary = $"{result.RowsAffected} row(s) affected · {elapsed} ms";
+            ResultSummary = result.RowsAffected == 1
+                ? $"1 row affected · {elapsed} ms"
+                : $"{result.RowsAffected.ToString("N0", CultureInfo.CurrentCulture)} rows affected · {elapsed} ms";
             return;
         }
 
@@ -2979,8 +3208,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         var elapsedText = result.Elapsed.TotalMilliseconds
             .ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated
-            ? $"First {result.ValueRows.Count} rows (truncated) · {elapsedText} ms"
-            : $"{result.ValueRows.Count} rows · {elapsedText} ms";
+            ? $"First {CountText.Of(result.ValueRows.Count, "row", "rows")} (truncated) · {elapsedText} ms"
+            : $"{CountText.OrNone(result.ValueRows.Count, "row", "rows")} · {elapsedText} ms";
         SelectedMode = DatabaseWorkspaceMode.Data;
         OnPropertyChanged(nameof(SelectedObject));
         OnPropertyChanged(nameof(HasSelectedObject));
@@ -3036,7 +3265,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             Columns = normalizedColumns,
             CanEdit = details.CanEdit && !hasDisplayOnlyKey,
             ReadOnlyReason = disableForDisplayOnlyKey
-                ? "This primary-key value cannot be edited safely."
+                ? "This primary-key value can't be edited safely here. Edit it with SQL instead."
                 : details.ReadOnlyReason,
         };
         var effectiveColumns = result.Columns.Select((column, ordinal) =>
@@ -3127,7 +3356,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ResultRows = rows;
         var elapsed = result.Elapsed.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture);
         ResultSummary = result.Truncated && !page.HasMore
-            ? $"First {valueRows.Count} rows · paging requires a primary key · {elapsed} ms"
+            ? $"First {CountText.Of(valueRows.Count, "row", "rows")} · paging needs a primary key · {elapsed} ms"
             : valueRows.Count == 0
                 ? $"No rows · {elapsed} ms"
                 : $"Rows {page.Offset + 1}–{page.Offset + valueRows.Count} · {elapsed} ms";
@@ -3168,6 +3397,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         PageLimitText = page.Limit.ToString(CultureInfo.InvariantCulture);
         OnPropertyChanged(nameof(TotalRows));
         OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
     }
 
     private static int FindColumnOrdinal(
@@ -3249,6 +3479,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasNextPage));
         OnPropertyChanged(nameof(TotalRows));
         OnPropertyChanged(nameof(TotalRowsText));
+        OnPropertyChanged(nameof(PagePositionText));
         PublishTableCapabilities();
         PublishPendingChanges();
     }
@@ -3274,7 +3505,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
 
         var loaded = false;
-        await RunGuardedAsync(async cancellationToken =>
+        await RunGuardedAsync(DatabaseOperation.OpenValue, async cancellationToken =>
         {
             var memory = GC.GetGCMemoryInfo();
             using var process = Process.GetCurrentProcess();
@@ -3486,7 +3717,13 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         or TimeoutException
         or IOException;
 
-    private async Task RunGuardedAsync(Func<CancellationToken, Task> operation)
+    /// <summary>
+    /// Runs one database operation with the panel busy. A failure shows as a
+    /// sentence about <paramref name="kind"/> with a next step; the
+    /// exception's own text goes to diagnostics, except a reason the database
+    /// server gave (see <see cref="DatabaseErrorText"/>).
+    /// </summary>
+    private async Task RunGuardedAsync(DatabaseOperation kind, Func<CancellationToken, Task> operation)
     {
         if (IsBusy || _lifetime.IsCancellationRequested)
         {
@@ -3505,7 +3742,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception) when (IsRecoverableDatabaseException(exception))
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = DatabaseErrorText.Describe(kind, exception);
         }
         finally
         {
@@ -3537,6 +3774,33 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         ValidateRowWidth(row);
         return BuildClipboardSnapshotAsync((writer, _) => DatabaseGridExport.WriteRowTsv(writer, row), [.. row.Cells]);
+    }
+
+    /// <summary>Several selected rows as tab-separated lines, in page order.</summary>
+    internal Task<(string Text, long Revision)> BuildRowsTsvAsync(IReadOnlyList<DatabaseResultRowViewModel> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        foreach (var row in rows)
+        {
+            ValidateRowWidth(row);
+        }
+
+        var snapshot = rows.ToArray();
+        return BuildClipboardSnapshotAsync(
+            (writer, token) =>
+            {
+                for (var index = 0; index < snapshot.Length; index++)
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (index > 0)
+                    {
+                        writer.Write(Environment.NewLine);
+                    }
+
+                    DatabaseGridExport.WriteRowTsv(writer, snapshot[index]);
+                }
+            },
+            [.. snapshot.SelectMany(row => row.Cells)]);
     }
 
     internal Task<(string Text, long Revision)> BuildColumnValuesAsync(int ordinal)
@@ -3592,7 +3856,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     };
                     if (size > remaining)
                     {
-                        throw new InvalidDataException("Clipboard output exceeds the 16 MiB UTF-8 limit. Export the current page to a file instead.");
+                        throw FailureReason.Readable(new InvalidDataException("The copy is larger than the clipboard can hold. Export the current page to a file instead."));
                     }
                     remaining -= size;
                     values.Add(edit);
@@ -3600,7 +3864,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                 }
                 if (content.Kind is not (DatabaseValueKind.Text or DatabaseValueKind.Json or DatabaseValueKind.Binary))
                 {
-                    throw new InvalidOperationException($"Column '{edit.ColumnName}' uses a value that cannot be represented safely in an INSERT script.");
+                    throw FailureReason.Readable(new InvalidOperationException($"The value in “{edit.ColumnName}” can't be written safely into an INSERT script. Copy the rows another way, such as CSV."));
                 }
                 using var source = content.OpenRead();
                 using var complete = new MemoryStream();
@@ -3611,7 +3875,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
                     token.ThrowIfCancellationRequested();
                     if (count > remaining)
                     {
-                        throw new InvalidDataException("Clipboard output exceeds the 16 MiB UTF-8 limit. Export the current page to a file instead.");
+                        throw FailureReason.Readable(new InvalidDataException("The copy is larger than the clipboard can hold. Export the current page to a file instead."));
                     }
                     remaining -= count;
                     complete.Write(buffer, 0, count);
@@ -3704,7 +3968,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             cancellationToken.ThrowIfCancellationRequested();
             if (Length + buffer.Length > MaximumClipboardUtf8Bytes)
             {
-                throw new InvalidOperationException("This diagram is too large for the clipboard. Save it to a file to retain the complete diagram.");
+                throw FailureReason.Readable(new InvalidOperationException("This diagram is too large for the clipboard. Save it to a file to keep the complete diagram."));
             }
             return base.WriteAsync(buffer, cancellationToken);
         }
@@ -3886,7 +4150,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         ArgumentNullException.ThrowIfNull(destination);
         if (!destination.CanWrite)
         {
-            throw new ArgumentException("The export destination is not writable.", nameof(destination));
+            throw new ArgumentException("The export destination isn't writable.", nameof(destination));
         }
 
         if (IsBusy)
@@ -3980,7 +4244,7 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
         if (row.Cells.Count != ResultColumns.Count)
         {
             throw new ArgumentException(
-                "The row does not match the current result columns.",
+                "The row doesn't match the current result columns.",
                 nameof(row));
         }
     }
@@ -4274,11 +4538,23 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
             ResetSqlLanguageSession();
             ResetDatabaseDiagram();
         }
+        if (value)
+        {
+            _connectionFailed = false;
+        }
+
         OnPropertyChanged(nameof(IsConnected));
         OnPropertyChanged(nameof(StatusText));
-        OnPropertyChanged(nameof(ConnectButtonLabel));
+        OnPropertyChanged(nameof(ConnectionActionLabel));
         OnPropertyChanged(nameof(ConnectionSummary));
+        PublishConnectionStatus();
         RaiseCommandStates();
+    }
+
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
     }
 
     private void ResetDatabaseDiagram()
@@ -4306,6 +4582,8 @@ public sealed class DatabaseRuntimePanelViewModel : RuntimePanelViewModel
     {
         (ConnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
         (DisconnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
+        (ToggleConnectionCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
+        (ReconnectCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
         (RunQueryCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
     }
 }

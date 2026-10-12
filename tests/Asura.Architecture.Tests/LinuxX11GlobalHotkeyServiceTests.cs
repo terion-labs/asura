@@ -43,26 +43,21 @@ public sealed class LinuxX11GlobalHotkeyServiceTests
     }
 
     [Fact]
-    public void Primary_and_escape_registrations_route_events_and_release_transient_capture()
+    public void Primary_registration_routes_events_and_ignores_unowned_ids()
     {
         var loop = new FakeX11HotkeyLoop();
         using var service = new LinuxX11GlobalHotkeyService(loop);
         var primaryPresses = 0;
-        var escapePresses = 0;
         service.Pressed += (_, _) => primaryPresses++;
-        service.EscapePressed += (_, _) => escapePresses++;
 
         Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.Register(PrimaryGesture));
         loop.Emit(1);
         Assert.True(SpinWait.SpinUntil(() => primaryPresses == 1, TimeSpan.FromSeconds(1)));
 
-        Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.BeginEscapeCapture());
+        // Escape is the terminal's. The service registers only the hotkey and
+        // never answers another grab id.
         loop.Emit(2);
-        Assert.True(SpinWait.SpinUntil(() => escapePresses == 1, TimeSpan.FromSeconds(1)));
-
-        service.EndEscapeCapture();
-        loop.Emit(2);
-        Assert.Equal(1, escapePresses);
+        Assert.Equal(1, primaryPresses);
         Assert.Equal(PrimaryGesture, service.RegisteredGesture);
     }
 
@@ -88,30 +83,11 @@ public sealed class LinuxX11GlobalHotkeyServiceTests
         Assert.Equal(expectedStableCode, failure.Error.StableCode);
         if (nativeError == 3)
         {
-            Assert.Contains("X11 error 3", failure.Error.Message, StringComparison.Ordinal);
+            // The native code goes to diagnostics, not the message people read.
+            Assert.Equal(
+                "The window system didn't accept this shortcut. Try again, or choose another one.",
+                failure.Error.Message);
         }
-    }
-
-    [Theory]
-    [InlineData(10, GlobalHotkeyRegistrationErrorCode.Conflict, "escape_capture_conflict")]
-    [InlineData(2, GlobalHotkeyRegistrationErrorCode.InvalidGesture, "escape_capture_invalid")]
-    [InlineData(3, GlobalHotkeyRegistrationErrorCode.NativeFailure, "escape_capture_native_failure")]
-    public void Native_escape_errors_are_mapped_exactly(
-        byte nativeError,
-        GlobalHotkeyRegistrationErrorCode expectedCode,
-        string expectedStableCode)
-    {
-        var loop = new FakeX11HotkeyLoop
-        {
-            NextResult = X11HotkeyNativeResult.Failure(nativeError),
-        };
-        using var service = new LinuxX11GlobalHotkeyService(loop);
-
-        var failure = Assert.IsType<GlobalHotkeyRegistrationResult.Failure>(
-            service.BeginEscapeCapture());
-
-        Assert.Equal(expectedCode, failure.Error.Code);
-        Assert.Equal(expectedStableCode, failure.Error.StableCode);
     }
 
     [Fact]
@@ -120,15 +96,13 @@ public sealed class LinuxX11GlobalHotkeyServiceTests
         var loop = new FakeX11HotkeyLoop();
         var service = new LinuxX11GlobalHotkeyService(loop);
         Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.Register(PrimaryGesture));
-        Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.BeginEscapeCapture());
 
         service.Dispose();
         service.Dispose();
 
-        Assert.Contains(1, loop.Unregistrations);
-        Assert.Contains(2, loop.Unregistrations);
+        Assert.Equal([1], loop.Unregistrations);
         Assert.Equal(1, loop.DisposeCount);
-        Assert.Throws<ObjectDisposedException>(() => service.BeginEscapeCapture());
+        Assert.Throws<ObjectDisposedException>(() => service.Register(PrimaryGesture));
     }
 
     [Fact]

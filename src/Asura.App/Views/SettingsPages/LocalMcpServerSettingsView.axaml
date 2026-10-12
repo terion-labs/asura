@@ -13,7 +13,7 @@
     state sits beside the switch as a chip, and every action lives on the row
     of the thing it acts on, so nothing has to be read twice to be understood.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+  <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <controls:SettingsGroup
         Heading="Use Asura from another agent"
@@ -61,9 +61,13 @@
           Label="Server URL"
           Description="In the agent's MCP settings choose Streamable HTTP and paste this address.">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+          <!-- Dimmed with the rest of the server's controls while the
+               server can't run: an address it isn't listening on is not one
+               to copy. -->
           <TextBox
               FontFamily="{DynamicResource ShellDataFontFamily}"
               IsReadOnly="True"
+              IsEnabled="{Binding CanEdit}"
               Text="{Binding Endpoint}"
               AutomationProperties.Name="Asura MCP server URL" />
           <Button
@@ -73,24 +77,24 @@
               IsEnabled="{Binding CanEdit}"
               ToolTip.Tip="Copy server URL"
               AutomationProperties.Name="Copy Asura MCP server URL">
-            <icons:SymbolIcon Symbol="Copy" FontSize="14" />
+            <icons:SymbolIcon Symbol="Copy" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
         </Grid>
       </controls:SettingRow>
       <controls:SettingRow
           Label="Access token"
-          Description="Sent as an Authorization: Bearer header. Replacing it disconnects every connected agent until it uses the new one.">
+          Description="Sent with each request as a bearer token. Replacing it disconnects every connected agent until it uses the new one.">
         <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <Button
               Classes="SecondaryButton"
               Click="OnCopyTokenClick"
-              Content="Copy token"
+              Content="Copy Token"
               IsEnabled="{Binding CanEdit}"
               AutomationProperties.Name="Copy Asura MCP authentication token" />
           <Button
               Classes="SecondaryButton"
               Click="OnRotateTokenClick"
-              Content="Replace token"
+              Content="Replace Token"
               IsEnabled="{Binding CanEdit}"
               AutomationProperties.Name="Replace Asura MCP authentication token" />
         </StackPanel>

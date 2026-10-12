@@ -36,8 +36,20 @@ public sealed class SecretEditorViewModel : ObservableObject
     public string ReplacementValue
     {
         get => _replacementValue;
-        set => SetProperty(ref _replacementValue, value);
+        set
+        {
+            if (SetProperty(ref _replacementValue, value))
+            {
+                OnPropertyChanged(nameof(CanRotate));
+            }
+        }
     }
+
+    /// <summary>
+    /// Rotate Value has nothing to do until there is a value to rotate to, so
+    /// it stays unavailable until one is typed rather than refusing afterward.
+    /// </summary>
+    public bool CanRotate => !string.IsNullOrEmpty(ReplacementValue);
 
     public SecretEditRequest CreateRelabelRequest() => new(
         SecretEditAction.Relabel,
@@ -48,7 +60,9 @@ public sealed class SecretEditorViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(ReplacementValue))
         {
-            throw new ArgumentException("Enter a replacement credential value before rotating it.");
+            throw InvalidField.Exception(
+                nameof(ReplacementValue),
+                "Enter a replacement value before you rotate the credential.");
         }
 
         var bytes = Encoding.UTF8.GetBytes(ReplacementValue);
@@ -66,7 +80,7 @@ public sealed class SecretEditorViewModel : ObservableObject
         var label = Label.Trim();
         if (string.IsNullOrWhiteSpace(label))
         {
-            throw new ArgumentException("Credential label is required.");
+            throw InvalidField.Exception(nameof(Label), "Enter a label for the credential.");
         }
 
         return label;

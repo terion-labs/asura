@@ -140,9 +140,9 @@ public sealed partial class PosixLocalFileProvider : LocalFileProvider, IFilePro
             "This account is not allowed to change this item's permissions."),
         PlatformNotSupportedException => FileProviderError.Create(
             FileProviderErrorCode.UnsupportedCapability,
-            "This filesystem does not carry permission bits."),
+            "This file system doesn't keep permissions."),
         _ => FileProviderError.Create(
             FileProviderErrorCode.IoFailure,
-            "The filesystem refused to read or change this item's permissions."),
+            "The file system refused to read or change this item's permissions."),
     };
 }

@@ -334,6 +334,48 @@ public sealed partial class WorkspaceSdkIsolationProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_system_failure_keeps_its_text_and_path_out_of_the_message()
+    {
+        _runner.CommandStarted = (request, _) =>
+        {
+            if (request.Arguments[0] == "prepare")
+            {
+                throw new IOException("Access to the path '/Users/someone/Library/private/rootfs.ext4' is denied.");
+            }
+        };
+        var result = Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(
+            await Provider().PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None));
+
+        // The code's own message lets the app say it in the workspace settings' words.
+        Assert.Equal(WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.PrepareFailed).Message, result.Error.Message);
+        Assert.Equal("workspace_sdk_prepare_failed", result.Error.StableCode);
+        Assert.True(result.Error.Retryable);
+    }
+
+    [Fact]
+    public async Task A_failed_base_tools_install_says_what_to_do_without_the_package_output()
+    {
+        _runner.Respond = request =>
+        {
+            if (request.Arguments[0] == "prepare")
+            {
+                File.WriteAllText(request.Arguments[4], "unpacked image");
+                return new WorkspaceGatewayCommandResult(0, "READY v1");
+            }
+
+            return request.Arguments[0] == "exec"
+                ? new WorkspaceGatewayCommandResult(100, "E: Unable to locate package at /var/lib/apt")
+                : new WorkspaceGatewayCommandResult(0, string.Empty);
+        };
+        var result = Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(
+            await Provider().PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None));
+
+        Assert.StartsWith("Asura couldn't install the workspace's base tools.", result.Error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("/var/lib/apt", result.Error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("100", result.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unmarked_existing_disk_cannot_be_assumed_to_match_requested_image()
     {
         var path = Path.Combine(_directory, "state", AppleContainerWorkspaceIsolationProvider.ResourceName(_workspace));
@@ -408,7 +450,9 @@ public sealed partial class WorkspaceSdkIsolationProviderTests : IDisposable
         };
         var result = Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(
             await Provider().PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None));
-        Assert.Contains("bootstrap host route stopped", result.Error.Message, StringComparison.Ordinal);
+        Assert.StartsWith("The network connection Asura uses to install the workspace's base tools stopped.",
+            result.Error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("exit", result.Error.Message, StringComparison.Ordinal);
         var directory = Path.Combine(_directory, "state", AppleContainerWorkspaceIsolationProvider.ResourceName(_workspace));
         Assert.False(File.Exists(Path.Combine(directory, "rootfs.ext4")));
         Assert.True(File.Exists(Path.Combine(directory, "preparing.ext4")));

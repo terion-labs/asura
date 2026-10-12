@@ -223,7 +223,7 @@ public sealed class DiagnosticsExportViewModelTests
 
         Assert.Equal(DiagnosticsExportStatus.Error, viewModel.Status);
         Assert.DoesNotContain(boundaryMessage, viewModel.StatusMessage);
-        Assert.Contains("No diagnostic details were exposed", viewModel.StatusMessage);
+        Assert.Contains("No diagnostic details were shared", viewModel.StatusMessage);
     }
 
     private static DiagnosticsExportViewModel CreateViewModel(

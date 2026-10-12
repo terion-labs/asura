@@ -499,7 +499,7 @@ public sealed partial class InMemorySessionHostClient
                 new HostError(
                     HostErrorCode.Cancelled,
                     "kubernetes_read_cancelled",
-                    "The governed Kubernetes observation was cancelled."),
+                    "The governed Kubernetes observation was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 new HostError(
                     HostErrorCode.EngineFailed,
@@ -531,7 +531,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 stableCode,
-                "The governed Kubernetes observation was cancelled."),
+                "The governed Kubernetes observation was canceled."),
             revision);
     }
 

@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.McpServerProfileEditorDialog"
     x:DataType="vm:McpServerProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -7,42 +7,43 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
-    Title="MCP server"
     Width="840"
     Height="820"
     MinWidth="700"
     MinHeight="620"
     CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
     Opened="OnOpened">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
-      Subtitle="{Binding ProfileId, StringFormat={}Profile: {0}}"
       FooterHint="Server settings and saved credentials are managed separately.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
         <Button
+            MinWidth="88"
+            Classes="SecondaryButton"
             Click="OnCancelClick"
             Content="Cancel"
             IsCancel="True"
             AutomationProperties.Name="Cancel MCP-server changes" />
+        <!-- Saving opens the trust review first, so the button says so. -->
         <Button
+            MinWidth="88"
             Classes="PrimaryButton"
             Click="OnSaveClick"
-            Content="Review and save"
+            Content="Review and Save…"
             IsDefault="True"
             AutomationProperties.Name="Review and save MCP server" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-          <controls:LabeledField Label="Name">
+          <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
             <TextBox
                 x:Name="McpServerNameInput"
                 Text="{Binding Name}"
@@ -61,7 +62,7 @@
                 <DataTemplate>
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock FontWeight="SemiBold" Text="{Binding Name}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                   </StackPanel>
                 </DataTemplate>
               </ComboBox.ItemTemplate>
@@ -70,33 +71,35 @@
           <StackPanel IsVisible="{Binding IsStdio}" Spacing="{DynamicResource ShellSpaceMd}">
             <controls:LabeledField
                 Label="Executable"
-                Hint="Enter one fully qualified executable path. Asura launches it directly; this field is not a shell command.">
+                Hint="Enter one fully qualified executable path. Asura launches it directly; this field is not a shell command."
+                controls:FieldValidation.For="Executable">
               <TextBox
                   Text="{Binding Executable}"
                   PlaceholderText="/absolute/path/to/server"
                   AutomationProperties.Name="MCP server executable path" />
             </controls:LabeledField>
-            <controls:LabeledField Label="Working directory">
+            <controls:LabeledField Label="Working directory" controls:FieldValidation.For="WorkingDirectory">
               <TextBox
                   Text="{Binding WorkingDirectory}"
-                  PlaceholderText="Optional absolute directory"
+                  PlaceholderText="Optional absolute path"
                   AutomationProperties.Name="MCP server working directory" />
             </controls:LabeledField>
           </StackPanel>
           <StackPanel IsVisible="{Binding IsStreamableHttp}" Spacing="{DynamicResource ShellSpaceMd}">
             <controls:LabeledField
                 Label="Streamable HTTP endpoint"
-                Hint="Use HTTPS. Plaintext HTTP is accepted only for localhost or an exact loopback IP address.">
+                Hint="Use HTTPS. Plaintext HTTP is accepted only for localhost or an exact loopback IP address."
+                controls:FieldValidation.For="Endpoint">
               <TextBox
                   Text="{Binding Endpoint}"
                   PlaceholderText="https://mcp.example.com/mcp"
                   AutomationProperties.Name="MCP Streamable HTTP endpoint" />
             </controls:LabeledField>
           </StackPanel>
-          <controls:ToggleField
-              Label="Enable this server"
-              IsChecked="{Binding IsEnabled}"
-              AutomationProperties.Name="Enable this server" />
+          <CheckBox
+              x:Name="EnabledCheckBox"
+              Content="Enable this server"
+              IsChecked="{Binding IsEnabled}" />
         </StackPanel>
       </controls:SurfaceCard>
 
@@ -104,18 +107,18 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <TextBlock Classes="SectionHeading" Text="Ordered arguments" />
+              <TextBlock Classes="Headline" Text="Ordered arguments" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="Each row is one exact argv value. Rows are never joined into a shell command."
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="Each row is passed to the server as one argument, exactly as written. Rows are never joined into a shell command."
                   TextWrapping="Wrap" />
             </StackPanel>
             <Button
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddArgumentClick"
-                Content="Add argument"
+                Content="Add Argument"
                 AutomationProperties.Name="Add MCP server argument" />
           </Grid>
           <ItemsControl ItemsSource="{Binding Arguments}">
@@ -138,7 +141,7 @@
                       Click="OnMoveArgumentUpClick"
                       ToolTip.Tip="Move argument up"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Move {0} up}">
-                    <icons:SymbolIcon Symbol="ArrowUp" FontSize="13" />
+                    <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="3"
@@ -146,15 +149,15 @@
                       Click="OnMoveArgumentDownClick"
                       ToolTip.Tip="Move argument down"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Move {0} down}">
-                    <icons:SymbolIcon Symbol="ArrowDown" FontSize="13" />
+                    <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <Button
                       Grid.Column="4"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveArgumentClick"
                       ToolTip.Tip="Remove argument"
                       AutomationProperties.Name="{Binding AccessibleName, StringFormat={}Remove {0}}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -167,10 +170,10 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <TextBlock Classes="SectionHeading" Text="Environment bindings" />
+              <TextBlock Classes="Headline" Text="Environment bindings" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Choose an environment variable name and the saved credential it should use."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -178,7 +181,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddEnvironmentBindingClick"
-                Content="Add binding"
+                Content="Add Binding"
                 AutomationProperties.Name="Add MCP environment binding" />
           </Grid>
           <ItemsControl ItemsSource="{Binding Environment}">
@@ -197,11 +200,11 @@
                       AutomationProperties.HelpText="Select a saved credential; do not enter the secret value." />
                   <Button
                       Grid.Column="2"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveEnvironmentBindingClick"
                       ToolTip.Tip="Remove environment binding"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -214,10 +217,10 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <TextBlock Classes="SectionHeading" Text="Secret HTTP headers" />
+              <TextBlock Classes="Headline" Text="Secret HTTP headers" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="Choose an HTTP header name and the saved credential it should use."
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -225,7 +228,7 @@
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddHttpHeaderBindingClick"
-                Content="Add header"
+                Content="Add Header"
                 AutomationProperties.Name="Add MCP HTTP header binding" />
           </Grid>
           <ItemsControl ItemsSource="{Binding HttpHeaders}">
@@ -244,11 +247,11 @@
                       AutomationProperties.HelpText="Select a saved credential; do not enter the HTTP header value." />
                   <Button
                       Grid.Column="2"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveHttpHeaderBindingClick"
                       ToolTip.Tip="Remove HTTP header binding"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -261,18 +264,18 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
           <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-              <TextBlock Classes="SectionHeading" Text="Enabled tools" />
+              <TextBlock Classes="Headline" Text="Enabled tools" />
               <TextBlock
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="Only exact, case-sensitive names in this list can enter a frozen agent-run manifest."
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="The agent is offered only tools named here, spelled exactly and with matching case."
                   TextWrapping="Wrap" />
             </StackPanel>
             <Button
                 Grid.Column="1"
                 Classes="SecondaryButton"
                 Click="OnAddEnabledToolClick"
-                Content="Add tool"
+                Content="Add Tool"
                 AutomationProperties.Name="Add enabled MCP tool" />
           </Grid>
           <ItemsControl ItemsSource="{Binding EnabledTools}">
@@ -285,11 +288,11 @@
                       AutomationProperties.Name="{Binding NameAccessibleName}" />
                   <Button
                       Grid.Column="1"
-                      Classes="IconButton Danger"
+                      Classes="IconButton"
                       Click="OnRemoveEnabledToolClick"
                       ToolTip.Tip="Remove enabled tool"
                       AutomationProperties.Name="{Binding RemoveAccessibleName}">
-                    <icons:SymbolIcon Symbol="Delete" FontSize="13" />
+                    <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </Grid>
               </DataTemplate>
@@ -298,7 +301,6 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <components:ErrorNoticesView x:Name="ValidationError" DataContext="{Binding ErrorNotices}" Focusable="True" AutomationProperties.Name="MCP server validation errors" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

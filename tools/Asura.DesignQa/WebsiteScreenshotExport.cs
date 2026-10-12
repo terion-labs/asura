@@ -169,8 +169,9 @@ internal static class WebsiteScreenshotExport
         "workspace-docker-narrow" or
         "workspace-git-narrow" or
         "settings-appearance-focused" or
-        "settings-appearance-density-compact" or
+        "settings-appearance-density-spacious" or
         "settings-appearance-full" or
+        "settings-appearance-override" or
         "settings-terminal-full" or
         "appearance-corners-tight" or
         "appearance-corners-round" or

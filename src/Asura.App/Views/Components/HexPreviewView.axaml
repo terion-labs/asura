@@ -11,38 +11,52 @@
   <Grid RowDefinitions="*,Auto">
     <!-- A list, not a text view: a dump is thousands of identical rows, and a
          text view has to measure every one before it can show the first. -->
+    <!-- Rows are fixed width, so a narrow preview scrolls sideways rather
+         than cutting a row mid-byte and losing the character column. The
+         trailing inset keeps an overlay scroll bar off the last column. -->
     <ListBox
         x:Name="Rows"
         Classes="Dense"
         ItemsSource="{Binding Rows}"
         SelectionMode="Single"
+        ScrollViewer.HorizontalScrollBarVisibility="Auto"
         AutomationProperties.Name="File bytes">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="previews:HexPreviewRow">
-          <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+          <!-- One size for the whole row: the offset is muted, not smaller,
+               so its digits sit on the bytes' baseline. -->
+          <StackPanel Margin="{controls:Inset Right=Lg}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Offset}" />
             <TextBlock
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Bytes}" />
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Characters}" />
           </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
-    <TextBlock
+    <!-- The footer every File preview listing has: one 28-point band under
+         the rows, its summary at the listing's own inset. -->
+    <Grid
+        x:Name="Footer"
         Grid.Row="1"
-        Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-        Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize9}"
-        Text="{Binding Summary}" />
+        MinHeight="{controls:TextScaled 28}"
+        Margin="{controls:Inset Horizontal=Sm}">
+      <TextBlock
+          VerticalAlignment="Center"
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          Text="{Binding Summary}"
+          TextTrimming="CharacterEllipsis" />
+    </Grid>
   </Grid>
 </UserControl>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Core;
 using FluentIcons.Common;
 
@@ -199,8 +200,8 @@ public sealed class NetworkPolicyEditorViewModel : ObservableObject, IDisposable
     {
         if (!IsValid)
         {
-            throw new InvalidOperationException(
-                "Remove missing connections and choose an available route before saving.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Remove missing connections and choose an available route before saving."));
         }
 
         return new(
@@ -320,8 +321,8 @@ public static class NetworkConnectionPresentation
     public static string Summary(NetworkConnectionConfiguration configuration) => configuration switch
     {
         NetworkConnectionConfiguration.Proxy proxy => proxy.Endpoint.AbsoluteUri,
-        NetworkConnectionConfiguration.WireGuard => "WireGuard configuration from the credential vault",
-        NetworkConnectionConfiguration.OpenVpn => "OpenVPN profile from the credential vault",
+        NetworkConnectionConfiguration.WireGuard => $"WireGuard configuration from {PlatformTerms.SecretStore}",
+        NetworkConnectionConfiguration.OpenVpn => $"OpenVPN profile from {PlatformTerms.SecretStore}",
         NetworkConnectionConfiguration.AnyConnect anyConnect => anyConnect.Gateway.AbsoluteUri,
         NetworkConnectionConfiguration.Tailscale tailscale => $"Exit node {tailscale.ExitNode}",
         _ => throw new ArgumentOutOfRangeException(nameof(configuration)),

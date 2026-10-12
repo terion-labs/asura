@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -39,6 +40,29 @@ public sealed partial class GitRuntimePanelView
         CommitContextMenu.PlacementTarget = CommitHistory.ContainerFromItem(commit) as Control ?? CommitHistory;
     }
 
+    /// <summary>
+    /// Shift+F10 and the Menu key open the commit menu for the current commit
+    /// on every platform, as they do for workspace tiles. Avalonia's own
+    /// gesture is the Menu key alone, which Mac keyboards do not have, so
+    /// this adds the rest and leaves the platform's gestures to it: they open
+    /// the menu on key release, and a second request would close it again.
+    /// </summary>
+    private void OnHistoryKeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Handled || !WorkspaceRailTile.IsContextMenuGesture(e.Key, e.KeyModifiers)
+            || Avalonia.Application.Current?.PlatformSettings?.HotkeyConfiguration.OpenContextMenu
+                .Any(gesture => gesture.Matches(e)) == true)
+        {
+            return;
+        }
+
+        // The request carries no pointer position, so it resolves to the
+        // current commit and the list's menu opens the usual way.
+        e.Handled = true;
+        (e.Source as Control ?? CommitHistory).RaiseEvent(new ContextRequestedEventArgs());
+    }
+
     private void OnHistoryContextMenuOpening(object? sender, CancelEventArgs e)
     {
         if (sender is not ContextMenu menu || ViewModel is not { } viewModel
@@ -49,11 +73,11 @@ public sealed partial class GitRuntimePanelView
         }
 
         menu.DataContext = commit;
-        CommitResetMenu.Header = $"Reset '{viewModel.BranchName}' to here";
-        foreach (var item in menu.Items.OfType<MenuItem>())
-        {
-            item.IsEnabled = item.Tag is "CopySha" || viewModel.CanMutateRepository;
-        }
+
+        // Commands that only look at a commit or copy it out stay available
+        // while another operation runs; those that move a branch or the
+        // checkout wait.
+        PresentMenu(menu.Items, viewModel, commit);
     }
 
     private async void OnHistoryContextAction(object? sender, RoutedEventArgs e)

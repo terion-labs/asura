@@ -125,12 +125,12 @@ public sealed class KubernetesResourceBrowserTests
             _ => ValueTask.FromResult<IKubernetesClientSession>(client));
         await panel.Initialization;
         Assert.Equal("configured", panel.NamespaceSelection);
-        Assert.Contains("All namespaces", panel.NamespaceChoices, StringComparer.Ordinal);
+        Assert.Contains("All Namespaces", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Contains("restricted", panel.NamespaceChoices, StringComparer.Ordinal);
         Assert.Equal(!denied, panel.NamespaceChoices.Contains("discovered", StringComparer.Ordinal));
         Assert.Null(panel.Issue);
-        panel.NamespaceSelection = "All namespaces";
+        panel.NamespaceSelection = "All Namespaces";
         await panel.SelectionLoading;
         Assert.Equal(string.Empty, panel.Namespace);
         Assert.Contains("configured", panel.NamespaceChoices, StringComparer.Ordinal);
@@ -149,7 +149,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.Equal("2/2", row.Ready);
         Assert.Equal("4", row.Restarts);
         Assert.Equal("0.135", row.Cpu);
-        Assert.Equal("160 MiB", row.Memory);
+        Assert.Equal("167.8 MB", row.Memory);
         Assert.Equal("ReplicaSet", row.Owner);
         Assert.Equal("node-a", row.Node);
         Assert.Equal("Burstable", row.Qos);
@@ -189,8 +189,8 @@ public sealed class KubernetesResourceBrowserTests
             [new("api", "team", null, null, "30s", 0.5m, 1024m, 25 * 1024 * 1024 * 1024m, 100 * 1024 * 1024 * 1024m)]);
         Assert.Equal("25%", row.Disk);
         Assert.Equal(25m, row.DiskPercentValue);
-        Assert.Equal("25 GiB / 100 GiB used · Root filesystem (/)", row.DiskDetail);
-        Assert.Equal("0.5", row.Cpu);
+        Assert.Equal("26.8 GB / 107.4 GB used · Root filesystem (/)", row.DiskDetail);
+        Assert.Equal("0.500", row.Cpu);
     }
 
     [Theory]
@@ -205,7 +205,7 @@ public sealed class KubernetesResourceBrowserTests
             [new("api", "team", null, null, "30s", 0.5m, 1024m, used, capacity)]);
         Assert.Equal("N/A", row.Disk);
         Assert.Null(row.DiskPercentValue);
-        Assert.Equal("0.5", row.Cpu);
+        Assert.Equal("0.500", row.Cpu);
     }
 
     [Fact]
@@ -236,7 +236,7 @@ public sealed class KubernetesResourceBrowserTests
         Assert.True(panel.IsInspectorVisible);
         panel.Filter = "does-not-exist";
         Assert.Empty(panel.Rows);
-        Assert.Equal("0 of 1 items", panel.ResourceCountLabel);
+        Assert.Equal("0 of 1 resource", panel.ResourceCountLabel);
     }
 
     private static KubernetesResourceDocument Document(string resource, string kind, string json) =>

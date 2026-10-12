@@ -759,5 +759,20 @@ internal static class SqliteSchema
             """
             ALTER TABLE git_panel_preference ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}';
             """),
+        new(
+            25,
+            "quick-terminal-control-grave-hotkey",
+            """
+            -- Command-Grave cycles an app's windows on macOS, and the Quick
+            -- Terminal registered it as an exclusive global hotkey. Move the
+            -- seeded default to Control-Grave, the new default. Any other
+            -- hotkey was chosen by its owner and stays.
+            UPDATE definitions
+            SET payload_json = json_set(payload_json, '$.hotkey.modifiers', 'Control')
+            WHERE kind = 'quick-terminal-settings'
+                AND id = 'builtin.quick-terminal.default'
+                AND json_extract(payload_json, '$.hotkey.key') = 'GRAVE'
+                AND json_extract(payload_json, '$.hotkey.modifiers') = 'Meta';
+            """),
     ];
 }

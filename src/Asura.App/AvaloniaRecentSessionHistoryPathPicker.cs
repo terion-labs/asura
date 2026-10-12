@@ -3,7 +3,7 @@ using Avalonia.Platform.Storage;
 
 namespace Asura.App;
 
-public sealed class AvaloniaRecentSessionHistoryPathPicker(Window owner)
+public sealed class AvaloniaRecentSessionHistoryPathPicker(Func<Window> owner)
     : IRecentSessionHistoryPathPicker
 {
     private static readonly FilePickerFileType HistoryFileType = new(
@@ -14,7 +14,9 @@ public sealed class AvaloniaRecentSessionHistoryPathPicker(Window owner)
         AppleUniformTypeIdentifiers = ["public.json"],
     };
 
-    private readonly Window _owner = owner ?? throw new ArgumentNullException(nameof(owner));
+    // Asked when the picker opens: the dialog attaches to the window the
+    // request came from, which may be Settings rather than the main window.
+    private readonly Func<Window> _owner = owner ?? throw new ArgumentNullException(nameof(owner));
 
     public async ValueTask<string?> PickExportPathAsync(
         string suggestedFileName,
@@ -28,9 +30,9 @@ public sealed class AvaloniaRecentSessionHistoryPathPicker(Window owner)
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var selected = await _owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        var selected = await _owner().StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = $"Export {recordCount:N0} metadata-only history records",
+            Title = recordCount == 1 ? "Export Session History (1 Session)" : $"Export Session History ({recordCount:N0} Sessions)",
             SuggestedFileName = suggestedFileName,
             DefaultExtension = "json",
             FileTypeChoices = [HistoryFileType],

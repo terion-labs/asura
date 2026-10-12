@@ -597,7 +597,7 @@ internal sealed class BundledWorkspacePacketGatewayBackend : IHostWorkspacePacke
             return Fail(
                 NetworkConnectionErrorCode.Cancelled,
                 "workspace_packet_gateway_start_cancelled",
-                "Starting the workspace packet route was cancelled.",
+                "Starting the workspace packet route was canceled.",
                 retryable: false);
         }
         catch (FileNotFoundException exception)
@@ -616,7 +616,7 @@ internal sealed class BundledWorkspacePacketGatewayBackend : IHostWorkspacePacke
             return Fail(
                 NetworkConnectionErrorCode.ConnectionFailed,
                 "workspace_packet_gateway_helper_failed",
-                $"The workspace packet route could not be started. {exception.Message}"
+                "The workspace network route couldn't start. Restart the workspace, then try again."
                 + (string.IsNullOrWhiteSpace(guestDiagnostic)
                     ? string.Empty
                     : $" Guest router: {guestDiagnostic}"),

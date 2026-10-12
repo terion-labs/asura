@@ -1226,7 +1226,7 @@ public sealed partial class InMemorySessionHostClient
             new HostError(
                 HostErrorCode.Cancelled,
                 completion.StableCode ?? "operation_cancelled",
-                "The governed terminal action was cancelled."),
+                "The governed terminal action was canceled."),
             revision);
     }
 
@@ -1367,7 +1367,7 @@ public sealed partial class InMemorySessionHostClient
                 or AgentAuthorizationErrorCode.RunCancelled =>
                 HostError.Create(
                     HostErrorCode.Cancelled,
-                    "The terminal-agent action was cancelled."),
+                    "The terminal-agent action was canceled."),
             AgentAuthorizationErrorCode.AuditUnavailable =>
                 HostError.Create(
                     HostErrorCode.EngineFailed,

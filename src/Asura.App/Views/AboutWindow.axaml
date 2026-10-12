@@ -1,0 +1,23 @@
+<Window
+    x:Class="Asura.App.Views.AboutWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:components="using:Asura.App.Views.Components"
+    Title="About Asura"
+    Width="400"
+    SizeToContent="Height"
+    CanResize="False"
+    CanMinimize="False"
+    CanMaximize="False"
+    WindowStartupLocation="CenterScreen">
+  <!--
+    The About window: the shared About content at its own height, the way the
+    standard About panel is sized to what it says. Nothing scrolls.
+  -->
+  <Border Background="{DynamicResource ShellBackgroundBrush}">
+    <components:AboutAsuraView Margin="{controls:Inset Horizontal=Xl, Vertical=Xl}" />
+  </Border>
+</Window>

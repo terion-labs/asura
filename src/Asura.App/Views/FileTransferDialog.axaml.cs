@@ -6,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class FileTransferDialog : Window
+public sealed partial class FileTransferDialog : DialogWindow
 {
     public FileTransferDialog()
     {
@@ -39,7 +39,7 @@ public sealed partial class FileTransferDialog : Window
         }
         catch (ArgumentException exception)
         {
-            ViewModel.ErrorNotices.Report(exception.Message);
+            ViewModel.ErrorNotices.Report(FileLocationPresentation.DescribeLocationRefusal(exception));
         }
     }
 }

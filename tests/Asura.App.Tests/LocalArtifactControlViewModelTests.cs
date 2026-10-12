@@ -29,7 +29,26 @@ public sealed class LocalArtifactControlViewModelTests
         Assert.Equal("2.0 MiB", logs.SizeLabel);
         Assert.True(viewModel.CanClearItems);
         Assert.False(viewModel.HasError);
-        Assert.Contains("3 files", viewModel.StatusMessage, StringComparison.Ordinal);
+        Assert.Equal("3 files take up 2.0 MiB in all.", viewModel.StatusMessage);
+    }
+
+    /// <summary>
+    /// The summary's verb agrees with its count: one inactive log once read
+    /// "1 file use 0 B."
+    /// </summary>
+    [Fact]
+    public async Task OneFileSummaryIsGrammatical()
+    {
+        var source = new RecordingLocalArtifactControl();
+        source.InspectResults.Enqueue(Success(Inventory(
+            new(LocalArtifactKind.Cache, 0, 0),
+            new(LocalArtifactKind.InactiveApplicationLogs, 1, 0))));
+        using var viewModel = new LocalArtifactControlViewModel(source);
+
+        viewModel.Start();
+        await viewModel.Initialization;
+
+        Assert.Equal("1 file takes up 0 B in all.", viewModel.StatusMessage);
     }
 
     [Fact]
@@ -109,10 +128,12 @@ public sealed class LocalArtifactControlViewModelTests
         var remaining = Assert.Single(viewModel.Items);
         Assert.Equal("Inactive application logs", remaining.Title);
         Assert.StartsWith("Cleared 1 file (64 B).", viewModel.StatusMessage);
-        Assert.Contains(
+        // The error code goes to no one; the message says what to do.
+        Assert.DoesNotContain(
             nameof(LocalArtifactControlErrorCode.Unavailable),
             viewModel.StatusMessage,
             StringComparison.Ordinal);
+        Assert.Contains("Refresh to try again.", viewModel.StatusMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -160,7 +181,7 @@ public sealed class LocalArtifactControlViewModelTests
         Assert.True(viewModel.HasError);
         Assert.Empty(viewModel.Items);
         Assert.False(viewModel.CanClearItems);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(LocalArtifactControlErrorCode.UnsafeLayout),
             viewModel.StatusMessage,
             StringComparison.Ordinal);

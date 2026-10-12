@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "dev": "./.dotnet/dotnet run --project src/Asura.Desktop/Asura.Desktop.csproj"
+  }
+}

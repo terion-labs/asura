@@ -15,20 +15,42 @@ public sealed class EnumDisplayConverterTests
             CultureInfo.InvariantCulture)
         ?? string.Empty;
 
+    /// <summary>
+    /// The converter writes a pop-up button's items, which are menu items and
+    /// so title case, the same as the profile names listed beside them.
+    /// </summary>
     [Theory]
-    [InlineData(TerminalLinkPolicy.ConfirmBeforeOpen, "Confirm before open")]
+    [InlineData(TerminalLinkPolicy.ConfirmBeforeOpen, "Confirm Before Open")]
     [InlineData(TerminalCursorStyle.Block, "Block")]
     [InlineData(TerminalShellIntegrationMode.Detect, "Detect")]
     [InlineData(TerminalBellMode.Visual, "Visual")]
-    public void Enum_names_read_as_prose(object value, string expected) =>
+    [InlineData(TerminalBellMode.SystemAndVisual, "System and Visual")]
+    [InlineData(FailedSequenceBehavior.DiscardAndShowHint, "Discard and Show Hint")]
+    public void Enum_names_read_as_title_case_menu_items(object value, string expected) =>
         Assert.Equal(expected, Convert(value));
 
     [Theory]
     [InlineData(AiProviderKind.OpenAi, "OpenAI")]
-    [InlineData(AiProviderKind.OpenAiCompatible, "OpenAI-compatible")]
+    [InlineData(AiProviderKind.OpenAiCompatible, "OpenAI-Compatible")]
+    [InlineData(TerminalCompatibilityProfile.Xterm256Color, "xterm-256color")]
     [InlineData(AiProviderKind.Anthropic, "Anthropic")]
-    public void Vendor_names_keep_their_own_spelling(AiProviderKind value, string expected) =>
+    [InlineData(AiProviderKind.GitHubCopilot, "GitHub Copilot")]
+    [InlineData(AiProviderKind.XAi, "xAI")]
+    [InlineData(AiProviderKind.DeepSeek, "DeepSeek")]
+    public void Vendor_names_keep_their_own_spelling(object value, string expected) =>
         Assert.Equal(expected, Convert(value));
+
+    /// <summary>
+    /// Split on their capitals these read "Git hub", "Git lab" and "Open ai
+    /// responses".
+    /// </summary>
+    [Fact]
+    public void Hosting_and_protocol_names_keep_their_own_spelling()
+    {
+        Assert.Equal("GitHub", Convert(Asura.Git.GitHostingProvider.GitHub));
+        Assert.Equal("GitLab", Convert(Asura.Git.GitHostingProvider.GitLab));
+        Assert.Equal("OpenAI Responses API", Convert(AiProviderProtocol.OpenAiResponses));
+    }
 
     [Fact]
     public void Non_enum_values_pass_through_unchanged() =>
@@ -53,40 +75,52 @@ public sealed class EnumDisplayConverterTests
 
 public sealed class KeySequenceDisplayTests
 {
-    [Theory]
-    [InlineData("ARROWLEFT", "←")]
-    [InlineData("ARROWRIGHT", "→")]
-    [InlineData("PAGEUP", "Page Up")]
-    [InlineData("ESCAPE", "Esc")]
-    [InlineData("X", "X")]
-    [InlineData("F12", "F12")]
-    public void Stored_key_names_render_for_people(string key, string expected) =>
-        Assert.Equal(expected, KeySequenceDisplay.Format(new KeyStroke(key)));
-
+    /// <summary>
+    /// Every surface that shows a shortcut writes it the way this host does;
+    /// the notation itself is <see cref="ShortcutText"/>'s and tested there.
+    /// </summary>
     [Fact]
-    public void Modifiers_precede_the_key()
+    public void Shortcuts_are_written_in_the_host_notation()
     {
-        var stroke = new KeyStroke("B", KeyModifiers.Control);
-        Assert.Equal("Ctrl+B", KeySequenceDisplay.Format(stroke));
-    }
-
-    [Fact]
-    public void A_sequence_separates_its_strokes()
-    {
-        var sequence = new KeySequence(
-        [
+        var sequence = KeySequence.Of(
             new KeyStroke("B", KeyModifiers.Control),
-            new KeyStroke("ARROWLEFT"),
-        ]);
+            new KeyStroke("ARROWLEFT"));
 
-        Assert.Equal("Ctrl+B, ←", KeySequenceDisplay.Format(sequence));
+        Assert.Equal(
+            ShortcutText.Format(sequence, HostPlatform.Current),
+            KeySequenceDisplay.Format(sequence));
+        Assert.Equal(
+            HostPlatform.Current == HostOperatingSystem.MacOS ? "⌃B ←" : "Ctrl+B, ←",
+            KeySequenceDisplay.Format(sequence));
     }
 
     [Fact]
-    public void Formatting_never_changes_the_stored_comparison_form()
+    public void Tooltips_name_the_shortcut_after_the_label()
     {
-        var stroke = new KeyStroke("arrowleft");
-        Assert.Equal("ARROWLEFT", stroke.Key);
-        Assert.Equal("←", KeySequenceDisplay.Format(stroke));
+        var stroke = new KeyStroke("W", KeyModifiers.Meta);
+
+        Assert.Equal(
+            $"Close tab ({ShortcutText.Format(stroke, HostPlatform.Current)})",
+            KeySequenceDisplay.WithShortcut("Close tab", stroke));
+        Assert.Equal("Close tab", KeySequenceDisplay.WithShortcut("Close tab", null));
+    }
+
+    [Fact]
+    public void Toolbar_tooltips_name_their_menu_shortcut_on_a_mac()
+    {
+        if (HostPlatform.Current == HostOperatingSystem.MacOS)
+        {
+            Assert.Equal("Close tab (⌘W)", ShortcutTips.Current.CloseTab);
+            Assert.Equal("New tab (⌥⌘T)", ShortcutTips.Current.NewTab);
+            Assert.Equal("Show or hide the agent panel (⌃⌘A)", ShortcutTips.Current.ToggleAgentPanel);
+            Assert.Equal("Add panel (⇧⌘D)", ShortcutTips.Current.AddPanel);
+            Assert.Equal("Settings (⌘,)", ShortcutTips.Current.Settings);
+        }
+        else
+        {
+            Assert.Equal("Close tab", ShortcutTips.Current.CloseTab);
+            Assert.Equal("New tab", ShortcutTips.Current.NewTab);
+            Assert.Equal("Settings", ShortcutTips.Current.Settings);
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -59,7 +60,8 @@ public sealed class AiProviderSettingsViewModel : ObservableObject, IDisposable
     {
         ThrowIfDisposed();
         var runtime = _runtime
-            ?? throw new InvalidOperationException("The AI-provider runtime is unavailable.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "AI providers aren’t available in this version of Asura."));
         var secrets = _secretMetadata();
         if (profileId is null)
         {
@@ -73,8 +75,8 @@ public sealed class AiProviderSettingsViewModel : ObservableObject, IDisposable
 
         var stored = _catalog.Snapshot.AiProviderProfiles
             .SingleOrDefault(item => item.Value.Id == profileId.Value)
-            ?? throw new InvalidOperationException(
-                "That AI-provider profile no longer exists.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "That AI provider no longer exists."));
         return new AiProviderProfileEditorViewModel(
             runtime,
             secrets,
@@ -189,7 +191,7 @@ public sealed class AiProviderSettingsViewModel : ObservableObject, IDisposable
             error?.Message
                 ?? warning?.Message
                 ?? (needsCredential
-                    ? "Store the API key in the system keychain before testing."
+                    ? $"Store the API key in {PlatformTerms.SecretStore} before testing."
                     : item.Value.IsEnabled
                         ? "Ready."
                         : "This provider is disabled."),
@@ -226,8 +228,8 @@ public sealed class AiProviderSettingsViewModel : ObservableObject, IDisposable
             }
         }
 
-        throw new InvalidOperationException(
-            "Every available AI-provider display position is already in use.");
+        throw FailureReason.Readable(new InvalidOperationException(
+            "Asura can’t add more AI providers. Delete one you don’t use, then add the new one."));
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);

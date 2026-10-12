@@ -46,6 +46,11 @@ public sealed class StateOverlayTests
         }
     }
 
+    /// <summary>The state label is read aloud and shown, so it is US English.</summary>
+    [Fact]
+    public void A_canceled_state_is_labeled_in_us_spelling() =>
+        Assert.Equal("Canceled", StateOverlayPresentation.For(StateOverlayKind.Cancelled).StateLabel);
+
     [Fact]
     public void A_screen_can_override_the_glyph_without_changing_state_semantics()
     {

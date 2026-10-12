@@ -36,7 +36,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
     public string Endpoint => $"http://127.0.0.1:{_state.Port.ToString(CultureInfo.InvariantCulture)}/mcp";
 
     public string Status => _control is null
-        ? "The MCP server is unavailable in this host."
+        ? "The MCP server isn’t available."
         : _isBusy ? "Applying MCP settings…"
         : _state.Error ?? (_state.IsRunning ? "Running · accepts connections on this computer" : "Off");
 
@@ -49,7 +49,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
 
     /// <summary>The sentence under the switch: what the state means, or what went wrong.</summary>
     public string StatusDetail => _control is null
-        ? "The MCP server is unavailable in this host."
+        ? "The MCP server isn’t available."
         : _isBusy ? "Applying the settings…"
         : _state.Error ?? (_state.IsRunning
             ? "Accepting connections from agents on this computer."
@@ -165,7 +165,7 @@ public sealed class LocalMcpServerSettingsViewModel : ObservableObject, IDisposa
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
             or InvalidOperationException)
         {
-            Message = "The operation could not be completed. Try again.";
+            Message = "Asura couldn't finish that. Try again.";
             ReportError(Message);
         }
         finally

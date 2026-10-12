@@ -18,6 +18,7 @@ public sealed partial class BrowserSurface :
     IBrowserNewTabRequestSource,
     IBrowserProductEventSource,
     IBrowserFindController,
+    IBrowserEditCommandTarget,
     IBrowserElementReferenceRegistry,
     IBrowserPhysicalInputBarrier,
     IDisposable
@@ -270,6 +271,20 @@ public sealed partial class BrowserSurface :
         return _nativeView.OpenDeveloperTools();
     }
 
+    /// <summary>
+    /// An Edit menu command is the user's keyboard input arriving by another
+    /// route, so it passes through the same physical-input gate as a key press.
+    /// </summary>
+    public bool ExecuteEditCommand(BrowserEditCommand command)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var kind = command == BrowserEditCommand.Paste
+            ? NativeRendererPhysicalInputKind.Paste
+            : NativeRendererPhysicalInputKind.KeyDown;
+        return AdmitPhysicalInput(kind)
+            && _nativeView.ExecuteEditCommand(command);
+    }
+
     public bool StartFind(string searchText)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -286,6 +301,38 @@ public sealed partial class BrowserSurface :
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return _nativeView.StopFind();
+    }
+
+    /// <summary>
+    /// The page's selected text for Use Selection for Find, or null when
+    /// nothing is selected or the page can't be read.
+    /// </summary>
+    public async Task<string?> ReadSelectedTextAsync()
+    {
+        if (_disposed)
+        {
+            return null;
+        }
+
+        var result = await _nativeView.ReadSelectedTextAsync().ConfigureAwait(true);
+        if (result.Status != NativeBrowserAutomationStatus.Acknowledged
+            || result.ResultJson is not { } json)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.String
+                && document.RootElement.GetString() is { Length: > 0 } text
+                    ? text
+                    : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     public void Dispose()
@@ -398,28 +445,35 @@ public sealed partial class BrowserSurface :
         RoutedEventArgs args,
         NativeRendererPhysicalInputKind kind)
     {
+        if (!AdmitPhysicalInput(kind))
+        {
+            args.Handled = true;
+        }
+    }
+
+    private bool AdmitPhysicalInput(NativeRendererPhysicalInputKind kind)
+    {
         var gate = Volatile.Read(ref _physicalInputGate);
         if (gate is null)
         {
-            args.Handled = true;
-            return;
+            return false;
         }
 
         try
         {
             if (!gate(new NativeRendererPhysicalInput(kind)))
             {
-                args.Handled = true;
-                return;
+                return false;
             }
 
             AdvanceInputEpoch();
+            return true;
         }
         catch
         {
             // A renderer callback is a security boundary. Input cannot reach
             // CEF if the authoritative session gate is unavailable.
-            args.Handled = true;
+            return false;
         }
     }
 
@@ -3773,13 +3827,13 @@ public sealed partial class BrowserSurface :
         BrowserResult<T>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser wait observation was cancelled."));
+                "The browser wait observation was canceled."));
 
     private static BrowserResult<BrowserSessionState> Cancelled() =>
         BrowserResult<BrowserSessionState>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser operation was cancelled."));
+                "The browser operation was canceled."));
 
     private static BrowserResult<BrowserSessionState> RendererUnavailable(
         string message) =>
@@ -3818,7 +3872,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserDocumentSnapshot>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser snapshot was cancelled."));
+                "The browser snapshot was canceled."));
 
     private static BrowserError SnapshotRendererUnavailable() =>
         BrowserError.Create(
@@ -3842,7 +3896,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserClickReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element activation was cancelled before dispatch."));
+                "The browser element activation was canceled before dispatch."));
 
     private static BrowserError InteractionRendererUnavailable() =>
         BrowserError.Create(
@@ -3925,7 +3979,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserFillReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element fill was cancelled before dispatch."));
+                "The browser element fill was canceled before dispatch."));
 
     private static BrowserError FillRendererUnavailable() =>
         BrowserError.Create(
@@ -3944,7 +3998,7 @@ public sealed partial class BrowserSurface :
         BrowserResult<BrowserCheckReceipt>.Failure(
             BrowserError.Create(
                 BrowserErrorCode.Cancelled,
-                "The browser element check was cancelled before dispatch."));
+                "The browser element check was canceled before dispatch."));
 
     private static BrowserError CheckRendererUnavailable() =>
         BrowserError.Create(

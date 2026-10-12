@@ -6,80 +6,91 @@
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
+    xmlns:overlays="using:Asura.App.Views.Overlays"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
+  <UserControl.Styles>
+    <!-- Typing keeps focus in the search field, and Return opens the
+         selected row, so the list is the one being worked in whenever the
+         palette has focus: its selection wears the accent, as Spotlight's
+         does, rather than the gray of a list in the background. -->
+    <Style Selector="controls|SurfaceCard:focus-within ListBox.CommandPaletteResults ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="controls|SurfaceCard:focus-within ListBox.CommandPaletteResults ListBoxItem:selected TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+    <Style Selector="controls|SurfaceCard:focus-within ListBox.CommandPaletteResults ListBoxItem:selected icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+  <!-- 680 wide where there is room; the code-behind caps it at the window's
+       width less its margins, so a window tiled to half a laptop screen
+       still shows the whole palette. -->
   <controls:SurfaceCard Elevation="Overlay" Padding="0"
-      Width="680"
+      x:Name="PaletteCard"
       MaxHeight="700"
       HorizontalAlignment="Center"
       VerticalAlignment="Center"
       KeyboardNavigation.TabNavigation="Cycle">
     <Grid RowDefinitions="58,*,44">
-      <Grid Margin="{controls:Inset Horizontal=Lg}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <icons:SymbolIcon VerticalAlignment="Center" Symbol="Search" FontSize="17" />
-        <TextBox
+      <!-- The host's search field: its own magnifier, a clear button once
+           there is text, and Escape that clears before it closes. -->
+      <Grid Margin="{controls:Inset Horizontal=Lg}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <controls:SearchField
             x:Name="CommandSearchBox"
-            Grid.Column="1"
             VerticalAlignment="Center"
             VerticalContentAlignment="Center"
-            BorderThickness="0"
-            Background="Transparent"
             KeyDown="OnSearchKeyDown"
-            PlaceholderText="Search connections, screens, workspaces, sessions, or commands…"
+            PlaceholderText="Search commands, connections, screens, workspaces, and sessions"
             AutomationProperties.Name="Search commands and launch targets"
             Text="{Binding LauncherSearchQuery}" />
-        <Button Grid.Column="2" Padding="0" MinHeight="0" Background="Transparent" BorderThickness="0" VerticalAlignment="Center" Click="OnCloseClick" AutomationProperties.Name="Close command palette">
+        <Button Grid.Column="1" Padding="0" MinHeight="0" Background="Transparent" BorderThickness="0" VerticalAlignment="Center" Click="OnCloseClick" AutomationProperties.Name="Close command palette">
           <Border Classes="Keycap">
-            <TextBlock Text="Esc" />
+            <TextBlock Text="{x:Static overlays:CommandPaletteView.CloseKeyText}" />
           </Border>
         </Button>
       </Grid>
+      <!-- Rows are list items, not buttons: Return or a click opens the
+           selected one, and the list draws its selection the way every list
+           does. A row says what it is, where it belongs and its shortcut;
+           command identifiers stay out of sight. -->
       <ListBox
           x:Name="LauncherSearchResultList"
           Grid.Row="1"
           Background="Transparent"
           BorderThickness="0"
+          Classes="CommandPaletteResults"
           AutomationProperties.Name="Commands and launch targets"
           ItemsSource="{Binding LauncherSearchResults}"
           SelectedItem="{Binding SelectedLauncherSearchResult, Mode=TwoWay}">
         <ListBox.Styles>
           <Style Selector="ListBoxItem" x:DataType="vm:LauncherSearchResultViewModel">
             <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
-          </Style>
-          <!--
-            The row is a button inside a list item and both light up on hover,
-            one inset inside the other, which reads as a doubled rectangle
-            rather than a highlighted row. The item owns the highlight: it is
-            the full width of the row, and the button is what is clicked.
-          -->
-          <Style Selector="ListBoxItem > Button:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="{DynamicResource ShellInsetNone}" />
           </Style>
         </ListBox.Styles>
         <ListBox.ItemTemplate>
-          <DataTemplate>
-            <Button
-                Padding="{controls:Inset Sm}"
-                Background="Transparent"
-                BorderThickness="0"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Stretch"
-                Click="OnActivateSearchResultClick"
-                IsEnabled="{Binding IsAvailable}">
-              <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <Border Width="34" Height="34" VerticalAlignment="Center" Classes="IconTile">
-                  <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="14" />
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Classes="SectionHeading" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Group}" />
-                  <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayDetail}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-                <Border Grid.Column="2" Classes="Keycap" VerticalAlignment="Center" IsVisible="{Binding HasTrailingText}">
-                  <TextBlock Text="{Binding TrailingText}" />
-                </Border>
-              </Grid>
-            </Button>
+          <DataTemplate x:DataType="vm:LauncherSearchResultViewModel">
+            <!-- The whole row answers a click, padding included. -->
+            <Border Padding="{controls:Inset Sm}" Background="Transparent" Tapped="OnActivateSearchResultTapped">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+              <Border Width="34" Height="34" VerticalAlignment="Center" Classes="IconTile">
+                <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Border>
+              <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                <TextBlock Classes="MiddleTruncated" FontWeight="SemiBold" Text="{Binding Title}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <TextBlock
+                  Grid.Column="2"
+                  VerticalAlignment="Center"
+                  Classes="Muted Shortcut"
+                  Text="{Binding TrailingText}"
+                  IsVisible="{Binding HasTrailingText}" />
+            </Grid>
+            </Border>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
@@ -92,14 +103,14 @@
           IsVisible="{Binding HasNoLauncherSearchResults}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Launcher search has no results">
-        <icons:SymbolIcon HorizontalAlignment="Center" Symbol="Search" FontSize="24" />
+        <icons:SymbolIcon HorizontalAlignment="Center" Symbol="Search" FontSize="{controls:TextScaled 24}" />
         <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="No results" />
         <TextBlock MaxWidth="420" HorizontalAlignment="Center" Classes="Muted" TextAlignment="Center" Text="{Binding LauncherSearchEmptyState}" TextWrapping="Wrap" />
       </StackPanel>
       <Border Grid.Row="2" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto">
-          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Unavailable results stay visible but cannot be opened." />
-          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="↑↓ navigate ↵ activate" />
+          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Dimmed results can't be used right now." />
+          <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted Shortcut" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{x:Static overlays:CommandPaletteView.KeyHintText}" />
         </Grid>
       </Border>
     </Grid>

@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -9,7 +11,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
 {
     private readonly KubernetesRowCollection _rows = [];
     private IReadOnlyList<KubernetesNavigationGroup> _navigationGroups = [];
-    private IReadOnlyList<string> _namespaceChoices = ["All namespaces"];
+    private IReadOnlyList<string> _namespaceChoices = ["All Namespaces"];
     private string _labelSelector = string.Empty;
     private string _namespaceFilter = string.Empty;
     private string _navigationFilter = string.Empty;
@@ -42,22 +44,26 @@ public sealed partial class KubernetesRuntimePanelViewModel
         set { if (SetProperty(ref _navigationFilter, value ?? string.Empty)) { ApplyNavigationFilter(); } }
     }
     public bool IsHelmNavigationVisible => HasHelm && (NavigationFilter.Trim() is not { Length: > 0 } filter
-        || "Helm releases".Contains(filter, StringComparison.OrdinalIgnoreCase));
+        || "Helm Releases".Contains(filter, StringComparison.OrdinalIgnoreCase));
     public bool HasNavigationMatches => IsHelmNavigationVisible || NavigationGroups.Any(group => group.HasVisibleItems);
     public bool IsPodTable => SelectedKind is { Group: "", Resource: "pods" };
     public bool IsNodeTable => SelectedKind is { Group: "", Resource: "nodes" };
     public bool IsGenericTable => !IsPodTable && !IsNodeTable;
     public bool IsNamespaceScopeVisible => SelectedKind?.Namespaced == true;
     public string ResourceTitle => SelectedKind is { } kind ? KubernetesResourceNames.Title(kind) : "Resources";
-    public string ResourceCountLabel => Filter.Length > 0 ? $"{Resources.Count} of {_allResources.Count} items" : $"{Resources.Count} items{(HasMore ? "+" : "")}";
+    public string ResourceCountLabel => Filter.Length > 0
+        ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0} of {CountText.Of(_allResources.Count, "resource", "resources")}")
+        : HasMore
+            ? string.Create(CultureInfo.CurrentCulture, $"{Resources.Count:N0}+ resources")
+            : CountText.OrNone(Resources.Count, "resource", "resources");
     public string LabelSelector { get => _labelSelector; set { if (SetProperty(ref _labelSelector, value)) { OnPropertyChanged(nameof(Target)); } } }
     public string NamespaceSelection
     {
-        get => EffectiveNamespace ?? "All namespaces";
+        get => EffectiveNamespace ?? "All Namespaces";
         set
         {
             if (value is null) { return; }
-            var next = value is "All namespaces" ? string.Empty : value.Trim();
+            var next = value is "All Namespaces" ? string.Empty : value.Trim();
             if (string.Equals(next, Namespace, StringComparison.Ordinal) || IsBusy) { return; }
             Namespace = next;
             if (string.Equals(Namespace, next, StringComparison.Ordinal)) { SelectionLoading = RefreshAsync(); }
@@ -141,7 +147,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
             OnPropertyChanged(nameof(ResourceCountLabel));
         }
         finally { _publishingRows = false; }
-        NamespaceChoices = ["All namespaces", .. NamespaceChoices.Where(value => value is not "All namespaces")
+        NamespaceChoices = ["All Namespaces", .. NamespaceChoices.Where(value => value is not "All Namespaces")
             .Concat(_allResources.Select(item => item.Reference.Namespace).OfType<string>())
             .Append(Namespace).Where(value => value.Length > 0).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
     }
@@ -182,8 +188,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
             var page = await _session.ListAsync(new(kind, Limit: 1000), _lifetime.Token);
             if (!_disposed)
             {
-                NamespaceChoices = ["All namespaces", .. page.Items.Select(item => item.Reference.Name)
-                    .Concat(NamespaceChoices.Where(value => value is not "All namespaces")).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+                NamespaceChoices = ["All Namespaces", .. page.Items.Select(item => item.Reference.Name)
+                    .Concat(NamespaceChoices.Where(value => value is not "All Namespaces")).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
             }
         }
         catch (KubernetesRequestException) { /* Keep configured and observed namespaces when namespace-list access is unavailable. */ }
@@ -196,7 +202,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
         { if (HasUnsavedChanges) { Issue = "Apply or discard your manifest edits before navigating."; } return; }
         var kind = Kinds.FirstOrDefault(item => string.Equals(item.Group, reference.Group, StringComparison.Ordinal) && string.Equals(item.Resource, reference.Resource, StringComparison.Ordinal) && string.Equals(item.Version, reference.Version, StringComparison.Ordinal))
             ?? Kinds.FirstOrDefault(item => string.Equals(item.Group, reference.Group, StringComparison.Ordinal) && string.Equals(item.Resource, reference.Resource, StringComparison.Ordinal));
-        if (kind is null) { Issue = "This resource API is not available in the current cluster."; return; }
+        if (kind is null) { Issue = "This resource API isn't available in the current cluster."; return; }
         ClearScope();
         _selectedKind = kind;
         _namespace = reference.Namespace ?? string.Empty;

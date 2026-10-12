@@ -18,6 +18,7 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
     private readonly IUiThreadDispatcher _uiThreadDispatcher;
     private bool _sealed;
     private bool _disposed;
+    private string? _snapshotKey = RuntimeWorkspaceRecoveryCodec.SnapshotKey;
 
     public RuntimeWorkspaceRecoveryCoordinator(
         RuntimeRecoveryWriter? writer,
@@ -41,6 +42,49 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
         _uiThreadDispatcher = uiThreadDispatcher
             ?? throw new ArgumentNullException(nameof(uiThreadDispatcher));
         _writer?.WriteFailed += OnWriteFailed;
+    }
+
+    /// <summary>
+    /// The key this window's snapshots are written under, one per window so a
+    /// second window no longer overwrites the first. Null when the window has
+    /// no recovery slot and is not restored.
+    /// </summary>
+    public string? SnapshotKey => _snapshotKey;
+
+    /// <summary>
+    /// Gives the window its recovery slot, or none. Assigned before the
+    /// window restores or writes anything, so each window reads and writes
+    /// only its own snapshot.
+    /// </summary>
+    public void AssignWindowSlot(int? slot)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _snapshotKey = slot is { } value
+            ? RuntimeWorkspaceRecoveryCodec.SnapshotKeyFor(value)
+            : null;
+    }
+
+    /// <summary>
+    /// The window was closed on its own while Asura goes on running. Its slot
+    /// is emptied, so neither the next window to take the slot nor the next
+    /// launch brings back a workspace that was deliberately closed. Also
+    /// after the window's model is disposed: a quit that a later window
+    /// stops releases the slots of the windows it had already closed.
+    /// </summary>
+    public void ReleaseWindowSlot()
+    {
+        if (_snapshotKey is not { } snapshotKey)
+        {
+            return;
+        }
+
+        _snapshotKey = null;
+        // A writer already sealed for exit refuses this, and that is fine:
+        // the run is ending and nothing else will take the slot.
+        _ = _writer?.Enqueue(
+            snapshotKey,
+            RuntimeWorkspaceRecoveryCodec.SchemaVersion,
+            RuntimeWorkspaceRecoveryCodec.Serialize(null));
     }
 
     public void Track(RuntimeWorkspaceViewModel? workspace)
@@ -104,7 +148,7 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _queueWorkspaceAutoSave();
-        if (_writer is null || _sealed || _isShutdown())
+        if (_writer is null || _snapshotKey is not { } snapshotKey || _sealed || _isShutdown())
         {
             return;
         }
@@ -125,12 +169,12 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
             SecretSafeDiagnostics.WriteTraceAndStandardError(
                 "recovery.snapshot-prepare.failed",
                 exception);
-            _setError($"Runtime recovery state could not be prepared. {exception.Message}");
+            _setError("Asura couldn't save what it needs to reopen your tabs after a restart. Your work is unaffected.");
             return;
         }
 
         var queued = _writer.Enqueue(
-            RuntimeWorkspaceRecoveryCodec.SnapshotKey,
+            snapshotKey,
             RuntimeWorkspaceRecoveryCodec.SchemaVersion,
             payload);
         if (!queued.IsSuccess)

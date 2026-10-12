@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -32,8 +35,13 @@ public sealed record SavedScreenLayoutOption(
 {
     public int SlotCount => Definition?.Slots.Count ?? 0;
 
-    public string DisplayName => IsAvailable && Definition is { } layout
-        ? $"{Name} · {layout.Grid.Columns}×{layout.Grid.Rows} · {SlotCount} panels"
+    /// <summary>
+    /// The layout by its name. Its grid and panel count are read under the
+    /// picker, once, rather than repeated in every row of it — a name such as
+    /// "Split · three panels" already says the count.
+    /// </summary>
+    public string DisplayName => IsAvailable && Definition is not null
+        ? Name
         : $"Missing · {Name}";
 }
 
@@ -133,8 +141,8 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             .OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(candidate => candidate.Id.Value, StringComparer.Ordinal)
             .FirstOrDefault()
-            ?? throw new InvalidOperationException(
-                "Create a layout before creating a saved screen.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "Create a layout before creating a saved screen."));
         var connectionId = connections
             .OrderBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
             .Select(candidate => (ConnectionId?)candidate.Id)
@@ -202,6 +210,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         }
 
         _layoutDrafts[_selectedLayout.Id] = [.. _panels];
+        PlacePanels();
     }
 
     public IReadOnlyList<ScreenKubernetesOption> KubernetesOptions { get; }
@@ -210,9 +219,9 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "Create saved screen" : "Edit saved screen";
+    public string EditorTitle => IsNew ? "New Saved Screen" : "Edit Saved Screen";
 
-    public string PrimaryActionLabel => IsNew ? "Create screen" : "Save screen";
+    public string PrimaryActionLabel => IsNew ? "Create Screen" : "Save Screen";
 
     public bool CanDuplicate => !IsNew;
 
@@ -247,7 +256,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     }
 
     public string LayoutSummary => SelectedLayout.Definition is { } layout
-        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {layout.Slots.Count} panel slots"
+        ? $"{layout.Grid.Columns} × {layout.Grid.Rows} grid · {CountText.Of(layout.Slots.Count, "panel", "panels")}"
         : "The selected layout is no longer available.";
 
     public bool HasMissingLayout => !SelectedLayout.IsAvailable;
@@ -298,7 +307,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
         ? "Unsaved new screen"
         : IsDirty
             ? "Unsaved changes"
-            : "Saved definition";
+            : "Saved";
 
     public int MissingConnectionCount => _panels.Count(panel => panel.HasMissingConnection);
 
@@ -341,7 +350,7 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         DefinitionStoreErrorCode.RevisionConflict => "Revision conflict",
         DefinitionStoreErrorCode.DependencyConflict => "Missing dependency",
-        DefinitionStoreErrorCode.Cancelled => "Save cancelled",
+        DefinitionStoreErrorCode.Cancelled => "Save canceled",
         DefinitionStoreErrorCode.StorageUnavailable => "Storage unavailable",
         DefinitionStoreErrorCode.StorageFailure => "Storage failure",
         null => string.Empty,
@@ -427,25 +436,37 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Saved-screen name is required.");
+            throw InvalidField.Exception(nameof(Name), "Enter a name for the screen.");
         }
 
         if (SelectedLayout.Definition is not { } layout)
         {
-            throw new ArgumentException("Choose an available layout before saving.");
+            throw InvalidField.Exception(nameof(SelectedLayout), "Choose an available layout before saving.");
         }
 
         if (HasInvalidBrowserAddresses)
         {
-            throw new ArgumentException(
-                "Enter a complete HTTP or HTTPS startup address for each browser panel, or leave the address empty.");
+            throw FailureReason.Readable(new ArgumentException(
+                "Enter a complete HTTP or HTTPS startup address for each browser panel, or leave the address empty."));
         }
 
         var missing = _panels.Where(panel => panel.HasMissingDefinition).ToArray();
         if (missing.Length > 0)
         {
-            throw new ArgumentException(
-                $"Repair {missing.Length} missing panel definition{(missing.Length == 1 ? string.Empty : "s")} before saving.");
+            throw FailureReason.Readable(new ArgumentException(MissingSetupMessage(missing)));
+        }
+
+        Asura.Core.AgentPolicy? agentPolicy;
+        try
+        {
+            agentPolicy = AgentPolicy.Build();
+        }
+        catch (ArgumentException exception)
+        {
+            // The policy editor's own refusal names its storage rules.
+            throw FailureReason.Readable(new ArgumentException(
+                "Choose an available AI provider and enter a model for the screen’s agent, or turn the agent off.",
+                exception));
         }
 
         var definition = new ScreenDefinition(
@@ -456,13 +477,13 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             layout.Id,
             [.. _panels.Select(panel => panel.Build())],
             _original.Tags,
-            AgentPolicy.Build());
+            agentPolicy);
         var validation = ScreenValidator.Validate(definition, layout);
         if (!validation.IsValid)
         {
-            throw new ArgumentException(string.Join(
+            throw FailureReason.Readable(new ArgumentException(string.Join(
                 " ",
-                validation.Issues.Select(issue => issue.Message).Distinct(StringComparer.Ordinal)));
+                validation.Issues.Select(issue => issue.Message).Distinct(StringComparer.Ordinal))));
         }
 
         return new SavedScreenEditorSaveRequest(definition, expectedRevision);
@@ -492,14 +513,14 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
             PersistenceError = result.Error ?? new DefinitionStoreError(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The saved screen could not be persisted.");
+                "Asura couldn't save the screen. Try again.");
             return false;
         }
         catch (OperationCanceledException)
         {
             PersistenceError = new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "Saving was cancelled. The draft remains open.");
+                "Saving was canceled. The draft remains open.");
             return false;
         }
         finally
@@ -563,8 +584,41 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
             AddPanel(panel);
         }
 
+        PlacePanels();
         OnPropertyChanged(nameof(Panels));
         OnPropertyChanged(nameof(PreviewPanels));
+    }
+
+    /// <summary>
+    /// Tells each panel where it sits in the selected layout, so its heading
+    /// reads "Terminal · Top left" rather than the slot's stored identifier.
+    /// </summary>
+    private void PlacePanels()
+    {
+        if (SelectedLayout.Definition is not { } layout)
+        {
+            return;
+        }
+
+        var bounds = layout.Slots.ToDictionary(slot => slot.Id, slot => slot.Bounds);
+        var positions = _panels
+            .Select(panel => bounds.TryGetValue(panel.SlotId, out var slot)
+                ? LayoutPosition.Describe(layout.Grid, slot)
+                : null)
+            .ToArray();
+        for (var index = 0; index < _panels.Count; index++)
+        {
+            var position = positions[index];
+            if (position is not null
+                && positions.Count(other => string.Equals(other, position, StringComparison.Ordinal)) > 1)
+            {
+                var ordinal = positions.Take(index + 1)
+                    .Count(other => string.Equals(other, position, StringComparison.Ordinal));
+                position = string.Create(CultureInfo.InvariantCulture, $"{position} {ordinal}");
+            }
+
+            _panels[index].Position = position;
+        }
     }
 
     private void AddPanel(SavedScreenPanelEditorViewModel panel)
@@ -580,7 +634,15 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
     private void OnPanelChanged(object? sender, PropertyChangedEventArgs e)
     {
         _ = sender;
-        _ = e;
+
+        // Where a panel sits is read from the layout, not edited, so placing
+        // it doesn't make the draft dirty.
+        if (e.PropertyName is nameof(SavedScreenPanelEditorViewModel.Position)
+            or nameof(SavedScreenPanelEditorViewModel.PanelLabel))
+        {
+            return;
+        }
+
         Changed();
     }
 
@@ -706,24 +768,49 @@ public sealed class SavedScreenEditorViewModel : ObservableObject, IDisposable
 
         return options.AsReadOnly();
     }
+
+    // Names what each panel is missing, so a Files panel asks for a file
+    // provider rather than a connection.
+    private static string MissingSetupMessage(IReadOnlyList<SavedScreenPanelEditorViewModel> missing)
+    {
+        var choices = string.Join(
+            " or ",
+            missing
+                .Select(panel => panel.HasMissingKubernetes
+                    ? "a Kubernetes connection"
+                    : panel.HasMissingFileProvider
+                        ? "a file provider"
+                        : "a connection")
+                .Distinct(StringComparer.Ordinal));
+        return missing.Count == 1
+            ? $"Choose {choices} for the panel that's missing one, then save again."
+            : string.Create(
+                CultureInfo.CurrentCulture,
+                $"Choose {choices} for each of the {missing.Count:N0} panels that are missing one, then save again.");
+    }
 }
 
 public sealed class SavedScreenPanelEditorViewModel : ObservableObject
 {
     private static readonly IReadOnlyList<ScreenPanelKindOption> SupportedKinds =
     [
-        new(ScreenPanelKind.Terminal, "Terminal"),
-        new(ScreenPanelKind.Browser, "Browser"),
-        new(ScreenPanelKind.FileViewer, "File viewer"),
-        new(ScreenPanelKind.Statistics, "Statistics"),
-        new(ScreenPanelKind.ProcessMonitor, "Process monitor"),
-        new(ScreenPanelKind.DatabaseViewer, "Database"),
-        new(ScreenPanelKind.Docker, "Docker"),
-        new(ScreenPanelKind.Git, "Git"),
-        new(ScreenPanelKind.Kubernetes, "Kubernetes"),
+        KindOption(ScreenPanelKind.Terminal),
+        KindOption(ScreenPanelKind.Browser),
+        KindOption(ScreenPanelKind.FileViewer),
+        KindOption(ScreenPanelKind.Statistics),
+        KindOption(ScreenPanelKind.ProcessMonitor),
+        KindOption(ScreenPanelKind.DatabaseViewer),
+        KindOption(ScreenPanelKind.Docker),
+        KindOption(ScreenPanelKind.Git),
+        KindOption(ScreenPanelKind.Kubernetes),
     ];
 
+    /// <summary>Settings offers each type by the name the launcher and chooser use.</summary>
+    private static ScreenPanelKindOption KindOption(ScreenPanelKind kind) =>
+        new(kind, PanelTypes.Name(kind));
+
     private readonly ScreenPanelDefinition _original;
+    private string? _position;
     private ScreenPanelKindOption _selectedKind;
     private string _title;
     private ScreenConnectionOption? _selectedConnection;
@@ -821,7 +908,26 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
         set => SelectedKind = KindOptions.Single(option => option.Kind == value);
     }
 
-    public string PanelLabel => $"{KindBadges.Panel(Kind)} · {SlotId.Value}";
+    /// <summary>Where the panel sits in the layout, in words; set by the screen editor.</summary>
+    public string? Position
+    {
+        get => _position;
+        internal set
+        {
+            if (SetProperty(ref _position, value))
+            {
+                OnPropertyChanged(nameof(PanelLabel));
+            }
+        }
+    }
+
+    /// <summary>The panel's type and where it sits: "Terminal · Top left".</summary>
+    public string PanelLabel => Position is { } position
+        ? $"{KindBadges.Panel(Kind)} · {position}"
+        : KindBadges.Panel(Kind);
+
+    /// <summary>The panel type's own icon, the one the launcher and chooser show.</summary>
+    public Symbol Icon => PanelTypes.Icon(Kind);
 
     public IReadOnlyList<ScreenConnectionOption> ConnectionOptions { get; }
 
@@ -1026,6 +1132,7 @@ public sealed class SavedScreenPanelEditorViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(Kind));
         OnPropertyChanged(nameof(PanelLabel));
+        OnPropertyChanged(nameof(Icon));
         OnPropertyChanged(nameof(IsTerminal));
         OnPropertyChanged(nameof(IsFileViewer));
         OnPropertyChanged(nameof(IsKubernetes));

@@ -57,7 +57,7 @@ public sealed partial class GitRepositoryClient
         var result = await secretVault.ListMetadataAsync(new(scope, purpose), cancellationToken).ConfigureAwait(false);
         if (result is SecretVaultResult<IReadOnlyList<SecretMetadata>>.Failure)
         {
-            return Failure<IReadOnlyList<GitHostingAccount>>(GitErrorCode.CommandFailed, "Could not read hosting accounts from the credential vault.");
+            return Failure<IReadOnlyList<GitHostingAccount>>(GitErrorCode.CommandFailed, $"Asura couldn't read your hosting accounts from {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.");
         }
 
         var accounts = new List<GitHostingAccount>();
@@ -122,7 +122,7 @@ public sealed partial class GitRepositoryClient
             var material = attempt == 0 && saved is not null ? saved : credentials?.Material;
             if (material is null)
             {
-                return Failure<GitHostedRepositoryPage>(GitErrorCode.Cancelled, "Hosting sign-in was cancelled.");
+                return Failure<GitHostedRepositoryPage>(GitErrorCode.Cancelled, "Hosting sign-in was canceled.");
             }
 
             var buffer = new byte[material.Length];

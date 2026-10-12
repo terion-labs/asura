@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.Core;
 using Avalonia.Threading;
 
 namespace Asura.App.ViewModels;
@@ -16,10 +17,10 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
     public static IReadOnlyList<LockTimeoutOption> LockTimeoutOptions { get; } =
     [
         new("Never", 0),
-        new("After 1 minute", 1),
-        new("After 5 minutes", 5),
-        new("After 15 minutes", 15),
-        new("After 1 hour", 60),
+        new("After 1 Minute", 1),
+        new("After 5 Minutes", 5),
+        new("After 15 Minutes", 15),
+        new("After 1 Hour", 60),
     ];
 
     private readonly IApplicationEncryption? _encryption;
@@ -74,10 +75,10 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
 
     public string EncryptionAvailability => _encryption switch
     {
-        null => "This build has no application-encryption support.",
+        null => "Application encryption isn’t available in this version of Asura.",
         { IsSupported: false } unsupported => unsupported.UnsupportedReason
-            ?? "Application encryption is unavailable.",
-        _ => "Keys live in the OS keystore; nothing key-like is ever written beside the data.",
+            ?? "Application encryption isn’t available in this version of Asura.",
+        _ => $"The encryption keys are kept in {PlatformTerms.SecretStore}, never beside the data.",
     };
 
     public bool IsEncryptionEnabled
@@ -142,7 +143,8 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            StatusDetail = $"Changing application encryption failed: {exception.Message}";
+            SecretSafeDiagnostics.WriteTrace("application-encryption.change.failed", exception);
+            StatusDetail = "Asura couldn't change application encryption. Your data is unchanged. Try again.";
         }
         finally
         {
@@ -222,7 +224,7 @@ public sealed class ApplicationSecurityEditorViewModel : ObservableObject
 
         if (!string.Equals(NewPin, NewPinConfirmation, StringComparison.Ordinal))
         {
-            ProtectionStatus = "The two PIN entries do not match.";
+            ProtectionStatus = "The two PIN entries don't match.";
             return;
         }
 

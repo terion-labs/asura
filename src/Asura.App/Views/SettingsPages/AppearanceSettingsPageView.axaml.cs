@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -18,7 +19,8 @@ internal sealed record AppearanceSelection(
     bool IsTranslucent,
     int BackdropOpacityPercent,
     bool HasGlassPanels,
-    bool OverridesBackdropOpacity);
+    bool OverridesBackdropOpacity,
+    bool HasTranslucentTerminal);
 
 internal sealed record AppearanceTextScaleOption(string DisplayName, double? Scale);
 
@@ -29,6 +31,9 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     public AppearanceSettingsPageView()
     {
         InitializeComponent();
+        // Wired once the page exists: the picker chooses its first segment
+        // as its segments are added, and that is not a change to report.
+        DensityPicker.SelectionChanged += OnDensitySelectionChanged;
     }
 
     /// <summary>
@@ -57,11 +62,11 @@ public sealed partial class AppearanceSettingsPageView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ExportRequested;
 
-    public event EventHandler<RoutedEventArgs>? ResetTerminalPaletteRequested;
-
-    public event EventHandler<RoutedEventArgs>? ApplyTerminalRequested;
-
-    public event EventHandler<RoutedEventArgs>? CancelTerminalRequested;
+    /// <summary>
+    /// Revert: the terminal palette and font go back to what they were when
+    /// the page opened. Every other change here is applied as it is made.
+    /// </summary>
+    public event EventHandler<RoutedEventArgs>? RevertTerminalRequested;
 
     internal void SetValidationStatus(string message, bool isWarning)
     {
@@ -79,14 +84,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     private void OnResetClick(object? sender, RoutedEventArgs e) =>
         ResetRequested?.Invoke(sender, e);
 
-    private void OnResetTerminalPaletteClick(object? sender, RoutedEventArgs e)
-        => ResetTerminalPaletteRequested?.Invoke(sender, e);
-
-    private void OnApplyTerminalClick(object? sender, RoutedEventArgs e) =>
-        ApplyTerminalRequested?.Invoke(sender, e);
-
-    private void OnCancelTerminalClick(object? sender, RoutedEventArgs e) =>
-        CancelTerminalRequested?.Invoke(sender, e);
+    private void OnRevertTerminalClick(object? sender, RoutedEventArgs e) =>
+        RevertTerminalRequested?.Invoke(sender, e);
 
     private void OnImportClick(object? sender, RoutedEventArgs e) =>
         ImportRequested?.Invoke(sender, e);
@@ -128,6 +127,13 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             AppearanceModeSystem.IsChecked = theme.Appearance == AppearanceMode.System;
             AppearanceModeDark.IsChecked = theme.Appearance == AppearanceMode.Dark;
             AppearanceModeLight.IsChecked = theme.Appearance == AppearanceMode.Light;
+            // Opened, never closed, from here: an override stays in view for
+            // the person who made it, and folding it back is theirs to do.
+            if (theme.Appearance != AppearanceMode.System)
+            {
+                AppearanceOverrideExpander.IsExpanded = true;
+            }
+
             PlatformProfilePicker.SelectedItem = theme.PlatformProfile;
             SelectComboBoxItem(
                 AccentModePicker,
@@ -135,8 +141,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
                 theme.Accent.Kind switch
                 {
                     AccentPreferenceKind.Custom => "Custom",
-                    AccentPreferenceKind.AsuraBronze => "Asura bronze",
-                    _ => "Follow host",
+                    AccentPreferenceKind.AsuraBronze => "Asura Orange",
+                    _ => "Follow System",
                 });
 
             ApplicationTextScalePicker.ItemsSource =
@@ -145,7 +151,7 @@ public sealed partial class AppearanceSettingsPageView : UserControl
                     : [.. _appearanceTextScaleOptions, selectedTextScale];
             ApplicationTextScalePicker.SelectedItem = selectedTextScale;
             CustomAccentText.Text = theme.Accent.CustomColor?.ToString()
-                ?? ThemePreference.BronzeFallback.ToString();
+                ?? ThemePreference.BrandAccent.ToString();
             UpdateCustomAccentAvailability();
 
             // A null override means "follow the platform profile"; the slider has no
@@ -153,10 +159,9 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             TranslucencyToggle.IsChecked = theme.IsTranslucent;
             GlassPanelsToggle.IsChecked = theme.HasGlassPanels;
             OverrideOpacityToggle.IsChecked = theme.OverridesBackdropOpacity;
+            TranslucentTerminalToggle.IsChecked = theme.HasTranslucentTerminal;
             BackdropOpacitySlider.Value = theme.BackdropOpacityPercent;
-            DensityCompact.IsChecked = theme.Density == InterfaceDensity.Compact;
-            DensityCozy.IsChecked = theme.Density == InterfaceDensity.Cozy;
-            DensityComfortable.IsChecked = theme.Density == InterfaceDensity.Comfortable;
+            ApplyDensity(theme.Density);
             ShowTabBarSwitch.IsChecked = theme.ShowTabBar;
             ShowWorkspacesPanelSwitch.IsChecked = theme.ShowWorkspacesPanel;
             TabPlacementTop.IsChecked = theme.TabStripPlacement == TabStripPlacement.Top;
@@ -192,8 +197,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         var accent = SelectedText(AccentModePicker, nameof(AccentModePicker)) switch
         {
             "Custom" => AccentPreference.Custom(
-                RgbColor.Parse(CustomAccentText.Text ?? "#B8793A")),
-            "Asura bronze" => AccentPreference.AsuraBronze,
+                RgbColor.Parse(CustomAccentText.Text ?? ThemePreference.BrandAccent.ToString())),
+            "Asura Orange" => AccentPreference.AsuraBronze,
             _ => AccentPreference.FollowHost,
         };
         var textScale =
@@ -217,7 +222,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
             TranslucencyToggle.IsChecked == true,
             (int)Math.Round(BackdropOpacitySlider.Value),
             GlassPanelsToggle.IsChecked == true,
-            OverrideOpacityToggle.IsChecked == true);
+            OverrideOpacityToggle.IsChecked == true,
+            TranslucentTerminalToggle.IsChecked == true);
     }
 
     private TabStripPlacement SelectedTabStripPlacement() =>
@@ -264,37 +270,47 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         OnAppearanceChanged(sender, e);
     }
 
+    /// <summary>The density picker's segments, in order.</summary>
+    private static readonly InterfaceDensity[] DensitySegments =
+    [
+        InterfaceDensity.Compact,
+        InterfaceDensity.Cozy,
+        InterfaceDensity.Comfortable,
+    ];
+
+    /// <summary>
+    /// Shows a density the page did not choose: a stored theme, or a platform
+    /// profile's default. The caller reports the change once itself, so the
+    /// picker's own selection event stays quiet.
+    /// </summary>
     private void ApplyDensity(InterfaceDensity density)
     {
-        DensityCompact.IsChecked = density == InterfaceDensity.Compact;
-        DensityCozy.IsChecked = density == InterfaceDensity.Cozy;
-        DensityComfortable.IsChecked = density == InterfaceDensity.Comfortable;
+        _applyingDensity = true;
+        try
+        {
+            DensityPicker.SelectedIndex = Math.Max(0, Array.IndexOf(DensitySegments, density));
+        }
+        finally
+        {
+            _applyingDensity = false;
+        }
     }
 
     private InterfaceDensity SelectedDensity() =>
-        DensityCompact.IsChecked == true
-            ? InterfaceDensity.Compact
-            : DensityComfortable.IsChecked == true
-                ? InterfaceDensity.Comfortable
-                : InterfaceDensity.Cozy;
+        DensityPicker.SelectedIndex is var index && index >= 0 && index < DensitySegments.Length
+            ? DensitySegments[index]
+            : InterfaceDensity.Cozy;
 
     /// <summary>
-    /// The segmented control is a set of toggle buttons, so selecting one has to
-    /// clear the others; a checked button clicked again stays checked rather than
-    /// leaving the group with no answer.
+    /// A segment chosen by hand. The segments are radio buttons in one
+    /// control, so the choice is always exactly one of them.
     /// </summary>
-    private void OnDensityClick(object? sender, RoutedEventArgs e)
+    private void OnDensitySelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        foreach (var option in new[] { DensityCompact, DensityCozy, DensityComfortable })
+        if (!_applyingDensity)
         {
-            option.IsChecked = ReferenceEquals(option, sender);
+            OnAppearanceChanged(sender, e);
         }
-
-        // The segments deliberately do not wire IsCheckedChanged — this handler
-        // reassigns every segment's checked state and would echo one click as
-        // three change events. It must therefore report the change itself, or
-        // the density picker saves nothing and the setting is a dead control.
-        OnAppearanceChanged(sender, e);
     }
 
     /// <summary>
@@ -302,6 +318,8 @@ public sealed partial class AppearanceSettingsPageView : UserControl
     /// reload is fenced; without it every save would echo back as a fresh change.
     /// </summary>
     private bool _isLoading;
+
+    private bool _applyingDensity;
 
     private void OnAppearanceChanged(object? sender, RoutedEventArgs e)
     {
@@ -312,6 +330,27 @@ public sealed partial class AppearanceSettingsPageView : UserControl
         }
 
         ApplicationAppearanceChanged?.Invoke(sender, e);
+    }
+
+    /// <summary>
+    /// System sits outside the override disclosure and Dark and Light inside
+    /// it, so they no longer share a logical parent and the radio group cannot
+    /// keep them exclusive on its own. Checking one clears the other two.
+    /// </summary>
+    private void OnAppearanceModeChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsChecked: true } checkedMode)
+        {
+            foreach (var mode in new[] { AppearanceModeSystem, AppearanceModeDark, AppearanceModeLight })
+            {
+                if (!ReferenceEquals(mode, checkedMode))
+                {
+                    mode.IsChecked = false;
+                }
+            }
+        }
+
+        OnAppearanceChanged(sender, e);
     }
 
     private void OnTerminalAppearanceChanged(object? sender, RoutedEventArgs e)

@@ -8,6 +8,7 @@ using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -37,8 +38,8 @@ public sealed partial class App : Avalonia.Application
     private readonly AppearancePreviewCoordinator? _appearancePreview;
     private IPlatformSettings? _platformSettings;
     private AvaloniaHostAppearanceAdapter? _hostAppearance;
+    private IHostSystemPaletteSource? _hostSystemPalette;
     private INotifyCollectionChanged? _windowCollection;
-    private DispatcherTimer? _applicationIconRefreshTimer;
     private readonly HashSet<MainWindowViewModel> _additionalMainWindowViewModels = [];
     private bool _desktopExitStarted;
 
@@ -56,17 +57,63 @@ public sealed partial class App : Avalonia.Application
         "high-contrast",
         "motion-disabled",
         "materials-enabled",
+        "differentiate-without-color",
     ];
 
+    /// <summary>
+    /// The text sizes published as ShellFontSizeN. The ramp starts at 10, the
+    /// macOS Caption: 8 and 9 named sizes the host never draws, so they are not
+    /// published and the view guard keeps them out of the markup.
+    /// </summary>
     private static readonly int[] ScalableFontSizes =
     [
-        8, 9, 10, 11, 12, 13, 14,
+        10, 11, 12, 13, 14,
         15, 16, 17, 18, 19, 20, 21,
         22, 23, 24, 25, 26, 27, 28,
     ];
 
+    /// <summary>The shortest a list or sidebar row is at 100% text: macOS 26's.</summary>
+    internal const double ListRowMinHeight = 28;
+
+    /// <summary>The shortest a tree row is at 100% text.</summary>
+    internal const double TreeRowMinHeight = 24;
+
+    /// <summary>One menu item's height at 100% text, macOS 26's.</summary>
+    internal const double MenuItemHeight = 24;
+
+    /// <summary>
+    /// A menu's padding on every side, which is also how far the highlight
+    /// stands in from the menu's edge.
+    /// </summary>
+    internal const double MenuInset = 5;
+
+    /// <summary>How far an item's title stands in from its own highlight.</summary>
+    internal const double MenuItemTextInset = 9;
+
+    /// <summary>The menu highlight's corner: rounded, inside the menu's own.</summary>
+    internal const double MenuItemCornerRadius = 5;
+
+    /// <summary>
+    /// How long the pointer rests on an item before its submenu opens, and
+    /// before a submenu it left closes. Avalonia waits 400 ms, so moving down
+    /// the Git Tools menu felt like each submenu lagged behind the pointer;
+    /// macOS opens one almost at once. The same wait is the grace that lets
+    /// the pointer cut diagonally across a neighbouring item into the open
+    /// submenu, so it is shortened rather than removed.
+    /// </summary>
+    internal static readonly TimeSpan SubmenuHoverDelay = TimeSpan.FromMilliseconds(150);
+
     static App()
     {
+        // Every in-app menu, context menu and menu flyout takes its submenu
+        // timing from Avalonia's default interaction handler.
+        DefaultMenuInteractionHandler.MenuShowDelay = SubmenuHoverDelay;
+
+        // A tooltip waits for the pointer to come to rest: moving or
+        // scrolling puts it away, so sweeping across a strip of tabs does
+        // not pop one per tab.
+        RestingToolTips.Install();
+
         // A dock splitter is laid out by its Width or Height, while its panel
         // reserves the current Thickness. Dock copies Thickness to the active
         // axis when the splitter joins a panel, but those values can drift in
@@ -120,7 +167,9 @@ public sealed partial class App : Avalonia.Application
         QuickTerminalController quickTerminalController,
         IHostAccessibilityPreferencesSource hostAccessibilityPreferences,
         IScreenColorSampler screenColorSampler,
-        AppearancePreviewCoordinator? appearancePreview = null)
+        AppearancePreviewCoordinator? appearancePreview = null,
+        IWindowPlacementStore? windowPlacements = null,
+        ISettingsWindowStateStore? settingsWindowState = null)
     {
         ArgumentNullException.ThrowIfNull(mainWindowViewModel);
         ArgumentNullException.ThrowIfNull(mainWindowViewModelFactory);
@@ -153,19 +202,31 @@ public sealed partial class App : Avalonia.Application
         _hostAccessibilityPreferences = hostAccessibilityPreferences;
         _screenColorSampler = screenColorSampler;
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
+        _windowPlacements = windowPlacements;
+        // One Settings window serves every main window, so where it was and
+        // which page it showed belong to the application.
+        SettingsWindow.StateStore = settingsWindowState;
     }
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        CreateApplicationMenu();
+        // After the application menu exists: the windowless menus sit beside it.
+        AttachWindowlessMenuBar();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            RegisterMenuAttachment();
             var mainWindowViewModel = _mainWindowViewModel
                 ?? throw new InvalidOperationException(
                     "The desktop composition root did not provide the main window view model.");
             var mainWindow = CreateMainWindow(mainWindowViewModel);
+            PlaceStartupWindow(mainWindow, mainWindowViewModel);
             desktop.MainWindow = mainWindow;
             foreach (var hostWindow in desktop.Windows.OfType<RuntimePanelHostWindow>())
             {
@@ -173,18 +234,17 @@ public sealed partial class App : Avalonia.Application
             }
 
             QuickTerminalController.Initialize(mainWindow);
+            QuickTerminalController.MainWindowFactory = WindowForRequest;
             RegisterMainWindow(mainWindow);
             desktop.Exit += OnDesktopExit;
+            desktop.ShutdownRequested += OnShutdownRequested;
+            AttachDock();
             AttachAppearance();
             mainWindow.Opened += OnStartupWindowOpened;
         }
 
         base.OnFrameworkInitializationCompleted();
     }
-
-    private MainWindow MainWindow =>
-        ActiveMainWindow()
-        ?? throw new InvalidOperationException("An Asura window is unavailable.");
 
     private MainWindowViewModel MainWindowViewModel => _mainWindowViewModel
         ?? throw new InvalidOperationException("The main window view model is unavailable.");
@@ -223,7 +283,7 @@ public sealed partial class App : Avalonia.Application
                     "The desktop composition root did not provide app-managed storage controls."),
             _screenColorSampler
                 ?? throw new InvalidOperationException(
-                    "The desktop composition root did not provide a screen colour sampler."))
+                    "The desktop composition root did not provide a screen color sampler."))
         {
             DataContext = viewModel,
         };
@@ -235,22 +295,50 @@ public sealed partial class App : Avalonia.Application
             return null;
         }
 
+        // Only a window that is still open: once the last one has closed and
+        // Asura kept running, the lifetime's MainWindow is a closed window.
         return desktop.Windows.OfType<MainWindow>().FirstOrDefault(window => window.IsActive)
             ?? desktop.Windows.OfType<MainWindow>().FirstOrDefault(window => window.IsVisible)
-            ?? desktop.MainWindow as MainWindow;
+            ?? desktop.Windows.OfType<MainWindow>().FirstOrDefault();
     }
 
     private void RegisterMainWindow(MainWindow window)
     {
+        AttachMenuBar(window);
+        _windowlessMenuBar?.SetWindowless(false);
         window.Activated += OnMainWindowActivated;
         window.Closed += OnMainWindowClosed;
+        TrackPlacement(window);
     }
 
     internal void OpenNewWindow()
     {
-        if (_desktopExitStarted)
+        if (!_desktopExitStarted && !_quitApproved)
         {
-            return;
+            _ = OpenWindow(restored: null);
+        }
+    }
+
+    /// <summary>
+    /// The window an app-menu or Quick Terminal request acts on: the one in
+    /// front, or a new one when every window has been closed and Asura kept
+    /// running. None while Asura is quitting.
+    /// </summary>
+    private MainWindow? WindowForRequest() =>
+        ActiveMainWindow()
+        ?? (_desktopExitStarted || _quitApproved ? null : OpenWindow(restored: null));
+
+    /// <summary>
+    /// Opens another main window: where a restored one was, or cascaded one
+    /// title bar from the window in front. A restored window comes back to its
+    /// own workspace; a new one opens the launcher, unless it is opened to
+    /// receive something — a tab moved to a new window brings its own.
+    /// </summary>
+    private MainWindow OpenWindow(WindowPlacement? restored, bool opensLauncher = true)
+    {
+        if (_desktopExitStarted || _quitApproved)
+        {
+            throw new InvalidOperationException("Asura is quitting.");
         }
 
         var factory = _mainWindowViewModelFactory
@@ -261,10 +349,16 @@ public sealed partial class App : Avalonia.Application
         {
             var window = CreateMainWindow(viewModel);
             _additionalMainWindowViewModels.Add(viewModel);
+            PlaceNewWindow(window, viewModel, restored);
             RegisterMainWindow(window);
-            window.Opened += OnAdditionalWindowOpened;
+            if (opensLauncher || restored is not null)
+            {
+                window.Opened += OnAdditionalWindowOpened;
+            }
+
             window.Show();
             window.Activate();
+            return window;
         }
         catch
         {
@@ -275,52 +369,6 @@ public sealed partial class App : Avalonia.Application
 
     internal void ToggleQuickTerminal() => QuickTerminalController.Toggle();
 
-    internal async Task OpenNewTabAsync(MainWindow owner)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        if (await QuickTerminalController.TryAddTabToActiveQuickTerminalAsync())
-        {
-            return;
-        }
-
-        await owner.ShowNewItemLauncherAsync();
-    }
-
-    internal async Task CloseTabAsync(MainWindow owner)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        if (await QuickTerminalController.TryCloseTabInActiveQuickTerminalAsync())
-        {
-            return;
-        }
-
-        await owner.RequestCloseTabAsync();
-    }
-
-    private void OnSettingsMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        MainWindow.NavigateToSettings();
-    }
-
-    private void OnAboutMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        MainWindow.NavigateToSettings(SettingsPage.About);
-    }
-
-    private async void OnCheckForUpdatesMenuClick(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        var window = MainWindow;
-        window.Show();
-        window.Activate();
-        await window.CheckForUpdatesAsync();
-    }
-
     private void AttachAppearance()
     {
         _platformSettings = PlatformSettings
@@ -328,25 +376,26 @@ public sealed partial class App : Avalonia.Application
         var hostAccessibilityPreferences = _hostAccessibilityPreferences
             ?? throw new InvalidOperationException(
                 "The desktop composition root did not provide host accessibility preferences.");
+        // AppKit's semantic colours and the Multicolor accent are read on macOS
+        // only; elsewhere the mapper's literal palette is the answer. The Dock
+        // icon is not touched at runtime: Assets.car carries every appearance
+        // the system can ask for, including Clear and Tinted.
+        _hostSystemPalette = OperatingSystem.IsMacOS()
+            ? new MacOsSystemPaletteSource()
+            : null;
         _hostAppearance = new AvaloniaHostAppearanceAdapter(
             _platformSettings,
-            hostAccessibilityPreferences);
+            hostAccessibilityPreferences,
+            _hostSystemPalette);
         _platformSettings.ColorValuesChanged += OnPlatformColorValuesChanged;
         hostAccessibilityPreferences.Changed += OnHostAccessibilityPreferencesChanged;
         hostAccessibilityPreferences.Start();
+        _hostSystemPalette?.Changed += OnHostSystemPaletteChanged;
+        _hostSystemPalette?.Start();
         (_appearancePreview ?? throw new InvalidOperationException(
             "The desktop composition root did not provide appearance preview state."))
             .Changed += OnAppearancePreviewChanged;
         ApplyAppearance();
-        if (OperatingSystem.IsMacOSVersionAtLeast(26))
-        {
-            _applicationIconRefreshTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(2),
-            };
-            _applicationIconRefreshTimer.Tick += OnApplicationIconRefresh;
-            _applicationIconRefreshTimer.Start();
-        }
 
         _definitionCatalog?.Changed += OnDefinitionCatalogChanged;
 
@@ -359,18 +408,22 @@ public sealed partial class App : Avalonia.Application
 
     }
 
-    private void OnApplicationIconRefresh(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        RefreshApplicationIcon();
-    }
-
     private void OnPlatformColorValuesChanged(object? sender, PlatformColorValues values)
     {
         _ = sender;
         _ = values;
+        // Avalonia and AppKit announce the same change separately and in no
+        // fixed order; reading the host palette here means whichever arrives
+        // first already sees both.
+        _hostSystemPalette?.Refresh();
         ApplyAppearance();
+    }
+
+    private void OnHostSystemPaletteChanged(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        Dispatcher.UIThread.Post(ApplyAppearance);
     }
 
     private void OnDefinitionCatalogChanged(object? sender, EventArgs e)
@@ -414,11 +467,12 @@ public sealed partial class App : Avalonia.Application
 
     private void ApplyAppearance()
     {
-        var resources = ResolveAppearanceResources();
-        RefreshApplicationIcon();
+        var theme = ResolveEffectiveTheme();
+        var resources = MapAppearanceResources(theme);
 
         RequestedThemeVariant = resources.ThemeVariant;
         ApplyApplicationResources(resources);
+        ApplyThemePreviewResources(theme);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             foreach (var window in desktop.Windows)
@@ -430,87 +484,171 @@ public sealed partial class App : Avalonia.Application
         }
     }
 
-    private void RefreshApplicationIcon()
+    private EffectiveAppearanceResources ResolveAppearanceResources() =>
+        MapAppearanceResources(ResolveEffectiveTheme());
+
+    /// <summary>
+    /// The stored theme against the live host. A workspace's colours mark the
+    /// workspace — its rail tile and its tab chip — and never replace the
+    /// person's accent, which belongs to the whole system.
+    /// </summary>
+    private EffectiveTheme ResolveEffectiveTheme()
     {
-        var hostAccent = _hostAppearance?.GetCurrent().Accent;
-        if (hostAccent is { } accent)
+        var hostAppearance = _hostAppearance?.GetCurrent()
+            ?? throw new InvalidOperationException("Platform appearance settings are unavailable.");
+        return StoredTheme.Resolve(hostAppearance);
+    }
+
+    private EffectiveAppearanceResources MapAppearanceResources(EffectiveTheme theme) =>
+        EffectiveAppearanceResourceMapper.Map(
+            theme,
+            CurrentHostPalette.For(theme.Appearance));
+
+    private HostSystemPalette CurrentHostPalette =>
+        _hostAppearance?.SystemPalette ?? HostSystemPalette.None;
+
+    /// <summary>
+    /// The Theme tiles in Settings draw what each mode would actually look
+    /// like, so they are mapped the same way as the live appearance — with the
+    /// current profile, contrast and host colours — once per mode.
+    /// </summary>
+    private void ApplyThemePreviewResources(EffectiveTheme theme)
+    {
+        foreach (var appearance in new[] { EffectiveAppearanceMode.Dark, EffectiveAppearanceMode.Light })
         {
-            _ = MacOsApplicationIcon.TryApply(accent);
+            var preview = MapAppearanceResources(theme with { Appearance = appearance });
+            var prefix = $"ShellThemePreview{appearance}";
+            Publish($"{prefix}BackgroundBrush", Brush(preview.Background));
+            Publish($"{prefix}BorderBrush", Brush(preview.Border));
+            Publish($"{prefix}MutedBrush", Brush(preview.MutedText));
+            Publish($"{prefix}SuccessBrush", Brush(preview.Success));
+            Publish($"{prefix}AccentTextBrush", Brush(preview.AccentText));
         }
     }
 
     /// <summary>
-    /// The accent of the workspace that is open, when it has one of its own. A
-    /// workspace accent is a temporary override of the application's: it lasts
-    /// while that workspace is open and leaves nothing behind, which is why it
-    /// is held here rather than written to the stored theme.
+    /// A chrome surface — sidebar, rail — carrying the shell's chrome opacity,
+    /// or solid when the backdrop is off and there is nothing behind it to show.
     /// </summary>
-    private RgbColor? _workspaceAccent;
+    private SolidColorBrush Chrome(Color color, bool chromeIsGlass) =>
+        WithAlpha(color, ChromeAlpha(chromeIsGlass));
 
-    public void SetWorkspaceAccent(RgbColor? accent)
+    /// <summary>
+    /// A content surface — a panel, a card, the terminal — which is solid
+    /// unless glass panels were asked for. Text, diffs and grids are read here,
+    /// and they stay legible whatever the desktop picture is.
+    /// </summary>
+    private SolidColorBrush Content(Color color) => WithAlpha(color, ContentAlpha);
+
+    /// <summary>How far the focus ring stands out from a control's edge.</summary>
+    internal const double FocusRingWidth = 2.5;
+
+    /// <summary>
+    /// The clear gap between an accent-filled control and its focus ring. The
+    /// ring is the accent too, so without the gap it read as the fill growing.
+    /// </summary>
+    internal const double FocusRingGap = 1;
+
+    /// <summary>
+    /// The same, as a number, for the surfaces that are drawn rather than
+    /// filled — a terminal paints its own background from its palette.
+    /// </summary>
+    private double SurfaceOpacity => ContentAlpha / (double)byte.MaxValue;
+
+    /// <summary>
+    /// How solid a terminal's background is drawn: the stored backdrop
+    /// opacity when the person asked for a translucent terminal and the
+    /// window's material is actually on, and fully solid otherwise — under
+    /// Reduce Transparency, Increase Contrast, or a window that is not
+    /// translucent there is nothing behind the terminal worth seeing.
+    /// </summary>
+    internal static double TerminalSurfaceOpacity(
+        bool hasTranslucentTerminal,
+        MaterialDisposition material,
+        int backdropOpacityPercent) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? Math.Clamp(
+                (int)Math.Round(backdropOpacityPercent * byte.MaxValue / 100.0),
+                0,
+                byte.MaxValue) / (double)byte.MaxValue
+            : 1.0;
+
+    /// <summary>
+    /// The material line names the terminal when it is the one content
+    /// surface the window's material shows through, so "content opaque" is
+    /// not the whole story while a translucent terminal is on screen.
+    /// </summary>
+    internal static string MaterialStatusWithTerminal(
+        string windowMaterialStatus,
+        bool hasTranslucentTerminal,
+        MaterialDisposition material) =>
+        hasTranslucentTerminal && material == MaterialDisposition.Enabled
+            ? $"{windowMaterialStatus}, terminal translucent"
+            : windowMaterialStatus;
+
+    /// <summary>
+    /// The sentence under the translucent-terminal setting: what it does, or
+    /// why it cannot do it right now.
+    /// </summary>
+    internal static string TerminalTranslucencyStatus(MaterialDisposition material) => material switch
     {
-        if (_workspaceAccent == accent)
-        {
-            return;
-        }
+        MaterialDisposition.Enabled =>
+            "Let the window's material show through terminals, at the background opacity.",
+        MaterialDisposition.NotRequested =>
+            "Unavailable while window translucency is off.",
+        MaterialDisposition.DisabledByHighContrast =>
+            "Unavailable while Increase Contrast is on.",
+        MaterialDisposition.DisabledByReducedTransparency =>
+            "Unavailable while Reduce Transparency is on.",
+        _ => "Unavailable because this system does not offer window translucency.",
+    };
 
-        _workspaceAccent = accent;
-        ApplyAppearance();
-    }
+    /// <summary>
+    /// The categorical palette for chart series, in fixed order: teal, violet,
+    /// olive and magenta. None is the brand orange, the host's blue or a
+    /// status hue, so a series never reads as a control or as a verdict. The
+    /// order and both steps were checked as a set for colour-vision
+    /// separation, and every slot clears 3:1 against the content surface of
+    /// its own mode.
+    /// </summary>
+    internal static IReadOnlyList<Color> ChartSeriesColors(bool isLight) => isLight
+        ? LightChartSeries
+        : DarkChartSeries;
 
-    private EffectiveAppearanceResources ResolveAppearanceResources()
-    {
-        var preference = _appearancePreview?.Current.Theme
-            ?? _definitionCatalog?.Snapshot.Themes
-            .FirstOrDefault(item => item.Value.Id == ThemePreference.Default.Id)?.Value
-            ?? ThemePreference.Default;
-        var hostAppearance = _hostAppearance?.GetCurrent()
-            ?? throw new InvalidOperationException("Platform appearance settings are unavailable.");
-        var theme = preference.Resolve(hostAppearance);
-        if (_workspaceAccent is { } workspaceAccent)
-        {
-            theme = theme with
-            {
-                Accent = workspaceAccent,
-                AccentSource = AccentSource.Custom,
-            };
-        }
+    private static readonly Color[] LightChartSeries =
+    [
+        Color.Parse("#008F8A"),
+        Color.Parse("#7A5AD6"),
+        Color.Parse("#7A8417"),
+        Color.Parse("#C23D84"),
+    ];
 
-        return EffectiveAppearanceResourceMapper.Map(theme);
-    }
+    private static readonly Color[] DarkChartSeries =
+    [
+        Color.Parse("#1FA09D"),
+        Color.Parse("#8F7BE6"),
+        Color.Parse("#8C9628"),
+        Color.Parse("#D9599A"),
+    ];
+
+    /// <summary>The area under a series line: the series colour, faint.</summary>
+    private const byte ChartSeriesFillAlpha = 0x33;
+
+    private static SolidColorBrush WithAlpha(Color color, byte alpha) =>
+        new(Color.FromArgb(alpha, color.R, color.G, color.B));
 
     /// <summary>
     /// Publishes one appearance token, and only when it has actually changed.
     ///
     /// Every write to the application's resources invalidates each control
     /// bound to that key, anywhere in the window. There are seventy of these
-    /// and almost all of them are the same before and after — a workspace
-    /// accent moves the accent family and nothing else — so rewriting the set
-    /// wholesale restyled the entire tree to change fifteen colours. That is
-    /// most of a third of a second on every workspace switch.
+    /// and almost all of them are the same before and after, so rewriting the
+    /// set wholesale restyled the entire tree to change a handful of colours.
     ///
     /// Brushes are compared by colour rather than by reference, because each
     /// pass builds new ones; without that every write still looks like a
     /// change and nothing is saved.
     /// </summary>
-    /// <summary>
-    /// A surface colour, carrying the shell's surface opacity — or solid, when
-    /// the backdrop is off and there is nothing behind it to show.
-    /// </summary>
-    private SolidColorBrush Translucent(Color color) =>
-        new(Color.FromArgb(
-            WindowIsTranslucent ? ShellSurfaceAlpha : byte.MaxValue,
-            color.R,
-            color.G,
-            color.B));
-
-    /// <summary>
-    /// The same, as a number, for the surfaces that are drawn rather than
-    /// filled — a terminal paints its own background from its palette.
-    /// </summary>
-    private double SurfaceOpacity =>
-        WindowIsTranslucent ? ShellSurfaceAlpha / (double)byte.MaxValue : 1;
-
     private void Publish(string key, object? value)
     {
         if (Resources.TryGetValue(key, out var existing)
@@ -534,16 +672,6 @@ public sealed partial class App : Avalonia.Application
         };
 
     /// <summary>
-    /// How much of the base surface survives.
-    ///
-    /// The surface stays the dark it always was — this is a hint of what is
-    /// behind the window, not a window you can see through. Seventy per cent
-    /// let so much light in that the shell read as pale bands around dark
-    /// panels; the earlier eighty-five looked like nothing only because the
-    /// window was still opaque at the time and none of it was reaching the
-    /// screen. This is the number to move in either direction.
-    /// </summary>
-    /// <summary>
     /// How solid the base surface is painted.
     ///
     /// Nothing at all when the material's own translucency is left to stand:
@@ -564,30 +692,30 @@ public sealed partial class App : Avalonia.Application
         byte.MaxValue);
 
     /// <summary>
-    /// How solid the surfaces standing on the base are.
+    /// How solid the chrome standing on the base is: the sidebar and the rail.
     ///
-    /// They were fully opaque, which made the shell a pale frame around dark
-    /// slabs — and the frame is what read as a bar along the top, because the
-    /// chrome is the largest run of base surface not covered by a panel. The
-    /// system title bar was quietened and the band stayed, which is what ruled
-    /// that out and left this. Nearly solid, because text is read on these.
+    /// Liquid Glass makes the chrome the glass layer, so it carries the base's
+    /// own opacity. The other profiles keep it most of the way to solid —
+    /// halfway between the base and opaque — because labels are read on it.
+    /// Glass panels, where asked for, put the content at the base opacity too,
+    /// and the chrome follows rather than standing more solid than the panels.
     /// </summary>
-    /// <summary>
-    /// How solid the surfaces standing on the base are.
-    ///
-    /// As glass they carry the base's own opacity, so the shell reads as one
-    /// sheet of material rather than panels standing on it. Otherwise they sit
-    /// most of the way to solid — halfway between the base and opaque — which
-    /// is what the shell looked like before the choice existed, and text is
-    /// read on them.
-    /// </summary>
-    private byte ShellSurfaceAlpha => WindowHasGlassPanels
-        ? StoredOpacityAlpha
-        : (byte)Math.Clamp(
-            StoredOpacityAlpha + ((byte.MaxValue - StoredOpacityAlpha) / 2),
-            0,
-            byte.MaxValue);
+    private byte ChromeAlpha(bool chromeIsGlass) => !WindowIsTranslucent
+        ? byte.MaxValue
+        : chromeIsGlass || WindowHasGlassPanels
+            ? StoredOpacityAlpha
+            : (byte)Math.Clamp(
+                StoredOpacityAlpha + ((byte.MaxValue - StoredOpacityAlpha) / 2),
+                0,
+                byte.MaxValue);
 
+    /// <summary>
+    /// How solid the content surfaces are: opaque, unless the person asked for
+    /// glass panels and the host allows translucency at all.
+    /// </summary>
+    private byte ContentAlpha => WindowHasGlassPanels
+        ? StoredOpacityAlpha
+        : byte.MaxValue;
 
     /// <summary>
     /// Whether the host has asked for less transparency. The shell answers it
@@ -673,7 +801,7 @@ public sealed partial class App : Avalonia.Application
             supportsAdvancedMaterials: false,
             supportsLiquidGlass: false));
 
-    private void ApplyApplicationResources(EffectiveAppearanceResources resources)
+    internal void ApplyApplicationResources(EffectiveAppearanceResources resources)
     {
         Publish("ShellBackgroundBrush", Brush(resources.Background));
         // The base surface the whole shell sits on. Slightly translucent, so
@@ -682,30 +810,25 @@ public sealed partial class App : Avalonia.Application
         // setting, and an operating system that says so gets a solid surface.
         Publish(
             "ShellWindowBackdropBrush",
-            new SolidColorBrush(Color.FromArgb(
-                WindowIsTranslucent
-                    ? ShellBackdropAlpha
-                    : byte.MaxValue,
-                resources.Background.R,
-                resources.Background.G,
-                resources.Background.B)));
-        Publish("ShellSidebarBrush", Translucent(resources.SidebarSurface));
+            WithAlpha(
+                resources.Background,
+                WindowIsTranslucent ? ShellBackdropAlpha : byte.MaxValue));
+        Publish("ShellSidebarBrush", Chrome(resources.SidebarSurface, resources.ChromeIsGlass));
         // The same swatch as glass, for the one sidebar-coloured surface that
         // floats over the app's own content. It stands on a blurred snapshot
         // of what it covers — live backdrop blur is not available inside the
-        // window — so it can afford to be genuinely translucent: the blur
-        // beneath is what keeps the conversation legible.
+        // window — so it can afford to be translucent while the blur beneath
+        // keeps the conversation legible. With transparency reduced, contrast
+        // increased, or translucency turned off, it is solid and the blur goes.
+        var overlay = ShellOverlayOpacity.For(ResolveStoredTheme(), StoredOpacityAlpha);
         Publish(
             "ShellSidebarOverlayBrush",
-            new SolidColorBrush(Color.FromArgb(
-                0xCC,
-                resources.SidebarSurface.R,
-                resources.SidebarSurface.G,
-                resources.SidebarSurface.B)));
+            WithAlpha(resources.SidebarSurface, overlay.SidebarOverlay));
+        Publish("ShellBlurBehindEnabled", overlay.BlurBehind);
         Publish("ShellSidebarBorderBrush", Brush(resources.SidebarBorder));
         Publish("ShellSidebarSelectionBrush", Brush(resources.SidebarSelectionSurface));
-        Publish("ShellSurfaceBrush", Translucent(resources.Surface));
-        Publish("ShellSurfaceRaisedBrush", Translucent(resources.RaisedSurface));
+        Publish("ShellSurfaceBrush", Content(resources.Surface));
+        Publish("ShellSurfaceRaisedBrush", Content(resources.RaisedSurface));
         // The same surface, solid, for the ones that open in a window of their
         // own. A flyout is its own top level with no material behind it, so the
         // shell's translucency there is not glass — it is a hole, showing
@@ -719,22 +842,28 @@ public sealed partial class App : Avalonia.Application
         // reads best, and it is not one of the surfaces that switch governs.
         Publish(
             "ShellSurfaceOverlayBrush",
-            new SolidColorBrush(Color.FromArgb(
-                WindowIsTranslucent ? StoredOpacityAlpha : byte.MaxValue,
-                resources.RaisedSurface.R,
-                resources.RaisedSurface.G,
-                resources.RaisedSurface.B)));
-        // A veil is glass over the app's own content: a genuinely translucent
-        // wash of the background tone, weighted toward black so it reads as a
-        // distinct darker band even over its own colour — and anything that
-        // slides beneath it stays visible, dimmed rather than hidden.
+            WithAlpha(resources.RaisedSurface, overlay.SurfaceOverlay));
+        // A veil is glass over the app's own content: a translucent wash of the
+        // background tone, weighted toward black so it reads as a distinct
+        // darker band even over its own colour. Without translucency it is the
+        // same band, solid.
         Publish(
             "ShellVeilBrush",
             new SolidColorBrush(Color.FromArgb(
-                0xA8,
+                overlay.Veil,
                 (byte)(resources.Background.R / 2),
                 (byte)(resources.Background.G / 2),
                 (byte)(resources.Background.B / 2))));
+        // The wash behind a modal overlay, and the overlay's own shadow: both
+        // lighter in a light theme, where a near-black scrim blacked the window
+        // out and a dark shadow read as a smudge.
+        Publish("ShellScrimBrush", Brush(resources.Scrim));
+        Publish("ShellOverlayShadow", resources.OverlayShadow);
+        // An open rail tile stands over the sidebar beside the rail, so it is
+        // ringed in the page colour before its shadow: without the gap its
+        // fill ran straight into the selected tab's corner and the two read
+        // as one shape.
+        Publish("ShellRailTileFloatShadow", RailTileFloatShadow(resources));
         Publish("ShellSurfaceHoverBrush", Brush(resources.HoverSurface));
         Publish("ShellBorderBrush", Brush(resources.Border));
         Publish("ShellControlSurfaceBrush", Brush(resources.ControlSurface));
@@ -743,18 +872,58 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellTextBrush", Brush(resources.Text));
         Publish("ShellMutedBrush", Brush(resources.MutedText));
         Publish("ShellAccentBrush", Brush(resources.Accent));
+        // The accent as text — a link-style button, the current page — held
+        // to 4.5:1 on every surface, where the fill only has to read as a fill.
+        Publish("ShellAccentTextBrush", Brush(resources.AccentText));
         // The flyout's shadow carries the accent in its inner glow, so it is
-        // composed here where the live accent is known — a workspace retint
-        // re-runs this and the glow follows.
+        // composed here where the live accent is known. A light theme takes a
+        // softer drop, as the overlay shadow does.
+        var accentHex = $"{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}";
         Publish(
             "ShellFlyoutShadow",
             BoxShadows.Parse(
-                "0 8 48 0 #8C000000, 0 2 14 0 #59000000, inset 0 0 40 0 "
-                + $"#38{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}"));
+                (resources.ThemeVariant == ThemeVariant.Light
+                    ? "0 8 32 0 #2E000000, 0 1 4 0 #1F000000"
+                    : "0 8 48 0 #8C000000, 0 2 14 0 #59000000")
+                + $", inset 0 0 40 0 #38{accentHex}"));
+        // What a filled accent control — the default button, the active tab,
+        // the selected row of the focused list — is filled with: the accent
+        // darkened only as far as its white label needs. The accent brush
+        // above stays the colour that was asked for, for every mark.
+        Publish("ShellAccentFillBrush", Brush(resources.AccentFill));
         Publish("ShellAccentForegroundBrush", Brush(resources.AccentForeground));
+        // A toggle that is on, and the stock accent button, stand on the same
+        // fill as the default button and wear the same white, in every state:
+        // Fluent's own hover and pressed shades of the accent were lighter
+        // than the fill, and white on them fell under 4.5:1.
+        foreach (var state in new[] { string.Empty, "PointerOver", "Pressed" })
+        {
+            Publish($"ToggleButtonBackgroundChecked{state}", Brush(resources.AccentFill));
+            Publish($"AccentButtonBackground{state}", Brush(resources.AccentFill));
+            Publish($"ToggleButtonForegroundChecked{state}", Brush(resources.AccentForeground));
+            Publish($"AccentButtonForeground{state}", Brush(resources.AccentForeground));
+        }
+
+        // The chosen segment is a raised plate; its shadow is what lifts it
+        // off the track where the two surfaces are close in tone.
+        Publish(
+            "ShellSegmentShadow",
+            BoxShadows.Parse(resources.ThemeVariant == ThemeVariant.Light
+                ? "0 1 2 0 #26000000, 0 0 0 0.5 #1F000000"
+                : "0 1 2 0 #59000000"));
         Publish("ShellAccentSoftBrush", Brush(resources.AccentSoft));
+        // A strongly selected row and its label, and the quieter selection of a
+        // list that does not have focus — AppKit's own where it has them.
+        Publish("ShellSelectedContentBrush", Brush(resources.SelectedContent));
+        Publish("ShellSelectedContentForegroundBrush", Brush(resources.SelectedContentForeground));
+        Publish("ShellUnemphasizedSelectionBrush", Brush(resources.UnemphasizedSelection));
+        Publish("ShellGridSelectionBrush", Brush(resources.GridSelection));
         Publish("ShellDangerBrush", Brush(resources.Danger));
+        Publish("ShellDangerTextBrush", Brush(resources.DangerText));
         Publish("ShellDangerForegroundBrush", Brush(resources.DangerForeground));
+        // What a destructive action fills with when it is prominent: the danger
+        // tone darkened until its white label clears 4.5:1.
+        Publish("ShellDangerFillBrush", Brush(resources.DangerFill));
         Publish("ShellDangerSoftBrush", Brush(resources.DangerSoft));
         Publish("ShellDangerBorderBrush", Brush(resources.DangerBorder));
         Publish("ShellSuccessBrush", Brush(resources.Success));
@@ -763,7 +932,25 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellWarningBrush", Brush(resources.Warning));
         Publish("ShellWarningSoftBrush", Brush(resources.WarningSoft));
         Publish("ShellWarningBorderBrush", Brush(resources.WarningBorder));
-        Publish("ShellNoticeBorderBrush", Brush(resources.NoticeBorder));
+        Publish("ShellInfoBrush", Brush(resources.Info));
+        Publish("ShellInfoSoftBrush", Brush(resources.InfoSoft));
+        Publish("ShellInfoBorderBrush", Brush(resources.InfoBorder));
+        Publish("ShellStatusNeutralBrush", Brush(resources.StatusNeutral));
+        Publish("ShellAttentionBrush", Brush(resources.Attention));
+        // Chart series take a palette of their own: a line coloured with the
+        // accent read as something to press, and one in the success green
+        // read as a verdict on the value it plots.
+        var chartSeries = ChartSeriesColors(resources.ThemeVariant == ThemeVariant.Light);
+        for (var slot = 0; slot < chartSeries.Count; slot++)
+        {
+            var series = chartSeries[slot];
+            Publish($"ShellChartSeries{slot + 1}Brush", Brush(series));
+            Publish($"ShellChartSeries{slot + 1}FillBrush", WithAlpha(series, ChartSeriesFillAlpha));
+        }
+
+        // Whether state has to be carried by shape or text as well as colour.
+        // Also a window class, so a style can add the shape where it is needed.
+        Publish("ShellDifferentiateWithoutColor", resources.DifferentiateWithoutColor);
         // Controls the design system has not retemplated — check boxes, radio
         // buttons, switches, sliders, calendar and text selection — take their
         // accent from Fluent's SystemAccentColor family, which otherwise tracks
@@ -784,18 +971,19 @@ public sealed partial class App : Avalonia.Application
             resources.Accent.R,
             resources.Accent.G,
             resources.Accent.B));
-        // The focused field wears the host's accent halo — macOS's focus ring —
-        // rather than only a recolored border.
+        // The focus ring — macOS's — in the measured focus colour at full
+        // strength: drawn as a shadow on fields and templated shapes, and as
+        // the focus adorner of a push button, which no parent's clip can cut.
+        // It was the accent at about a third of its strength, which read at
+        // roughly 1.6:1 on a raised control.
+        Publish("ShellFocusRingBrush", Brush(resources.FocusRing));
         Publish("ShellFocusRingShadow", new BoxShadows(new BoxShadow
         {
             Blur = 0,
-            Spread = 3,
-            Color = Color.FromArgb(
-                0x59,
-                resources.Accent.R,
-                resources.Accent.G,
-                resources.Accent.B),
+            Spread = FocusRingWidth,
+            Color = resources.FocusRing,
         }));
+        Publish("ShellFocusRingOnAccentShadow", FocusRingOnAccentShadow(resources));
         Publish(
             "ShellAgentPanelGlowBrush",
             new SolidColorBrush(Color.FromArgb(
@@ -815,24 +1003,89 @@ public sealed partial class App : Avalonia.Application
                 + "inset 0 0 17.6 0 "
                 + $"#C0{resources.Accent.R:X2}{resources.Accent.G:X2}{resources.Accent.B:X2}"));
         Publish("ShellUiFontFamily", resources.FontFamily);
-        // Data surfaces (result grids, SQL editors) read in a monospace stack;
-        // interface chrome stays on the UI family.
-        Publish("ShellDataFontFamily", new FontFamily(
-            "SF Mono,Menlo,Monaco,Cascadia Mono,Consolas,monospace"));
-        Publish("ShellBaseFontSize", resources.BaseFontSize);
+        // Data surfaces (result grids, SQL editors, logs) read in the terminal's
+        // own face: the one monospace the application ships and so can always
+        // resolve. The old stack led with SF Mono, which a stock Mac does not
+        // resolve by name, so data fell to Menlo while logs and diagrams drew in
+        // this face — three monospaces in one window.
+        Publish("ShellDataFontFamily", AsuraTerminalFontCollection.Family);
+        // Fluent styles popups from its own pair of font resources; these make
+        // a menu or a tooltip read in the same face and size as the window.
+        Publish("ContentControlThemeFontFamily", resources.FontFamily);
+        Publish("ControlContentThemeFontSize", resources.BaseFontSize);
+        // The type ramp by role: Body for every primary run of text, Secondary
+        // for the line under it, Caption for badges, keycaps, counts and axes.
+        // The numeric tokens below map onto the same three steps.
+        Publish("ShellBaseFontSize", resources.BodyFontSize);
+        Publish("ShellBodyFontSize", resources.BodyFontSize);
+        Publish("ShellSecondaryFontSize", resources.SecondaryFontSize);
+        Publish("ShellCaptionFontSize", resources.CaptionFontSize);
         Publish("ShellPillFontSize", resources.PillFontSize);
+        Publish("ShellBodyLineHeight", LineHeightFor(resources.BodyFontSize));
+        Publish("ShellSecondaryLineHeight", LineHeightFor(resources.SecondaryFontSize));
+        Publish("ShellCaptionLineHeight", LineHeightFor(resources.CaptionFontSize));
+        // What a length laid out for 13-point text scales against: the text
+        // size setting alone. ShellFontSize13 is the profile's Body, which is
+        // 14 on Windows, and a fixed length keyed to it grew with the profile.
+        Publish("ShellTextScaleReferenceSize", TextScaledExtension.DesignBodyFontSize * resources.TextScale);
         foreach (var baseFontSize in ScalableFontSizes)
         {
             Publish($"ShellFontSize{baseFontSize}", resources.ScaleFontSize(baseFontSize));
-            Publish(
-                $"ShellLineHeight{baseFontSize}",
-                Math.Round(
-                    resources.ScaleFontSize(baseFontSize) * 1.35 * 2,
-                    MidpointRounding.AwayFromZero) / 2);
+            Publish($"ShellLineHeight{baseFontSize}", LineHeightFor(resources.ScaleFontSize(baseFontSize)));
         }
+
+        // The icon ramp. A glyph is sized from the text it sits beside, so it
+        // grows with the text-size setting instead of staying put while the
+        // label next to it doubles: Xs inside dense data (sort chevrons), Sm in
+        // a line of body text or a menu row, Md on a toolbar button or a list
+        // row, Lg on a grid tile, Xl as the subject of an empty state. A glyph
+        // is not text, so it scales linearly rather than through the type
+        // ramp's floors.
+        Publish("ShellIconSizeXs", 10 * resources.TextScale);
+        Publish("ShellIconSizeSm", 13 * resources.TextScale);
+        Publish("ShellIconSizeMd", 16 * resources.TextScale);
+        Publish("ShellIconSizeLg", 32 * resources.TextScale);
+        Publish("ShellIconSizeXl", 48 * resources.TextScale);
+
+        // Rows, as macOS 26 draws them: a list or sidebar row at least 28
+        // points tall and a tree row at least 24, both growing with the text.
+        // Density may make them roomier but never shorter than that.
+        Publish("ShellRowMinHeight", RowMinHeight(resources, ListRowMinHeight));
+        Publish("ShellTreeRowMinHeight", RowMinHeight(resources, TreeRowMinHeight));
+
+        // Menus — context menus, menu flyouts, pop-up lists — at macOS 26
+        // metrics: every item one height, the menu's padding the same on all
+        // four sides and equal to the highlight's inset from the menu edge, so
+        // there is no extra gap above the first item or under the last.
+        var menuInset = HalfPoint(MenuInset * resources.TextScale);
+        Publish("ShellMenuItemHeight", Math.Round(MenuItemHeight * resources.TextScale));
+        Publish("ShellMenuPadding", new Thickness(menuInset));
+        // Fluent's menu templates write their inset on the items presenter
+        // from this resource rather than from the menu's Padding.
+        Publish("MenuFlyoutScrollerMargin", new Thickness(menuInset));
+        // A submenu's own presenter padding would stack on that margin.
+        Publish("MenuFlyoutPresenterThemePadding", new Thickness(0));
+        Publish("ShellMenuItemPadding", new Thickness(MenuItemTextInset * resources.TextScale, 0));
+        Publish("ShellMenuItemCornerRadius", new CornerRadius(MenuItemCornerRadius));
+        Publish("ShellMenuSeparatorMargin", new Thickness(MenuItemTextInset * resources.TextScale, menuInset));
 
         Publish("ShellControlMinHeight", resources.ControlMinHeight);
         Publish("ShellSurfaceOpacity", SurfaceOpacity);
+        // The terminal's own opacity, which the terminal views paint their
+        // background with. Opaque unless the person asked for a translucent
+        // terminal and the window can be translucent at all — glass panels
+        // have no say in it, and Quick Terminal keeps its own setting.
+        var material = ResolveStoredTheme().MaterialDisposition;
+        Publish(
+            "ShellTerminalSurfaceOpacity",
+            TerminalSurfaceOpacity(
+                StoredTheme.HasTranslucentTerminal,
+                material,
+                StoredTheme.BackdropOpacityPercent));
+        Publish(
+            "ShellTerminalTranslucencyAvailable",
+            material == MaterialDisposition.Enabled);
+        Publish("ShellTerminalTranslucencyStatus", TerminalTranslucencyStatus(material));
 
         // The three sizes a mark is drawn at — in a row, beside a name, and as
         // the subject of the page. Derived from the control height rather than
@@ -887,6 +1140,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardRadius", resources.CardCornerRadius.TopLeft);
         Publish("ShellPillCornerRadius", resources.PillCornerRadius);
         Publish("ShellInnerCornerRadius", resources.InnerCornerRadius);
+        Publish("ShellGroupCornerRadius", resources.GroupCornerRadius);
         // The clearance between a rounded miniature frame and the tiles inside
         // it. It follows the radius, not a fixed step: at a tight radius a
         // couple of pixels reads fine, while a round setting needs the tiles
@@ -922,8 +1176,16 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardPaddingCompact", new Thickness(spacing.Medium));
         Publish("ShellPagePadding", new Thickness(spacing.Large));
         Publish("ShellRowPadding", new Thickness(spacing.Large, spacing.Medium));
-        Publish("ShellListRowPadding", new Thickness(spacing.Medium, spacing.Small));
+        // A list row's inset is macOS 26's: 10 across and 6 down at 100%, so a
+        // one-line row comes to the host's 28 points rather than floating in a
+        // band of 32.
+        Publish("ShellListRowPadding", new Thickness(HalfPoint(spacing.Small * 1.25), HalfPoint(spacing.Small * 0.75)));
+        // The gap between two sections of a page: 20 at 100%, between the
+        // gap between cards and the one around an empty state.
+        Publish("ShellSpaceSection", HalfPoint(spacing.Small * 2.5));
+        Publish("ShellInsetSection", new Thickness(HalfPoint(spacing.Small * 2.5)));
         Publish("ShellPillPadding", new Thickness(spacing.Small, spacing.ExtraSmall));
+        SettingsChromeTokens.Publish(Publish, resources);
 
         // For a native child view that has to round its own layer because Avalonia
         // cannot clip it. Only the bottom corners are at the panel's edge — a
@@ -936,12 +1198,32 @@ public sealed partial class App : Avalonia.Application
             resources.CardCornerRadius.BottomLeft));
         Publish("ShellAppearanceStatus", resources.AppearanceStatus);
         Publish("ShellAccentStatus", resources.AccentStatus);
-        Publish("ShellMaterialStatus", resources.MaterialStatus);
+        Publish(
+            "ShellMaterialStatus",
+            MaterialStatusWithTerminal(
+                resources.MaterialStatus,
+                StoredTheme.HasTranslucentTerminal,
+                material));
         Publish("ShellPlatformProfileClass", resources.ProfileClass);
         Publish("ShellHighContrast", resources.HighContrast);
         Publish("ShellMotionEnabled", resources.MotionEnabled);
         Publish("ShellAdvancedMaterialsEnabled", resources.AdvancedMaterialsEnabled);
     }
+
+    /// <summary>A length on the half-point grid, so filled surfaces meet without a seam.</summary>
+    private static double HalfPoint(double length) =>
+        Math.Round(length * 2, MidpointRounding.AwayFromZero) / 2;
+
+    /// <summary>A text size's leading, on the half-point grid.</summary>
+    internal static double LineHeightFor(double fontSize) =>
+        HalfPoint(fontSize * 1.35);
+
+    /// <summary>
+    /// A row's minimum height: the macOS 26 floor at the current text size,
+    /// or the control height when a roomier density asks for more.
+    /// </summary>
+    internal static double RowMinHeight(EffectiveAppearanceResources resources, double floor) =>
+        Math.Round(Math.Max(floor * resources.TextScale, resources.ControlMinHeight * floor / ListRowMinHeight));
 
     private void ApplyToWindow(
         Window window,
@@ -970,6 +1252,10 @@ public sealed partial class App : Avalonia.Application
         {
             window.Classes.Add("materials-enabled");
         }
+        if (resources.DifferentiateWithoutColor)
+        {
+            window.Classes.Add("differentiate-without-color");
+        }
 
     }
 
@@ -983,10 +1269,45 @@ public sealed partial class App : Avalonia.Application
             case QuickTerminalWindow quickTerminalWindow:
                 quickTerminalWindow.ApplyBackdrop();
                 break;
+            case SettingsWindow settingsWindow:
+                settingsWindow.RefreshWindowBackdrop();
+                break;
         }
     }
 
     private static SolidColorBrush Brush(Color color) => new(color);
+
+    /// <summary>
+    /// A two-point ring in the page colour, then the floating shadow. A spread
+    /// shadow draws outside the shape without moving its content, and follows
+    /// the tile's corners and its width as it opens.
+    /// </summary>
+    internal static BoxShadows RailTileFloatShadow(EffectiveAppearanceResources resources)
+    {
+        var overlay = resources.OverlayShadow;
+        var rest = new BoxShadow[overlay.Count];
+        for (var index = 0; index < overlay.Count; index++)
+        {
+            rest[index] = overlay[index];
+        }
+
+        return new BoxShadows(
+            new BoxShadow { Spread = 2, Color = resources.Background },
+            rest);
+    }
+
+    /// <summary>
+    /// The focus ring on a control filled with the accent — a focused list's
+    /// selected row: the same band, parted from the fill by a point of the
+    /// page colour drawn just inside the edge. The ring is the accent, so
+    /// flush against an accent fill it read as the row growing. Both parts are
+    /// spread shadows, one outside and one inset, so they never overlap and
+    /// their order does not matter.
+    /// </summary>
+    internal static BoxShadows FocusRingOnAccentShadow(EffectiveAppearanceResources resources) =>
+        new(
+            new BoxShadow { Spread = FocusRingWidth, Color = resources.FocusRing },
+            [new BoxShadow { Spread = FocusRingGap, Color = resources.Background, IsInset = true }]);
 
     /// <summary>
     /// One step of the accent shade ramp: the accent blended toward black or
@@ -1017,12 +1338,9 @@ public sealed partial class App : Avalonia.Application
         _appearancePreview?.Changed -= OnAppearancePreviewChanged;
         _windowCollection?.CollectionChanged -= OnWindowCollectionChanged;
         _windowCollection = null;
-        if (_applicationIconRefreshTimer is { } iconRefreshTimer)
-        {
-            iconRefreshTimer.Stop();
-            iconRefreshTimer.Tick -= OnApplicationIconRefresh;
-            _applicationIconRefreshTimer = null;
-        }
+        _hostSystemPalette?.Changed -= OnHostSystemPaletteChanged;
+        _hostSystemPalette?.Stop();
+        _hostSystemPalette = null;
 
         foreach (var viewModel in _additionalMainWindowViewModels.ToArray())
         {
@@ -1085,6 +1403,8 @@ public sealed partial class App : Avalonia.Application
     /// </summary>
     public async Task PrepareForUpdateRestartAsync(CancellationToken cancellationToken)
     {
+        // The restarted app puts the same windows back where they are now.
+        SaveWindowPlacements();
         _desktopExitStarted = true;
         var additionalViewModels = _additionalMainWindowViewModels.ToArray();
         MainWindowViewModel[] allViewModels = _mainWindowViewModel is { } mainViewModel
@@ -1188,8 +1508,6 @@ public sealed partial class App : Avalonia.Application
 
         desktop.MainWindow = window;
         QuickTerminalController.SetMainWindow(window);
-        var accent = (window.DataContext as MainWindowViewModel)?.ActiveWorkspaceAccent;
-        SetWorkspaceAccent(RgbColor.TryParse(accent, out var color) ? color : null);
     }
 
     private void OnMainWindowClosed(object? sender, EventArgs e)
@@ -1204,6 +1522,10 @@ public sealed partial class App : Avalonia.Application
         mainWindow.Activated -= OnMainWindowActivated;
         mainWindow.Closed -= OnMainWindowClosed;
         mainWindow.Opened -= OnAdditionalWindowOpened;
+        var replacement = desktop.Windows
+            .OfType<MainWindow>()
+            .FirstOrDefault(window => !ReferenceEquals(window, mainWindow));
+        ForgetClosedWindow(mainWindow, isLastWindow: replacement is null);
         if (!_desktopExitStarted
             && mainWindow.DataContext is MainWindowViewModel viewModel
             && _additionalMainWindowViewModels.Remove(viewModel))
@@ -1212,11 +1534,24 @@ public sealed partial class App : Avalonia.Application
             viewModel.Dispose();
         }
 
-        var replacement = desktop.Windows
-            .OfType<MainWindow>()
-            .FirstOrDefault(window => !ReferenceEquals(window, mainWindow));
         if (replacement is null)
         {
+            // A quit closes every window on its way out and shuts down itself.
+            if (_quitInProgress || _quitApproved || _desktopExitStarted)
+            {
+                return;
+            }
+
+            // On a Mac, closing the last window leaves the app running — the
+            // Quick Terminal hotkey and background sessions with it — and the
+            // Dock icon opens a new window. Elsewhere the last window is the app.
+            if (KeepsRunningWithoutWindows)
+            {
+                QuickTerminalController.ReleaseMainWindow();
+                ShowWindowlessMenuBar();
+                return;
+            }
+
             desktop.Shutdown();
             return;
         }
@@ -1242,6 +1577,11 @@ public sealed partial class App : Avalonia.Application
             || !_additionalMainWindowViewModels.Contains(viewModel))
         {
             return;
+        }
+
+        if (_windowsAwaitingRestore.Remove(viewModel))
+        {
+            _ = await viewModel.RestoreSessionOnStartupAsync(CancellationToken.None);
         }
 
         _ = await viewModel.OpenDefaultLauncherIfIdleAsync(CancellationToken.None);
@@ -1279,6 +1619,13 @@ public sealed partial class App : Avalonia.Application
         // closed database; asked again now, it answers.
         _ = MainWindowViewModel.RetryRecentSessionHistoryAsync(CancellationToken.None);
         _ = await MainWindowViewModel.RestoreSessionOnStartupAsync(CancellationToken.None);
+        // The other windows the last run had open come back too, each to its
+        // own workspace and frame — when sessions are restored at all.
+        if (MainWindowViewModel.RestoreSessionsOnStart && !_desktopExitStarted)
+        {
+            ReopenRestoredWindows();
+        }
+
         // Whatever the restore did or did not find, the window does not come up
         // empty: Main's launcher is always there to come up in.
         _ = await MainWindowViewModel.OpenDefaultLauncherIfIdleAsync(CancellationToken.None);

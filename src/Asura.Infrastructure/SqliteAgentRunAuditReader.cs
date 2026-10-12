@@ -91,7 +91,7 @@ public sealed class SqliteAgentRunAuditReader : IAgentRunAuditReader
         {
             return Failure(
                 AuditStoreErrorCode.Cancelled,
-                "Reading the agent-run audit trail was cancelled.");
+                "Reading the agent-run audit trail was canceled.");
         }
         catch (SqliteException exception)
         {

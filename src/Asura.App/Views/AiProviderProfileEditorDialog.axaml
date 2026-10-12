@@ -1,42 +1,44 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.AiProviderProfileEditorDialog"
     x:DataType="vm:AiProviderProfileEditorViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
-    Title="AI provider"
     Width="780"
     Height="720"
     MinWidth="680"
     MinHeight="600"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
-      Subtitle="{Binding ProfileId, StringFormat={}Profile: {0}}"
       FooterHint="Tests load the provider's model list.">
+    <!-- Test is an auxiliary action: on the leading edge, the same width as
+         Cancel and Save, and away from them. -->
+    <controls:DialogShell.FooterLeading>
+      <Button x:Name="TestButton" MinWidth="88" Classes="SecondaryButton" Click="OnTestClick" Content="Test" IsEnabled="{Binding CanTest}" />
+    </controls:DialogShell.FooterLeading>
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnTestClick" Content="Test" IsEnabled="{Binding CanTest}" />
-        <Button Click="OnCancelClick" Content="Cancel" IsCancel="True" />
-        <Button Classes="PrimaryButton" Click="OnSaveClick" Content="Save provider" IsDefault="True" IsEnabled="{Binding CanTest}" />
+        <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button MinWidth="88" Classes="PrimaryButton" Click="OnSaveClick" Content="Save Provider" IsDefault="True" IsEnabled="{Binding CanTest}" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsEnabled="{Binding !IsStoringCredential}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="FormErrors" DataContext="{Binding ErrorNotices}" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
           <Grid
               x:Name="IdentityFields"
               ColumnDefinitions="*,*"
               ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <controls:LabeledField Label="Name">
+            <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
               <TextBox Text="{Binding Name}" PlaceholderText="Production OpenAI" />
             </controls:LabeledField>
             <controls:LabeledField Grid.Column="1" Label="Provider">
@@ -54,17 +56,18 @@
           </Grid>
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
-              Text="{Binding ProviderProtocol, StringFormat={}Wire protocol: {0}}" />
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
+              Text="{Binding ProviderProtocol}" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding !IsProviderRuntimeSupported}"
               Text="{Binding ProviderAvailability}"
               TextWrapping="Wrap" />
           <controls:LabeledField
               Label="API base endpoint"
-              Hint="{Binding EndpointPolicy}">
+              Hint="{Binding EndpointPolicy}"
+              controls:FieldValidation.For="Endpoint">
             <TextBox IsEnabled="{Binding IsEndpointEditable}" Text="{Binding Endpoint}" PlaceholderText="https://api.example.com/v1/" />
           </controls:LabeledField>
           <Grid
@@ -78,41 +81,39 @@
               <NumericUpDown Minimum="0" Maximum="10000" Value="{Binding Order}" />
             </controls:LabeledField>
           </Grid>
-          <controls:ToggleField
-              Label="Enable this provider for future agent selection"
-              IsChecked="{Binding IsEnabled}"
-              AutomationProperties.Name="Enable this provider for future agent selection" />
+          <CheckBox
+              x:Name="EnabledCheckBox"
+              Content="Enable this provider for future agent selection"
+              IsChecked="{Binding IsEnabled}" />
         </StackPanel>
       </controls:SurfaceCard>
 
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock Classes="SectionHeading" Text="Authentication" />
-          <ComboBox
-              x:Name="AuthenticationSelector"
-              IsVisible="{Binding HasMultipleAuthenticationOptions}"
-              ItemsSource="{Binding AuthenticationOptions}"
-              SelectedItem="{Binding SelectedAuthentication}">
-            <ComboBox.ItemTemplate>
-              <DataTemplate>
-                <TextBlock Text="{Binding Label}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <Grid
-              x:Name="AuthenticationValue"
-              MinHeight="{DynamicResource ShellControlMinHeight}"
-              IsVisible="{Binding HasSingleAuthenticationOption}">
-            <TextBlock
-                VerticalAlignment="Center"
-                FontWeight="SemiBold"
-                Text="{Binding SelectedAuthentication.Label}" />
-          </Grid>
-          <TextBlock
-              Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
-              Text="{Binding SelectedAuthentication.Detail}"
-              TextWrapping="Wrap" />
+          <!-- Authentication is a field like any other, labelled the way the
+               connection editor labels it, with its explanation as the hint. -->
+          <controls:LabeledField Label="Authentication" Hint="{Binding SelectedAuthentication.Detail}">
+            <Grid>
+              <ComboBox
+                  x:Name="AuthenticationSelector"
+                  AutomationProperties.Name="Authentication"
+                  IsVisible="{Binding HasMultipleAuthenticationOptions}"
+                  ItemsSource="{Binding AuthenticationOptions}"
+                  SelectedItem="{Binding SelectedAuthentication}">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <TextBlock Text="{Binding Label}" />
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <Grid
+                  x:Name="AuthenticationValue"
+                  MinHeight="{DynamicResource ShellControlMinHeight}"
+                  IsVisible="{Binding HasSingleAuthenticationOption}">
+                <TextBlock VerticalAlignment="Center" Text="{Binding SelectedAuthentication.Label}" />
+              </Grid>
+            </Grid>
+          </controls:LabeledField>
           <StackPanel IsVisible="{Binding UsesCredential}" Spacing="{DynamicResource ShellSpaceSm}">
             <controls:LabeledField Label="Credential">
               <Grid>
@@ -131,14 +132,17 @@
                     x:Name="CredentialValue"
                     MinHeight="{DynamicResource ShellControlMinHeight}"
                     IsVisible="{Binding HasSingleCredentialOption}">
+                  <!-- No key is stored yet, so there is nothing to choose:
+                       say so quietly, and let the field below take the key. -->
                   <TextBlock
                       VerticalAlignment="Center"
-                      FontWeight="SemiBold"
-                      Text="{Binding SelectedCredential.DisplayName}" />
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="None" />
                 </Grid>
               </Grid>
             </controls:LabeledField>
-            <controls:LabeledField Label="New API key">
+            <controls:LabeledField Label="New API key" controls:FieldValidation.For="ApiKeyValue">
               <TextBox
                   x:Name="ApiKeyInput"
                   Text="{Binding ApiKeyValue, Mode=TwoWay}"
@@ -151,10 +155,10 @@
                 Classes="SecondaryButton"
                 HorizontalAlignment="Left"
                 Click="OnStoreApiKeyClick"
-                Content="Store API key"
+                Content="Store API Key"
                 IsEnabled="{Binding CanStoreCredential}"
-                AutomationProperties.Name="Store API key in system keychain" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="Store, Test, or Save writes the entered key to the system keychain and selects it here. Stored keys remain in the keychain if you cancel; existing keys are not overwritten." TextWrapping="Wrap" />
+                AutomationProperties.Name="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Store the API key in {0}}" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Store, Test, or Save writes the entered key to {0} and selects it here. A stored key stays in {0} if you cancel; existing keys are not overwritten.'}" TextWrapping="Wrap" />
             <controls:LiveRegionTextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           </StackPanel>
           <StackPanel
@@ -167,7 +171,6 @@
                 Content="{Binding AuthenticationButtonLabel}"
                 IsEnabled="{Binding CanAuthenticate}" />
             <controls:LiveRegionTextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
                 Text="{Binding AuthenticationStatus}"
                 TextWrapping="Wrap"
                 AutomationProperties.LiveSetting="Polite" />
@@ -177,9 +180,9 @@
                 Background="{DynamicResource ShellSurfaceElevatedBrush}"
                 CornerRadius="{DynamicResource ShellRadiusSm}">
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="DEVICE CODE" />
-                <SelectableTextBlock FontFamily="{DynamicResource ShellMonoFontFamily}" FontSize="{DynamicResource ShellFontSize16}" Text="{Binding DeviceCode}" />
-                <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding AuthenticationUri}" />
+                <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Device code" />
+                <SelectableTextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize16}" Text="{Binding DeviceCode}" />
+                <SelectableTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AuthenticationUri}" />
               </StackPanel>
             </Border>
           </StackPanel>
@@ -189,15 +192,15 @@
       <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}">
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock FontWeight="SemiBold" Text="{Binding TestStatus}" />
-          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding TestDetail}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+          <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TestDetail}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           <StackPanel IsVisible="{Binding HasModels}" Spacing="{DynamicResource ShellSpaceXs}">
-            <TextBlock x:Name="ModelCatalogHeading" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last discovered models" />
+            <TextBlock x:Name="ModelCatalogHeading" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last discovered models" />
             <ItemsControl ItemsSource="{Binding Models}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Grid Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Id}" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding DisplayName}" />
+                    <TextBlock Text="{Binding Id}" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding DisplayName}" />
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
@@ -206,7 +209,6 @@
         </StackPanel>
       </controls:SurfaceCard>
 
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

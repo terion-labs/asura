@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -5,7 +6,7 @@ using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitLfsDialog : Window
+public sealed partial class GitLfsDialog : DialogWindow
 {
     private readonly CancellationTokenSource _lifetime = new();
     private readonly GitRuntimePanelViewModel? _panel;
@@ -46,7 +47,6 @@ public sealed partial class GitLfsDialog : Window
     private void OnLockSelection(object? sender, SelectionChangedEventArgs e) => UpdateLockButtons();
     private async void OnRemoteChanged(object? sender, SelectionChangedEventArgs e) { if (_ready && !_busy) { await ReloadAsync(); } }
     private async void OnRefresh(object? sender, RoutedEventArgs e) => await ReloadAsync();
-    private void OnClose(object? sender, RoutedEventArgs e) => Close();
 
     private async Task ReloadAsync()
     {
@@ -88,11 +88,11 @@ public sealed partial class GitLfsDialog : Window
         if (LocksList.SelectedItem is not GitLfsLockItemViewModel { Item: { } selected }) { return; }
         if (await new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Title = "Force unlock LFS file",
-            Heading = selected.Path,
-            Detail = $"Owner: {selected.OwnerName}\nLock: {selected.Id}\nRemote: {Remote}",
-            Notice = "This removes the lock even when another account owns it.",
-            ConfirmLabel = "Force unlock",
+            Heading = $"Force Unlock “{selected.Path}”?",
+            Detail = $"Owner: {selected.OwnerName}\nLock ID: {selected.Id}\nRemote: {Remote}",
+            Notice = "This removes the lock even when another account owns it, and that person's work on the file is no longer protected.",
+            ConfirmLabel = "Force Unlock",
+            Intent = ConfirmationIntent.Destructive,
         }).ShowDialog<bool>(this))
         {
             await ApplyAsync(new(GitLfsLockAction.Unlock, selected.Path, Remote, Force: true, ExpectedLockId: selected.Id));
@@ -106,6 +106,6 @@ public sealed partial class GitLfsDialog : Window
         if (_lifetime.IsCancellationRequested) { return; }
         SetBusy(false);
         if (success) { await ReloadAsync(); }
-        else { ShowMessage(panel.IssueMessage ?? "The lock action could not complete. Refresh before retrying."); }
+        else { ShowMessage(panel.IssueMessage ?? "The lock couldn’t be changed. Refresh, then try again."); }
     }
 }

@@ -1,0 +1,74 @@
+<UserControl
+    x:Class="Asura.App.Views.Components.AboutAsuraView"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls">
+  <!--
+    What the standard About panel says: the icon, the name, the version and
+    build, the copyright, and where the credits are. Identifiers, runtimes and
+    the platform are diagnostics, not identity, and live in the diagnostics
+    export. Updates sit underneath, as Check for Updates… does in the
+    application menu. Settings also lists the bundled components; the About
+    window leaves them to Acknowledgments….
+  -->
+  <StackPanel Spacing="{DynamicResource ShellSpaceLg}">
+    <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+      <Image
+          x:Name="ApplicationIcon"
+          Width="96"
+          Height="96"
+          Margin="{controls:Inset Bottom=Sm}"
+          HorizontalAlignment="Center"
+          AutomationProperties.AccessibilityView="Raw" />
+      <TextBlock HorizontalAlignment="Center" Classes="Title1" Text="{Binding ProductName}" />
+      <SelectableTextBlock x:Name="ApplicationVersionText" HorizontalAlignment="Center" Classes="Muted" Text="{Binding ApplicationVersion}" />
+      <TextBlock HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Copyright}" />
+    </StackPanel>
+
+    <StackPanel HorizontalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
+      <controls:LiveRegionTextBlock HorizontalAlignment="Center" TextAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ApplicationUpdates.Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Application update status" />
+      <ProgressBar Minimum="0" Maximum="100" Value="{Binding ApplicationUpdates.DownloadProgress}" IsVisible="{Binding ApplicationUpdates.IsDownloading}" AutomationProperties.Name="Update download progress" />
+      <ProgressBar IsIndeterminate="True" IsVisible="{Binding ApplicationUpdates.IsPreparingToRestart}" AutomationProperties.Name="Preparing update restart" />
+      <StackPanel HorizontalAlignment="Center" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Classes="SecondaryButton" Click="OnCheckForUpdatesClick" Content="Check for Updates" IsEnabled="{Binding ApplicationUpdates.CanCheck}" IsVisible="{Binding ApplicationUpdates.CanCheck}" AutomationProperties.Name="Check for application updates" />
+        <Button Classes="PrimaryButton" Click="OnDownloadUpdateClick" Content="Download Update" IsEnabled="{Binding ApplicationUpdates.CanDownload}" IsVisible="{Binding ApplicationUpdates.CanDownload}" AutomationProperties.Name="Download application update" />
+        <Button Classes="PrimaryButton" Click="OnRestartToApplyUpdateClick" Content="Restart to Update" IsEnabled="{Binding ApplicationUpdates.CanRestartToApply}" IsVisible="{Binding ApplicationUpdates.CanRestartToApply}" AutomationProperties.Name="Restart to apply application update" />
+        <Button Classes="SecondaryButton" Click="OnOpenThirdPartyNoticesClick" Content="Acknowledgments…" AutomationProperties.Name="Acknowledgments…" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Settings' About page lists what is bundled, as one grouped list:
+         a row per component with what it is for and its version and
+         licence under its name. An empty list shows nothing rather than a
+         warning about itself. -->
+    <StackPanel
+        x:Name="ProductComponentList"
+        IsVisible="False">
+      <controls:SettingsGroup Heading="Open-source components">
+        <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding ProductComponents}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border
+                  MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+                  Padding="{DynamicResource ShellSettingsRowPadding}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                  <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
+                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Purpose}" TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Version}" TextWrapping="Wrap" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding License}" TextWrapping="Wrap" />
+                    </WrapPanel>
+                  </StackPanel>
+                  <TextBlock Grid.Column="1" VerticalAlignment="Top" Classes="Eyebrow" Text="Bundled" />
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </controls:SettingsGroup>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

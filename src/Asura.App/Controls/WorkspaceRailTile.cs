@@ -1,8 +1,11 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Threading;
 using FluentIcons.Common;
 
 namespace Asura.App.Controls;
@@ -93,6 +96,9 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     private IBrush? _accentBrush;
     private IBrush? _restingBrush;
     private IBrush? _markBrush;
+    private Button? _open;
+    private Button? _close;
+    private Button? _save;
 
     static WorkspaceRailTile()
     {
@@ -104,6 +110,14 @@ internal sealed class WorkspaceRailTile : TemplatedControl
             (tile, _) => tile.RefreshStateClasses());
         HasAttentionProperty.Changed.AddClassHandler<WorkspaceRailTile>(
             (tile, _) => tile.RefreshStateClasses());
+        HasAgentActivityProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
+        IsIsolatedProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
+        // Both use sites name the tile after its workspace, and that is the
+        // name every action inside it has to carry as well.
+        AutomationProperties.NameProperty.Changed.AddClassHandler<WorkspaceRailTile>(
+            (tile, _) => tile.RefreshAutomation());
         CanCloseProperty.Changed.AddClassHandler<WorkspaceRailTile>(
             (tile, _) => tile.RefreshStateClasses());
         CanSaveProperty.Changed.AddClassHandler<WorkspaceRailTile>(
@@ -116,6 +130,8 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     {
         RefreshBrushes();
         RefreshStateClasses();
+        AddHandler(GotFocusEvent, OnActionGotFocus);
+        AddHandler(LostFocusEvent, OnActionLostFocus);
     }
 
     /// <summary>Asked for when the tile is clicked.</summary>
@@ -205,22 +221,80 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         private set => SetAndRaise(MarkBrushProperty, ref _markBrush, value);
     }
 
+    /// <summary>
+    /// The tile's state in words: what its colour, ring and dot draw. A screen
+    /// reader hears this where a sighted user reads saturation.
+    /// </summary>
+    public string StatusDescription
+    {
+        get
+        {
+            var parts = new List<string>(5);
+            if (IsCurrent)
+            {
+                parts.Add("Current");
+            }
+
+            if (IsRunning)
+            {
+                parts.Add("Running");
+            }
+
+            if (HasAttention)
+            {
+                parts.Add("Needs attention");
+            }
+
+            if (HasAgentActivity)
+            {
+                parts.Add("Agent working");
+            }
+
+            if (IsIsolated)
+            {
+                parts.Add("Isolated");
+            }
+
+            return string.Join(", ", parts);
+        }
+    }
+
+    /// <summary>
+    /// The tile's state changes are drawn as movements, but the state it
+    /// opens in is not a change: a rail that faded its current tile in every
+    /// time a window opened showed, for the first moments, no current tile at
+    /// all — which is what a capture taken then recorded. The transitions
+    /// apply only once the tile has settled.
+    /// </summary>
+    protected override void OnLoaded(RoutedEventArgs e)
+    {
+        base.OnLoaded(e);
+        Dispatcher.UIThread.Post(
+            () => PseudoClasses.Set(":settled", true),
+            DispatcherPriority.Background);
+    }
+
+    protected override void OnUnloaded(RoutedEventArgs e)
+    {
+        base.OnUnloaded(e);
+        PseudoClasses.Set(":settled", false);
+    }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         base.OnApplyTemplate(e);
-        if (e.NameScope.Find<Button>("PART_Open") is { } open)
-        {
-            open.Click += OnOpenClick;
-        }
+        _open?.Click -= OnOpenClick;
+        _close?.Click -= OnCloseClick;
+        _save?.Click -= OnSaveClick;
 
-        if (e.NameScope.Find<Button>("PART_Close") is { } close)
-        {
-            close.Click += OnCloseClick;
-        }
-        if (e.NameScope.Find<Button>("PART_Save") is { } save)
-        {
-            save.Click += OnSaveClick;
-        }
+        _open = e.NameScope.Find<Button>("PART_Open");
+        _close = e.NameScope.Find<Button>("PART_Close");
+        _save = e.NameScope.Find<Button>("PART_Save");
+
+        _open?.Click += OnOpenClick;
+        _close?.Click += OnCloseClick;
+        _save?.Click += OnSaveClick;
+        RefreshAutomation();
     }
 
     /// <summary>
@@ -232,6 +306,51 @@ internal sealed class WorkspaceRailTile : TemplatedControl
 
     /// <summary>How far a resting tile is dimmed toward the rail behind it.</summary>
     private const double RestingBrightness = 0.66;
+
+    /// <summary>
+    /// Opens the tile for the keyboard and not for the pointer. A click focuses
+    /// the button it lands on as well, and the workspace switch it starts does
+    /// not take focus anywhere else, so a tile that opened on any focus inside
+    /// it stayed open over the canvas — shadow, Terminate and all — after the
+    /// pointer had left.
+    /// </summary>
+    private void OnActionGotFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        PseudoClasses.Set(
+            ":keyboard-focus-within",
+            e.NavigationMethod is NavigationMethod.Tab or NavigationMethod.Directional);
+    }
+
+    private void OnActionLostFocus(object? sender, FocusChangedEventArgs e)
+    {
+        _ = sender;
+        // Focus moving from one action to the next arrives here first and
+        // then as a fresh GotFocus, which sets the class again.
+        PseudoClasses.Set(":keyboard-focus-within", false);
+    }
+
+    /// <summary>
+    /// Shift+F10 and the Menu key open the tile's menu from the keyboard, as
+    /// a right-click does with the pointer.
+    /// </summary>
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        if (!e.Handled
+            && ContextMenu is { } menu
+            && IsContextMenuGesture(e.Key, e.KeyModifiers))
+        {
+            e.Handled = true;
+            menu.Open(this);
+            return;
+        }
+
+        base.OnKeyDown(e);
+    }
+
+    internal static bool IsContextMenuGesture(Key key, KeyModifiers modifiers) =>
+        key == Key.Apps
+        || (key == Key.F10 && modifiers == KeyModifiers.Shift);
 
     private void OnOpenClick(object? sender, RoutedEventArgs e)
     {
@@ -264,24 +383,57 @@ internal sealed class WorkspaceRailTile : TemplatedControl
             return;
         }
 
+        // One ink for both fills, so the icon does not change colour when the
+        // tile lights up under the pointer — and measured against both. The
+        // resting fill is darker than the full colour, so dark ink that read on
+        // a bright tile could sink into the same tile at rest; the resting fill
+        // is lifted just enough to keep it.
+        var (rest, ink) = RestAndInk(accent);
         AccentBrush = new SolidColorBrush(accent);
-        RestingBrush = new SolidColorBrush(Rest(accent));
-        // Measured against the full colour rather than the resting one: the
-        // icon must not change colour when the tile lights up under the
-        // pointer, and the full colour is the brighter of the two, so a mark
-        // that reads on it reads on both.
-        MarkBrush = new SolidColorBrush(Ink(accent));
+        RestingBrush = new SolidColorBrush(rest);
+        MarkBrush = new SolidColorBrush(ink);
     }
 
+    /// <summary>The contrast a non-text mark needs against what it sits on.</summary>
+    internal const double MarkContrast = 3;
+
     /// <summary>
-    /// Ink or paper, whichever stands out on a fill. The threshold is the
-    /// perceptual midpoint rather than 128, which would put white text on
-    /// mid-greens.
+    /// The resting fill for a workspace colour and the one ink that reads on
+    /// it and on the full colour alike. The ink is whichever of white and
+    /// near-black reads better on the full colour, which always clears the
+    /// mark standard there; the resting fill then moves away from that ink —
+    /// brighter under dark ink, darker under white — until it clears it too.
     /// </summary>
-    private static Color Ink(Color fill) =>
-        (0.2126 * fill.R) + (0.7152 * fill.G) + (0.0722 * fill.B) > 150
-            ? Color.FromRgb(0x14, 0x14, 0x16)
-            : Colors.White;
+    internal static (Color Resting, Color Ink) RestAndInk(Color accent)
+    {
+        var ink = Ink(accent);
+        var brightness = RestingBrightness;
+        var rest = Rest(accent, brightness);
+        var step = ink == Colors.White ? -0.02 : 0.02;
+        while (EffectiveAppearanceResourceMapper.ContrastRatio(rest, ink) < MarkContrast
+               && brightness is > 0.02 and < 1.48)
+        {
+            brightness += step;
+            rest = Rest(accent, brightness);
+        }
+
+        return (rest, ink);
+    }
+
+    /// <summary>The dark ink a light fill takes.</summary>
+    internal static readonly Color DarkInk = Color.FromRgb(0x11, 0x11, 0x11);
+
+    /// <summary>
+    /// Ink or paper, whichever has the higher measured contrast with the fill.
+    /// A brightness threshold put white on mid-greens and teals, where it
+    /// reached barely 2.5:1; measuring keeps every mark above the 3:1 a
+    /// non-text element needs.
+    /// </summary>
+    internal static Color Ink(Color fill) =>
+        EffectiveAppearanceResourceMapper.ContrastRatio(fill, Colors.White)
+            >= EffectiveAppearanceResourceMapper.ContrastRatio(fill, DarkInk)
+            ? Colors.White
+            : DarkInk;
 
     /// <summary>
     /// Pulls a colour toward the grey of its own brightness, then dims it.
@@ -290,18 +442,18 @@ internal sealed class WorkspaceRailTile : TemplatedControl
     /// one do not both come out as the same middle grey — the point of leaving
     /// any colour at all is that the rail stays readable at rest.
     /// </summary>
-    private static Color Rest(Color accent)
+    internal static Color Rest(Color accent, double brightness = RestingBrightness)
     {
         var luma = 0.2126 * accent.R + 0.7152 * accent.G + 0.0722 * accent.B;
         return Color.FromRgb(
-            Muted(accent.R, luma),
-            Muted(accent.G, luma),
-            Muted(accent.B, luma));
+            Muted(accent.R, luma, brightness),
+            Muted(accent.G, luma, brightness),
+            Muted(accent.B, luma, brightness));
     }
 
-    private static byte Muted(byte channel, double luma) =>
+    private static byte Muted(byte channel, double luma, double brightness) =>
         (byte)Math.Clamp(
-            (luma + ((channel - luma) * SurvivingSaturation)) * RestingBrightness,
+            (luma + ((channel - luma) * SurvivingSaturation)) * brightness,
             0,
             255);
 
@@ -313,5 +465,34 @@ internal sealed class WorkspaceRailTile : TemplatedControl
         PseudoClasses.Set(":closable", CanClose);
         PseudoClasses.Set(":saveable", CanSave);
         PseudoClasses.Set(":expandsleft", ExpandsLeft);
+        RefreshAutomation();
+    }
+
+    /// <summary>
+    /// Names each action after the workspace it acts on, and states the tile's
+    /// state on the action a screen reader lands on. "Terminate this
+    /// workspace", heard out of context in a rail of six, did not say which.
+    /// </summary>
+    private void RefreshAutomation()
+    {
+        var name = AutomationProperties.GetName(this);
+        var workspace = string.IsNullOrWhiteSpace(name) ? "this workspace" : name;
+        var status = StatusDescription;
+        AutomationProperties.SetItemStatus(this, status);
+        if (_open is not null)
+        {
+            AutomationProperties.SetName(_open, $"Open {workspace}");
+            AutomationProperties.SetItemStatus(_open, status);
+        }
+
+        if (_close is not null)
+        {
+            AutomationProperties.SetName(_close, $"Terminate {workspace}");
+        }
+
+        if (_save is not null)
+        {
+            AutomationProperties.SetName(_save, $"Save the layout of {workspace}");
+        }
     }
 }

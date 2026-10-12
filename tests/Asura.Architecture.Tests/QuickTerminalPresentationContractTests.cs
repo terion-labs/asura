@@ -68,18 +68,15 @@ public sealed class QuickTerminalPresentationContractTests
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Tabs"), "{Binding Tabs}"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IconPickerPlacement"), "TopEdgeAlignedLeft"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AddTabRequested"), "OnAddTabRequested", StringComparison.Ordinal));
-        Assert.Contains(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "BoxShadow")
-, "{DynamicResource ShellAgentPanelGlowShadow}"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "IsVisible")
-, "{Binding ActiveTab.HasAgentActivity}", StringComparison.Ordinal));
+        // The glow's edge and wash come from the shared WindowGlow style, not
+        // the element, so the Reduce Motion still form can replace them.
         var agentGlow = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Border"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Classes"), "PanelAgentGlow WindowGlow", StringComparison.Ordinal));
+        Assert.Equal("{Binding ActiveTab.HasAgentActivity}", AttributeValue(agentGlow, "IsVisible"));
+        Assert.Null(AttributeValue(agentGlow, "BoxShadow"));
+        Assert.Null(AttributeValue(agentGlow, "BorderThickness"));
         Assert.Null(AttributeValue(agentGlow, "Margin"));
         Assert.Equal("0", AttributeValue(agentGlow, "CornerRadius"));
         var controlBar = Assert.Single(
@@ -220,7 +217,10 @@ public sealed class QuickTerminalPresentationContractTests
 
         Assert.True(toggle.Success);
         Assert.Contains("window.PlaceAt(workingArea.Position, scale)", controller, StringComparison.Ordinal);
-        Assert.Contains("CompletePreparedReveal", controller, StringComparison.Ordinal);
+        // The window shows itself for a reveal: panel behavior first, then
+        // the prepared, invisible show, then the first visible frame.
+        Assert.Contains("window.ShowForReveal(progress)", toggle.Groups["body"].Value, StringComparison.Ordinal);
+        Assert.Contains("CompletePreparedReveal", window, StringComparison.Ordinal);
         Assert.Contains("AnimateReveal", controller, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "ApplySettings",
@@ -363,15 +363,20 @@ public sealed class QuickTerminalPresentationContractTests
         Assert.DoesNotContain(".Dispose()", closing.Value, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Quick Terminal has its own menu bar while it is key. Its New Terminal
+    /// Tab and Close Tab items act on its tabs and never fall through to the
+    /// main window.
+    /// </summary>
     [Fact]
     public void Native_new_tab_command_targets_the_active_quick_terminal()
     {
         var repositoryRoot = ApplicationViewCatalog.Load().RepositoryRoot;
-        var application = File.ReadAllText(Path.Combine(
+        var menuHosts = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
             "Asura.App",
-            "App.axaml.cs"));
+            "WindowMenuHosts.cs"));
         var controller = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "src",
@@ -379,8 +384,8 @@ public sealed class QuickTerminalPresentationContractTests
             "QuickTerminalController.cs"));
 
         Assert.Contains(
-            "await QuickTerminalController.TryAddTabToActiveQuickTerminalAsync()",
-            application,
+            "await controller.TryAddTabToActiveQuickTerminalAsync()",
+            menuHosts,
             StringComparison.Ordinal);
         Assert.Contains(
             "if (!_quickWindowIsActive || _quickWindow?.IsVisible != true)",
@@ -389,8 +394,8 @@ public sealed class QuickTerminalPresentationContractTests
         Assert.Contains("await _viewModel.AddTabAsync()", controller, StringComparison.Ordinal);
         Assert.Contains("_quickWindow.FocusTerminal()", controller, StringComparison.Ordinal);
         Assert.Contains(
-            "await QuickTerminalController.TryCloseTabInActiveQuickTerminalAsync()",
-            application,
+            "await controller.TryCloseTabInActiveQuickTerminalAsync()",
+            menuHosts,
             StringComparison.Ordinal);
         Assert.Contains(
             "await _viewModel.CloseTabAsync(activeTab)",

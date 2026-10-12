@@ -476,7 +476,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         await runtime.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(panel.CanCancelConnection);
-        Assert.Equal("Cancel connection", panel.CancelConnectionLabel);
+        Assert.Equal("Cancel Connection", panel.CancelConnectionLabel);
 
         panel.CancelConnection();
 
@@ -484,7 +484,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         await runtime.Cancelled.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(ConnectionReconnectState.Cancelled, panel.ReconnectState);
         Assert.Equal(ConnectionPanelState.Failed, panel.ConnectionState);
-        Assert.Equal("Connection cancelled", panel.ConnectionStatus);
+        Assert.Equal("Connection canceled", panel.ConnectionStatus);
         Assert.Null(panel.SessionRequest);
         Assert.True(panel.CanRetry);
     }
@@ -622,7 +622,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(error, panel.StartupCommandError);
         Assert.True(panel.HasStartupCommandError);
         Assert.DoesNotContain("Retrying", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
         Assert.Contains("terminal remains open", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
@@ -681,7 +681,7 @@ public sealed class TerminalRuntimePanelViewModelTests
         Assert.Same(dispatchResult, dispatchState.LastResult);
         Assert.Empty(panel.StartupCommands);
         Assert.Same(error, panel.StartupCommandError);
-        Assert.Contains("will not be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
+        Assert.Contains("won't be retried", panel.StartupCommandErrorDetail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1128,7 +1128,7 @@ public sealed class TerminalRuntimePanelViewModelTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var connection = SshAgentConnection();
             var runtime = new QueueConnectionRuntime(
@@ -1138,6 +1138,19 @@ public sealed class TerminalRuntimePanelViewModelTests
             using var panel = CreatePanel(runtime, connection, PanelStartupBehavior.None,
                 multiplexerSession: TerminalMultiplexerSession.CreateAutomatic());
             await panel.Initialization;
+
+            // Watched before any view: the embedded view's surface takes a
+            // request the moment it is issued and, with no session host in
+            // this test, hands it straight back as a failed start. What the
+            // fallback owes is that it issued one.
+            EnsureTerminalSessionRequest? issued = null;
+            panel.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(panel.SessionRequest) && panel.SessionRequest is { } request)
+                {
+                    issued = request;
+                }
+            };
             UserControl view;
             if (embedded)
             {
@@ -1157,9 +1170,11 @@ public sealed class TerminalRuntimePanelViewModelTests
                 window.Show();
                 window.UpdateLayout();
                 var button = Assert.Single(view.GetVisualDescendants().OfType<Button>(),
-                    button => Equals(button.Content, "Proceed without continuity"));
+                    button => Equals(button.Content, "Proceed Without Continuity"));
                 Assert.True(button.IsEffectivelyVisible);
 
+                // Only a request issued by the click counts.
+                issued = null;
                 button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await panel.Initialization;
                 Dispatcher.UIThread.RunJobs();
@@ -1167,13 +1182,20 @@ public sealed class TerminalRuntimePanelViewModelTests
                 Assert.Equal(2, runtime.PlanCount);
                 Assert.Null(runtime.RequestedMultiplexers[1]);
                 Assert.False(button.IsEffectivelyVisible);
-                Assert.NotNull(panel.SessionRequest);
+                Assert.NotNull(issued);
+                if (!embedded)
+                {
+                    // Without a surface the request stays pending for one.
+                    Assert.Same(issued, panel.SessionRequest);
+                }
             }
             finally
             {
                 window.Close();
             }
-        }, timeout.Token);
+
+            return true;
+        }, timeout.Token));
     }
 
     private static SessionSnapshot Snapshot(

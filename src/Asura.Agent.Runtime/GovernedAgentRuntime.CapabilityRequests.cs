@@ -216,7 +216,7 @@ public sealed partial class GovernedAgentRuntime
                 ProvisionalAssistantText = string.Empty,
                 ProvisionalReasoningSummary = string.Empty,
                 Status =
-                    "Waiting for your run-local Off-to-Ask capability decision…",
+                    $"Waiting for you to allow or keep off {awaiter.Request.DisplayTitle}…",
             };
         }
 
@@ -242,7 +242,7 @@ public sealed partial class GovernedAgentRuntime
             CancelCapabilityRequestAwaiter(
                 awaiter,
                 "capability_request_cancelled",
-                "The capability request was cancelled.");
+                "The capability request was canceled.");
             throw;
         }
 
@@ -447,7 +447,7 @@ public sealed partial class GovernedAgentRuntime
                 true,
                 "capability_request_allowed",
                 "The capability now uses ordinary per-action approval for this run."),
-            "Capability set to Ask; returning the run-local receipt to the provider…");
+            "Allowed for this run. Each action still asks first. Continuing…");
         return new AgentToolResult(
             proposal,
             AgentToolResultStatus.Succeeded,
@@ -682,7 +682,7 @@ public sealed partial class GovernedAgentRuntime
         CancelDetachedQuestionAwaiter(
             question,
             "question_cancelled",
-            "The agent question was cancelled.");
+            "The agent question was canceled.");
         NotifyChanged();
     }
 
@@ -973,23 +973,18 @@ public sealed partial class GovernedAgentRuntime
         AgentContextSnapshot context)
     {
         var firstKind = context.Panels[0].Kind;
+        var panelCount = PanelTypeNames.Count(
+            [.. context.Panels.Select(panel => panel.Kind)]);
         return context.Target switch
         {
             AgentTarget.Panel or AgentTarget.ConnectionSession =>
-                firstKind switch
-                {
-                    PanelKind.Terminal => "Terminal",
-                    PanelKind.Browser => "Browser",
-                    PanelKind.FileViewer => "File Viewer",
-                    PanelKind.ProcessMonitor => "Process Monitor",
-                    _ => "Panel",
-                },
+                PanelTypeNames.Name(firstKind),
             AgentTarget.OpenTab =>
-                $"Current tab · {context.Panels.Count} panels",
+                $"Current tab · {panelCount}",
             AgentTarget.Workspace =>
-                $"Workspace · {context.Panels.Count} panels",
+                $"Workspace · {panelCount}",
             AgentTarget.SelectedPanels =>
-                $"Selected panels · {context.Panels.Count}",
+                $"Selected terminals · {context.Panels.Count}",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(context),
                 context.Target.GetType(),

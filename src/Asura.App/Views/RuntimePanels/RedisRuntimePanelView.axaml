@@ -1,6 +1,7 @@
 <UserControl
     x:Class="Asura.App.Views.RuntimePanels.RedisRuntimePanelView"
     x:DataType="vm:RedisRuntimePanelViewModel"
+    x:Name="PanelRoot"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
@@ -12,15 +13,45 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
-    AutomationProperties.Name="Redis database panel">
+    AutomationProperties.Name="Redis panel">
   <UserControl.Styles>
 
-    <Style Selector="Border.RedisSheetHeader">
-      <Setter Property="Background" Value="{DynamicResource ShellSurfaceRaisedBrush}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+    <!-- A value cell is one line: a long or multi-line value ends in an
+         ellipsis rather than growing the row or clipping mid-glyph. -->
+    <Style Selector="DataGrid.RedisValues DataGridCell TextBlock">
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="MaxLines" Value="1" />
+    </Style>
+
+    <!-- The forms' row is set here rather than on the element: a value set
+         on the element outranks every style, and the document variant below
+         could never move the editor up. -->
+    <Style Selector="Grid.RedisValueArea > Grid.RedisValueForms">
+      <Setter Property="Grid.Row" Value="2" />
+    </Style>
+    <!-- A JSON key is one document: its editor takes the value area the
+         rows would have used. -->
+    <Style Selector="Grid.RedisValueArea.document > Grid.RedisValueForms">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="VerticalAlignment" Value="Top" />
+    </Style>
+    <Style Selector="Grid.RedisValueArea.document components|CodeEditBox.RedisDocumentEditor">
+      <Setter Property="MaxHeight" Value="480" />
+    </Style>
+
+    <!-- The subscription list sits inside the card's padding already, so
+         its rows drop the list's own gutter: a row's plate spans the fields
+         above it, edge to edge, instead of standing a gutter inside them. -->
+    <Style Selector="ListBox.RedisSubscriptions ListBoxItem">
+      <Setter Property="Margin" Value="0" />
+    </Style>
+
+    <!-- A dense form row keeps its check box at the dense height; its label
+         reads at the body size, as every control label does. -->
+    <Style Selector="CheckBox.Dense">
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <!-- A row of a collection form: its inputs are one run, the remove sits
@@ -40,19 +71,21 @@
       <Setter Property="HorizontalAlignment" Value="Left" />
       <Setter Property="MinHeight" Value="0" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs, Vertical=Xs}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <!-- A Redis key is an identifier, so the row's title reads in the data
          family every other identifier in the shell does. -->
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Title">
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <!-- Keys share prefixes ("user:1042:sessions"), so both ends stay. -->
+      <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
     </Style>
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Detail">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
     </Style>
   </UserControl.Styles>
   <controls:PanelChrome
@@ -66,7 +99,12 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Classes.available="{Binding IsConnected}" />
+      <!-- The connection's real state, named for the tooltip and VoiceOver;
+           with Differentiate Without Color the dot becomes a glyph. -->
+      <controls:StatusMark
+          x:Name="ConnectionStatusMark"
+          Tone="{Binding ConnectionStatusTone}"
+          Description="{Binding ConnectionStatusLabel}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -81,7 +119,7 @@
       <controls:LiveRegionTextBlock
           VerticalAlignment="Center"
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusText}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Redis state" />
@@ -95,7 +133,7 @@
         <TextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ScanProgressText}"
             IsVisible="{Binding ShowBrowser}"
             AutomationProperties.Name="Redis key scan progress" />
@@ -103,7 +141,7 @@
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding ServerFactsText}"
             TextTrimming="CharacterEllipsis"
             AutomationProperties.Name="Redis server summary" />
@@ -118,47 +156,42 @@
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
             <ComboBox
                 MinWidth="96"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 VerticalAlignment="Center"
                 ItemsSource="{Binding Databases}"
                 SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
                 IsEnabled="{Binding IsConnected}"
                 AutomationProperties.Name="Redis logical database" />
-            <Button
-                Classes="IconButton"
+            <Border
                 VerticalAlignment="Center"
-                Click="OnEditConnectionClick"
-                IsVisible="{Binding IsSavedConnection}"
-                ToolTip.Tip="Edit connection"
-                AutomationProperties.Name="Edit Redis connection">
-              <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellFontSize13}" />
-            </Button>
+                Classes="ToolbarGroup"
+                IsVisible="{Binding IsSavedConnection}">
+              <Button
+                  Classes="IconButton ToolbarGroupAction"
+                  Click="OnEditConnectionClick"
+                  ToolTip.Tip="Edit connection…"
+                  AutomationProperties.Name="Edit Redis connection">
+                <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </Border>
+            <!-- One button that says what it will do: Connect without a
+                 session, Disconnect with one. -->
             <Button
-                x:Name="ConnectButton"
-                MinWidth="86"
-                Height="26"
+                x:Name="ConnectionButton"
+                MinWidth="96"
+                MinHeight="{controls:TextScaled 26}"
                 Padding="{controls:Inset Horizontal=Md}"
                 VerticalAlignment="Center"
                 VerticalContentAlignment="Center"
+                HorizontalContentAlignment="Center"
                 Classes="SecondaryButton"
-                Command="{Binding ConnectCommand}"
-                Content="Connect"
-                AutomationProperties.Name="Connect to Redis" />
-            <Button
-                x:Name="DisconnectButton"
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding DisconnectCommand}"
-                Content="Disconnect"
-                IsVisible="{Binding IsConnected}"
-                AutomationProperties.Name="Disconnect from Redis" />
+                Command="{Binding ToggleConnectionCommand}"
+                Content="{Binding ConnectionActionLabel}"
+                AutomationProperties.Name="{Binding ConnectionActionDescription}" />
             <TextBlock
                 VerticalAlignment="Center"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding !HasConnectionTarget}"
                 Text="No connection — choose one from the connection menu."
                 TextTrimming="CharacterEllipsis" />
@@ -166,28 +199,15 @@
 
           <!-- The three perspectives on the server, out of the connection
                group: switching views is not a connection change. -->
-          <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented PerspectiveToggle">
-            <UniformGrid Columns="3">
-              <ToggleButton
-                  x:Name="BrowserButton"
-                  Classes="Segment"
-                  Click="OnBrowserClick"
-                  Content="Browser"
-                  AutomationProperties.Name="Browse Redis keys" />
-              <ToggleButton
-                  x:Name="SearchButton"
-                  Classes="Segment"
-                  Click="OnSearchClick"
-                  Content="Search"
-                  AutomationProperties.Name="Query a Redis search index" />
-              <ToggleButton
-                  x:Name="PubSubButton"
-                  Classes="Segment"
-                  Click="OnPubSubClick"
-                  Content="Pub/Sub"
-                  AutomationProperties.Name="Show Redis publish and subscribe" />
-            </UniformGrid>
-          </Border>
+          <controls:SegmentedControl
+              x:Name="PerspectivePicker"
+              Grid.Column="1"
+              SelectionChanged="OnPerspectiveSelectionChanged"
+              AutomationProperties.Name="Redis view">
+            <RadioButton Content="Keys" AutomationProperties.Name="Browse Redis keys" />
+            <RadioButton Content="Search" AutomationProperties.Name="Query a Redis search index" />
+            <RadioButton Content="Pub/Sub" AutomationProperties.Name="Show Redis publish and subscribe" />
+          </controls:SegmentedControl>
         </Grid>
       </Border>
 
@@ -201,17 +221,23 @@
           <Border>
             <Grid RowDefinitions="Auto,*,Auto">
               <Grid Margin="{controls:Inset Sm}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                <TextBox
-                    PlaceholderText="Glob pattern, e.g. user:*"
+                <!-- The pattern is a filter on the server's SCAN: Return runs
+                     it, and clearing the field lists every key again. -->
+                <controls:SearchField
+                    x:Name="KeyPatternBox"
+                    PlaceholderText="Filter keys, e.g. user:*"
                     Text="{Binding ScanPattern, Mode=TwoWay}"
-                    AutomationProperties.Name="Redis key pattern" />
+                    KeyDown="OnKeyPatternKeyDown"
+                    TextChanged="OnKeyPatternTextChanged"
+                    ToolTip.Tip="A glob pattern; Return filters the key list"
+                    AutomationProperties.Name="Filter Redis keys" />
                 <Button
                     Grid.Column="1"
                     Classes="IconButton"
                     Command="{Binding ScanCommand}"
                     ToolTip.Tip="Restart scan"
                     AutomationProperties.Name="Restart Redis key scan">
-                  <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellFontSize12}" />
+                  <icons:SymbolIcon Symbol="ArrowSync" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
                 <!-- Creating a key is an occasional act beside a list you read
                      constantly, so it is an action here rather than a block of
@@ -222,9 +248,9 @@
                     Classes="IconButton"
                     Click="OnNewKeyClick"
                     IsEnabled="{Binding IsConnected}"
-                    ToolTip.Tip="New key"
+                    ToolTip.Tip="New key…"
                     AutomationProperties.Name="Create a Redis key">
-                  <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize12}" />
+                  <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
                 </Button>
               </Grid>
 
@@ -257,7 +283,7 @@
                     ShowsGlyph="False"
                     IsVisible="{Binding !HasKeys}"
                     Heading="No keys yet"
-                    Body="Connect, then scan — the pattern above bounds what is read." />
+                    Body="Connect, then scan. Only keys that match the pattern above are read." />
               </Grid>
 
               <Button
@@ -267,7 +293,7 @@
                   HorizontalContentAlignment="Center"
                   Classes="SecondaryButton"
                   Command="{Binding LoadMoreCommand}"
-                  Content="Load more keys"
+                  Content="Load More Keys"
                   IsVisible="{Binding !ScanComplete}"
                   AutomationProperties.Name="Load more Redis keys" />
             </Grid>
@@ -298,6 +324,8 @@
                 Body="Values load a page at a time, with editing matched to each key type." />
 
             <Grid
+                Classes="RedisValueArea"
+                Classes.document="{Binding !MutationForm.ShowsValueGrid}"
                 IsVisible="{Binding HasSelectedKey}"
                 RowDefinitions="Auto,*,Auto"
                 RowSpacing="{DynamicResource ShellSpaceSm}">
@@ -313,16 +341,13 @@
                   <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock
                         FontFamily="{DynamicResource ShellDataFontFamily}"
-                        FontSize="{DynamicResource ShellFontSize13}"
-                        FontWeight="SemiBold"
-                        LineHeight="{DynamicResource ShellLineHeight13}"
+                        Classes="Headline MiddleTruncated"
                         Text="{Binding SelectedKey.Name}"
-                        TextTrimming="CharacterEllipsis"
                         AutomationProperties.Name="Selected Redis key" />
                     <TextBlock
                         Classes="Muted"
-                        FontSize="{DynamicResource ShellFontSize10}"
-                        LineHeight="{DynamicResource ShellLineHeight10}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                         Text="{Binding SelectedKeyMetadata}" />
                   </StackPanel>
                   <StackPanel
@@ -344,14 +369,12 @@
                         Command="{Binding SetExpiryCommand}"
                         Content="Apply"
                         AutomationProperties.Name="Apply the Redis time to live" />
-                    <!-- Quiet until it is one press from running, then it wears
-                         the tone of what it is about to do. -->
+                    <!-- Destructive actions on this screen share one look, the
+                         push button with a danger label; the first press arms
+                         this one and says so in its label. -->
                     <Button
                         VerticalAlignment="Center"
-                        Classes="Dense"
-                        Classes.TextButton="{Binding !IsDeleteArmed}"
-                        Classes.DestructiveButton="{Binding IsDeleteArmed}"
-                        Foreground="{DynamicResource ShellDangerBrush}"
+                        Classes="DestructiveButton Dense"
                         Command="{Binding DeleteKeyCommand}"
                         Content="{Binding DeleteKeyLabel}"
                         AutomationProperties.Name="Delete the selected Redis key" />
@@ -368,10 +391,11 @@
                   IsVisible="{Binding HasSelectedKeyLimitation}" />
               </StackPanel>
 
-              <controls:SurfaceCard Grid.Row="1" Padding="0" ClipsContent="True">
+              <controls:SurfaceCard Grid.Row="1" Padding="0" ClipsContent="True" IsVisible="{Binding MutationForm.ShowsValueGrid}">
                 <Grid>
                   <DataGrid
-                      Classes="DatabaseGrid"
+                      x:Name="ValueEntriesGrid"
+                      Classes="DatabaseGrid RedisValues"
                       ItemsSource="{Binding ValueEntries}"
                       SelectedItem="{Binding SelectedValueEntry, Mode=TwoWay}"
                       AutoGenerateColumns="False"
@@ -383,21 +407,38 @@
                       AutomationProperties.Name="Redis key value">
                     <DataGrid.ContextMenu>
                       <ContextMenu>
+                        <!-- Panel ▸ Redis ▸ Remove Entry is its menu-bar copy;
+                             here it names the entry by the key's type. -->
                         <MenuItem
+                            x:Name="RemoveEntryMenuItem"
                             Command="{Binding RemoveEntryCommand}"
                             Header="{Binding RemoveEntryLabel}"
                             AutomationProperties.Name="Remove the selected Redis entry">
                           <MenuItem.Icon>
-                            <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellFontSize12}" />
+                            <icons:SymbolIcon Symbol="Delete" FontSize="{DynamicResource ShellIconSizeSm}" />
                           </MenuItem.Icon>
                         </MenuItem>
                       </ContextMenu>
                     </DataGrid.ContextMenu>
                     <DataGrid.Columns>
-                      <DataGridTextColumn Header="Identity" Binding="{Binding Identity}" Width="160" />
-                      <DataGridTextColumn Header="Field" Binding="{Binding Field}" Width="160" />
+                      <!-- A column only where it says something: a hash field is
+                           its own identity, and only a sorted set has scores. -->
+                      <DataGridTextColumn
+                          Header="Identity"
+                          Binding="{Binding Identity}"
+                          Width="160"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsIdentityColumn}" />
+                      <DataGridTextColumn
+                          Header="Field"
+                          Binding="{Binding Field}"
+                          Width="160"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsFieldColumn}" />
                       <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
-                      <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="90" />
+                      <DataGridTextColumn
+                          Header="Score"
+                          Binding="{Binding Score}"
+                          Width="90"
+                          IsVisible="{Binding #PanelRoot.((vm:RedisRuntimePanelViewModel)DataContext).ShowsScoreColumn}" />
                     </DataGrid.Columns>
                   </DataGrid>
 
@@ -418,7 +459,7 @@
                    spaces its columns whether or not one of them has anything
                    in it, so a string — which has nothing to add to — was left
                    holding a column's worth of air at its right. -->
-              <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+              <Grid Classes="RedisValueForms" ColumnDefinitions="*,Auto">
                 <controls:SurfaceCard
                     Tone="Raised"
                     Padding="{DynamicResource ShellCardPaddingCompact}"
@@ -477,6 +518,7 @@
                           IsVisible="{Binding MutationForm.EditsJson}">
                         <controls:SurfaceCard Tone="Sunken" Padding="{controls:Inset Xs}">
                           <components:CodeEditBox
+                              Classes="RedisDocumentEditor"
                               MinHeight="110"
                               MaxHeight="180"
                               GrammarExtension=".json"
@@ -497,8 +539,7 @@
                       <Grid ColumnDefinitions="Auto,*,Auto">
                         <Button
                             VerticalAlignment="Center"
-                            Classes="TextButton Dense"
-                            Foreground="{DynamicResource ShellDangerBrush}"
+                            Classes="DestructiveButton"
                             Command="{Binding RemoveEntryCommand}"
                             Content="{Binding RemoveEntryLabel}"
                             IsVisible="{Binding MutationForm.CanRemoveEntries}"
@@ -523,7 +564,7 @@
                     Padding="{DynamicResource ShellCardPaddingCompact}"
                     IsVisible="{Binding MutationForm.HasAddForm}">
                   <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="SectionHeading" Text="{Binding MutationForm.ActionLabel}" />
+                    <TextBlock Classes="SectionHeading" Text="{Binding MutationForm.AddFormHeading}" />
 
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                       <controls:LabeledField
@@ -561,16 +602,19 @@
                                     Width="120"
                                     Text="{Binding Field, Mode=TwoWay}"
                                     PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.FieldLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.FieldLabel}"
                                     IsVisible="{Binding $parent[ItemsControl].DataContext.MutationForm.HasField}" />
                                 <TextBox
                                     Grid.Column="1"
                                     Text="{Binding Value, Mode=TwoWay}"
-                                    PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}" />
+                                    PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.ValueLabel}" />
                                 <TextBox
                                     Grid.Column="2"
                                     Width="72"
                                     Text="{Binding Score, Mode=TwoWay}"
                                     PlaceholderText="{Binding $parent[ItemsControl].DataContext.MutationForm.ScoreLabel}"
+                                    AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.MutationForm.ScoreLabel}"
                                     IsVisible="{Binding $parent[ItemsControl].DataContext.MutationForm.HasScore}" />
                                 <Button
                                     Grid.Column="3"
@@ -578,7 +622,7 @@
                                     Click="OnRemoveMutationEntryClick"
                                     ToolTip.Tip="Remove this row"
                                     AutomationProperties.Name="Remove this entry">
-                                  <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
+                                  <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                                 </Button>
                               </Grid>
                             </DataTemplate>
@@ -589,16 +633,20 @@
                             Click="OnAddMutationEntryClick"
                             AutomationProperties.Name="Add another entry">
                           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
-                            <TextBlock Text="Add row" />
+                            <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
+                            <TextBlock Text="Add Row" />
                           </StackPanel>
                         </Button>
                       </StackPanel>
                     </StackPanel>
 
+                    <!-- Secondary while the entry form beside it is showing its
+                         primary Save, so the value area has one default-looking
+                         action rather than two competing ones, and never none. -->
                     <Button
                         HorizontalAlignment="Right"
-                        Classes="PrimaryButton"
+                        Classes.PrimaryButton="{Binding !ShowsEntrySave}"
+                        Classes.SecondaryButton="{Binding ShowsEntrySave}"
                         Command="{Binding SaveValueCommand}"
                         Content="{Binding MutationForm.ActionLabel}"
                         AutomationProperties.Name="Write the Redis value" />
@@ -616,7 +664,7 @@
               IsVisible="{Binding !SearchAvailable}"
               Glyph="Search"
               Heading="Redis Search is unavailable"
-              Body="The server does not expose FT.SEARCH, or the current ACL cannot inspect command capabilities." />
+              Body="This server doesn’t support FT.SEARCH, or your Redis user can’t check which commands it supports." />
 
           <controls:SurfaceCard Tone="Raised" Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding SearchAvailable}">
             <Grid ColumnDefinitions="220,*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -631,7 +679,7 @@
                     <DataTemplate>
                       <!-- Without this the picker showed the record's
                            ToString: "RedisSearchIndex { Name = …". -->
-                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
                     </DataTemplate>
                   </ComboBox.ItemTemplate>
                 </ComboBox>
@@ -640,6 +688,7 @@
                 <TextBox
                     Classes="Dense"
                     Text="{Binding SearchQuery, Mode=TwoWay}"
+                    KeyDown="OnSearchQueryKeyDown"
                     AutomationProperties.Name="Redis search query" />
               </controls:LabeledField>
               <Button
@@ -647,7 +696,7 @@
                   VerticalAlignment="Bottom"
                   Classes="SecondaryButton Dense"
                   Command="{Binding RefreshIndexesCommand}"
-                  Content="Refresh indexes"
+                  Content="Refresh Indexes"
                   AutomationProperties.Name="Refresh the Redis search indexes" />
               <Button
                   Grid.Column="3"
@@ -711,7 +760,7 @@
                   </Grid>
                   <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="{DynamicResource ShellSpaceXs}">
                     <Button
-                        Classes="TextButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding UnsubscribeCommand}"
                         Content="Unsubscribe"
                         AutomationProperties.Name="Unsubscribe from the selected Redis subscription" />
@@ -722,7 +771,7 @@
                         AutomationProperties.Name="Subscribe to a Redis channel" />
                   </StackPanel>
                   <ListBox
-                      Classes="Rows"
+                      Classes="Rows RedisSubscriptions"
                       MaxHeight="120"
                       ItemsSource="{Binding Subscriptions}"
                       SelectedItem="{Binding SelectedSubscription, Mode=TwoWay}"
@@ -730,9 +779,11 @@
                       AutomationProperties.Name="Redis subscriptions">
                     <ListBox.ItemTemplate>
                       <DataTemplate>
+                        <!-- The row's text lines up with the fields above it in
+                             the card, not one list inset further in. -->
                         <controls:ListItem
                             Classes="RedisKeyRow"
-                            ContentPadding="{DynamicResource ShellListRowPadding}"
+                            ContentPadding="{controls:Inset Horizontal=Xs, Vertical=Xs}"
                             Title="{Binding Name}">
                           <controls:ListItem.Leading>
                             <controls:StatusChip Content="{Binding Kind}" Shape="Rounded" Tone="Default" />
@@ -753,20 +804,25 @@
                       Text="{Binding PublishChannel, Mode=TwoWay}"
                       AutomationProperties.Name="Redis channel to publish to" />
                   <TextBox
+                      Classes="Dense"
                       AcceptsReturn="True"
                       MinHeight="64"
+                      VerticalContentAlignment="Top"
                       PlaceholderText="Payload"
                       Text="{Binding PublishPayload, Mode=TwoWay}"
                       AutomationProperties.Name="Redis message payload" />
                   <Grid ColumnDefinitions="*,Auto">
                     <CheckBox
                         VerticalAlignment="Center"
+                        Classes="Dense"
                         Content="Sharded"
                         IsChecked="{Binding PublishSharded, Mode=TwoWay}"
                         AutomationProperties.Name="Publish to the shard channel" />
+                    <!-- Subscribe is this view's one primary action: messages
+                         only arrive once something is listening. -->
                     <Button
                         Grid.Column="1"
-                        Classes="PrimaryButton Dense"
+                        Classes="SecondaryButton Dense"
                         Command="{Binding PublishCommand}"
                         Content="Publish"
                         AutomationProperties.Name="Publish the Redis message" />
@@ -776,7 +832,7 @@
 
               <controls:Callout
                   Tone="Notice"
-                  ShowsGlyph="False"
+                  Glyph="Info"
                   Text="At-most-once: messages sent while unsubscribed are gone." />
             </StackPanel>
           </ScrollViewer>
@@ -810,12 +866,14 @@
           </controls:SurfaceCard>
         </Grid>
 
-        <!-- The create-key sheet is a region of the panel, anchored over the
-             list it adds to. As a flyout it was a window of its own and could
-             be drawn outside the frame it belongs to. -->
-        <Grid IsVisible="{Binding IsCreatingKey}">
+        <!-- The create-key popover is a region of the panel, anchored under
+             the + that opened it. As a flyout it was a window of its own and
+             could be drawn outside the frame it belongs to. Like a popover it
+             doesn't dim the panel and has no close button: Escape or a click
+             outside closes it. -->
+        <Grid x:Name="NewKeyLayer" IsVisible="{Binding IsCreatingKey}">
           <Border
-              Background="{DynamicResource ShellScrimBrush}"
+              Background="Transparent"
               PointerPressed="OnCancelCreateKeyClick" />
           <controls:SurfaceCard
               x:Name="NewKeySheet"
@@ -823,32 +881,17 @@
               HorizontalAlignment="Left"
               VerticalAlignment="Top"
               Margin="{controls:Inset Sm}"
-              Padding="{controls:Inset Sm}"
+              Padding="{controls:Inset Md}"
               Elevation="Overlay"
+              KeyDown="OnNewKeySheetKeyDown"
               KeyboardNavigation.TabNavigation="Cycle">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <!-- The sheet says what it is in a block of its own, inset from
-                   the card's edge so its corners sit inside the card's. -->
-              <Border Classes="RedisSheetHeader">
-                <Grid ColumnDefinitions="*,Auto">
-                  <TextBlock
-                      VerticalAlignment="Center"
-                      Classes="SectionHeading"
-                      Text="New key" />
-                  <Button
-                      Grid.Column="1"
-                      Classes="IconButton Compact"
-                      Click="OnCancelCreateKeyClick"
-                      ToolTip.Tip="Close"
-                      AutomationProperties.Name="Close the new key sheet">
-                    <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
-                  </Button>
-                </Grid>
-              </Border>
+              <TextBlock Classes="Headline" Text="New Key" />
 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
                   <controls:LabeledField Label="Key">
                     <TextBox
+                        x:Name="NewKeyNameBox"
                         Text="{Binding NewKeyName, Mode=TwoWay}"
                         AutomationProperties.Name="New Redis key name" />
                   </controls:LabeledField>
@@ -909,16 +952,19 @@
                                 Width="96"
                                 Text="{Binding Field, Mode=TwoWay}"
                                 PlaceholderText="{Binding $parent[ItemsControl].DataContext.NewKeyForm.FieldLabel}"
+                                AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.NewKeyForm.FieldLabel}"
                                 IsVisible="{Binding $parent[ItemsControl].DataContext.NewKeyForm.HasField}" />
                             <TextBox
                                 Grid.Column="1"
                                 Text="{Binding Value, Mode=TwoWay}"
-                                PlaceholderText="{Binding $parent[ItemsControl].DataContext.NewKeyForm.ValueLabel}" />
+                                PlaceholderText="{Binding $parent[ItemsControl].DataContext.NewKeyForm.ValueLabel}"
+                                AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.NewKeyForm.ValueLabel}" />
                             <TextBox
                                 Grid.Column="2"
                                 Width="72"
                                 Text="{Binding Score, Mode=TwoWay}"
                                 PlaceholderText="{Binding $parent[ItemsControl].DataContext.NewKeyForm.ScoreLabel}"
+                                AutomationProperties.Name="{Binding $parent[ItemsControl].DataContext.NewKeyForm.ScoreLabel}"
                                 IsVisible="{Binding $parent[ItemsControl].DataContext.NewKeyForm.HasScore}" />
                             <Button
                                 Grid.Column="3"
@@ -926,7 +972,7 @@
                                 Click="OnRemoveNewKeyEntryClick"
                                 ToolTip.Tip="Remove this row"
                                 AutomationProperties.Name="Remove this new key entry">
-                              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellFontSize10}" />
+                              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
                             </Button>
                           </Grid>
                         </DataTemplate>
@@ -937,8 +983,8 @@
                         Click="OnAddNewKeyEntryClick"
                         AutomationProperties.Name="Add another new key entry">
                       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellFontSize10}" />
-                        <TextBlock Text="Add row" />
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeXs}" />
+                        <TextBlock Text="Add Row" />
                       </StackPanel>
                     </Button>
                   </StackPanel>
@@ -956,7 +1002,7 @@
                     HorizontalAlignment="Right"
                     Classes="PrimaryButton"
                     Command="{Binding CreateKeyCommand}"
-                    Content="Create key"
+                    Content="Create Key"
                     AutomationProperties.Name="Create Redis key" />
               </StackPanel>
             </StackPanel>

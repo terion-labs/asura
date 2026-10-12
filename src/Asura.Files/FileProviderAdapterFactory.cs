@@ -406,7 +406,7 @@ internal sealed class FileProviderAdapterFactory(
                 throw new OperationCanceledException(cancellationToken);
             }
 
-            throw InvalidConfiguration("The provider credential could not be resolved from the OS vault.");
+            throw InvalidConfiguration($"Asura couldn't read the provider's credential from {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.");
         }
 
         using var material = ((SecretVaultResult<SecretMaterial>.Success)result).Value;

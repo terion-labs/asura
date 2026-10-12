@@ -16,8 +16,8 @@ internal sealed partial class ShellNotificationCenter
             new PanelNotificationEvent(
                 0,
                 PanelNotificationKind.Notification,
-                workspace.Name,
-                "Background work finished.",
+                "Background Work Finished",
+                $"Work in “{workspace.Name}” finished.",
                 DateTimeOffset.UtcNow));
     }
 

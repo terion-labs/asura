@@ -916,7 +916,7 @@ public sealed partial class AgentChatViewModelTests
             buttons,
             skip =>
             {
-                Assert.Equal("Skip / decline", skip.Attribute("Content")?.Value);
+                Assert.Equal("Skip", skip.Attribute("Content")?.Value);
                 Assert.Equal(
                     "{Binding AgentChat.CanDeclineQuestion}",
                     skip.Attribute("IsEnabled")?.Value);
@@ -926,7 +926,7 @@ public sealed partial class AgentChatViewModelTests
             },
             send =>
             {
-                Assert.Equal("Send answer", send.Attribute("Content")?.Value);
+                Assert.Equal("Send Answer", send.Attribute("Content")?.Value);
                 Assert.Equal(
                     "{Binding AgentChat.CanSubmitQuestionResponse}",
                     send.Attribute("IsEnabled")?.Value);
@@ -1251,7 +1251,7 @@ public sealed partial class AgentChatViewModelTests
             enableAsk =>
             {
                 Assert.Equal(
-                    "Enable Ask for this run",
+                    "Enable Ask for This Run",
                     enableAsk.Attribute("Content")?.Value);
                 Assert.Equal(
                     "OnEnableAgentCapabilityAskClick",
@@ -1299,7 +1299,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(viewModel.CanSubmitPrompt);
         Assert.True(viewModel.CanShowPrimaryAction);
         Assert.True(viewModel.ShowStopAction);
-        Assert.Equal("Queue message", viewModel.PrimaryActionLabel);
+        Assert.Equal("Queue Message", viewModel.PrimaryActionLabel);
         Assert.Equal(
             "Queue a message for the AI agent",
             viewModel.PrimaryActionAccessibleName);
@@ -1413,7 +1413,7 @@ public sealed partial class AgentChatViewModelTests
 
         Assert.True(viewModel.CanSubmitPrompt);
         Assert.True(viewModel.CanEnterPrompt);
-        Assert.Equal("Queue message", viewModel.PrimaryActionLabel);
+        Assert.Equal("Queue Message", viewModel.PrimaryActionLabel);
     }
 
     [Fact]
@@ -1490,9 +1490,9 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(
             "{Binding AgentChat.CanEnterPrompt}",
             input.Attribute("IsEnabled")?.Value);
-        Assert.Equal(
-            "{Binding !AgentChat.HasFailedTurn}",
-            input.Attribute("IsVisible")?.Value);
+        // A failed turn leaves the field in place, dimmed, with a placeholder
+        // that says what unlocks it.
+        Assert.Null(input.Attribute("IsVisible"));
         var composer = Assert.Single(
             input.Ancestors(viewNamespace + "StackPanel"),
             panel => string.Equals(
@@ -1968,7 +1968,7 @@ public sealed partial class AgentChatViewModelTests
 
         Assert.Equal(0, runtime.SendCount);
         Assert.Contains(
-            "does not support image input",
+            "doesn't support image input",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
         Assert.Single(viewModel.PendingImages);
@@ -2049,7 +2049,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Null(runtime.LastRequest);
         Assert.Equal("Keep this trusted prompt.", viewModel.Prompt);
         Assert.Contains(
-            "unavailable AI-provider profile",
+            "isn't set up anymore. Choose another provider in AI Settings",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -2276,9 +2276,12 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(approvalId, approval.Id);
         Assert.Equal("terminal.send_text", approval.ToolName);
         Assert.Equal("Send text to terminal", approval.ToolTitle);
-        Assert.Equal("Mutation", approval.Risk);
+        Assert.Equal(AgentActionRisk.Mutation, approval.RiskLevel);
+        Assert.Equal("Makes changes", approval.Risk);
+        Assert.False(approval.IsHighRisk);
         Assert.Equal("Ask", approval.Permission);
         Assert.Equal("Production API shell", approval.TargetTitle);
+        Assert.Equal("Production API shell", approval.TargetDisplayTitle);
         Assert.Contains("window/window-1", approval.ExactTarget);
         Assert.Contains("workspace/workspace-1", approval.ExactTarget);
         Assert.Contains("tab/tab-1", approval.ExactTarget);
@@ -2418,6 +2421,24 @@ public sealed partial class AgentChatViewModelTests
             "https://docs.example.test/runbook",
             Assert.Single(approval.ActionArguments).DisplayValue);
         Assert.Equal("Destination", Assert.Single(approval.ActionArguments).DisplayName);
+        // The trusted title binds the exact panel and session; the card's
+        // heading names the panel the way the tab strip does.
+        Assert.Equal("Runbook", approval.TargetDisplayTitle);
+        Assert.Equal(
+            "Approval required · Navigate browser · in Runbook · Makes changes",
+            approval.AccessibleName);
+        // Details names the place level by level from the run's context; the
+        // identifiers stay with Technical Details.
+        Assert.Equal(
+            [
+                new AgentApprovalFactViewModel("Panel", "Runbook"),
+                new AgentApprovalFactViewModel("Tab", "Documentation"),
+                new AgentApprovalFactViewModel("Workspace", "Production workspace"),
+                new AgentApprovalFactViewModel("Window", "This window"),
+            ],
+            approval.TargetFacts);
+        Assert.Equal("browser-session-1", Assert.Single(approval.RoutingArguments).DisplayValue);
+        Assert.Contains("panel/panel-1", approval.ExactTarget, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2493,9 +2514,9 @@ public sealed partial class AgentChatViewModelTests
             ImmediateUiThreadDispatcher.Instance);
 
         Assert.True(viewModel.HasContextItems);
-        Assert.Equal("2 terminals", viewModel.ContextInspectorSummary);
+        Assert.Equal("2 Terminal panels", viewModel.ContextInspectorSummary);
         Assert.Contains(
-            "2 terminals",
+            "2 Terminal panels",
             viewModel.ContextInspectorAccessibleName,
             StringComparison.Ordinal);
         Assert.Collection(
@@ -2507,7 +2528,7 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Contains("panel/panel-1", first.ExactIdentity);
                 Assert.Contains("session/session-1", first.ExactIdentity);
                 Assert.Equal("SSH · api.example.test · /srv/api", first.Context);
-                Assert.Contains("Focused · Active · Healthy", first.State);
+                Assert.Contains("Focused · Running · Healthy", first.State);
                 Assert.Contains("active work", first.State);
                 Assert.Contains(
                     BuiltInAgentTools.TerminalSendKeys,
@@ -2520,8 +2541,8 @@ public sealed partial class AgentChatViewModelTests
             },
             second =>
             {
-                Assert.Equal("Unnamed terminal", second.Title);
-                Assert.Equal("Unnamed tab", second.TabTitle);
+                Assert.Equal("Untitled Terminal Panel", second.Title);
+                Assert.Equal("Untitled Tab", second.TabTitle);
                 Assert.Contains("Background", second.State);
             });
 
@@ -2593,7 +2614,7 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Equal(PanelKind.Browser, browser.Kind);
                 Assert.Equal("Runbook", browser.Title);
                 Assert.Equal("Documentation", browser.TabTitle);
-                Assert.StartsWith("browser · ", browser.ExactIdentity);
+                Assert.StartsWith("Browser · ", browser.ExactIdentity);
                 Assert.Equal(
                     "Browser tools are available",
                     browser.Context);
@@ -2653,10 +2674,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 File Viewer", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Files panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.FileViewer, item.Kind);
-        Assert.StartsWith("File Viewer · ", item.ExactIdentity);
+        Assert.StartsWith("Files · ", item.ExactIdentity);
         Assert.Equal(
             "builtin.files.home · trusted root .",
             item.Context);
@@ -2665,7 +2686,7 @@ public sealed partial class AgentChatViewModelTests
             item.Operations,
             StringComparison.Ordinal);
         Assert.Equal(
-            "File tools are limited to the selected File Viewer location.",
+            "File tools can reach only the folder open in the selected Files panel.",
             viewModel.CapabilityNotice);
     }
 
@@ -2703,10 +2724,10 @@ public sealed partial class AgentChatViewModelTests
             profiles,
             ImmediateUiThreadDispatcher.Instance);
 
-        Assert.Equal("1 Process Monitor", viewModel.ContextInspectorSummary);
+        Assert.Equal("1 Processes panel", viewModel.ContextInspectorSummary);
         var item = Assert.Single(viewModel.ContextItems);
         Assert.Equal(PanelKind.ProcessMonitor, item.Kind);
-        Assert.StartsWith("Process Monitor · ", item.ExactIdentity);
+        Assert.StartsWith("Processes · ", item.ExactIdentity);
         Assert.Equal(
             "Local processes are available",
             item.Context);
@@ -2938,15 +2959,17 @@ public sealed partial class AgentChatViewModelTests
         var activity = Assert.IsType<AgentToolActivityViewModel>(viewModel.ActiveTool);
         Assert.Equal("terminal.read_screen", activity.ToolName);
         Assert.Equal("Read terminal screen", activity.ToolTitle);
-        Assert.Equal("Observation", activity.Risk);
+        Assert.Equal(AgentActionRisk.Observation, activity.RiskLevel);
+        Assert.Equal("Read only", activity.Risk);
         Assert.Equal("Production shell", activity.TargetTitle);
+        Assert.Equal("Production shell", activity.TargetDisplayTitle);
         Assert.Equal(panelId, activity.PanelId);
         Assert.Equal(activity.PanelId, viewModel.PanelActivity?.PanelId);
         Assert.False(activity.CancellationRequested);
         Assert.True(viewModel.HasActiveTool);
         Assert.True(viewModel.HasAgentContent);
         Assert.True(viewModel.CanCancelActiveAction);
-        Assert.Equal("Cancel action", viewModel.ActiveActionCancellationLabel);
+        Assert.Equal("Cancel Action", viewModel.ActiveActionCancellationLabel);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -3008,7 +3031,7 @@ public sealed partial class AgentChatViewModelTests
                 runId: new AgentRunId("run-1"),
                 providerId: provider.Id,
                 target: Target(),
-                status: "Cancelling this action…",
+                status: "Canceling this action…",
                 activeTool: active with { CancellationRequested = true }),
         };
         using var profiles = new StubProfileRuntime
@@ -3030,7 +3053,7 @@ public sealed partial class AgentChatViewModelTests
             runtime.LastActionCancellationToken);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling Action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
         Assert.Equal(0, runtime.StopCount);
@@ -3072,7 +3095,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(1, runtime.ActionCancellationCount);
         Assert.False(viewModel.CanCancelActiveAction);
         Assert.Equal(
-            "Cancelling action…",
+            "Canceling Action…",
             viewModel.ActiveActionCancellationLabel);
         Assert.True(viewModel.CanRequestStop);
 
@@ -3162,7 +3185,7 @@ public sealed partial class AgentChatViewModelTests
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
         Assert.True(viewModel.CanDisableYolo);
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(0, runtime.EnableFullAccessCount);
 
         viewModel.Prompt = "Inspect the terminal.";
@@ -3198,7 +3221,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(0, runtime.EnableFullAccessCount);
 
         viewModel.Prompt = "Continue with full access.";
@@ -3256,7 +3279,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(1, runtime.EnableFullAccessCount);
     }
 
@@ -3284,7 +3307,7 @@ public sealed partial class AgentChatViewModelTests
 
         await viewModel.SelectFullAccessAsync(CancellationToken.None);
 
-        Assert.Equal("Full access", viewModel.AccessModeLabel);
+        Assert.Equal("Full Access", viewModel.AccessModeLabel);
         Assert.Equal(1, runtime.EnableFullAccessCount);
     }
 
@@ -3705,12 +3728,17 @@ public sealed partial class AgentChatViewModelTests
         Assert.Null(auditReader.Queries[0].Before);
         var newest = Assert.Single(viewModel.AuditEntries);
         Assert.Equal("Action", newest.Kind);
-        Assert.Equal(BuiltInAgentTools.TerminalReadScreen, newest.ToolName);
+        Assert.Equal(
+            BuiltInAgentTools.TerminalReadScreen,
+            Assert.Single(newest.Details, fact => fact.Label == "Tool ID").Value);
         Assert.Contains(
             "Requested → Approved → Started → Succeeded",
             newest.Timeline,
             StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.Equal(
+            "terminal_read_succeeded",
+            Assert.Single(newest.Details, fact => fact.Label == "Result code").Value);
+        Assert.DoesNotContain(
             "terminal_read_succeeded",
             newest.Result,
             StringComparison.Ordinal);
@@ -3724,8 +3752,12 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(viewModel.CanLoadOlderAudit);
     }
 
-    [Fact]
-    public async Task Audit_failure_is_isolated_and_does_not_surface_storage_detail()
+    [Theory]
+    [InlineData(AuditStoreErrorCode.StorageFailure, "Asura couldn't read this run's recorded actions, so they're hidden.")]
+    [InlineData(AuditStoreErrorCode.InvalidQuery, "Recorded actions changed. Refresh to see the latest.")]
+    public async Task Audit_failure_is_isolated_and_does_not_surface_storage_detail(
+        AuditStoreErrorCode code,
+        string expectedStatus)
     {
         var provider = Provider("provider", "Provider", order: 0);
         using var runtime = new StubGovernedRuntime
@@ -3748,7 +3780,7 @@ public sealed partial class AgentChatViewModelTests
         var auditReader = new StubAgentRunAuditReader(
             AuditStoreResult<AgentRunAuditPage>.Failure(
                 new AuditStoreError(
-                    AuditStoreErrorCode.StorageFailure,
+                    code,
                     "must-not-surface-secret")));
         using var viewModel = new AgentChatViewModel(
             runtime,
@@ -3769,9 +3801,8 @@ public sealed partial class AgentChatViewModelTests
         await WaitUntilAsync(() => auditReader.ReadCount == 1);
 
         Assert.Empty(viewModel.AuditEntries);
-        Assert.Equal(
-            "The recorded audit chain is incomplete or corrupt and was hidden.",
-            viewModel.AuditStatus);
+        Assert.Equal(expectedStatus, viewModel.AuditStatus);
+        Assert.DoesNotContain("audit", viewModel.AuditStatus, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(
             "must-not-surface-secret",
             viewModel.AuditStatus,
@@ -3843,14 +3874,9 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(firstRun, auditReader.Queries[0].RunId);
         Assert.Equal(secondRun, auditReader.Queries[1].RunId);
         var current = Assert.Single(viewModel.AuditEntries);
-        Assert.Contains(
+        Assert.Equal(
             "second_run_succeeded",
-            current.Result,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "first_run_succeeded",
-            current.Result,
-            StringComparison.Ordinal);
+            Assert.Single(current.Details, fact => fact.Label == "Result code").Value);
     }
 
     private static AiProviderProfileDescriptor Provider(

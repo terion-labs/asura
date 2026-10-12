@@ -138,7 +138,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
             if (!AgentRunScopeOptionsValue.Contains(value))
             {
                 throw new ArgumentException(
-                    "The selected agent scope is not available.",
+                    "The selected agent scope isn't available.",
                     nameof(value));
             }
 
@@ -211,6 +211,14 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
 
     public bool IsAgentPanelDockedVisible =>
         IsAgentPanelVisible && IsAgentPanelDocked;
+
+    /// <summary>
+    /// The saved conversation the agent panel shows, while the agent is free
+    /// to delete it: what the menu bar's Delete Conversation… deletes while
+    /// Quick Terminal is the key window.
+    /// </summary>
+    internal AgentConversationItemViewModel? CurrentAgentConversation =>
+        MainWindowViewModel.ShownAgentConversation(IsAgentPanelVisible, AgentChat);
 
     public string AgentPanelPinTip => IsAgentPanelDocked
         ? "Unpin — float over Quick Terminal"
@@ -339,7 +347,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
         {
             tab.SetUnavailable(
                 tab.Title,
-                "Quick Terminal could not register this tab with the session host.");
+                "Quick Terminal couldn't open this tab. Close it and try again.");
             return;
         }
 
@@ -515,7 +523,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
                 {
                     tab.SetUnavailable(
                         tab.Title,
-                        "Quick Terminal could not restore its workspace context.");
+                        "Quick Terminal couldn't reopen its workspace. Open Quick Terminal again.");
                 }
             }
             else
@@ -648,7 +656,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
                 throw new ArgumentOutOfRangeException(
                     nameof(SelectedAgentRunScope),
                     SelectedAgentRunScope.Kind,
-                    "The selected agent scope is not supported.");
+                    "The selected agent scope isn't supported.");
         }
 
         if (_agentPolicyCoordinator?.Policy is not { } policy)
@@ -680,7 +688,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
         {
             tab.SetUnavailable(
                 tab.Title,
-                "Quick Terminal could not register its workspace with the session host.");
+                "Quick Terminal couldn't start. Hide it, then show it again.");
             return;
         }
 
@@ -745,7 +753,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
             tab.CompleteInitialization(
                 generation,
                 null,
-                "The connection runtime could not prepare Quick Terminal.");
+                "Asura couldn't connect Quick Terminal. Check its connection in Settings, then try again.");
         }
         finally
         {

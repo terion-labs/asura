@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -20,7 +21,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
     private readonly Action<SecretRef> _invalidateMcpTests;
     private readonly Action _clearError;
     private readonly Action<string> _setError;
-    private string _status = "Checking the operating-system vault…";
+    private string _status = $"Checking {PlatformTerms.SecretStore}…";
     private bool _disposed;
 
     public SecretSettingsViewModel(
@@ -229,6 +230,15 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Why a new label was refused: the request accepts a label that isn't
+    /// empty and is at most 256 characters long, and throws
+    /// <see cref="ArgumentOutOfRangeException"/> only for the length.
+    /// </summary>
+    internal static string RelabelRefusal(ArgumentException exception) => exception is ArgumentOutOfRangeException
+        ? "That label is too long. Use 256 characters or fewer, then try again."
+        : "Enter a label for the credential, then try again.";
+
     public async ValueTask<bool> RelabelAsync(
         SecretMetadataViewModel secret,
         string label,
@@ -250,7 +260,10 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         }
         catch (ArgumentException exception)
         {
-            return Fail(exception.Message);
+            return Fail(FailureReason.Refusal(
+                "secret.relabel.refused",
+                exception,
+                RelabelRefusal(exception)));
         }
 
         if (result is SecretVaultResult<SecretMetadata>.Failure failure)
@@ -327,7 +340,7 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception) when (!_disposed)
         {
-            Status = "The operating-system credential vault could not be queried.";
+            Status = $"Asura couldn't read {PlatformTerms.SecretStore}. Check that it is unlocked, then try again.";
             OnPropertyChanged(nameof(HasNoSecrets));
         }
     }
@@ -419,22 +432,51 @@ public sealed class SecretSettingsViewModel : ObservableObject, IDisposable
         return new SecretMetadataViewModel(
             metadata.Reference,
             metadata.Label,
-            metadata.Kind.ToString(),
-            metadata.Scope.Kind == SecretScopeKind.Global
-                ? "Global"
-                : $"{metadata.Scope.Kind} · {metadata.Scope.OwnerId}",
-            metadata.UpdatedAt.ToLocalTime().ToString(
-                "g",
-                System.Globalization.CultureInfo.InvariantCulture),
-            metadata.LastUsedAt?.ToLocalTime().ToString(
-                "g",
-                System.Globalization.CultureInfo.InvariantCulture) ?? "Never",
+            KindLabel(metadata.Kind),
+            ScopeLabel(metadata.Scope.Kind),
+            // In the reader's own date style, as Files, Git and the agent
+            // write a moment.
+            DisplayDates.Format(metadata.UpdatedAt),
+            DisplayDates.Format(metadata.LastUsedAt, "Never"),
             metadata.Scope,
             dependencies.Length == 0
-                ? "No saved definition dependencies"
+                ? "Not used by any saved item"
                 : $"Used by: {string.Join(", ", dependencies)}",
             dependencies.Length);
     }
+
+    /// <summary>A credential's kind in words, not the enum value ("ApiKey").</summary>
+    internal static string KindLabel(SecretKind kind) => kind switch
+    {
+        SecretKind.Password => "Password",
+        SecretKind.PrivateKey => "Private key",
+        SecretKind.Passphrase => "Passphrase",
+        SecretKind.Token => "Token",
+        SecretKind.ApiKey => "API key",
+        SecretKind.Certificate => "Certificate",
+        _ => "Other",
+    };
+
+    /// <summary>
+    /// What a credential belongs to, in words. The owner's identifier used to
+    /// follow the enum value ("AiProvider · 01a0df93…"); the list's "Used by"
+    /// line names the owner people recognize.
+    /// </summary>
+    internal static string ScopeLabel(SecretScopeKind kind) => kind switch
+    {
+        SecretScopeKind.Global => "Global",
+        SecretScopeKind.Connection => "For a connection",
+        SecretScopeKind.AiProvider => "For an AI provider",
+        SecretScopeKind.McpServer => "For an MCP server",
+        SecretScopeKind.BrowserProfile => "For a browser profile",
+        SecretScopeKind.FileProvider => "For a file connection",
+        SecretScopeKind.DatabaseConnection => "For a database connection",
+        SecretScopeKind.NetworkConnection => "For a network connection",
+        SecretScopeKind.DatabaseRecovery => "For database recovery",
+        SecretScopeKind.KubernetesConnection => "For a Kubernetes connection",
+        SecretScopeKind.WorkspaceChat => "For a workspace chat",
+        _ => "For another item",
+    };
 
     private static string[] Dependencies(
         DefinitionCatalogSnapshot snapshot,

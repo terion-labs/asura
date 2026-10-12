@@ -15,9 +15,17 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private bool _reuseValues = true;
     private string _helmChangeStatus = "Review the exact release change before confirming.";
     private int _helmEditGeneration;
-    public IReadOnlyList<KubernetesHelmChangeKind> HelmChangeKinds { get; } = [KubernetesHelmChangeKind.Upgrade, KubernetesHelmChangeKind.Rollback, KubernetesHelmChangeKind.Uninstall];
+    /// <summary>The Change pop-up's items, named in words rather than enum values.</summary>
+    public IReadOnlyList<KubernetesHelmChangeKindOption> HelmChangeKindOptions { get; } =
+        [.. new[] { KubernetesHelmChangeKind.Upgrade, KubernetesHelmChangeKind.Rollback, KubernetesHelmChangeKind.Uninstall }
+            .Select(kind => new KubernetesHelmChangeKindOption(kind, KubernetesHelmChangeText.Kind(kind)))];
+    public KubernetesHelmChangeKindOption SelectedHelmChangeKindOption
+    {
+        get => HelmChangeKindOptions.First(option => option.Value == HelmChangeKind);
+        set { ArgumentNullException.ThrowIfNull(value); HelmChangeKind = value.Value; }
+    }
     public bool HasHelmChanges => _session?.Features.HasFlag(KubernetesSessionFeatures.HelmChanges) == true && SelectedRelease is not null;
-    public KubernetesHelmChangeKind HelmChangeKind { get => _helmChangeKind; set { if (SetProperty(ref _helmChangeKind, value)) { ClearHelmReview(); OnPropertyChanged(nameof(IsHelmUpgrade)); OnPropertyChanged(nameof(IsHelmRollback)); } } }
+    public KubernetesHelmChangeKind HelmChangeKind { get => _helmChangeKind; set { if (SetProperty(ref _helmChangeKind, value)) { ClearHelmReview(); OnPropertyChanged(nameof(SelectedHelmChangeKindOption)); OnPropertyChanged(nameof(IsHelmUpgrade)); OnPropertyChanged(nameof(IsHelmRollback)); } } }
     public bool IsHelmUpgrade => HelmChangeKind == KubernetesHelmChangeKind.Upgrade;
     public bool IsHelmRollback => HelmChangeKind == KubernetesHelmChangeKind.Rollback;
     public string ChartReference { get => _chartReference; set { if (SetProperty(ref _chartReference, value)) { ClearHelmReview(); } } }
@@ -51,10 +59,10 @@ public sealed partial class KubernetesRuntimePanelViewModel
             var review = await _session.ReviewHelmChangeAsync(request, _lifetime.Token);
             if (_disposed || generation != _helmEditGeneration || SelectedRelease != release) { return; }
             _helmReview = review;
-            HelmChangeStatus = $"{review.Kind}: {ContextName} · {review.Namespace}/{review.Release} · revision {review.ExpectedRevision}.\nChart: {review.PinnedChartReference ?? "unchanged"} · version {review.ChartVersion ?? "unchanged"} · rollback {review.RollbackRevision?.ToString(CultureInfo.InvariantCulture) ?? "none"}\nValues SHA256: {review.ValuesSha256 ?? "none"}\nHooks: {review.AllowHooks} · Reuse values: {review.ReuseValues} · Expires {review.ExpiresAt:HH:mm:ss} UTC. Helm checks the revision before dispatch; concurrent release changes can still race.";
+            HelmChangeStatus = KubernetesHelmChangeText.Review(review, ContextName);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.HelmChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     public async Task ConfirmHelmChangeAsync()
@@ -65,12 +73,11 @@ public sealed partial class KubernetesRuntimePanelViewModel
         try
         {
             var result = await _session.ExecuteHelmChangeAsync(review.ReviewToken, _lifetime.Token);
-            HelmChangeStatus = result.Outcome == KubernetesMutationOutcome.OutcomeUnknown
-                ? "Helm outcome unknown. Reload release history before any retry." : $"Helm operation: {result.Outcome}. Reload releases to inspect the result.";
+            HelmChangeStatus = KubernetesHelmChangeText.Outcome(result.Outcome);
             if (result.Outcome == KubernetesMutationOutcome.Applied) { ValuesYaml = string.Empty; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.HelmChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     private void ClearHelmReview()
@@ -78,4 +85,41 @@ public sealed partial class KubernetesRuntimePanelViewModel
         _helmReview = null; _helmEditGeneration++;
         OnPropertyChanged(nameof(CanConfirmHelm)); OnPropertyChanged(nameof(HasHelmChanges));
     }
+}
+
+public sealed record KubernetesHelmChangeKindOption(KubernetesHelmChangeKind Value, string Label);
+
+/// <summary>A Helm change review and its result in words, not enum or Boolean values.</summary>
+internal static class KubernetesHelmChangeText
+{
+    /// <summary>The change as a pop-up item and review heading, in title case: "Roll Back", not "Rollback".</summary>
+    public static string Kind(KubernetesHelmChangeKind kind) => kind switch
+    {
+        KubernetesHelmChangeKind.Upgrade => "Upgrade",
+        KubernetesHelmChangeKind.Rollback => "Roll Back",
+        KubernetesHelmChangeKind.Uninstall => "Uninstall",
+        _ => "Helm change",
+    };
+
+    public static string Review(KubernetesHelmChangeReview review, string contextName)
+    {
+        ArgumentNullException.ThrowIfNull(review);
+        var rollback = review.RollbackRevision is { } target
+            ? $" · Roll back to revision {target.ToString(CultureInfo.InvariantCulture)}"
+            : string.Empty;
+        var hooks = review.AllowHooks ? "Hooks run" : "Hooks skipped";
+        var values = review.ReuseValues ? "Current values kept" : "Current values replaced";
+        return $"{Kind(review.Kind)}: {contextName} · {review.Namespace}/{review.Release} · revision {review.ExpectedRevision.ToString(CultureInfo.InvariantCulture)}.\n"
+            + $"Chart: {review.PinnedChartReference ?? "unchanged"} · version {review.ChartVersion ?? "unchanged"}{rollback}\n"
+            + $"Values SHA256: {review.ValuesSha256 ?? "none"}\n"
+            + $"{hooks} · {values} · Expires {DisplayDates.FormatTime(review.ExpiresAt)}. Helm checks the revision before dispatch; concurrent release changes can still race.";
+    }
+
+    public static string Outcome(KubernetesMutationOutcome outcome) => outcome switch
+    {
+        KubernetesMutationOutcome.Applied => "The Helm change was applied. Reload releases to inspect the result.",
+        KubernetesMutationOutcome.NotDispatched => "The Helm change wasn’t sent to the cluster. Review it again to retry.",
+        KubernetesMutationOutcome.OutcomeUnknown => "Helm outcome unknown. Reload release history before any retry.",
+        _ => "The Helm change was checked but not applied. Review it again to apply it.",
+    };
 }

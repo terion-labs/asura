@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -47,7 +48,9 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     private readonly IDefinitionCatalog? _catalog;
     private readonly ISecretVault? _secretVault;
     private BrowserProfileItemViewModel? _selectedProfile;
-    private string _newProfileName = "Browser profile";
+    private string _newProfileName = string.Empty;
+    private string? _creationError;
+    private AuthenticationFormState _loadedAuthenticationForm;
     private string _authenticationHost = string.Empty;
     private string _authenticationPort = string.Empty;
     private string _authenticationRealm = string.Empty;
@@ -79,18 +82,18 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         [
             new(
                 BrowserProfileSharing.Shared,
-                "Shared across workspaces",
+                "Shared Across Workspaces",
                 "Legacy default panels share one encrypted browser session."),
             new(
                 BrowserProfileSharing.PerWorkspace,
-                "Separate by workspace",
+                "Separate by Workspace",
                 "Legacy default panels keep a separate encrypted browser session for each workspace."),
         ];
         CreateDurableCommand = new AsyncActionCommand(
-            () => CreateAsync(BrowserProfilePersistence.DurableMetadata),
+            () => CreateProfileAsync(BrowserProfilePersistence.DurableMetadata),
             () => _catalog is not null);
         CreatePrivateCommand = new AsyncActionCommand(
-            () => CreateAsync(BrowserProfilePersistence.PrivateSession),
+            () => CreateProfileAsync(BrowserProfilePersistence.PrivateSession),
             () => _catalog is not null);
         ToggleEnabledCommand = new AsyncActionCommand(
             ToggleEnabledAsync,
@@ -199,11 +202,46 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The name the + popover offers for the next profile. Empty until the
+    /// person types one, and emptied again once a profile is made, so the
+    /// popover never offers the name of a profile that already exists.
+    /// </summary>
     public string NewProfileName
     {
         get => _newProfileName;
-        set => SetProperty(ref _newProfileName, value ?? string.Empty);
+        set
+        {
+            if (SetProperty(ref _newProfileName, value ?? string.Empty))
+            {
+                CreationError = null;
+            }
+        }
     }
+
+    /// <summary>
+    /// Why the last attempt to make a profile was refused, shown in the
+    /// popover that asked for its name; null when there is nothing to say.
+    /// </summary>
+    public string? CreationError
+    {
+        get => _creationError;
+        private set
+        {
+            if (SetProperty(ref _creationError, value))
+            {
+                OnPropertyChanged(nameof(HasCreationError));
+            }
+        }
+    }
+
+    public bool HasCreationError => CreationError is not null;
+
+    /// <summary>
+    /// A profile was made from <see cref="NewProfileName"/>; the popover that
+    /// asked for the name closes on it, and only on it.
+    /// </summary>
+    public event EventHandler? ProfileCreated;
 
     public IReadOnlyList<BrowserAuthenticationScheme> AuthenticationSchemes { get; } =
         Enum.GetValues<BrowserAuthenticationScheme>();
@@ -215,8 +253,21 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     public string AuthenticationOriginScheme
     {
         get => _authenticationOriginScheme;
-        set => SetProperty(ref _authenticationOriginScheme, value);
+        set
+        {
+            if (SetProperty(ref _authenticationOriginScheme, value))
+            {
+                OnPropertyChanged(nameof(AuthenticationDefaultPort));
+            }
+        }
     }
+
+    /// <summary>
+    /// The port an empty Port field means: the protocol's own, shown as the
+    /// field's placeholder.
+    /// </summary>
+    public string AuthenticationDefaultPort =>
+        string.Equals(_authenticationOriginScheme, "http", StringComparison.OrdinalIgnoreCase) ? "80" : "443";
 
     public BrowserAuthenticationRouteOption? AuthenticationRoute
     {
@@ -259,6 +310,27 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         get => _authenticationPassword;
         set => SetProperty(ref _authenticationPassword, value ?? string.Empty);
     }
+
+    /// <summary>
+    /// Whether the HTTP authentication form holds edits Save Authentication
+    /// has not stored. The form is a draft: Settings asks before leaving it.
+    /// </summary>
+    public bool HasUnsavedAuthentication =>
+        SelectedProfile is { IsBuiltIn: false }
+        && (!string.IsNullOrEmpty(AuthenticationPassword)
+            || AuthenticationForm != _loadedAuthenticationForm);
+
+    /// <summary>Puts the stored authentication back into the form.</summary>
+    public void DiscardAuthenticationDraft() => LoadAuthenticationForm();
+
+    private AuthenticationFormState AuthenticationForm => new(
+        AuthenticationOriginScheme,
+        AuthenticationRoute?.Identity,
+        AuthenticationHost,
+        AuthenticationPort,
+        AuthenticationRealm,
+        AuthenticationScheme,
+        AuthenticationUsername);
 
     public bool HasAuthentication
     {
@@ -357,12 +429,21 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
 
     public void RefreshUsage() => RefreshState();
 
-    private async Task CreateAsync(BrowserProfilePersistence persistence)
+    /// <summary>
+    /// Makes a profile from <see cref="NewProfileName"/>. A refused name or a
+    /// failed save is reported through <see cref="CreationError"/>, where the
+    /// popover that asked for the name can show it, and leaves the name as
+    /// typed; a profile that is made selects itself and empties the name.
+    /// </summary>
+    /// <returns>Whether the profile was made.</returns>
+    public async Task<bool> CreateProfileAsync(BrowserProfilePersistence persistence)
     {
         if (_catalog is null)
         {
-            return;
+            return false;
         }
+
+        CreationError = null;
 
         BrowserProfileDefinition definition;
         try
@@ -378,24 +459,31 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            OperationStatus = exception.Message;
-            return;
+            CreationError = FailureReason.Refusal(
+                "browser-profile.create.refused",
+                exception,
+                $"Enter a profile name of up to {BrowserProfileDefinition.MaximumNameLength} characters without line breaks, then create it again.");
+            return false;
         }
 
         var result = await _catalog.SaveBrowserProfileAsync(
             definition,
             expectedRevision: null,
             CancellationToken.None);
-        OperationStatus = result.IsSuccess
-            ? persistence == BrowserProfilePersistence.PrivateSession
-                ? "Private browser profile created. Its session is discarded when its panel closes."
-                : "Browser profile created. Its session will be restored from encrypted storage."
-            : result.Error!.Message;
-        if (result.IsSuccess)
+        if (!result.IsSuccess)
         {
-            ApplyCatalog(_catalog.Snapshot);
-            SelectedProfile = Profiles.Single(item => item.Id == definition.Id);
+            CreationError = result.Error!.Message;
+            return false;
         }
+
+        OperationStatus = persistence == BrowserProfilePersistence.PrivateSession
+            ? "Private browser profile created. Its session is discarded when its panel closes."
+            : "Browser profile created. Its session will be restored from encrypted storage.";
+        ApplyCatalog(_catalog.Snapshot);
+        SelectedProfile = Profiles.Single(item => item.Id == definition.Id);
+        NewProfileName = string.Empty;
+        ProfileCreated?.Invoke(this, EventArgs.Empty);
+        return true;
     }
 
     private async Task ToggleEnabledAsync()
@@ -462,7 +550,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     authentication.PasswordSecret);
                 if (!removed)
                 {
-                    OperationStatus = "Browser profile metadata was deleted, but its old vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                    OperationStatus = $"The browser profile was deleted, but its old password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
                 }
             }
 
@@ -496,7 +584,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         if (replacesPassword
             && passwordByteCount > BrowserHttpAuthentication.MaximumPasswordByteLength)
         {
-            OperationStatus = $"HTTP authentication passwords cannot exceed {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
+            OperationStatus = $"HTTP authentication passwords can't be longer than {BrowserHttpAuthentication.MaximumPasswordByteLength} UTF-8 bytes.";
             return;
         }
 
@@ -523,7 +611,10 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
         catch (ArgumentException exception)
         {
-            OperationStatus = exception.Message;
+            OperationStatus = FailureReason.Refusal(
+                "browser-profile.authentication.refused",
+                exception,
+                "Asura can’t save the sign-in with these values. Check the host, port, realm, and user name, then save again.");
             return;
         }
 
@@ -564,7 +655,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
 
             AuthenticationPassword = string.Empty;
             OperationStatus = current is null
-                ? "HTTP authentication attached. The password is stored only in the operating-system vault."
+                ? $"HTTP authentication added. The password is stored only in {PlatformTerms.SecretStore}."
                 : "HTTP authentication updated. Open browser panels keep their pinned profile revision.";
             if (replacesPassword
                 && current is not null
@@ -572,7 +663,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     profile.Id,
                     current.PasswordSecret))
             {
-                OperationStatus = "HTTP authentication was updated, but the previous vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                OperationStatus = $"HTTP authentication was updated, but the previous password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
             }
 
             ApplyCatalog(_catalog.Snapshot);
@@ -619,7 +710,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
                     profile.Id,
                     authentication.PasswordSecret))
             {
-                OperationStatus = "HTTP authentication was detached, but its old vault credential could not be removed. Delete that orphaned credential in Secrets.";
+                OperationStatus = $"HTTP authentication was removed, but its password couldn't be removed from {PlatformTerms.SecretStore}. Delete it in Settings › Security & Secrets.";
             }
 
             ApplyCatalog(_catalog.Snapshot);
@@ -758,7 +849,17 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             ?? BrowserAuthenticationScheme.Basic;
         AuthenticationUsername = authentication?.Username ?? string.Empty;
         AuthenticationPassword = string.Empty;
+        _loadedAuthenticationForm = AuthenticationForm;
     }
+
+    private readonly record struct AuthenticationFormState(
+        string OriginScheme,
+        string? RouteIdentity,
+        string Host,
+        string Port,
+        string Realm,
+        BrowserAuthenticationScheme Scheme,
+        string Username);
 
     private async Task ClearAsync(BrowserProfileDataCategory category)
     {
@@ -829,7 +930,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
     {
         if (_dataControl is null)
         {
-            StateText = "Browser profile data control is unavailable in this build.";
+            StateText = "Clearing browser data isn’t available in this version of Asura.";
             return;
         }
 
@@ -838,7 +939,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             StateText = SelectedProfile?.Persistence
                 == BrowserProfilePersistence.PrivateSession
                 ? "Each private panel owns a different in-memory context. Close that panel to destroy its cookies, cache, and site data."
-                : "The built-in profile has one encrypted browser session per workspace. Settings will not issue a broad cross-workspace clear.";
+                : "The built-in profile has one encrypted browser session per workspace. Settings won't issue a broad cross-workspace clear.";
             return;
         }
 
@@ -846,7 +947,9 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         {
             var state = _dataControl.ReadState(selection, revision);
             StateText = state.HasData
-                ? $"{state.ActiveContexts} runtime context(s), {state.ActiveLeases} open browser owner(s), {state.StoredBytes} encrypted byte(s) saved between runs."
+                ? $"{Count(state.ActiveContexts, "open browser session", "open browser sessions")}, "
+                    + $"{Count(state.ActiveLeases, "panel using it", "panels using it")}, "
+                    + $"{Count(state.StoredBytes, "encrypted byte", "encrypted bytes")} saved between runs."
                 : "No saved or active web data for this profile.";
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -875,4 +978,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
 
         (CancelClearCommand as AsyncActionCommand)?.RaiseCanExecuteChanged();
     }
+
+    private static string Count(long count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{count:N0} {plural}";
 }

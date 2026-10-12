@@ -132,7 +132,7 @@ public sealed partial class RepositoryConventionTests
         Assert.Equal("False", AttributeValue(savePassword, "IsChecked"));
         Assert.Equal("False", AttributeValue(savePassword, "IsVisible"));
         Assert.Equal(
-            "Save password in system credential store",
+            "{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}Save the password in {0}}",
             AttributeValue(savePassword, "AutomationProperties.Name"));
     }
 
@@ -232,6 +232,82 @@ public sealed partial class RepositoryConventionTests
     }
 
     [Fact]
+    public void The_icon_document_and_the_product_identity_manifest_describe_one_icon()
+    {
+        // The owner-approved legal record binds the manifest's bytes, and the
+        // manifest binds the icon's, so the icon colour stays as approved
+        // until the owner approves a new one. This checks that the document,
+        // its artwork and the manifest still name the same icon.
+        using var manifest = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(
+            RepositoryRoot,
+            "assets",
+            "macos",
+            "product-identity.json")));
+        using var icon = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(
+            RepositoryRoot,
+            "assets",
+            "macos",
+            "Asura.icon",
+            "icon.json")));
+        var iconName = manifest.RootElement.GetProperty("iconName").GetString();
+        var files = manifest.RootElement.GetProperty("files").EnumerateArray().ToArray();
+        string[] PathsOf(string role) =>
+        [
+            .. files
+                .Where(file => string.Equals(file.GetProperty("role").GetString(), role, StringComparison.Ordinal))
+                .Select(file => file.GetProperty("path").GetString()!),
+        ];
+
+        Assert.Equal([$"assets/macos/{iconName}.icon/icon.json"], PathsOf("icon-composer-document"));
+        Assert.Equal([$"assets/macos/{iconName}.icns"], PathsOf("icns-fallback"));
+
+        var layers = icon.RootElement
+            .GetProperty("groups")
+            .EnumerateArray()
+            .SelectMany(group => group.GetProperty("layers").EnumerateArray())
+            .ToArray();
+        Assert.NotEmpty(layers);
+        Assert.Equal(
+            PathsOf("source-artwork").Order(StringComparer.Ordinal),
+            layers
+                .Select(layer => $"assets/macos/{iconName}.icon/Assets/{layer.GetProperty("image-name").GetString()}")
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+
+        // The document specializes every appearance family the manifest
+        // requires; the Clear appearances are derived from the glass layers.
+        static string? AppearanceOf(JsonElement specialization) =>
+            specialization.TryGetProperty("appearance", out var appearance) ? appearance.GetString() : null;
+        var background = icon.RootElement.GetProperty("fill-specializations").EnumerateArray().ToArray();
+        Assert.Equal(
+            [null, "dark", "tinted"],
+            background.Select(AppearanceOf).Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        Assert.Equal(
+            ["Default", "Dark", "TintedLight", "TintedDark", "ClearLight", "ClearDark"],
+            manifest.RootElement
+                .GetProperty("requiredAppearances")
+                .EnumerateArray()
+                .Select(value => value.GetString()),
+            StringComparer.Ordinal);
+        Assert.All(layers, layer => Assert.True(layer.GetProperty("glass").GetBoolean()));
+
+        // The default background and the dark mark are the one brand fill, so
+        // a recolour cannot change one appearance and leave the other.
+        static string SolidOf(IEnumerable<JsonElement> specializations, string? appearance) =>
+            specializations
+                .Single(item => string.Equals(AppearanceOf(item), appearance, StringComparison.Ordinal))
+                .GetProperty("value")
+                .GetProperty("solid")
+                .GetString()!;
+        var brandFill = SolidOf(background, appearance: null);
+        Assert.All(layers, layer => Assert.Equal(
+            brandFill,
+            SolidOf(layer.GetProperty("fill-specializations").EnumerateArray(), "dark")));
+    }
+
+    [Fact]
     public void Macos_product_identity_is_reviewed_hashed_and_compiled_by_xcode()
     {
         var manifestPath = Path.Combine(
@@ -247,6 +323,10 @@ public sealed partial class RepositoryConventionTests
         Assert.Equal(ProductIdentity.BundleIdentifier, root.GetProperty("bundleIdentifier").GetString());
         Assert.Equal("approved", root.GetProperty("approval").GetProperty("status").GetString());
         Assert.Equal("MIT", root.GetProperty("artwork").GetProperty("license").GetString());
+        Assert.Equal(
+            ProductIdentity.Copyright,
+            root.GetProperty("artwork").GetProperty("copyright").GetString()?
+                .Replace("(c)", "©", StringComparison.Ordinal));
         Assert.Contains(
             "transform=\"translate(143.5 185) scale(1.416)\"",
             File.ReadAllText(Path.Combine(
@@ -623,7 +703,13 @@ public sealed partial class RepositoryConventionTests
                 .Descendants()
                 .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal))
                 .Where(ContainsIconWithoutVisibleText)
-                .Where(element => !HasAttribute(element, "AutomationProperties.Name"))
+                .Where(element => !HasAttribute(element, "AutomationProperties.Name")
+                    // A name built by a multi-binding is written as a
+                    // property element; it is just as explicit.
+                    && !element.Elements().Any(child => string.Equals(
+                        child.Name.LocalName,
+                        "AutomationProperties.Name",
+                        StringComparison.Ordinal)))
                 .Select(DescribeElement)
                 .ToArray();
 
@@ -924,7 +1010,7 @@ public sealed partial class RepositoryConventionTests
 
         var activator = Assert.Single(
             dropTarget.Elements(),
-            element => string.Equals(element.Name.LocalName, "Button"
+            element => string.Equals(element.Name.LocalName, "RuntimeTabButton"
 , StringComparison.Ordinal) && HasClass(element, "RuntimeTabActivator"));
         Assert.Null(AttributeValue(activator, "PointerMoved"));
         Assert.Null(AttributeValue(activator, "PointerReleased"));
@@ -958,12 +1044,24 @@ public sealed partial class RepositoryConventionTests
             mainWindowCodeBehind[pointerPressedStart..pointerMovedStart],
             StringComparison.Ordinal);
 
+        // A tab is named by its title, with the attention mark and agent
+        // activity folded in; its role and selected state come from the
+        // tab button's own automation peer.
+        var activatorName = Assert.Single(
+            activator.Elements(),
+            element => string.Equals(element.Name.LocalName, "AutomationProperties.Name", StringComparison.Ordinal));
+        var nameBinding = Assert.Single(activatorName.Elements());
+        Assert.Equal("MultiBinding", nameBinding.Name.LocalName);
         Assert.Contains(
-            "Activate tab",
-            AttributeValue(activator, "AutomationProperties.Name"),
+            "AttentionLabelConverter",
+            AttributeValue(nameBinding, "Converter"),
             StringComparison.Ordinal);
+        Assert.Equal(
+            ["DisplayTitle", "HasAttention", "AgentActivity"],
+            nameBinding.Elements().Select(binding => AttributeValue(binding, "Path")), StringComparer.Ordinal);
+        Assert.Equal("{Binding IsActive}", AttributeValue(activator, "IsSelected"));
         Assert.Contains(
-            "Drag the tab to reorder it",
+            "Drag to reorder",
             AttributeValue(activator, "AutomationProperties.HelpText"),
             StringComparison.Ordinal);
         var close = Assert.Single(

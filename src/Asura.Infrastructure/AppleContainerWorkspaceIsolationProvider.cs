@@ -2895,7 +2895,9 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
                 }
 
                 _lastStatus = status;
-                progress.Report(new WorkspaceIsolationProgress(status));
+                progress.Report(new WorkspaceIsolationProgress(
+                    status,
+                    AppleContainerProgressFraction.FromStatus(status)));
             }
         }
 
@@ -3009,7 +3011,9 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
                 }
 
                 _lastStatus = status;
-                progress.Report(new WorkspaceIsolationProgress(status));
+                progress.Report(new WorkspaceIsolationProgress(
+                    status,
+                    AppleContainerProgressFraction.FromStatus(status)));
             }
         }
 
@@ -3159,4 +3163,35 @@ internal sealed record AppleContainerCommandResult
     public static AppleContainerCommandResult StartFailed(
         AppleContainerCommandStartFailure failure) =>
         new(AppleContainerCommandOutcome.StartFailed, null, string.Empty, string.Empty, failure);
+}
+
+/// <summary>
+/// The fraction behind a container download status. The CLI prints a
+/// percentage and nothing else measurable, and the status already carries it.
+/// </summary>
+internal static class AppleContainerProgressFraction
+{
+    public static double? FromStatus(string status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        if (!status.EndsWith('%'))
+        {
+            return null;
+        }
+
+        var start = status.Length - 1;
+        while (start > 0 && char.IsAsciiDigit(status[start - 1]))
+        {
+            start--;
+        }
+
+        return int.TryParse(
+                status.AsSpan(start, status.Length - 1 - start),
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent)
+            && percent <= 100
+                ? percent / 100.0
+                : null;
+    }
 }

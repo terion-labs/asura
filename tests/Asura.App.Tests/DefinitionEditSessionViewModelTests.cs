@@ -21,7 +21,7 @@ public sealed class DefinitionEditSessionViewModelTests
             "Production workspace");
 
         Assert.True(editor.HasSession);
-        Assert.Equal("Edit workspace", editor.EditorTitle);
+        Assert.Equal("Edit Workspace", editor.EditorTitle);
         Assert.Equal("Operations", editor.EditorName);
         Assert.Equal("Production workspace", editor.EditorDescription);
 

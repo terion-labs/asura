@@ -1,44 +1,71 @@
-<Window x:Class="Asura.App.Views.GitConflictDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="1000" Height="700" MinWidth="650" MinHeight="400" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
-  <Window.Styles>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+<controls:DialogWindow x:Class="Asura.App.Views.GitConflictDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="1000" Height="700" MinWidth="650" MinHeight="400">
+  <controls:DialogWindow.Styles>
+    <Style Selector="TabControl.ConflictVersions TextBox">
+      <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
     </Style>
-  </Window.Styles>
-  <controls:DialogShell x:Name="Shell" Title="Resolve conflict" Scrolls="False">
+  </controls:DialogWindow.Styles>
+  <controls:DialogShell x:Name="Shell" Title="Resolve Conflict" Scrolls="False">
     <controls:DialogShell.Footer>
-      <WrapPanel x:Name="FooterActions" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}">
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Classes="SecondaryButton" Content="Cancel" Click="OnCancel" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" x:Name="CurrentButton" Classes="SecondaryButton" Content="Keep current" Click="OnCurrent" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" x:Name="IncomingButton" Classes="SecondaryButton" Content="Keep incoming" Click="OnIncoming" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" x:Name="BothButton" Classes="SecondaryButton" Content="Combine in result" Click="OnBoth" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Classes="DestructiveButton" Content="Delete file" Click="OnDelete" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" x:Name="SaveButton" Classes="PrimaryButton" Content="Save and mark resolved" Click="OnSave" />
-      </WrapPanel>
+      <!-- Deleting the file sits apart on the leading edge, away from the
+           default button, as Don't Save does in a Mac save alert; the
+           resolutions that close the window are on the trailing edge. When
+           the window is too narrow for both, the resolutions drop to a
+           second line (GitDialogFooter.Span). -->
+      <Grid x:Name="FooterRow" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <Button x:Name="DeleteButton" Classes="DestructiveButton" Content="Delete File…" Click="OnDelete" />
+        <StackPanel x:Name="ResolutionButtons" Grid.Column="2" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <Button x:Name="CurrentButton" Classes="SecondaryButton" Content="Keep Current" Click="OnCurrent" />
+          <Button x:Name="IncomingButton" Classes="SecondaryButton" Content="Keep Incoming" Click="OnIncoming" />
+          <Button Classes="SecondaryButton" Margin="{controls:Inset Left=Md}" Content="Cancel" Click="OnCancel" IsCancel="True" />
+          <Button x:Name="SaveButton" Classes="PrimaryButton" Content="Save and Mark Resolved" Click="OnSave" IsDefault="True" />
+        </StackPanel>
+      </Grid>
     </controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="PathLabel" TextWrapping="Wrap" />
-      <TabControl Grid.Row="1">
-        <TabItem Header="Result"><TextBox x:Name="ResultInput" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" AutomationProperties.Name="Resolved file content" /></TabItem>
+      <!-- Four fixed versions of one file: the shared segmented control
+           picks the version, and the tab view below only hosts it. What
+           Current and Incoming mean is said on their segments. -->
+      <controls:SegmentedControl
+          x:Name="VersionSegments"
+          Grid.Row="1"
+          HorizontalAlignment="Center"
+          AutomationProperties.Name="Conflict version">
+        <RadioButton Content="Result" AutomationProperties.Name="Result" />
+        <RadioButton x:Name="CurrentSegment" Content="Current" AutomationProperties.Name="Current" />
+        <RadioButton x:Name="IncomingSegment" Content="Incoming" AutomationProperties.Name="Incoming" />
+        <RadioButton Content="Base" ToolTip.Tip="The file as it was where the two sides split" AutomationProperties.Name="Base" />
+      </controls:SegmentedControl>
+      <TabControl
+          x:Name="VersionViews"
+          Grid.Row="2"
+          Classes="Headless ConflictVersions"
+          SelectedIndex="{Binding #VersionSegments.SelectedIndex}">
+        <TabItem Header="Result">
+          <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+            <Button x:Name="BothButton" Classes="SecondaryButton Dense" HorizontalAlignment="Left" Content="Combine Current and Incoming" Click="OnBoth" ToolTip.Tip="Replace the result with the current version followed by the incoming one" />
+            <TextBox Grid.Row="1" x:Name="ResultInput" AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap" AutomationProperties.Name="Resolved file content" />
+          </Grid>
+        </TabItem>
         <TabItem Header="Current">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="CurrentIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Current revision and file object" />
+            <SelectableTextBlock x:Name="CurrentIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Current revision and file object" />
             <TextBox Grid.Row="1" x:Name="CurrentInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Current version" />
           </Grid>
         </TabItem>
         <TabItem Header="Incoming">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="IncomingIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Incoming revision and file object" />
+            <SelectableTextBlock x:Name="IncomingIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Incoming revision and file object" />
             <TextBox Grid.Row="1" x:Name="IncomingInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Incoming version" />
           </Grid>
         </TabItem>
         <TabItem Header="Base">
           <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
-            <SelectableTextBlock x:Name="BaseIdentity" Classes="Muted" FontSize="{DynamicResource ShellFontSize11}" TextWrapping="Wrap" AutomationProperties.Name="Common ancestor file object" />
+            <SelectableTextBlock x:Name="BaseIdentity" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap" AutomationProperties.Name="Common ancestor file object" />
             <TextBox Grid.Row="1" x:Name="BaseInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" AutomationProperties.Name="Common ancestor" />
           </Grid>
         </TabItem>
       </TabControl>
     </Grid>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

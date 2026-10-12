@@ -61,10 +61,10 @@ public sealed class AgentSafetyCardViewContractTests
             AttributeValue(answer, "KeyDown"));
         Assert.Equal(
             "1",
-            AttributeValue(FindButton(document, "Skip / decline"), "TabIndex"));
+            AttributeValue(FindButton(document, "Skip"), "TabIndex"));
         Assert.Equal(
             "2",
-            AttributeValue(FindButton(document, "Send answer"), "TabIndex"));
+            AttributeValue(FindButton(document, "Send Answer"), "TabIndex"));
     }
 
     [Fact]
@@ -91,13 +91,20 @@ public sealed class AgentSafetyCardViewContractTests
             serialized,
             StringComparison.Ordinal);
 
+        // The card names its target by title; the raw IDs wait under Details.
+        var exactTarget = Assert.Single(card.Descendants(), element =>
+            AttributeValue(element, "Text") == "{Binding AgentChat.PendingCapabilityRequest.ExactTarget}");
+        Assert.Contains(exactTarget.Ancestors(), ancestor => ancestor.Name.LocalName == "Expander");
+        Assert.DoesNotContain(card.Descendants(), element =>
+            (AttributeValue(element, "Text") ?? string.Empty).Contains("StringFormat={}· ", StringComparison.Ordinal));
+
         Assert.Equal(
             "0",
             AttributeValue(FindButton(document, "Keep Off"), "TabIndex"));
         Assert.Equal(
             "1",
             AttributeValue(
-                FindButton(document, "Enable Ask for this run"),
+                FindButton(document, "Enable Ask for This Run"),
                 "TabIndex"));
     }
 

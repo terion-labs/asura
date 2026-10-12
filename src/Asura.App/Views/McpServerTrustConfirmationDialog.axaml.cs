@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -5,13 +6,13 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class McpServerTrustConfirmationDialog : Window
+public sealed partial class McpServerTrustConfirmationDialog : DialogWindow
 {
     public McpServerTrustConfirmationDialog()
         : this(new McpServerTrustReview(
             "MCP server",
             "Not configured",
-            "Executable directory",
+            "Executable folder",
             ["Add a new local MCP server process"],
             [],
             [],

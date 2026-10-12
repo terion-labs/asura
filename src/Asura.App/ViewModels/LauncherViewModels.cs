@@ -162,6 +162,12 @@ public sealed record LauncherConnectionViewModel(
     public bool HasTags => Tags.Count > 0;
 
     /// <summary>
+    /// A row's secondary line: where the connection goes, or, when it can't
+    /// be opened, why not. A dimmed row with no reason reads as broken.
+    /// </summary>
+    public string AvailabilityDetail => CanOpen ? Detail : Status;
+
+    /// <summary>
     /// The durable definition id inside this card's family. Terminal cards use
     /// <see cref="Id"/>; file and database cards carry their own id here and
     /// keep <see cref="Id"/> only as a list-identity wrapper.
@@ -343,5 +349,15 @@ public sealed record LauncherSearchResultViewModel(
         ? Detail
         : UnavailableReason ?? Detail;
 
+    /// <summary>
+    /// The line under a palette row's title: where the row belongs, then what
+    /// it does or why it cannot be used. "Tabs", "New Tab · Your default shell
+    /// on this computer".
+    /// </summary>
+    public string Caption => DisplayDetail.Length == 0
+        ? Group
+        : $"{Group} · {DisplayDetail}";
+
+    /// <summary>Whether the row has a shortcut to show.</summary>
     public bool HasTrailingText => TrailingText.Length > 0;
 }

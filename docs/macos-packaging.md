@@ -47,12 +47,13 @@ Xcode `actool` 26 or newer and compiles the same layered source into
 `assetutil` to require a named `Asura` icon image. Copying a raw `.icon`
 document into an application bundle is not a supported substitute.
 
-On macOS 26, the running application recolors its Dock icon from the current
-system accent. That runtime rendition keeps the artwork inside the same
-optically inset 1024-pixel canvas used by Apple's production grid; the outer
-transparent margin is intentional and must not be cropped when changing the
-runtime SVG. Both sources also apply the same upward optical correction to the
-triangular mark, whose broad base makes geometric centering look low.
+Asura does not replace its icon at runtime. On macOS 26 and later the Dock,
+the Command-Tab switcher and Finder all use the compiled `Assets.car`, so the
+system renders the Default, Dark, Clear and Tinted appearances the user picks.
+An unbundled development run has no asset catalog, so About and alerts fall
+back to `src/Asura.App/Assets/AppIcon.png`, a 512-pixel rendition of the
+approved `Asura.icns`. The source artwork applies an upward optical correction
+to the triangular mark, whose broad base makes geometric centering look low.
 
 `assets/macos/product-identity.json` is the reviewed macOS identity contract.
 It records the canonical display name, executable, bundle identifier, icon

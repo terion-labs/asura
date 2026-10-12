@@ -9,6 +9,7 @@ public sealed partial class NetworkingSettingsPageView : UserControl
     public NetworkingSettingsPageView()
     {
         InitializeComponent();
+        SettingsView.FollowListSelection(ProfileList, DeleteProfileButton);
     }
 
     private NetworkSettingsViewModel? ViewModel => DataContext as NetworkSettingsViewModel;
@@ -48,25 +49,15 @@ public sealed partial class NetworkingSettingsPageView : UserControl
             return;
         }
 
-        // The trash icon sits beside Edit, and a connection's credentials go
-        // with it: every other definition asks first, so this one does too.
-        if (!await Confirmations.DefinitionDelete("network connection", item.Name)
+        // A connection's credentials go with it: every other definition asks
+        // first, so this one does too.
+        if (!await Confirmations.DefinitionDelete("Network Connection", item.Name)
                 .ShowDialog<bool>(owner))
         {
             return;
         }
 
         await viewModel.DeleteProfileAsync(item, CancellationToken.None);
-    }
-
-    private async void OnSavePolicyClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel is { } viewModel)
-        {
-            await viewModel.SavePolicyAsync(CancellationToken.None);
-        }
     }
 
     private async Task ShowEditorAsync(NetworkSettingsViewModel viewModel)

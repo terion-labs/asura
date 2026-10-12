@@ -22,6 +22,7 @@ public sealed class PopupSurfaceContractTests
     [
         "FlyoutPresenter",
         "MenuFlyoutPresenter",
+        "ContextMenu",
         "ComboBox:dropdownopen /template/ Border#PopupBorder",
     ];
 

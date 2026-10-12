@@ -83,12 +83,18 @@ internal static class RedisPanelFixtures
         public Task SelectDatabaseAsync(int database, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        /// <summary>The MATCH pattern of the most recent SCAN.</summary>
+        public string? LastScanPattern { get; private set; }
+
         public Task<RedisScanPage> ScanKeysAsync(
             string pattern,
             string? cursor,
             int count,
-            CancellationToken cancellationToken) =>
-            Task.FromResult(new RedisScanPage([Describe()], null, true));
+            CancellationToken cancellationToken)
+        {
+            LastScanPattern = pattern;
+            return Task.FromResult(new RedisScanPage([Describe()], null, true));
+        }
 
         public Task<RedisKeySnapshot> ReadKeyAsync(
             RedisKeyReference key,
@@ -193,8 +199,14 @@ internal static class RedisPanelFixtures
         public Task<IReadOnlyList<RedisSearchIndex>> ListSearchIndexesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<RedisSearchIndex>>([]);
 
-        public Task<RedisSearchResult> SearchAsync(string index, string query, int limit, CancellationToken cancellationToken) =>
-            Task.FromResult(new RedisSearchResult(0, [], false));
+        /// <summary>The query of the most recent FT.SEARCH.</summary>
+        public string? LastSearchQuery { get; private set; }
+
+        public Task<RedisSearchResult> SearchAsync(string index, string query, int limit, CancellationToken cancellationToken)
+        {
+            LastSearchQuery = query;
+            return Task.FromResult(new RedisSearchResult(0, [], false));
+        }
 
         public ValueTask DisposeAsync()
         {

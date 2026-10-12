@@ -122,8 +122,24 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Equal(reference, editor.SelectedCredential?.Reference);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("could not be stored", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("couldn't store the API key", editor.CredentialStatus, StringComparison.Ordinal);
         Assert.DoesNotContain("synthetic-secret-must-not-appear", editor.CredentialStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_provider_api_is_named_the_way_its_vendor_names_it()
+    {
+        using var runtime = new StubRuntime();
+        var editor = new AiProviderProfileEditorViewModel(runtime, []) { Kind = AiProviderKind.OpenAi };
+        Assert.Equal("Uses the OpenAI Responses API.", editor.ProviderProtocol);
+
+        // Every protocol has a name; none falls back to its enum spelling.
+        foreach (var protocol in Enum.GetValues<AiProviderProtocol>())
+        {
+            var name = AiProviderProfileEditorViewModel.ProtocolDisplayName(protocol);
+            Assert.NotEqual(protocol.ToString(), name, StringComparer.Ordinal);
+            Assert.EndsWith(" API", name, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -172,7 +188,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         Assert.Null(runtime.LastProfile);
         Assert.Empty(editor.ApiKeyValue);
         Assert.False(editor.IsStoringCredential);
-        Assert.Contains("cancelled", editor.CredentialStatus, StringComparison.Ordinal);
+        Assert.Contains("canceled", editor.CredentialStatus, StringComparison.Ordinal);
     }
 
     private static SecretVaultResult<SecretMetadata> Stored(CreateSecretRequest request) =>
@@ -472,7 +488,7 @@ public sealed class AiProviderProfileEditorViewModelTests
         editor.Kind = AiProviderKind.GitHubCopilot;
 
         Assert.Empty(editor.DefaultModel);
-        Assert.Equal(AiProviderProtocol.GitHubCopilot.ToString(), editor.ProviderProtocol);
+        Assert.Equal("Uses the GitHub Copilot API.", editor.ProviderProtocol);
         Assert.Equal(
             AiProviderEditorAuthenticationMode.OAuthDevice,
             editor.SelectedAuthentication!.Mode);
@@ -575,7 +591,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             System.Text.Json.JsonSerializer.Serialize(request.Profile),
             StringComparison.Ordinal);
         Assert.Equal(
-            "Connected. The token session is stored in the OS vault.",
+            $"Connected. The sign-in session is stored in {PlatformTerms.SecretStore}.",
             editor.AuthenticationStatus);
     }
 
@@ -628,7 +644,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.Null(launch);
         Assert.False(editor.IsAuthenticating);
-        Assert.Equal("Authentication could not be started.", editor.AuthenticationStatus);
+        Assert.Equal("Asura couldn't start signing in. Try again.", editor.AuthenticationStatus);
         Assert.DoesNotContain(
             "sensitive-provider-detail",
             editor.AuthenticationStatus,
@@ -745,7 +761,7 @@ public sealed class AiProviderProfileEditorViewModelTests
 
         Assert.False(editor.IsProviderRuntimeSupported);
         Assert.False(editor.CanTest);
-        Assert.Contains("not implemented", editor.ProviderAvailability);
+        Assert.Contains("doesn't support this AI provider yet", editor.ProviderAvailability);
         Assert.Equal("Provider unavailable", editor.TestStatus);
         Assert.Null(runtime.LastProfile);
         Assert.Throws<ArgumentException>(editor.CreateSaveRequest);
@@ -774,7 +790,7 @@ public sealed class AiProviderProfileEditorViewModelTests
             "Today",
             "Never",
             scope,
-            "No saved definition dependencies",
+            "Not used by any saved item",
             0);
 
     private sealed class StubRuntime : IAiProviderProfileRuntime

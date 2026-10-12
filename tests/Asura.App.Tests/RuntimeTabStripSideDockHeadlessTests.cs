@@ -1,7 +1,11 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.App.Views;
 using Asura.App.Views.Components;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -10,6 +14,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FluentIcons.Avalonia;
 using FluentIcons.Common;
@@ -33,19 +38,183 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         string Icon = "terminal",
         Symbol IconSymbol = Symbol.WindowConsole) : IRuntimeTabStripItem
     {
+        public string DisplayTitle => Title;
+
         public string AgentActivity => string.Empty;
 
         public bool HasAgentActivity => false;
     }
 
     [Fact]
-    public Task Active_tab_sticks_to_both_overflow_edges() =>
+    public Task Tabs_compress_to_the_minimum_before_the_strip_scrolls() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 3)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 0,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 400,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            // Three tabs share 400 points below the 158 a roomy tab takes,
+            // and nothing scrolls: the strip compressed instead.
+            Assert.InRange(strip.TabWidth, RuntimeTabStripView.MinimumTabWidth, RuntimeTabStripView.MaximumTabWidth - 1);
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            Assert.True(scroll.Extent.Width <= scroll.Viewport.Width + 1);
+            Assert.False(OverflowButton(strip).IsVisible);
+
+            window.Width = 2000;
+            window.UpdateLayout();
+            Assert.Equal(RuntimeTabStripView.MaximumTabWidth, strip.TabWidth);
+
+            // Past the minimum the strip scrolls, and the pull-down that lists
+            // every tab appears beside the add button.
+            window.Width = 220;
+            window.UpdateLayout();
+            Assert.Equal(RuntimeTabStripView.MinimumTabWidth, strip.TabWidth);
+            Assert.True(OverflowButton(strip).IsVisible);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public void Tab_width_shares_the_room_between_the_minimum_and_maximum()
+    {
+        Assert.Equal(RuntimeTabStripView.MaximumTabWidth, RuntimeTabStripView.FitTabWidth(1000, 3, 4));
+        Assert.Equal(120, RuntimeTabStripView.FitTabWidth(368, 3, 4));
+        Assert.Equal(RuntimeTabStripView.MinimumTabWidth, RuntimeTabStripView.FitTabWidth(150, 3, 4));
+        Assert.Equal(RuntimeTabStripView.MaximumTabWidth, RuntimeTabStripView.FitTabWidth(300, 0, 4));
+        Assert.Equal(100.5, RuntimeTabStripView.FitTabWidth(309.5, 3, 4));
+
+        // Three tabs need 308 points at their minimum. The overflow chrome
+        // starts to open once they have less than its width to spare, and is
+        // fully open by the time they have none.
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(343, 3, 4, 35));
+        Assert.Equal(0.5, RuntimeTabStripView.OverflowReveal(325.5, 3, 4, 35));
+        Assert.Equal(1, RuntimeTabStripView.OverflowReveal(308, 3, 4, 35));
+        Assert.Equal(1, RuntimeTabStripView.OverflowReveal(200, 3, 4, 35));
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(double.PositiveInfinity, 3, 4, 35));
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(100, 0, 4, 35));
+    }
+
+    /// <summary>
+    /// Narrowing the window past the point where the tabs stop compressing
+    /// must not jolt the strip. The pull-down and its hairline used to take
+    /// their 37 points in one frame, so every tab — the pinned active one
+    /// with it — jumped sideways just as the pull-down appeared. Swept one
+    /// point at a time across that boundary and back, nothing moves by more
+    /// than the strip's own continuous rate.
+    /// </summary>
+    [Fact]
+    public Task Overflow_chrome_opens_without_jolting_the_tabs() =>
         RunHeadlessAsync(() =>
         {
             var tabs = Enumerable.Range(0, 6)
                 .Select(index => new FakeTab(
                     $"tab-{index}",
-                    IsActive: index == 2,
+                    IsActive: index == 5,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+                ShowsOverflowSeparator = true,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            var window = new Window
+            {
+                Width = 720,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var add = strip.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(button => string.Equals(button.Name, "AddTabButton", StringComparison.Ordinal));
+            var active = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(host => host.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(host.DataContext, tabs[5]));
+            var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
+            Assert.False(OverflowButton(strip).IsVisible);
+
+            (double Viewport, double Add, double Active)? previous = null;
+            var widths = Enumerable.Range(0, 120).Select(step => 720.0 - step).ToList();
+            widths.AddRange(Enumerable.Reverse(widths));
+            var sawOverflow = false;
+            foreach (var width in widths)
+            {
+                window.Width = width;
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                var addX = add.TranslatePoint(default, window)!.Value.X;
+                var activeX = active.TranslatePoint(default, window)!.Value.X;
+                var current = (scroll.Viewport.Width, addX, activeX);
+                if (previous is { } last)
+                {
+                    // One point of window, at most two of strip — inside the
+                    // band where the chrome opens the tabs give up room at
+                    // twice the window's rate — and a pixel of layout
+                    // rounding. The jolt this guards against was 37.
+                    Assert.True(
+                        Math.Abs(current.Width - last.Viewport) <= 4
+                            && Math.Abs(current.addX - last.Add) <= 4
+                            && Math.Abs(current.activeX - last.Active) <= 4,
+                        $"window={width} viewport {last.Viewport}->{current.Width} "
+                        + $"add {last.Add}->{current.addX} active {last.Active}->{current.activeX}");
+                }
+
+                sawOverflow |= OverflowButton(strip).IsVisible
+                    && activeContainer.RenderTransform is not null;
+                previous = current;
+            }
+
+            // The sweep did cross into a scrolling strip with its pull-down
+            // and the active tab pinned, and came back out of it.
+            Assert.True(sawOverflow);
+            Assert.False(OverflowButton(strip).IsVisible);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    /// <summary>
+    /// The active tab is sticky: it never leaves the strip, it rides whichever
+    /// edge it would scroll out by, over the neighbours passing underneath,
+    /// and the strip itself does not jump to it. This is the designed
+    /// behaviour, not an overflow bug; a covered neighbour stays reachable
+    /// from the all-tabs pull-down.
+    /// </summary>
+    [Fact]
+    public Task Active_tab_sticks_to_both_overflow_edges() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 10)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 5,
                     CanClose: true,
                     HasAttention: false))
                 .ToArray();
@@ -63,28 +232,44 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             };
             window.Show();
             window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
 
             var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
-            scroll.Offset = new Vector(1, 0);
-            window.UpdateLayout();
-            var active = strip.GetVisualDescendants()
+            var hosts = strip.GetVisualDescendants()
                 .OfType<Grid>()
-                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
-                    && ReferenceEquals(grid.DataContext, tabs[2]));
+                .Where(grid => grid.Classes.Contains("RuntimeTabDropTarget"))
+                .ToArray();
+            var active = hosts.Single(host => ReferenceEquals(host.DataContext, tabs[5]));
             var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
-            var right = active.TranslatePoint(
-                new Point(active.Bounds.Width, 0),
-                scroll);
+            var siblings = hosts
+                .Where(host => !ReferenceEquals(host, active))
+                .Select(host => host.GetVisualAncestors().OfType<ContentPresenter>().First())
+                .ToArray();
+
+            // At rest the slot lies past the trailing edge, and the strip does
+            // not scroll to it: the chip is pinned to that edge instead.
+            Assert.Equal(0, scroll.Offset.X, precision: 3);
+            Assert.True(
+                activeContainer.Bounds.X > scroll.Viewport.Width,
+                $"slot={activeContainer.Bounds.X} viewport={scroll.Viewport.Width}");
+            var right = active.TranslatePoint(new Point(active.Bounds.Width, 0), scroll);
             Assert.NotNull(right);
             Assert.InRange(scroll.Viewport.Width - right.Value.X, -1, 1);
+            Assert.IsType<TranslateTransform>(activeContainer.RenderTransform);
             Assert.Equal(1, activeContainer.ZIndex);
-            Assert.All(
-                strip.GetVisualDescendants()
-                    .OfType<Grid>()
-                    .Where(grid => grid.Classes.Contains("RuntimeTabDropTarget")
-                        && !ReferenceEquals(grid, active))
-                    .Select(grid => grid.GetVisualAncestors().OfType<ContentPresenter>().First()),
-                sibling => Assert.True(activeContainer.ZIndex > sibling.ZIndex));
+            Assert.All(siblings, sibling =>
+            {
+                Assert.Null(sibling.RenderTransform);
+                Assert.True(activeContainer.ZIndex > sibling.ZIndex);
+            });
+            AssertPinnedChipTakesThePointer(window, active);
+
+            scroll.Offset = new Vector(1, 0);
+            window.UpdateLayout();
+            right = active.TranslatePoint(new Point(active.Bounds.Width, 0), scroll);
+            Assert.NotNull(right);
+            Assert.InRange(scroll.Viewport.Width - right.Value.X, -1, 1);
 
             scroll.Offset = new Vector(scroll.Extent.Width, 0);
             window.UpdateLayout();
@@ -92,10 +277,472 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             Assert.NotNull(left);
             Assert.InRange(left.Value.X, -1, 1);
             Assert.Equal(1, activeContainer.ZIndex);
+            AssertPinnedChipTakesThePointer(window, active);
+
+            // Scrolled to where the slot is in view, the chip sits in it.
+            scroll.Offset = new Vector(
+                activeContainer.Bounds.X - ((scroll.Viewport.Width - activeContainer.Bounds.Width) / 2),
+                0);
+            window.UpdateLayout();
+            Assert.Null(activeContainer.RenderTransform);
+            Assert.Equal(1, activeContainer.ZIndex);
 
             window.Close();
             return Task.CompletedTask;
         });
+
+    [Fact]
+    public Task Side_docked_active_tab_sticks_to_the_bottom_edge() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 16)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 12,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Vertical,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 190,
+                Height = 200,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var active = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(grid.DataContext, tabs[12]));
+            var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
+            Assert.Equal(0, scroll.Offset.Y, precision: 3);
+            Assert.True(activeContainer.Bounds.Y > scroll.Viewport.Height);
+            var bottom = active.TranslatePoint(new Point(0, active.Bounds.Height), scroll);
+            Assert.NotNull(bottom);
+            Assert.InRange(scroll.Viewport.Height - bottom.Value.Y, -1, 1);
+            Assert.Equal(1, activeContainer.ZIndex);
+            AssertPinnedChipTakesThePointer(window, active);
+
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    private static void AssertPinnedChipTakesThePointer(Window window, Grid active)
+    {
+        var centre = active.TranslatePoint(
+            new Point(active.Bounds.Width / 2, active.Bounds.Height / 2),
+            window);
+        Assert.NotNull(centre);
+
+        // The pointer is routed through the composed scene, which only takes
+        // the new transform and z-order once a few frames have gone through.
+        for (var frame = 0; frame < 3; frame++)
+        {
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        }
+
+        var hit = window.InputHitTest(centre.Value) as Visual;
+        Assert.NotNull(hit);
+        Assert.Same(
+            active,
+            hit.GetSelfAndVisualAncestors()
+                .OfType<Grid>()
+                .First(grid => grid.Classes.Contains("RuntimeTabDropTarget")));
+    }
+
+    [Fact]
+    public Task The_overflow_pull_down_lists_every_tab_and_activates_the_choice() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 6)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 1,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            object? activated = null;
+            strip.ActivateRequested += (sender, _) => activated = (sender as Control)?.DataContext;
+            var window = new Window
+            {
+                Width = 300,
+                Height = 300,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            var overflow = OverflowButton(strip);
+            Assert.True(overflow.IsVisible);
+            var menu = Assert.IsAssignableFrom<MenuFlyout>(overflow.Flyout);
+            menu.ShowAt(overflow);
+            var items = menu.Items.OfType<MenuItem>().ToArray();
+            Assert.Equal(tabs.Select(tab => tab.Title), items.Select(item => item.Header as string), StringComparer.Ordinal);
+            // Drawn in the menu that opened, not only listed on the flyout: an
+            // empty one opened as a hairline under the button.
+            var presenter = Assert.IsType<MenuFlyoutPresenter>(menu.Popup.Child);
+            Assert.Equal(tabs.Length, presenter.ItemCount);
+            Assert.Equal(MenuItemToggleType.Radio, items[1].ToggleType);
+            Assert.True(items[1].IsChecked);
+            Assert.False(items[0].IsChecked);
+
+            items[4].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Same(tabs[4], activated);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Tabs_are_a_tab_list_with_selection_position_and_attention() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = new[]
+            {
+                new FakeTab("production-api", IsActive: false, CanClose: true, HasAttention: true),
+                new FakeTab("db", IsActive: true, CanClose: true, HasAttention: false),
+            };
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 600,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            var activators = strip.GetVisualDescendants()
+                .OfType<RuntimeTabButton>()
+                .ToArray();
+            Assert.Equal(2, activators.Length);
+            var list = strip.GetVisualDescendants()
+                .OfType<ItemsControl>()
+                .Single();
+            Assert.Equal(AutomationControlType.Tab, ControlAutomationPeer.CreatePeerForElement(list).GetAutomationControlType());
+
+            var first = ControlAutomationPeer.CreatePeerForElement(activators[0]);
+            var second = ControlAutomationPeer.CreatePeerForElement(activators[1]);
+            Assert.Equal(AutomationControlType.TabItem, first.GetAutomationControlType());
+            Assert.Equal("production-api, needs attention", first.GetName());
+            Assert.Equal("db", second.GetName());
+            Assert.False(Assert.IsAssignableFrom<ISelectionItemProvider>(first).IsSelected);
+            Assert.True(Assert.IsAssignableFrom<ISelectionItemProvider>(second).IsSelected);
+            Assert.Equal(1, AutomationProperties.GetPositionInSet(activators[0]));
+            Assert.Equal(2, AutomationProperties.GetPositionInSet(activators[1]));
+            Assert.All(activators, activator => Assert.Equal(2, AutomationProperties.GetSizeOfSet(activator)));
+
+            // The full title is the tooltip, because a compressed tab trims it.
+            Assert.Equal("production-api", ToolTip.GetTip(activators[0]));
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Close_shows_on_the_active_tab_and_under_the_pointer_only() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = new[]
+            {
+                new FakeTab("active", IsActive: true, CanClose: true, HasAttention: false),
+                new FakeTab("resting", IsActive: false, CanClose: true, HasAttention: false),
+                new FakeTab("pinned", IsActive: false, CanClose: false, HasAttention: false),
+            };
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 700,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            Button Close(FakeTab tab) => strip.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(button => button.Classes.Contains("RuntimeTabClose")
+                    && ReferenceEquals(button.DataContext, tab));
+
+            // Shown means drawn and clickable. A closable tab keeps the button
+            // in its layout either way, so hover never re-measures the strip.
+            static bool Shown(Button close) => close.IsVisible && close.Opacity >= 1 && close.IsHitTestVisible;
+
+            Assert.True(Shown(Close(tabs[0])));
+            Assert.True(Close(tabs[0]).Bounds.Width >= 20);
+            Assert.True(Close(tabs[0]).Bounds.Height >= 20);
+            Assert.False(Shown(Close(tabs[1])));
+            Assert.True(Close(tabs[1]).IsVisible);
+            Assert.False(Close(tabs[0]).IsTabStop);
+
+            var resting = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(grid.DataContext, tabs[1]));
+            var restingCloseBounds = Close(tabs[1]).Bounds;
+            var restingTitleBounds = resting.Children.OfType<Button>().First().Bounds;
+            window.MouseMove(Assert.NotNull(resting.TranslatePoint(
+                new Point(resting.Bounds.Width / 2, resting.Bounds.Height / 2),
+                window)));
+            window.UpdateLayout();
+            Assert.True(Shown(Close(tabs[1])));
+            Assert.Equal(restingCloseBounds, Close(tabs[1]).Bounds);
+            Assert.Equal(restingTitleBounds, resting.Children.OfType<Button>().First().Bounds);
+
+            var pinned = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(grid.DataContext, tabs[2]));
+            window.MouseMove(Assert.NotNull(pinned.TranslatePoint(
+                new Point(pinned.Bounds.Width / 2, pinned.Bounds.Height / 2),
+                window)));
+            window.UpdateLayout();
+            Assert.False(Close(tabs[2]).IsVisible);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task A_middle_click_closes_a_tab_without_activating_it() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = new[]
+            {
+                new FakeTab("active", IsActive: true, CanClose: true, HasAttention: false),
+                new FakeTab("other", IsActive: false, CanClose: true, HasAttention: false),
+            };
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            object? closed = null;
+            object? activated = null;
+            object? dragStarted = null;
+            strip.CloseRequested += (sender, _) => closed = (sender as Control)?.DataContext;
+            strip.ActivateRequested += (sender, _) => activated = sender;
+            strip.ReorderPointerPressed += (sender, _) => dragStarted = sender;
+            var window = new Window
+            {
+                Width = 600,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            var other = strip.GetVisualDescendants()
+                .OfType<RuntimeTabButton>()
+                .Single(button => ReferenceEquals(button.DataContext, tabs[1]));
+            var centre = Assert.NotNull(other.TranslatePoint(
+                new Point(other.Bounds.Width / 3, other.Bounds.Height / 2),
+                window));
+            window.MouseDown(centre, MouseButton.Middle);
+            window.MouseUp(centre, MouseButton.Middle);
+
+            Assert.Same(tabs[1], closed);
+            Assert.Null(activated);
+            Assert.Null(dragStarted);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task The_context_menu_offers_rename_icon_move_and_close() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = new[]
+            {
+                new FakeTab("active", IsActive: true, CanClose: true, HasAttention: false),
+                new FakeTab("other", IsActive: false, CanClose: true, HasAttention: false),
+            };
+            var elsewhere = new object();
+            var current = new object();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+                MoveTargets = new[] { current, elsewhere },
+                CurrentMoveTarget = current,
+            };
+            object? closedOthersFor = null;
+            RuntimeTabMoveRequestedEventArgs? moved = null;
+            strip.TitleEditRequested += (_, _) => { };
+            strip.IconEditRequested += (_, _) => { };
+            strip.CloseOtherTabsRequested += (sender, _) => closedOthersFor = (sender as Control)?.DataContext;
+            strip.MoveToWorkspaceRequested += (_, e) => moved = e;
+            var window = new Window
+            {
+                Width = 600,
+                Height = 400,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            var host = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(grid.DataContext, tabs[1]));
+            var menu = Assert.IsType<ContextMenu>(host.ContextMenu);
+            menu.Open(host);
+            var items = menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).ToArray();
+            Assert.Equal(
+                ["Rename Tab…", "Change Icon…", "Move to Workspace", "Move to New Window", "Close Tab", "Close Other Tabs"],
+                items.Select(item => item.Header as string), StringComparer.Ordinal);
+
+            var move = items[2];
+            var target = Assert.Single(move.Items.OfType<MenuItem>());
+            Assert.True(target.IsEnabled);
+            target.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.NotNull(moved);
+            Assert.Same(tabs[1], moved.Tab);
+            Assert.Same(elsewhere, moved.Destination);
+
+            items[5].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.Same(tabs[1], closedOthersFor);
+
+            items[0].RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            var editor = host.GetVisualDescendants()
+                .OfType<TextBox>()
+                .Single(candidate => candidate.Classes.Contains("RuntimeTabTitleEditor"));
+            Assert.True(editor.IsVisible);
+            Assert.Equal("other", editor.Text);
+            menu.Close();
+
+            Assert.True(strip.ShowIconPicker(tabs[1]));
+            var iconTarget = host.GetVisualDescendants()
+                .OfType<Border>()
+                .Single(border => border.Classes.Contains("RuntimeTabIcon"));
+            Assert.True(Assert.IsType<Flyout>(FlyoutBase.GetAttachedFlyout(iconTarget)).IsOpen);
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task A_strip_without_a_shell_offers_only_what_it_can_do() =>
+        RunHeadlessAsync(() =>
+        {
+            var tab = new FakeTab("only", IsActive: true, CanClose: false, HasAttention: false);
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = new[] { tab },
+            };
+            var window = new Window
+            {
+                Width = 600,
+                Height = 400,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            var host = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget"));
+            var menu = Assert.IsType<ContextMenu>(host.ContextMenu);
+            menu.Open(host);
+            var items = menu.Items.OfType<MenuItem>().Where(item => item.IsVisible).ToArray();
+            var close = Assert.Single(items);
+            Assert.Equal("Close Tab", close.Header);
+            Assert.False(close.IsEnabled);
+            menu.Close();
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    [Fact]
+    public Task Escape_cancels_a_tab_drag_and_leaves_the_order_alone() =>
+        RunHeadlessAsync(async () =>
+        {
+            var fixture = MainWindowTabReorderTests.CreateFixture();
+            using var viewModel = fixture.ViewModel;
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = fixture.Runtime.Tabs,
+            };
+            var window = new Window
+            {
+                Width = 800,
+                Height = 120,
+                Content = strip,
+            };
+            var shown = 0;
+            var hidden = 0;
+            var controller = new RuntimeTabDragController(
+                window,
+                viewModel,
+                new RuntimeTabDragPresentation(
+                    (_, _) => shown++,
+                    _ => { },
+                    () => hidden++),
+                CancellationToken.None);
+            window.AddHandler(
+                InputElement.KeyDownEvent,
+                controller.KeyDown,
+                RoutingStrategies.Tunnel,
+                handledEventsToo: true);
+            strip.ReorderPointerPressed += controller.PointerPressed;
+            strip.ReorderPointerMoved += controller.PointerMoved;
+            strip.ReorderPointerReleased += async (sender, e) => await controller.PointerReleasedAsync(sender, e);
+            strip.ReorderPointerCaptureLost += controller.PointerCaptureLost;
+            window.Show();
+            window.UpdateLayout();
+
+            var activators = strip.GetVisualDescendants()
+                .OfType<RuntimeTabButton>()
+                .ToArray();
+            var start = Assert.NotNull(activators[0].TranslatePoint(
+                new Point(activators[0].Bounds.Width / 3, activators[0].Bounds.Height / 2),
+                window));
+            var end = Assert.NotNull(activators[2].TranslatePoint(
+                new Point(activators[2].Bounds.Width * 0.8, activators[2].Bounds.Height / 2),
+                window));
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(20, 0), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            Assert.Equal(1, shown);
+
+            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            Assert.Equal(1, hidden);
+
+            window.MouseUp(end, MouseButton.Left);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Equal(
+                ["Alpha", "Beta", "Gamma"],
+                fixture.Runtime.Tabs.Select(tab => tab.Title), StringComparer.Ordinal);
+            Assert.Empty(fixture.Session.Registrations);
+            window.Close();
+        });
+
+    private static Button OverflowButton(RuntimeTabStripView strip) =>
+        strip.GetVisualDescendants()
+            .OfType<Button>()
+            .Single(button => string.Equals(button.Name, "OverflowMenuButton", StringComparison.Ordinal));
 
     [Fact]
     public Task Active_tab_is_cut_out_of_fade_without_revealing_siblings() =>
@@ -168,6 +815,7 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             return Task.CompletedTask;
         });
 
+
     [Fact]
     public Task The_tab_surface_is_both_the_activation_and_drag_target() =>
         RunHeadlessAsync(() =>
@@ -230,7 +878,7 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             dragReleasedBy = null;
             var close = strip.GetVisualDescendants()
                 .OfType<Button>()
-                .Single(button => string.Equals(ToolTip.GetTip(button) as string, "Close tab", StringComparison.Ordinal));
+                .Single(button => string.Equals(ToolTip.GetTip(button) as string, ShortcutTips.Current.CloseTab, StringComparison.Ordinal));
             var closeCentre = close.TranslatePoint(
                 new Point(close.Bounds.Width / 2, close.Bounds.Height / 2),
                 window);
@@ -295,6 +943,49 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
             window.Close();
             return Task.CompletedTask;
         });
+
+    [Fact]
+    public Task A_renamed_quick_terminal_tab_relabels_its_strip_tab() =>
+        RunHeadlessAsync(() =>
+        {
+            var tab = new QuickTerminalTabViewModel(null, "Preparing");
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = new[] { tab },
+            };
+            var window = new Window
+            {
+                Width = 320,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+
+            // The connection's title replaces the placeholder, then the user
+            // renames the tab; the label, tooltip and spoken name follow both.
+            tab.BeginInitialization(new Asura.Core.ConnectionId("conn.production"), "production-api");
+            window.UpdateLayout();
+            AssertStripReads(strip, "production-api");
+
+            Assert.True(tab.SetIdentity("renamed production", "terminal"));
+            window.UpdateLayout();
+            AssertStripReads(strip, "renamed production");
+            window.Close();
+            return Task.CompletedTask;
+        });
+
+    private static void AssertStripReads(RuntimeTabStripView strip, string expected)
+    {
+        var title = strip.GetVisualDescendants()
+            .OfType<TextBlock>()
+            .Single(candidate => candidate.Classes.Contains("RuntimeTabTitle"));
+        Assert.Equal(expected, title.Text);
+        var button = strip.GetVisualDescendants().OfType<RuntimeTabButton>().Single();
+        Assert.Equal(expected, ToolTip.GetTip(button));
+        Assert.StartsWith(expected, AutomationProperties.GetName(button), StringComparison.Ordinal);
+    }
 
     [Fact]
     public Task A_double_tap_on_the_icon_opens_the_picker_and_reports_the_choice() =>
@@ -447,12 +1138,22 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
                 var close = Assert.Single(
                     row.GetVisualDescendants().OfType<Button>(),
                     button => button.Classes.Contains("IconButton"));
+                // Close shows on the active row; the other offers it on hover.
+                // Both keep it in their layout, so the trailing edge holds
+                // whether or not it is drawn.
+                Assert.Equal(
+                    row.Classes.Contains("active"),
+                    close.Opacity >= 1 && close.IsHitTestVisible);
+                Assert.True(close.IsVisible);
+
                 var closeRight = close.TranslatePoint(
                     new Point(close.Bounds.Width, 0),
                     row);
                 Assert.NotNull(closeRight);
-                // The close column is the row's last 20 device pixels.
+                // The close column holds the row's trailing edge, at the
+                // full 24-point target a row has the height for.
                 Assert.InRange(row.Bounds.Width - closeRight.Value.X, 0, 3);
+                Assert.Equal(24, close.Bounds.Width);
             }
 
             // Both rows end at the same edge — the long and the short title.

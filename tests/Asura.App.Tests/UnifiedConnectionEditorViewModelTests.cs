@@ -192,7 +192,7 @@ public sealed class UnifiedConnectionEditorViewModelTests
         Assert.True(editor.Terminal.OpensGitRepository);
         Assert.True(editor.Terminal.IsSsh);
         Assert.False(editor.Terminal.ShowsStartupOptions);
-        Assert.Equal("Run diagnostics", editor.TestLabel);
+        Assert.Equal("Test", editor.TestLabel);
 
         // Leaving the Git group clears the repository mode again.
         editor.SelectedType = editor.TypeOptions
@@ -388,6 +388,62 @@ public sealed class UnifiedConnectionEditorViewModelTests
         terminal.SelectedSavedSshSource = SavedSshSourceOption.Manual;
         Assert.True(terminal.ShowsSshEndpointFields);
         Assert.Equal(string.Empty, terminal.Host);
+    }
+
+    [Fact]
+    public void The_saved_source_hint_describes_the_choice_that_is_made()
+    {
+        var terminal = new ConnectionEditorViewModel(
+            new StubConnectionRuntime(),
+            savedConnections: [SshConnection("bastion")])
+        {
+            Kind = ConnectionKind.Ssh,
+            OpensGitRepository = true,
+        };
+
+        Assert.Equal("Enter the host and credentials below.", terminal.SavedSshSourceHint);
+        terminal.SelectedSavedSshSource = terminal.SavedSshSources[1];
+        Assert.Contains("this connection’s host and credentials", terminal.SavedSshSourceHint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_port_is_typed_as_text_and_refused_on_save_when_it_is_not_a_port()
+    {
+        var terminal = new ConnectionEditorViewModel(new StubConnectionRuntime())
+        {
+            Name = "Server",
+            Kind = ConnectionKind.Ssh,
+            Host = "server.example",
+        };
+        Assert.Equal("22", terminal.PortText);
+
+        terminal.PortText = "2222";
+        Assert.Equal(2222, terminal.Port);
+
+        // What isn't a port stays as typed, and saving names the field.
+        terminal.PortText = "70000";
+        Assert.Equal("70000", terminal.PortText);
+        Assert.Equal(2222, terminal.Port);
+        var refused = Assert.Throws<ArgumentException>(() => terminal.CreateSaveRequest());
+        Assert.Equal(nameof(ConnectionEditorViewModel.Port), InvalidField.Of(refused));
+
+        terminal.Port = 2200;
+        Assert.Equal("2200", terminal.PortText);
+        Assert.Equal(2200, terminal.CreateSaveRequest().Profile.Endpoint is ConnectionEndpoint.Ssh ssh ? ssh.Port : 0);
+    }
+
+    [Fact]
+    public void The_footer_says_a_test_is_optional_until_one_runs_and_names_fit_the_type()
+    {
+        var editor = new UnifiedConnectionEditorViewModel(
+            new ConnectionEditorViewModel(new StubConnectionRuntime()),
+            files: null,
+            database: null);
+
+        Assert.Equal("You can save without testing.", editor.TestFooterHint);
+        Assert.Equal("Test", editor.TestLabel);
+        Assert.False(editor.HasFormErrors);
+        Assert.NotEqual("Production database", editor.NamePlaceholder, StringComparer.Ordinal);
     }
 
     [Fact]
@@ -819,7 +875,96 @@ public sealed class UnifiedConnectionEditorViewModelTests
         await editor.TestAsync(CancellationToken.None);
 
         Assert.Equal("Test failed", editor.TestStatus);
-        Assert.Equal("connection refused", editor.TestDetail);
+        // The status speaks in plain words with a next step; what the driver
+        // said stays available behind Details.
+        Assert.Equal(
+            "Asura couldn’t connect to the database. Check the connection’s settings, then test again.",
+            editor.TestDetail);
+        Assert.True(editor.HasTestFailureDetails);
+        Assert.Equal("connection refused", editor.TestFailureDetails);
+    }
+
+    [Fact]
+    public async Task An_unreadable_connection_string_is_named_under_its_field_not_in_the_parsers_words()
+    {
+        var editor = new DatabaseConnectionEditorViewModel(new StructuralDatabaseClient(), [])
+        {
+            Name = "Probe",
+            UseConnectionString = true,
+            ConnectionStringInput = "Host=db.example;Port=five",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal(
+            "Asura can't read this connection string for PostgreSQL. Check its format, or choose Parameters and fill in the fields instead.",
+            editor.TestDetail);
+        var refusal = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+        Assert.Equal(nameof(DatabaseConnectionEditorViewModel.ConnectionStringInput), InvalidField.Of(refusal));
+    }
+
+    [Fact]
+    public async Task A_URL_parameter_the_driver_can_t_use_is_named_under_the_field()
+    {
+        var editor = new DatabaseConnectionEditorViewModel(new StructuralDatabaseClient(), [])
+        {
+            Name = "Probe",
+            UseConnectionString = true,
+            ConnectionStringInput = "postgresql://alice@db.example/app?gssencmode=require",
+        };
+
+        await editor.TestAsync(CancellationToken.None);
+
+        Assert.Equal("Validation failed", editor.TestStatus);
+        Assert.Equal(
+            "PostgreSQL can’t use the connection URL’s gssencmode parameter. Remove it from the URL, "
+            + "or write the connection as keyword=value pairs instead.",
+            editor.TestDetail);
+        var refusal = Assert.ThrowsAny<ArgumentException>(() => editor.CreateSaveRequest());
+        Assert.Equal(nameof(DatabaseConnectionEditorViewModel.ConnectionStringInput), InvalidField.Of(refusal));
+    }
+
+    [Fact]
+    public void Database_test_failures_name_the_kill_switch_and_the_worker_s_transport_failures()
+    {
+        Assert.Contains(
+            "kill switch",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new IOException("outer", new WorkspaceNetworkBlockedException()),
+                isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "Check the host and port and that the server is running",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new DatabaseProviderFailureException("x", "Failed to connect", DatabaseProviderFailureKind.Unreachable, null, null),
+                isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.StartsWith(
+            "The server refused the connection.",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new DatabaseProviderFailureException("x", "password authentication failed", DatabaseProviderFailureKind.Server, null, null),
+                isFileBased: false),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Database_test_failures_map_to_messages_with_a_next_step()
+    {
+        Assert.Contains(
+            "Check the host and port",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(
+                new InvalidOperationException("outer", new System.Net.Sockets.SocketException()),
+                isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "didn’t answer in time",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(new TimeoutException("x"), isFileBased: false),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "database file",
+            DatabaseConnectionEditorViewModel.DescribeTestFailure(new IOException("x"), isFileBased: true),
+            StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1023,6 +1168,11 @@ public sealed class UnifiedConnectionEditorViewModelTests
             string driverId,
             string connectionString)
         {
+            if (connectionString.Contains("gssencmode", StringComparison.Ordinal))
+            {
+                throw new UnsupportedConnectionParameterException("PostgreSQL", ["gssencmode"]);
+            }
+
             var values = connectionString
                 .Split(';', StringSplitOptions.RemoveEmptyEntries)
                 .Select(pair => pair.Split('=', 2))

@@ -70,7 +70,9 @@ public sealed partial class WorkspaceSdkIsolationProvider
                 TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
             if (result.ExitCode != 0)
             {
-                throw new IOException($"Service isolate loopback routing could not be configured (exit {result.ExitCode}). {result.Diagnostic}");
+                // The guest's own output stays with the inner exception, out of the message.
+                throw new IOException("Service isolate loopback routing could not be configured.",
+                    new IOException($"Exit {result.ExitCode}. {result.Diagnostic}"));
             }
         }
         finally

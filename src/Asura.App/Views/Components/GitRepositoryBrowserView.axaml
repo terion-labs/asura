@@ -1,0 +1,107 @@
+<UserControl
+    x:Class="Asura.App.Views.Components.GitRepositoryBrowserView"
+    x:DataType="vm:GitRepositoryPickerViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:components="using:Asura.App.Views.Components"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:icons="using:FluentIcons.Avalonia">
+  <!--
+    The connection-aware folder browser: a path, the folders under it, and
+    which of them hold a repository. One component, two hosts — the Open Git
+    Repository dialog, and the connection editor, which shows it in place under
+    its Repository path field rather than stacking a second modal on itself.
+  -->
+  <UserControl.Styles>
+    <!-- A folder list, not a list of headings: names in the regular weight,
+         as a Finder or Open panel row has them, and glyphs in the secondary
+         colour so the selection is the one coloured thing in the list. The
+         selection still turns both to its own foreground. -->
+    <Style Selector="ListBox.GitFolders controls|ListItem /template/ TextBlock#PART_Title">
+      <Setter Property="FontWeight" Value="Normal" />
+    </Style>
+    <Style Selector="icons|SymbolIcon.GitFolderGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitFolders:focus-within ListBoxItem:selected icons|SymbolIcon.GitFolderGlyph">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+      <Button
+          Classes="IconButton"
+          Click="OnNavigateUpClick"
+          IsEnabled="{Binding CanNavigateUp}"
+          ToolTip.Tip="Parent folder"
+          AutomationProperties.Name="Go to parent folder">
+        <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
+      </Button>
+      <TextBox
+          Grid.Column="1"
+          Text="{Binding PathInput, Mode=TwoWay}"
+          KeyDown="OnPathKeyDown"
+          AutomationProperties.Name="Folder path" />
+    </Grid>
+
+    <components:ErrorNoticesView Grid.Row="1" DataContext="{Binding ErrorNotices}" />
+
+    <ListBox
+        Grid.Row="2"
+        Classes="Rows GitFolders"
+        ItemsSource="{Binding Directories}"
+        SelectedItem="{Binding SelectedDirectory, Mode=TwoWay}"
+        DoubleTapped="OnDirectoryDoubleTapped"
+        AutomationProperties.Name="Folders">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <VirtualizingStackPanel />
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <controls:ListItem
+              ContentPadding="{DynamicResource ShellListRowPadding}"
+              Title="{Binding Name}"
+              AutomationProperties.Name="{Binding AccessibleSummary}">
+            <controls:ListItem.Leading>
+              <Panel>
+                <icons:SymbolIcon
+                    Classes="GitFolderGlyph"
+                    Symbol="Folder"
+                    FontSize="{DynamicResource ShellIconSizeSm}"
+                    IsVisible="{Binding !IsRepository}" />
+                <icons:SymbolIcon
+                    Classes="GitFolderGlyph"
+                    Symbol="BranchFork"
+                    FontSize="{DynamicResource ShellIconSizeSm}"
+                    IsVisible="{Binding IsRepository}" />
+              </Panel>
+            </controls:ListItem.Leading>
+            <controls:ListItem.Trailing>
+              <controls:StatusChip
+                  VerticalAlignment="Center"
+                  Shape="Rounded"
+                  Tone="Default"
+                  Content="Repository"
+                  IsVisible="{Binding IsRepository}" />
+            </controls:ListItem.Trailing>
+          </controls:ListItem>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <controls:StateOverlay
+        Grid.Row="2"
+        Kind="Empty"
+        Heading="No folders here"
+        Body="Open this folder as the repository, or go up a level."
+        IsVisible="{Binding IsEmpty}" />
+    <controls:StateOverlay
+        Grid.Row="2"
+        Kind="Loading"
+        Heading="Reading folder…"
+        IsVisible="{Binding IsLoading}" />
+  </Grid>
+</UserControl>

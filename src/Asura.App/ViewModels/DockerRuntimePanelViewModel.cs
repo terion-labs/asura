@@ -3,6 +3,7 @@ using System.Windows.Input;
 using Asura.Application;
 using Asura.Core;
 using Asura.Docker;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -57,8 +58,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private long _logScrollToEndRequest;
     private string _statusText = "Connecting to Docker…";
     private string _shellStateTitle = "Opening container shell…";
-    private string _shellStateMessage =
-        "This shell stays in the Docker panel. Use New tab when you want it beside other work.";
+    private string _shellStateMessage = InlineShellMessage;
     private string? _issueTitle;
     private string? _issueMessage;
     private bool _showsDockerInstallHelp;
@@ -66,6 +66,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private bool _isLoadingDetail;
     private bool _isResolvingShell;
     private bool _isCalculatingVolumeSizes;
+    private bool _isEngineUnavailable;
     private bool _isRunningStackAction;
     private bool _volumeUsageLoaded;
     private bool _disposed;
@@ -75,6 +76,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private CancellationTokenSource? _volumeUsageCancellation;
     private Task _volumeUsageLoading = Task.CompletedTask;
     private readonly string? _connectionDisplayName;
+    // Names the toolbar control by its own tooltip, so the person can find it.
+    private const string InlineShellMessage =
+        "This shell stays in the Docker panel. To keep it beside other work, use “Open shell in new tab” in the toolbar.";
+    private bool _hasShellFailure;
 
     public DockerRuntimePanelViewModel(
         PanelInstanceId id,
@@ -180,6 +185,22 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         }
     }
 
+    /// <summary>
+    /// The section as a position in the section list and the narrow segmented
+    /// control, both of which bind to it two-way.
+    /// </summary>
+    public int SectionIndex
+    {
+        get => (int)Section;
+        set
+        {
+            if (Enum.IsDefined((DockerPanelSection)value))
+            {
+                SelectSection((DockerPanelSection)value);
+            }
+        }
+    }
+
     public DockerPanelDetail Detail
     {
         get => _detail;
@@ -216,8 +237,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public int ResourceCount => Resources.Count;
 
     public string ResourceSummary => IsVolumesSection && IsCalculatingVolumeSizes
-        ? $"{ResourceCount} resources · Loading sizes…"
-        : $"{ResourceCount} resources";
+        ? $"{CountText.OrNone(ResourceCount, "resource", "resources")} · Loading sizes…"
+        : CountText.OrNone(ResourceCount, "resource", "resources");
 
     public bool ShowVolumeSizeLoading => IsVolumesSection && IsCalculatingVolumeSizes;
 
@@ -278,7 +299,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _inlineShell, value))
             {
                 OnPropertyChanged(nameof(HasInlineShell));
-                OnPropertyChanged(nameof(CanRetryShell));
+                NotifyShellPresentation();
             }
         }
     }
@@ -315,16 +336,35 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _inspection, value))
             {
                 OnPropertyChanged(nameof(HasInspection));
+                OnPropertyChanged(nameof(InspectionRows));
             }
         }
     }
 
+    /// <summary>The Info view's rows, dates and sizes written the application's way.</summary>
+    public IReadOnlyList<DockerInspectionRow> InspectionRows => Inspection is { } inspection
+        ? [.. inspection.Properties.Select(DockerInspectionRow.From)]
+        : [];
+
     public ObservableCollection<DockerLogRowViewModel> LogRows => _logRows;
 
+    /// <summary>
+    /// The search field's text. A search runs on Return; emptying the field —
+    /// its clear button, Escape, or deleting the last character — ends the
+    /// search that is showing, as clearing a search field does everywhere.
+    /// </summary>
     public string LogSearchText
     {
         get => _logSearchText;
-        set => SetProperty(ref _logSearchText, value);
+        set
+        {
+            if (SetProperty(ref _logSearchText, value ?? string.Empty)
+                && _logSearchText.Length == 0
+                && IsLogSearchActive)
+            {
+                _ = ClearLogSearchAsync();
+            }
+        }
     }
 
     public int LogSearchContext
@@ -454,6 +494,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _isRefreshing, value))
             {
+                PublishEngineStatus();
                 _refreshCommand.RaiseCanExecuteChanged();
                 PublishContainerActionState();
                 RaiseContainerActionCanExecuteChanged();
@@ -477,9 +518,41 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _isResolvingShell, value))
             {
-                OnPropertyChanged(nameof(CanRetryShell));
+                NotifyShellPresentation();
             }
         }
+    }
+
+    /// <summary>
+    /// Finding or starting the shell failed. Only then does the Shell view
+    /// offer Retry; while the shell is still being found it shows progress.
+    /// </summary>
+    public bool HasShellFailure
+    {
+        get => _hasShellFailure;
+        private set
+        {
+            if (SetProperty(ref _hasShellFailure, value))
+            {
+                NotifyShellPresentation();
+            }
+        }
+    }
+
+    /// <summary>The shell is being found or opened: a progress state, no Retry.</summary>
+    public bool ShowShellProgress => !HasInlineShell && !HasShellFailure && (IsResolvingShell || CanOpenShell);
+
+    public bool ShowShellFailure => !HasInlineShell && HasShellFailure;
+
+    /// <summary>Nothing to open: the selected container isn't running.</summary>
+    public bool ShowShellIdle => !HasInlineShell && !HasShellFailure && !ShowShellProgress;
+
+    private void NotifyShellPresentation()
+    {
+        OnPropertyChanged(nameof(CanRetryShell));
+        OnPropertyChanged(nameof(ShowShellProgress));
+        OnPropertyChanged(nameof(ShowShellFailure));
+        OnPropertyChanged(nameof(ShowShellIdle));
     }
 
     public bool IsCalculatingVolumeSizes
@@ -522,8 +595,6 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool IsLogsDetail => Detail == DockerPanelDetail.Logs;
 
-    public bool IsStatsDetail => Detail == DockerPanelDetail.Stats;
-
     public bool IsShellDetail => Detail == DockerPanelDetail.Shell;
 
     public bool IsFilesDetail => Detail == DockerPanelDetail.Files;
@@ -547,8 +618,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     public bool CanFollowLogs => !IsLogSearchActive;
 
     public string LogResultSummary => IsLogSearchActive
-        ? $"{LogRows.Count} filtered rows"
-        : $"{LogRows.Count} loaded rows";
+        ? CountText.OrNone(LogRows.Count, "matching row", "matching rows")
+        : CountText.OrNone(LogRows.Count, "loaded row", "loaded rows");
 
     public string LogDownloadFileName => SelectedResource?.Container is { } container
         ? $"{SanitizeFileName(container.Name)}-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.log"
@@ -558,7 +629,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasFileBrowser => FileBrowser is not null;
 
-    public bool CanRetryShell => !IsResolvingShell && !HasInlineShell;
+    public bool CanRetryShell => HasShellFailure && !IsResolvingShell && !HasInlineShell;
 
     public bool ShowLoading => IsRefreshing && !HasSnapshot;
 
@@ -604,15 +675,51 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             or DockerResourceKind.Image
             or DockerResourceKind.Volume;
 
-    public bool ShowLogsTab => SelectedResource?.IsContainer == true;
+    /// <summary>
+    /// Whether each view applies to the selection. The views stay in place
+    /// and are dimmed when they do not apply, so none moves under the pointer
+    /// as the selection changes.
+    /// </summary>
+    public bool CanShowLogs => SelectedResource?.IsContainer == true;
 
-    public bool ShowStatsTab => SelectedResource?.IsContainer == true;
+    public bool CanShowShell => CanOpenShell;
 
-    public bool ShowShellTab => CanOpenShell;
+    public bool CanShowFiles => CanBrowseFiles;
 
-    public bool ShowFilesTab => CanBrowseFiles;
+    public bool CanShowJson => HasSelection;
 
-    public bool ShowJsonTab => HasSelection;
+    /// <summary>The detail view's position in the segmented control.</summary>
+    public int DetailIndex => (int)Detail;
+
+    /// <summary>The current view's name, which the narrow view pop-up shows.</summary>
+    public string DetailTitle => Detail switch
+    {
+        DockerPanelDetail.Logs => "Logs",
+        DockerPanelDetail.Shell => "Shell",
+        DockerPanelDetail.Files => "Files",
+        DockerPanelDetail.Json => "JSON",
+        _ => "Info",
+    };
+
+    /// <summary>
+    /// The engine's state for the header's status mark: reachable, still
+    /// being reached, or not answering. It was a green dot whatever happened.
+    /// </summary>
+    public StatusTone EngineStatusTone => _isEngineUnavailable
+        ? StatusTone.Danger
+        : HasSnapshot ? StatusTone.Success
+        : IsRefreshing ? StatusTone.Warning
+        : StatusTone.Neutral;
+
+    public string EngineStatusLabel => EngineStatusTone switch
+    {
+        StatusTone.Success => $"Docker engine connected · {ConnectionDisplayName}",
+        StatusTone.Danger => $"Docker engine unavailable · {ConnectionDisplayName}",
+        StatusTone.Warning => $"Connecting to the Docker engine · {ConnectionDisplayName}",
+        _ => $"Docker engine not connected · {ConnectionDisplayName}",
+    };
+
+    public Symbol EngineStatusGlyph => StatusToneGlyph.For(EngineStatusTone);
 
     public int ContainerCount => Snapshot?.Containers.Count ?? 0;
 
@@ -687,11 +794,11 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             {
                 PresentFailure(
                     firstFailure,
-                    $"Could not {ActionVerb(action)} every container in {stack.Name}");
+                    $"Couldn't {ActionVerb(action)} every container in {stack.Name}");
                 return;
             }
 
-            StatusText = $"{stack.Name} {ActionPastTense(action)} · {targets.Length} containers";
+            StatusText = $"{stack.Name} {ActionPastTense(action)} · {CountText.Of(targets.Length, "container", "containers")}";
         }
         finally
         {
@@ -787,6 +894,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
         ShellStateTitle = "Finding a container shell…";
         ShellStateMessage = "Checking common interactive shell paths inside this container.";
+        HasShellFailure = false;
         IsResolvingShell = true;
     }
 
@@ -803,6 +911,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             ? "No interactive shell found"
             : "Container shell unavailable";
         ShellStateMessage = error.Message;
+        HasShellFailure = true;
         IsResolvingShell = false;
     }
 
@@ -833,10 +942,12 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             var result = await _client.ReadSnapshotAsync(_connection, _lifetime.Token);
             if (result is DockerResult<DockerEngineSnapshot>.Failure failure)
             {
+                SetEngineUnavailable(true);
                 PresentFailure(failure.Error, "Docker unavailable");
                 return;
             }
 
+            SetEngineUnavailable(false);
             Snapshot = ((DockerResult<DockerEngineSnapshot>.Success)result).Value;
             ProjectResources(Section);
             SelectedResource = selected is null
@@ -970,7 +1081,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             _lifetime.Token);
         if (result is DockerResult<bool>.Failure failure)
         {
-            PresentFailure(failure.Error, $"Could not {ActionVerb(action)} container");
+            PresentFailure(failure.Error, $"Couldn't {ActionVerb(action)} container");
             return;
         }
 
@@ -1001,7 +1112,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is DockerResult<DockerResourceInspection>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not inspect resource");
+                PresentFailure(failure.Error, "Couldn't inspect resource");
                 return;
             }
 
@@ -1442,11 +1553,17 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(LogResultSummary));
     }
 
-    private DockerLogRowViewModel ToLogRow(DockerContainerLogLine line) => new(
-        line.Timestamp,
-        line.Message,
-        line.StartsContextBlock,
-        BuildLogMessageSegments(line.Message, _activeLogSearchText));
+    private DockerLogRowViewModel ToLogRow(DockerContainerLogLine line)
+    {
+        var segments = BuildLogMessageSegments(line.Message, _activeLogSearchText);
+        return new(line.Timestamp, line.Message, line.StartsContextBlock, segments)
+        {
+            // A search shows lines around each match; those are context, and
+            // step back so the matches lead.
+            IsContextLine = !string.IsNullOrEmpty(_activeLogSearchText)
+                && !segments.Any(segment => segment.IsMatch),
+        };
+    }
 
     private static IReadOnlyList<DockerLogTextSegmentViewModel> BuildLogMessageSegments(
         string message,
@@ -1660,10 +1777,20 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
 
     private void ResetShellState()
     {
-        ShellStateTitle = "Opening container shell…";
-        ShellStateMessage =
-            "This shell stays in the Docker panel. Use New tab when you want it beside other work.";
+        if (SelectedResource is { IsContainer: true, IsRunning: false })
+        {
+            ShellStateTitle = "Container isn’t running";
+            ShellStateMessage = "Start this container to open a shell in it.";
+        }
+        else
+        {
+            ShellStateTitle = "Opening container shell…";
+            ShellStateMessage = InlineShellMessage;
+        }
+
+        HasShellFailure = false;
         IsResolvingShell = false;
+        NotifyShellPresentation();
     }
 
     private FileRuntimePanelViewModel GetOrCreateFileBrowser(
@@ -1688,10 +1815,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private bool IsDetailAvailable(DockerPanelDetail detail) => detail switch
     {
         DockerPanelDetail.Info => HasSelection,
-        DockerPanelDetail.Logs or DockerPanelDetail.Stats => ShowLogsTab,
-        DockerPanelDetail.Shell => ShowShellTab,
-        DockerPanelDetail.Files => ShowFilesTab,
-        DockerPanelDetail.Json => ShowJsonTab,
+        DockerPanelDetail.Logs => CanShowLogs,
+        DockerPanelDetail.Shell => CanShowShell,
+        DockerPanelDetail.Files => CanShowFiles,
+        DockerPanelDetail.Json => CanShowJson,
         _ => false,
     };
 
@@ -1709,6 +1836,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(IsImagesSection));
         OnPropertyChanged(nameof(IsVolumesSection));
         OnPropertyChanged(nameof(IsNetworksSection));
+        OnPropertyChanged(nameof(SectionIndex));
         OnPropertyChanged(nameof(ResourceSummary));
         OnPropertyChanged(nameof(ShowVolumeSizeLoading));
         OnPropertyChanged(nameof(ShowResourceProgress));
@@ -1718,10 +1846,11 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     {
         OnPropertyChanged(nameof(IsInfoDetail));
         OnPropertyChanged(nameof(IsLogsDetail));
-        OnPropertyChanged(nameof(IsStatsDetail));
         OnPropertyChanged(nameof(IsShellDetail));
         OnPropertyChanged(nameof(IsFilesDetail));
         OnPropertyChanged(nameof(IsJsonDetail));
+        OnPropertyChanged(nameof(DetailIndex));
+        OnPropertyChanged(nameof(DetailTitle));
     }
 
     private void PublishSelectionState()
@@ -1729,11 +1858,10 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(CanOpenShell));
         OnPropertyChanged(nameof(CanBrowseFiles));
-        OnPropertyChanged(nameof(ShowLogsTab));
-        OnPropertyChanged(nameof(ShowStatsTab));
-        OnPropertyChanged(nameof(ShowShellTab));
-        OnPropertyChanged(nameof(ShowFilesTab));
-        OnPropertyChanged(nameof(ShowJsonTab));
+        OnPropertyChanged(nameof(CanShowLogs));
+        OnPropertyChanged(nameof(CanShowShell));
+        OnPropertyChanged(nameof(CanShowFiles));
+        OnPropertyChanged(nameof(CanShowJson));
         OnPropertyChanged(nameof(ShowEmptyState));
         PublishContainerActionState();
         RaiseContainerActionCanExecuteChanged();
@@ -1759,8 +1887,25 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         _resumeCommand.RaiseCanExecuteChanged();
     }
 
+    private void SetEngineUnavailable(bool unavailable)
+    {
+        if (_isEngineUnavailable != unavailable)
+        {
+            _isEngineUnavailable = unavailable;
+            PublishEngineStatus();
+        }
+    }
+
+    private void PublishEngineStatus()
+    {
+        OnPropertyChanged(nameof(EngineStatusTone));
+        OnPropertyChanged(nameof(EngineStatusLabel));
+        OnPropertyChanged(nameof(EngineStatusGlyph));
+    }
+
     private void PublishSnapshotState()
     {
+        PublishEngineStatus();
         OnPropertyChanged(nameof(HasSnapshot));
         OnPropertyChanged(nameof(ShowLoading));
         OnPropertyChanged(nameof(ShowEmptyState));

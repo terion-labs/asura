@@ -131,7 +131,7 @@ public sealed record McpServerProfile : IDurableDefinition
         if (LiteralSecretValidator.ContainsLikelyLiteralSecret(copies))
         {
             throw new ArgumentException(
-                "MCP server arguments cannot contain literal credentials; bind secrets through profile-scoped vault environment references.",
+                $"Arguments can't contain passwords or keys. Add them as environment variables instead, which Asura keeps in {PlatformTerms.SecretStore}.",
                 nameof(arguments));
         }
 
@@ -227,7 +227,7 @@ public sealed record McpServerProfile : IDurableDefinition
         if (LiteralSecretValidator.ContainsLikelyLiteralSecret(value))
         {
             throw new ArgumentException(
-                "MCP server definitions cannot contain literal credentials; use an opaque vault reference.",
+                "MCP server settings can't contain credentials. Use a stored credential instead.",
                 parameterName);
         }
 

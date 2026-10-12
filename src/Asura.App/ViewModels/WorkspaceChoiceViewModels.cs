@@ -84,7 +84,7 @@ public static class WorkspaceTints
         }
 
         return string.IsNullOrWhiteSpace(accent)
-            ? ThemePreference.BronzeFallback.ToString()
+            ? ThemePreference.BrandAccent.ToString()
             : accent;
     }
 }

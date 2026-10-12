@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -33,8 +34,8 @@ public sealed class McpServerSettingsViewModel : IDisposable
 
         var stored = _catalog.Snapshot.McpServerProfiles
             .SingleOrDefault(item => item.Value.Id == profileId.Value)
-            ?? throw new InvalidOperationException(
-                "That MCP-server profile no longer exists.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "That MCP server no longer exists."));
         return new McpServerProfileEditorViewModel(
             stored.Value,
             stored.Revision,

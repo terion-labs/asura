@@ -155,7 +155,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The browser action was cancelled."),
+                        "The browser action was canceled."),
                     context.Revision);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -236,7 +236,7 @@ public sealed partial class GovernedAgentRuntime
             new HostError(
                 HostErrorCode.Cancelled,
                 "caller_cancelled",
-                "The browser action was cancelled."),
+                "The browser action was canceled."),
             failure.CurrentRevision);
     }
 

@@ -25,7 +25,7 @@ namespace Asura.App.Tests;
 public sealed partial class AgentChatViewModelTests
 {
     [Fact]
-    public Task Rendered_agent_completion_replaces_progress_without_live_region_updates() =>
+    public Task Rendered_agent_completion_announces_only_the_outcome() =>
         RunAgentComposerHeadlessAsync(async () =>
         {
             var provider = Provider("provider", "Provider", order: 0);
@@ -76,10 +76,14 @@ public sealed partial class AgentChatViewModelTests
                 window.Show();
                 window.UpdateLayout();
 
+                // The streaming transcript never becomes a live region; the
+                // workspace's status region, outside this view, stays silent
+                // until the run ends.
                 Assert.DoesNotContain(
                     view.GetVisualDescendants().OfType<Control>(),
                     control => AutomationProperties.GetLiveSetting(control)
                         != AutomationLiveSetting.Off);
+                Assert.True(string.IsNullOrEmpty(viewModel.Announcement));
 
                 runtime.Snapshot = runtime.Snapshot with
                 {
@@ -105,6 +109,7 @@ public sealed partial class AgentChatViewModelTests
                     "the committed assistant response");
 
                 Assert.False(viewModel.HasCurrentProgress);
+                Assert.Equal("Response complete", viewModel.Announcement);
                 Assert.Equal(201, viewModel.Messages.Count);
                 Assert.Contains(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),
@@ -673,9 +678,9 @@ public sealed partial class AgentChatViewModelTests
                 Task selection = Task.CompletedTask;
                 view.SelectAgentModelRequested += (sender, _) =>
                 {
-                    var button = Assert.IsType<Button>(sender);
+                    var row = Assert.IsAssignableFrom<Control>(sender);
                     selection = viewModel.SelectModelAsync(
-                        Assert.IsType<AiProviderModelDescriptor>(button.Tag),
+                        Assert.IsType<AiProviderModelDescriptor>(row.Tag),
                         CancellationToken.None);
                 };
 
@@ -686,12 +691,19 @@ public sealed partial class AgentChatViewModelTests
                 picker.Flyout!.ShowAt(picker);
                 window.UpdateLayout();
 
-                var fastModel = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Use model Fast model", StringComparison.Ordinal));
-                fastModel.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                // The model menu is a list: the keyboard highlights a row and
+                // Return chooses it.
+                var models = Assert.IsType<ListBox>(view.FindControl<ListBox>("AgentModelList"));
+                models.SelectedItem = Assert.Single(
+                    models.Items.OfType<AgentModelPickerItemViewModel>(),
+                    item => string.Equals(item.DisplayName, "Fast model", StringComparison.Ordinal));
+                models.RaiseEvent(new KeyEventArgs
+                {
+                    RoutedEvent = InputElement.KeyDownEvent,
+                    Key = Key.Enter,
+                });
                 await selection;
+                Assert.False(picker.Flyout.IsOpen);
 
                 Assert.Equal(0, runtime.ClearCount);
                 Assert.Equal(
@@ -772,7 +784,11 @@ public sealed partial class AgentChatViewModelTests
                 var context = Assert.Single(
                     view.GetVisualDescendants().OfType<Button>(),
                     button => string.Equals(AutomationProperties.GetName(button)
-, "141k / 256k tokens used. Older context compacts automatically.", StringComparison.Ordinal));
+, viewModel.ContextWindowAccessibleName, StringComparison.Ordinal));
+                Assert.StartsWith("Context: ", viewModel.ContextWindowAccessibleName, StringComparison.Ordinal);
+                Assert.Equal(
+                    "141k / 256k tokens used. Older context compacts automatically.",
+                    AutomationProperties.GetHelpText(context));
                 Assert.True(context.IsEffectivelyVisible);
                 var donut = Assert.IsType<ContextWindowDonut>(context.Content);
                 Assert.Equal(viewModel.ContextWindowPercent, donut.Percentage);
@@ -785,7 +801,7 @@ public sealed partial class AgentChatViewModelTests
                     .Where(button => button.IsEffectivelyVisible)
                     .OrderBy(button => button.Bounds.Left)
                     .ToArray();
-                Assert.Equal(4, visibleButtons.Length);
+                Assert.Equal(5, visibleButtons.Length);
                 for (var index = 1; index < visibleButtons.Length; index++)
                 {
                     Assert.True(
@@ -806,7 +822,7 @@ public sealed partial class AgentChatViewModelTests
                     button => string.Equals(AutomationProperties.GetName(button),
                         "Compact conversation context now", StringComparison.Ordinal));
                 Assert.True(compact.IsEffectivelyVisible);
-                Assert.Equal("Compact now", compact.Content);
+                Assert.Equal("Compact Now", compact.Content);
                 Assert.Same(viewModel.CompactCommand, compact.Command);
                 Assert.Equal(viewModel.CanCompact, compact.IsEffectivelyEnabled);
 
@@ -817,26 +833,24 @@ public sealed partial class AgentChatViewModelTests
                 access.Flyout!.ShowAt(access);
                 window.UpdateLayout();
                 var fullAccess = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Enable full access for agent actions", StringComparison.Ordinal));
-                fullAccess.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    window.GetVisualDescendants().OfType<MenuItem>(),
+                    item => string.Equals(item.Header as string, "Full Access", StringComparison.Ordinal));
+                fullAccess.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 await selection;
 
-                Assert.Equal("Full access", viewModel.AccessModeLabel);
+                Assert.Equal("Full Access", viewModel.AccessModeLabel);
                 Assert.Equal(0, runtime.EnableFullAccessCount);
                 Assert.False(access.Flyout.IsOpen);
 
                 access.Flyout.ShowAt(access);
                 window.UpdateLayout();
                 var askApproval = Assert.Single(
-                    window.GetVisualDescendants().OfType<Button>(),
-                    button => string.Equals(AutomationProperties.GetName(button)
-, "Ask for approval for agent actions", StringComparison.Ordinal));
-                askApproval.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    window.GetVisualDescendants().OfType<MenuItem>(),
+                    item => string.Equals(item.Header as string, "Ask for Approval", StringComparison.Ordinal));
+                askApproval.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 await selection;
 
-                Assert.Equal("Ask approval", viewModel.AccessModeLabel);
+                Assert.Equal("Ask for Approval", viewModel.AccessModeLabel);
                 Assert.False(access.Flyout.IsOpen);
             }
             finally
@@ -1625,7 +1639,7 @@ public sealed partial class AgentChatViewModelTests
 
                 Assert.Contains(preview.GetVisualDescendants().OfType<CodePreviewView>(), code => code.Text == "block-199");
                 Assert.InRange(preview.GetVisualDescendants().OfType<CodePreviewView>().Count(), 1, 32);
-                var copy = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Copy all Markdown"));
+                var copy = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Copy All Markdown"));
                 copy.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 Assert.Equal(markdown, await window.Clipboard!.TryGetTextAsync());
             }
@@ -1653,7 +1667,7 @@ public sealed partial class AgentChatViewModelTests
 
                 Assert.Empty(preview.GetVisualDescendants().OfType<CodePreviewView>());
                 Assert.InRange(preview.GetVisualDescendants().OfType<SelectableTextBlock>().Count(), 1, 40);
-                var nextRows = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Next rows"));
+                var nextRows = Assert.Single(preview.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Next Rows"));
                 while (nextRows.IsEnabled)
                 {
                     nextRows.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

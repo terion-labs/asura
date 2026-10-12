@@ -87,7 +87,7 @@ public sealed record FileBrowserContentPresentation(
                 "Loading files",
                 "Reading this location from the selected provider.",
                 string.Empty,
-                "File Viewer loading",
+                "Files panel loading",
                 CanRetry: false);
         }
 
@@ -104,10 +104,10 @@ public sealed record FileBrowserContentPresentation(
             };
             var accessibleName = state switch
             {
-                FileBrowserContentState.AccessRequired => "File Viewer access required",
-                FileBrowserContentState.Unsupported => "File Viewer location unsupported",
-                FileBrowserContentState.RecoverableError => "File Viewer recoverable error",
-                _ => "File Viewer unavailable",
+                FileBrowserContentState.AccessRequired => "Files panel access required",
+                FileBrowserContentState.Unsupported => "Files panel location unsupported",
+                FileBrowserContentState.RecoverableError => "Files panel recoverable error",
+                _ => "Files panel unavailable",
             };
             return new FileBrowserContentPresentation(
                 state,
@@ -127,7 +127,7 @@ public sealed record FileBrowserContentPresentation(
                 canCreateFolder
                     ? "Create a folder here, or choose another location."
                     : "Choose another location.",
-                "File Viewer empty location",
+                "Files panel empty location",
                 CanRetry: false);
         }
 
@@ -138,7 +138,7 @@ public sealed record FileBrowserContentPresentation(
                 "No matching items",
                 $"No files or folders match “{filter.Trim()}”.",
                 "Clear or change the filter to see this location's items.",
-                "File Viewer search has no results",
+                "Files panel search has no results",
                 CanRetry: false);
         }
 
@@ -147,7 +147,7 @@ public sealed record FileBrowserContentPresentation(
             string.Empty,
             string.Empty,
             string.Empty,
-            "File Viewer contents",
+            "Files panel contents",
             CanRetry: false);
     }
 }
@@ -210,12 +210,12 @@ public sealed record FileOperationIssue(
                 FileOperationIssueKind.PermissionDenied,
                 "Permission denied",
                 error,
-                "Check this account's permissions or choose another location."),
+                "Check the item's permissions, or choose another location."),
             FilePanelErrorCode.AuthenticationRequired => Create(
                     FileOperationIssueKind.AuthenticationRequired,
                     "Authentication failed",
                     error,
-                    "Check this connection's authentication settings, then retry.",
+                    "Check how this connection signs in, then try again.",
                     canRetry: true),
             FilePanelErrorCode.CertificateRejected
                 or FilePanelErrorCode.HostKeyRejected
@@ -225,76 +225,111 @@ public sealed record FileOperationIssue(
                     FileOperationIssueKind.AuthenticationRequired,
                     "Trust required",
                     error,
-                    "Review this connection's certificate or host-key trust, then retry.",
+                    "Review the connection's certificate or host key, then try again.",
                     canRetry: true),
             FilePanelErrorCode.Offline => Create(
                 FileOperationIssueKind.Offline,
-                "Provider offline",
+                "Connection offline",
                 error,
-                "Check the connection, then retry.",
+                "Check the connection, then try again.",
                 canRetry: true),
             FilePanelErrorCode.QuotaExceeded => Create(
                 FileOperationIssueKind.QuotaExceeded,
                 "Storage limit reached",
                 error,
-                "Free space or choose another destination."),
+                "Free up space, or choose another destination."),
             FilePanelErrorCode.AlreadyExists => Create(
                 FileOperationIssueKind.Conflict,
                 "Destination already exists",
                 error,
-                "Choose Skip, Replace, or Keep Both before retrying.",
+                "Choose Skip, Replace, or Keep Both, then try again.",
                 canRetry: true),
             FilePanelErrorCode.SharingViolation => Create(
                 FileOperationIssueKind.Conflict,
                 "File is in use",
                 error,
-                "Close the application or process using the item, then retry.",
+                "Quit the app or stop the process that's using the item, then try again.",
                 canRetry: true),
             FilePanelErrorCode.DirectoryNotEmpty => Create(
                 FileOperationIssueKind.Conflict,
-                "Folder is not empty",
+                "Folder isn't empty",
                 error,
-                "Remove the folder contents first, or choose an explicitly recursive delete.",
+                "Remove what's in the folder first, or choose a recursive delete that removes its contents too.",
                 canRetry: true),
             FilePanelErrorCode.Conflict => Create(
                 FileOperationIssueKind.Conflict,
                 "File conflict",
                 error,
-                "Refresh and choose whether to replace, rename, or skip.",
+                "Refresh, then choose whether to replace, rename, or skip.",
                 canRetry: true),
             FilePanelErrorCode.PreconditionFailed => Create(
                 FileOperationIssueKind.Stale,
                 "Item changed",
                 error,
-                "Refresh before applying the operation again.",
+                "Refresh, then try again.",
                 canRetry: true),
             FilePanelErrorCode.UnsupportedCapability
                 or FilePanelErrorCode.LinkNotAllowed
                 or FilePanelErrorCode.RangeNotSatisfiable => Create(
                     FileOperationIssueKind.Unsupported,
-                    "Operation unsupported",
+                    "Not supported here",
                     error,
-                    "Choose an operation supported by this provider."),
+                    // The message already says what the location doesn't support.
+                    "Try another action or location."),
             FilePanelErrorCode.PartialTransfer
                 or FilePanelErrorCode.UnexpectedEndOfStream => Create(
                     FileOperationIssueKind.Partial,
-                    "Operation incomplete",
+                    "Not finished",
                     error,
-                    "Retry and verify the destination before continuing.",
+                    "Try again, then check the destination before you continue.",
                     canRetry: true),
+            FilePanelErrorCode.NotFound => Create(
+                FileOperationIssueKind.Stale,
+                "Item not found",
+                error,
+                "It may have been moved or deleted. Refresh to see what's in the folder now.",
+                canRetry: true),
+            FilePanelErrorCode.InvalidName => Create(
+                FileOperationIssueKind.Validation,
+                "Name not allowed",
+                error,
+                "Choose a shorter name without slashes or characters this location doesn't accept."),
+            FilePanelErrorCode.NotDirectory
+                or FilePanelErrorCode.IsDirectory
+                or FilePanelErrorCode.InvalidLocation => Create(
+                    FileOperationIssueKind.Validation,
+                    "Location not available",
+                    error,
+                    "Check the path, or go up to the enclosing folder and choose the item there."),
+            FilePanelErrorCode.OutsideRoot
+                or FilePanelErrorCode.RootMutationNotAllowed => Create(
+                    FileOperationIssueKind.Configuration,
+                    "Outside this connection",
+                    error,
+                    "Choose a location inside the connection's root folder, or edit the connection's root."),
+            FilePanelErrorCode.LimitExceeded => Create(
+                FileOperationIssueKind.QuotaExceeded,
+                "Too large",
+                error,
+                "Choose fewer or smaller items, then try again."),
+            FilePanelErrorCode.UnknownProfile => Create(
+                FileOperationIssueKind.Configuration,
+                "File location not found",
+                error,
+                "Choose another file location, or set one up in Settings."),
             FilePanelErrorCode.Cancelled => Create(
                 FileOperationIssueKind.Cancelled,
-                "Operation cancelled",
+                "Canceled",
                 error,
-                "Run the operation again when ready.",
+                "Try again when you're ready.",
                 canRetry: true),
             _ => Create(
                 FileOperationIssueKind.Unexpected,
                 "File operation failed",
                 error,
                 error.Retryable
-                    ? "Retry the operation. If it keeps failing, inspect the provider settings."
-                    : "Inspect the provider settings and try again."),
+                    ? "Try again. If it keeps failing, check the connection in Settings."
+                    : "Check the connection in Settings, then try again."),
         };
     }
 
@@ -302,21 +337,21 @@ public sealed record FileOperationIssue(
         FileOperationIssueKind.Validation,
         "Check the file details",
         message,
-        "Correct the highlighted value and try again.",
+        "Correct the highlighted value, then try again.",
         CanRetry: true);
 
     public static FileOperationIssue Configuration(string message) => new(
         FileOperationIssueKind.Configuration,
-        "File provider unavailable",
+        "File location unavailable",
         message,
-        "Choose or configure a file-provider profile.",
+        "Choose a file location, or set one up in Settings.",
         CanRetry: false);
 
     public static FileOperationIssue Unexpected(string message) => new(
         FileOperationIssueKind.Unexpected,
         "File operation failed",
         message,
-        "Retry the operation. If it keeps failing, inspect the provider settings.",
+        "Try again. If it keeps failing, check the connection in Settings.",
         CanRetry: true);
 
     private static FileOperationIssue Create(
@@ -338,11 +373,17 @@ public sealed record FileOperationIssue(
 /// </summary>
 public sealed class FileEntryMetadataViewModel
 {
-    public FileEntryMetadataViewModel(FilePanelEntry entry, bool isStatBacked)
+    public FileEntryMetadataViewModel(
+        FilePanelEntry entry,
+        bool isStatBacked,
+        bool providerKeepsVersions = false)
     {
         Entry = entry ?? throw new ArgumentNullException(nameof(entry));
         IsStatBacked = isStatBacked;
+        _providerKeepsVersions = providerKeepsVersions;
     }
+
+    private readonly bool _providerKeepsVersions;
 
     public FilePanelEntry Entry { get; }
 
@@ -350,17 +391,39 @@ public sealed class FileEntryMetadataViewModel
 
     public string Name => Entry.Name;
 
-    public string Kind => Entry.Kind.ToString();
+    /// <summary>
+    /// The kind in Finder's words: "Folder", "Alias", "Markdown document",
+    /// "ZIP archive". On macOS the system's own description of the content
+    /// type is used, so the words match Finder's Kind column exactly;
+    /// elsewhere, and for a type the system has never seen, a table of common
+    /// kinds answers.
+    /// </summary>
+    public string Kind => Entry.Kind switch
+    {
+        FilePanelEntryKind.Directory => "Folder",
+        FilePanelEntryKind.Link => "Alias",
+        _ => FileTypeIcons.KindDescription(Entry.Name),
+    };
 
     public string Size => Entry.Kind == FilePanelEntryKind.Directory
         ? "Folder"
         : FileEntryViewModel.FormatSize(Entry.Size);
 
-    public string Modified => Entry.LastModifiedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Modified => DisplayDates.Format(Entry.LastModifiedAt);
 
     public string Location => FileLocationPresentation.Display(Entry.Location);
 
-    public string Version => Entry.Location.Version ?? "Unavailable";
+    /// <summary>
+    /// The provider's version tag (an ETag, a revision), when the provider
+    /// keeps versions people can tell apart. It is a hash to most people, so
+    /// the panel keeps it behind a disclosure. Every other provider's tag is
+    /// only a change stamp the panel uses to notice edits — a local file has
+    /// one, Finder shows none — so the details say nothing about it.
+    /// </summary>
+    public string? Version => !_providerKeepsVersions
+        || string.IsNullOrWhiteSpace(Entry.Location.Version)
+        ? null
+        : Entry.Location.Version;
 
-    public string Source => IsStatBacked ? "Live provider metadata" : "Listing metadata";
+    public bool HasVersion => Version is not null;
 }

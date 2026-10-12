@@ -24,6 +24,12 @@ public sealed class FilePreviewSettingsEditorViewModel : ObservableObject
         RefreshCacheUsage();
     }
 
+    /// <summary>
+    /// A megabyte as every size in the app counts it: a million bytes, so the
+    /// number typed here is the number the Files panel's caption repeats.
+    /// </summary>
+    private const decimal BytesPerMegabyte = 1_000_000;
+
     public ICommand ClearCacheCommand { get; }
 
     /// <summary>
@@ -32,12 +38,12 @@ public sealed class FilePreviewSettingsEditorViewModel : ObservableObject
     /// </summary>
     public decimal AutoLoadThresholdMegabytes
     {
-        get => (decimal)Current.AutoLoadThresholdBytes / (1024 * 1024);
+        get => (decimal)Current.AutoLoadThresholdBytes / BytesPerMegabyte;
         set
         {
             if (value != AutoLoadThresholdMegabytes)
             {
-                Apply(Current with { AutoLoadThresholdBytes = (long)(value * 1024 * 1024) });
+                Apply(Current with { AutoLoadThresholdBytes = (long)(value * BytesPerMegabyte) });
                 OnPropertyChanged();
             }
         }
@@ -59,12 +65,12 @@ public sealed class FilePreviewSettingsEditorViewModel : ObservableObject
 
     public decimal CacheBudgetMegabytes
     {
-        get => (decimal)Current.CacheBudgetBytes / (1024 * 1024);
+        get => (decimal)Current.CacheBudgetBytes / BytesPerMegabyte;
         set
         {
             if (value != CacheBudgetMegabytes)
             {
-                Apply(Current with { CacheBudgetBytes = (long)(value * 1024 * 1024) });
+                Apply(Current with { CacheBudgetBytes = (long)(value * BytesPerMegabyte) });
                 OnPropertyChanged();
             }
         }
@@ -80,7 +86,7 @@ public sealed class FilePreviewSettingsEditorViewModel : ObservableObject
     public void RefreshCacheUsage()
     {
         CacheUsageText = _cache is null
-            ? "No preview cache is available in this build."
+            ? "Previews aren’t cached."
             : $"{ByteSize.Format(_cache.CachedBytes)} on disk right now.";
         OnPropertyChanged(nameof(CacheUsageText));
     }

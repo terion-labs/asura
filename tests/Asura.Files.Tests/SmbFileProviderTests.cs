@@ -151,6 +151,18 @@ public sealed class SmbFileProviderTests
             StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(0xC0000034u, "The SMB server couldn't list the folder because the item wasn't found.")]
+    [InlineData(0xC0000101u, "The SMB server couldn't list the folder because the folder isn't empty.")]
+    [InlineData(0xC0000043u, "The item is in use, so the SMB server couldn't list the folder.")]
+    public void StatusMessagesSayFolderAndUsePlainWords(uint status, string expected)
+    {
+        var error = SmbLibrarySession.MapStatus(status, "list the folder");
+
+        Assert.Equal(expected, error.Message);
+        Assert.DoesNotContain("directory", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task MetadataReconnectRetriesOnceButMutationIsNeverReplayed()
     {

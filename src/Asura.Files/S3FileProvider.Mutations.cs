@@ -9,7 +9,7 @@ public sealed partial class S3FileProvider
         ArgumentNullException.ThrowIfNull(request);
         return ValueTask.FromResult(Failure<FileEntry>(
             FileProviderErrorCode.UnsupportedCapability,
-            "S3 object buckets do not have creatable directories."));
+            "S3 buckets don't support creating folders."));
     }
 
     public ValueTask<FileProviderResult<FileEntry>> RenameAsync(

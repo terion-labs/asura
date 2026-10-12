@@ -17,7 +17,7 @@ public enum SystemMonitorPanelState
 
 internal static class SystemMonitorPolling
 {
-    private static readonly TimeSpan NormalInterval = TimeSpan.FromSeconds(2);
+    internal static readonly TimeSpan NormalInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan MaximumRemoteBackoff = TimeSpan.FromSeconds(30);
 
     public static TimeSpan Delay(
@@ -100,7 +100,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         IUiThreadDispatcher dispatcher,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         string? connectionDisplayName = null)
-        : base(id, PanelKind.Statistics, title, "Statistics")
+        : base(id, PanelKind.Statistics, title, PanelTypes.Statistics)
     {
         _sessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -145,6 +145,8 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
+                OnPropertyChanged(nameof(ShowUnavailable));
+                OnPropertyChanged(nameof(ShowStaleNotice));
                 _refreshCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged(nameof(CpuText));
                 OnPropertyChanged(nameof(MemoryText));
@@ -166,10 +168,12 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _state, value))
             {
-                OnPropertyChanged(nameof(StatusColor));
+                OnPropertyChanged(nameof(StatusTone));
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
+                OnPropertyChanged(nameof(ShowUnavailable));
+                OnPropertyChanged(nameof(ShowStaleNotice));
                 _refreshCommand.RaiseCanExecuteChanged();
             }
         }
@@ -189,6 +193,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _issueTitle, value))
             {
                 OnPropertyChanged(nameof(HasIssue));
+                OnPropertyChanged(nameof(ShowStaleNotice));
             }
         }
     }
@@ -239,13 +244,25 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool ShowTerminalError => !HasSnapshot && State == SystemMonitorPanelState.Failed;
 
-    public string StatusColor => State switch
+    /// <summary>
+    /// No sample and nothing on the way: the panel stopped before its first
+    /// sample. Without this the area would be blank, because neither the wait
+    /// nor the failure applies.
+    /// </summary>
+    public bool ShowUnavailable => !HasSnapshot && !ShowLoading && !ShowTerminalError;
+
+    /// <summary>
+    /// The last refresh failed while older charts stay on screen: the reason
+    /// is shown in a notice under the header rather than over the charts.
+    /// </summary>
+    public bool ShowStaleNotice => HasSnapshot && HasIssue;
+
+    public StatusTone StatusTone => State switch
     {
-        SystemMonitorPanelState.Live => "#72B57B",
-        SystemMonitorPanelState.Stale => "#D79B57",
-        SystemMonitorPanelState.Failed => "#D96B6B",
-        SystemMonitorPanelState.Disposed => "#77777F",
-        _ => "#9A9AA2",
+        SystemMonitorPanelState.Live => StatusTone.Success,
+        SystemMonitorPanelState.Stale => StatusTone.Warning,
+        SystemMonitorPanelState.Failed => StatusTone.Danger,
+        _ => StatusTone.Neutral,
     };
 
     public string CpuText => Snapshot?.ObservedCpuPercent is { } value
@@ -280,8 +297,14 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         : "Unavailable";
 
     public string CapturedAtText => Snapshot is { } snapshot
-        ? $"Captured {snapshot.CapturedAtUtc.ToLocalTime():T}"
+        ? $"Captured {DisplayDates.FormatTime(snapshot.CapturedAtUtc)}"
         : "No sample captured";
+
+    /// <summary>
+    /// How far apart the history's samples are, so a chart can say how long
+    /// ago the one under the pointer was taken.
+    /// </summary>
+    public TimeSpan SampleInterval => SystemMonitorPolling.NormalInterval;
 
     public IReadOnlyList<double?> CpuHistory => _cpuHistory;
 
@@ -341,15 +364,19 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
         {
             await ApplyHostFailureAsync(
                 "Statistics unavailable",
-                $"The statistics session for {ConnectionDisplayName} could not be started.");
+                $"Asura couldn't start Statistics for “{ConnectionDisplayName}”. Check the connection, then try again.");
             return;
         }
 
         if (result is HostResult<SessionSnapshot>.Failure failure)
         {
+            // The session host's message is written for its log ("Expected revision 3,
+            // but the current revision is 4."), so the panel says what to check instead.
+            SecretSafeDiagnosticProjection.WriteTrace(
+                $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
             await ApplyHostFailureAsync(
                 "Statistics unavailable",
-                failure.Error.Message);
+                $"Asura couldn't start Statistics for “{ConnectionDisplayName}”. Check the connection, then try again.");
             return;
         }
 
@@ -447,16 +474,20 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
             {
                 await ApplyCaptureFailureAsync(
                     "Statistics refresh failed",
-                    $"The statistics snapshot for {ConnectionDisplayName} could not be captured.",
+                    $"Asura couldn't read statistics from “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
 
             if (result is HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Failure failure)
             {
+                // The session host's message is written for its log ("Expected revision 3,
+                // but the current revision is 4."), so the panel says what to check instead.
+                SecretSafeDiagnosticProjection.WriteTrace(
+                    $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
                 await ApplyCaptureFailureAsync(
                     "Statistics refresh failed",
-                    failure.Error.Message,
+                    $"Asura couldn't read statistics from “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
@@ -583,11 +614,14 @@ public sealed class ProcessMonitorEntryViewModel : ObservableObject
 
     public string Memory => MonitorPanelPresentation.FormatBytes(Entry.WorkingSetBytes);
 
-    public string Started => Entry.StartedAtUtc?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Started => DisplayDates.Format(Entry.StartedAtUtc);
 
     public string AccessibleSummary =>
         $"PID {ProcessId}, {Name}, CPU {MonitorPanelPresentation.AccessiblePercent(Entry.CpuPercent)}, "
         + $"memory {Memory}, started {Started}.";
+
+    /// <summary>Type-to-select and plain copies read a process as its name.</summary>
+    public override string ToString() => Name;
 
     internal void Update(ProcessMonitorEntry entry)
     {
@@ -619,6 +653,14 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     private IReadOnlyList<ProcessMonitorEntry> _latestEntries = [];
     private ProcessMonitorSnapshot? _snapshot;
     private ProcessMonitorEntryViewModel? _selectedProcess;
+
+    /// <summary>
+    /// The processes the table has selected, by identity rather than by row:
+    /// rows are reused slots that show a different process after a re-sort,
+    /// so a selection held by row would wander to whatever took its place.
+    /// </summary>
+    private HashSet<(int ProcessId, DateTimeOffset? StartedAtUtc)> _selectedIdentities = [];
+    private bool _isApplyingRows;
     private ProcessMonitorSort _sort = ProcessMonitorSort.CpuDescending;
     private SystemMonitorPanelState _state = SystemMonitorPanelState.Waiting;
     private string _filter = string.Empty;
@@ -665,7 +707,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         IUiThreadDispatcher dispatcher,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         string? connectionDisplayName = null)
-        : base(id, PanelKind.ProcessMonitor, title, "Process monitor")
+        : base(id, PanelKind.ProcessMonitor, title, PanelTypes.Processes)
     {
         _sessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
@@ -708,6 +750,8 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
                 OnPropertyChanged(nameof(ShowInlineIssue));
+                OnPropertyChanged(nameof(ShowNoProcesses));
+                OnPropertyChanged(nameof(ShowUnavailable));
                 OnPropertyChanged(nameof(CapturedAtText));
             }
         }
@@ -718,6 +762,34 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         get => _selectedProcess;
         set => SetProperty(ref _selectedProcess, value);
     }
+
+    /// <summary>
+    /// The rows that show the selected processes, in table order. Raised
+    /// after every refresh so the table can select the same processes again
+    /// wherever the new order put them.
+    /// </summary>
+    public IReadOnlyList<ProcessMonitorEntryViewModel> SelectedProcesses =>
+        _selectedIdentities.Count == 0
+            ? []
+            : [.. Processes.Where(process => _selectedIdentities.Contains(Identity(process)))];
+
+    /// <summary>
+    /// Records what the table has selected. Ignored while the panel itself is
+    /// rewriting rows, when the table's selection is briefly stale.
+    /// </summary>
+    public void SetSelectedProcesses(IEnumerable<ProcessMonitorEntryViewModel> processes)
+    {
+        ArgumentNullException.ThrowIfNull(processes);
+        if (_isApplyingRows)
+        {
+            return;
+        }
+
+        _selectedIdentities = [.. processes.Select(Identity)];
+    }
+
+    private static (int ProcessId, DateTimeOffset? StartedAtUtc) Identity(ProcessMonitorEntryViewModel process) =>
+        (process.Entry.ProcessId, process.Entry.StartedAtUtc);
 
     public ProcessMonitorSort Sort
     {
@@ -789,11 +861,12 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _state, value))
             {
-                OnPropertyChanged(nameof(StatusColor));
+                OnPropertyChanged(nameof(StatusTone));
                 OnPropertyChanged(nameof(ShowLoading));
                 OnPropertyChanged(nameof(ShowContent));
                 OnPropertyChanged(nameof(ShowTerminalError));
                 OnPropertyChanged(nameof(ShowInlineIssue));
+                OnPropertyChanged(nameof(ShowUnavailable));
                 _refreshCommand.RaiseCanExecuteChanged();
             }
         }
@@ -866,17 +939,34 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool ShowInlineIssue => HasSnapshot && HasIssue;
 
-    public string StatusColor => State switch
+    /// <summary>No sample and nothing on the way: the panel stopped before its first sample.</summary>
+    public bool ShowUnavailable => !HasSnapshot && !ShowLoading && !ShowTerminalError;
+
+    /// <summary>
+    /// A sample arrived but no row is left to show — the filter excludes
+    /// every process, or the host listed none. The table keeps its headers and
+    /// says so under them instead of standing empty.
+    /// </summary>
+    public bool ShowNoProcesses => HasSnapshot && Processes.Count == 0;
+
+    public string NoProcessesHeading => string.IsNullOrWhiteSpace(Filter)
+        ? "No processes"
+        : "No processes match";
+
+    public string NoProcessesBody => string.IsNullOrWhiteSpace(Filter)
+        ? "The host reported no processes Asura can read."
+        : "Check the spelling, or search by another name or process ID.";
+
+    public StatusTone StatusTone => State switch
     {
-        SystemMonitorPanelState.Live => "#72B57B",
-        SystemMonitorPanelState.Stale => "#D79B57",
-        SystemMonitorPanelState.Failed => "#D96B6B",
-        SystemMonitorPanelState.Disposed => "#77777F",
-        _ => "#9A9AA2",
+        SystemMonitorPanelState.Live => StatusTone.Success,
+        SystemMonitorPanelState.Stale => StatusTone.Warning,
+        SystemMonitorPanelState.Failed => StatusTone.Danger,
+        _ => StatusTone.Neutral,
     };
 
     public string CapturedAtText => Snapshot is { } snapshot
-        ? $"Captured {snapshot.CapturedAtUtc.ToLocalTime():T}"
+        ? $"Captured {DisplayDates.FormatTime(snapshot.CapturedAtUtc)}"
         : "No sample captured";
 
     /// <summary>
@@ -938,17 +1028,21 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         catch (Exception)
         {
             await ApplyFailureAsync(
-                "Process monitor unavailable",
-                $"The process-monitor session for {ConnectionDisplayName} could not be started.",
+                "Processes unavailable",
+                $"Asura couldn't start Processes for “{ConnectionDisplayName}”. Check the connection, then try again.",
                 CancellationToken.None);
             return;
         }
 
         if (result is HostResult<SessionSnapshot>.Failure failure)
         {
+            // The session host's message is written for its log ("Expected revision 3,
+            // but the current revision is 4."), so the panel says what to check instead.
+            SecretSafeDiagnosticProjection.WriteTrace(
+                $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
             await ApplyFailureAsync(
-                "Process monitor unavailable",
-                failure.Error.Message,
+                "Processes unavailable",
+                $"Asura couldn't start Processes for “{ConnectionDisplayName}”. Check the connection, then try again.",
                 CancellationToken.None);
             return;
         }
@@ -979,7 +1073,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
                 IssueTitle = null;
                 IssueMessage = null;
                 State = SystemMonitorPanelState.Waiting;
-                StatusText = $"Starting process monitor · {ConnectionDisplayName}…";
+                StatusText = $"Starting processes · {ConnectionDisplayName}…";
             },
             CancellationToken.None);
         Initialization = InitializeAsync();
@@ -1051,16 +1145,20 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
             {
                 await ApplyFailureAsync(
                     "Process refresh failed",
-                    $"The process list for {ConnectionDisplayName} could not be loaded.",
+                    $"Asura couldn't load the processes on “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
 
             if (result is HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Failure failure)
             {
+                // The session host's message is written for its log ("Expected revision 3,
+                // but the current revision is 4."), so the panel says what to check instead.
+                SecretSafeDiagnosticProjection.WriteTrace(
+                    $"monitor.host.{failure.Error.Code.ToString().ToLowerInvariant()}", SecretSafeDiagnosticKind.Unexpected);
                 await ApplyFailureAsync(
                     "Process refresh failed",
-                    failure.Error.Message,
+                    $"Asura couldn't load the processes on “{ConnectionDisplayName}”. Check the connection, then try again.",
                     linked.Token);
                 return;
             }
@@ -1153,28 +1251,41 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
         // Rows are stable presentation slots. Rebuilding the collection every two
         // seconds makes Avalonia discard and recreate as many as 250 containers,
         // briefly starving other composited surfaces in the same window.
-        var retainedCount = Math.Min(Processes.Count, visibleEntries.Length);
-        for (var index = 0; index < retainedCount; index++)
+        _isApplyingRows = true;
+        try
         {
-            Processes[index].Update(visibleEntries[index]);
+            var retainedCount = Math.Min(Processes.Count, visibleEntries.Length);
+            for (var index = 0; index < retainedCount; index++)
+            {
+                Processes[index].Update(visibleEntries[index]);
+            }
+
+            while (Processes.Count > visibleEntries.Length)
+            {
+                Processes.RemoveAt(Processes.Count - 1);
+            }
+
+            for (var index = retainedCount; index < visibleEntries.Length; index++)
+            {
+                Processes.Add(new ProcessMonitorEntryViewModel(visibleEntries[index]));
+            }
+
+            SelectedProcess = hadSelection
+                ? Processes.FirstOrDefault(process =>
+                    process.Entry.ProcessId == selectedIdentity.ProcessId
+                    && process.Entry.StartedAtUtc == selectedIdentity.StartedAtUtc)
+                : null;
+        }
+        finally
+        {
+            _isApplyingRows = false;
         }
 
-        while (Processes.Count > visibleEntries.Length)
-        {
-            Processes.RemoveAt(Processes.Count - 1);
-        }
-
-        for (var index = retainedCount; index < visibleEntries.Length; index++)
-        {
-            Processes.Add(new ProcessMonitorEntryViewModel(visibleEntries[index]));
-        }
-
-        SelectedProcess = hadSelection
-            ? Processes.FirstOrDefault(process =>
-                process.Entry.ProcessId == selectedIdentity.ProcessId
-                && process.Entry.StartedAtUtc == selectedIdentity.StartedAtUtc)
-            : null;
+        OnPropertyChanged(nameof(SelectedProcesses));
         OnPropertyChanged(nameof(ShowingText));
+        OnPropertyChanged(nameof(ShowNoProcesses));
+        OnPropertyChanged(nameof(NoProcessesHeading));
+        OnPropertyChanged(nameof(NoProcessesBody));
     }
 
     private void NotifySortChanged()
@@ -1203,26 +1314,10 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
 internal static class MonitorPanelPresentation
 {
-    public static string FormatBytes(long? bytes)
-    {
-        if (bytes is null)
-        {
-            return "Unavailable";
-        }
-
-        string[] units = ["B", "KiB", "MiB", "GiB", "TiB"];
-        var value = Math.Max(0, (double)bytes.Value);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return unit == 0
-            ? $"{value.ToString("0", CultureInfo.InvariantCulture)} {units[unit]}"
-            : $"{value.ToString("0.0", CultureInfo.InvariantCulture)} {units[unit]}";
-    }
+    // Sizes and rates are written by the application's one size formatter, so
+    // a process's memory reads in the same units as a file in the Files panel.
+    public static string FormatBytes(long? bytes) =>
+        bytes is { } value ? ByteSize.Format(Math.Max(0, value)) : "Unavailable";
 
     public static string FormatDuration(TimeSpan duration)
     {
@@ -1239,18 +1334,8 @@ internal static class MonitorPanelPresentation
             return "Unavailable";
         }
 
-        string[] units = ["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s"];
-        var value = Math.Max(0, rate);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
-        {
-            value /= 1024;
-            unit++;
-        }
-
-        return unit == 0
-            ? $"{value.ToString("0", CultureInfo.InvariantCulture)} {units[unit]}"
-            : $"{value.ToString("0.0", CultureInfo.InvariantCulture)} {units[unit]}";
+        var bytes = (long)Math.Min(Math.Round(Math.Max(0, rate)), long.MaxValue);
+        return $"{ByteSize.Format(bytes)}/s";
     }
 
     public static string AccessiblePercent(double? value) => value is { } percent

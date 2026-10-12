@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Text;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia;
@@ -12,6 +14,7 @@ using Avalonia.Layout;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using GridCommand = Asura.App.Views.Components.DatabaseGridShortcuts.GridCommand;
 
 namespace Asura.App.Views.Components;
 
@@ -19,8 +22,8 @@ public sealed partial class DatabaseWorkspaceView
 {
     private const int MaximumContextFileBytes = 16 * 1024 * 1024;
     private const int MaximumQuickFilterLabelCharacters = 48;
-    private const double QuickLookPreferredWidth = 620;
-    private const double QuickLookPreferredHeight = 420;
+    private const double CellEditorPreferredWidth = 620;
+    private const double CellEditorPreferredHeight = 420;
 
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
@@ -53,25 +56,27 @@ public sealed partial class DatabaseWorkspaceView
             OnResultGridPointerPressedTunnel,
             RoutingStrategies.Tunnel);
 
-        var accelerator = AcceleratorModifier;
-        QuickLookMenuItem.InputGesture = new KeyGesture(Key.Enter, accelerator);
-        RefreshTableMenuItem.InputGesture = new KeyGesture(Key.R, RefreshModifier);
-        PasteCellMenuItem.InputGesture = new KeyGesture(Key.V, accelerator);
-        AddRowMenuItem.InputGesture = new KeyGesture(Key.I, accelerator);
-        DuplicateRowMenuItem.InputGesture = new KeyGesture(Key.D, accelerator);
-        CopyRowMenuItem.InputGesture = new KeyGesture(Key.C, accelerator);
-        CopyCellMenuItem.InputGesture = new KeyGesture(
-            Key.C,
-            accelerator | KeyModifiers.Shift);
-        DeleteRowMenuItem.InputGesture = new KeyGesture(Key.Delete);
+        // Every key the menu shows comes from the grid's one shortcut table,
+        // the same one the key handler below answers to.
+        CellEditorMenuItem.InputGesture = GridGesture(GridCommand.OpenCellEditor);
+        RefreshTableMenuItem.InputGesture = GridGesture(GridCommand.RefreshPage);
+        PasteCellMenuItem.InputGesture = GridGesture(GridCommand.PasteCell);
+        AddRowMenuItem.InputGesture = GridGesture(GridCommand.AddRow);
+        DuplicateRowMenuItem.InputGesture = GridGesture(GridCommand.DuplicateRow);
+        CopyRowMenuItem.InputGesture = GridGesture(GridCommand.CopyRow);
+        CopyCellMenuItem.InputGesture = GridGesture(GridCommand.CopyCell);
+        DeleteRowMenuItem.InputGesture = GridGesture(GridCommand.DeleteRow);
+        BindContextMenuCommands();
     }
+
+    private static KeyGesture? GridGesture(GridCommand command) =>
+        DatabaseGridShortcuts.GestureFor(command);
+
+    private static bool IsGridKey(GridCommand command, KeyEventArgs e) =>
+        DatabaseGridShortcuts.Matches(command, e);
 
     private static KeyModifiers AcceleratorModifier => OperatingSystem.IsMacOS()
         ? KeyModifiers.Meta
-        : KeyModifiers.Control;
-
-    private static KeyModifiers RefreshModifier => OperatingSystem.IsMacOS()
-        ? KeyModifiers.Meta | KeyModifiers.Alt
         : KeyModifiers.Control;
 
     /// <summary>
@@ -108,7 +113,25 @@ public sealed partial class DatabaseWorkspaceView
         }
 
         CommitGridEdit();
-        ResultDataGrid.SelectedItem = target.Row;
+        if (ResultDataGrid.SelectedItems.Count > 1
+            && ResultDataGrid.SelectedItems.Contains(target.Row)
+            && Panel is { } panel)
+        {
+            // Right-clicking inside a selection keeps it, as a Mac table
+            // does; the clicked row becomes the one the menu and the
+            // inspector speak about.
+            if (!ReferenceEquals(panel.SelectedRow, target.Row))
+            {
+                panel.SelectRow(target.Row);
+            }
+
+            panel.SelectRows(ResultDataGrid.SelectedItems.OfType<DatabaseResultRowViewModel>());
+        }
+        else
+        {
+            ResultDataGrid.SelectedItem = target.Row;
+        }
+
         ResultDataGrid.CurrentColumn = e.Column;
         _contextCellTarget = target;
         _pointerContextMiss = false;
@@ -116,7 +139,7 @@ public sealed partial class DatabaseWorkspaceView
         if (properties.IsMiddleButtonPressed)
         {
             e.PointerPressedEventArgs.Handled = true;
-            ShowQuickLook(target);
+            ShowCellEditor(target);
         }
     }
 
@@ -203,9 +226,12 @@ public sealed partial class DatabaseWorkspaceView
 
     private DatabaseGridCellTarget? ResolveCurrentCellTarget()
     {
+        // The row is the inspected one rather than the grid's SelectedItem:
+        // in an extended selection the two can differ, and the menu acts on
+        // the row the inspector shows.
         var gridColumn = ResultDataGrid.CurrentColumn;
         var ordinal = gridColumn?.DisplayIndex ?? -1;
-        if (ResultDataGrid.SelectedItem is not DatabaseResultRowViewModel row
+        if (Panel?.SelectedRow is not { } row
             || gridColumn?.Tag is not DatabaseResultColumnViewModel column
             || ordinal < 0
             || ordinal >= row.Cells.Count)
@@ -255,8 +281,30 @@ public sealed partial class DatabaseWorkspaceView
             "oracle",
             StringComparison.Ordinal);
 
-        QuickLookMenuItem.IsEnabled = true;
+        CellEditorMenuItem.IsEnabled = true;
         RefreshTableMenuItem.IsEnabled = panel.CanRefreshTable;
+
+        CopyRowMenuItem.IsEnabled = true;
+        CopyCellMenuItem.IsEnabled = true;
+        CopyColumnMenuItem.IsEnabled = panel.ResultRows.Count > 0;
+        // Copy Row As and Duplicate Row act on one row. With several selected
+        // they are unavailable and say why, rather than quietly acting on the
+        // clicked row alone while Copy and Delete take the whole selection.
+        var oneRowOnly = panel.HasMultipleSelectedRows
+            ? "Select a single row to use this."
+            : null;
+        CopyRowAsMenuItem.IsEnabled = !panel.HasMultipleSelectedRows;
+        ToolTip.SetTip(CopyRowAsMenuItem, oneRowOnly);
+        CopyRowInsertMenuItem.IsEnabled = panel.CanCopySelectedRowAsInsert;
+        ToolTip.SetTip(
+            CopyRowInsertMenuItem,
+            panel.CanCopySelectedRowAsInsert
+                ? "Copy an executable INSERT for the active database."
+                : "Copying as INSERT needs rows from a single table.");
+
+        BuildQuickFilterMenu(panel, target);
+        QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
+        ExportPageMenuItem.IsEnabled = panel.HasResults && storage?.CanSave == true;
 
         MutationMenuSeparator.IsVisible = showMutationActions;
         PasteCellMenuItem.IsVisible = showMutationActions;
@@ -267,7 +315,7 @@ public sealed partial class DatabaseWorkspaceView
         DuplicateRowMenuItem.IsEnabled = panel.CanDuplicateSelectedRow;
         ToolTip.SetTip(PasteCellMenuItem, mutationUnavailableReason);
         ToolTip.SetTip(AddRowMenuItem, mutationUnavailableReason);
-        ToolTip.SetTip(DuplicateRowMenuItem, mutationUnavailableReason);
+        ToolTip.SetTip(DuplicateRowMenuItem, mutationUnavailableReason ?? oneRowOnly);
 
         SetEmptyMenuItem.IsVisible = target.Cell.CanSetEmpty && !isOracle;
         SetEmptyMenuItem.IsEnabled = panel.CanSetSelectedCellEmpty(target.Ordinal);
@@ -281,17 +329,10 @@ public sealed partial class DatabaseWorkspaceView
         SetFileMenuItem.IsEnabled = panel.CanMutateRows
             && target.Cell.CanSetBinary
             && storage?.CanOpen == true;
-        var hasNullOrDefaultAction = SetNullContextMenuItem.IsVisible
-            || SetDefaultContextMenuItem.IsVisible;
-        SetNullMenuSeparator.IsVisible = SetEmptyMenuItem.IsVisible
-            && hasNullOrDefaultAction;
-        SetFileMenuSeparator.IsVisible = hasNullOrDefaultAction
-            && SetFileMenuItem.IsVisible;
-        var hasSetValueAction = SetEmptyMenuItem.IsVisible
-            || SetNullContextMenuItem.IsVisible
-            || SetDefaultContextMenuItem.IsVisible
-            || SetFileMenuItem.IsVisible;
-        SetValueMenuSeparator.IsVisible = showMutationActions;
+        SetFileMenuSeparator.IsVisible = SetFileMenuItem.IsVisible
+            && (SetEmptyMenuItem.IsVisible
+                || SetNullContextMenuItem.IsVisible
+                || SetDefaultContextMenuItem.IsVisible);
         SetValueMenuItem.IsVisible = showMutationActions;
         SetValueMenuItem.IsEnabled = SetEmptyMenuItem.IsEnabled
             || SetNullContextMenuItem.IsEnabled
@@ -299,30 +340,16 @@ public sealed partial class DatabaseWorkspaceView
             || SetFileMenuItem.IsEnabled;
         ToolTip.SetTip(SetValueMenuItem, mutationUnavailableReason);
 
-        CopyRowMenuItem.IsEnabled = true;
-        CopyCellMenuItem.IsEnabled = true;
-        CopyColumnMenuItem.IsEnabled = panel.ResultRows.Count > 0;
-        CopyRowAsMenuItem.IsEnabled = true;
-        CopyRowInsertMenuItem.IsEnabled = panel.CanCopySelectedRowAsInsert;
-        ToolTip.SetTip(
-            CopyRowInsertMenuItem,
-            panel.CanCopySelectedRowAsInsert
-                ? "Copy an executable INSERT for the active database."
-                : "INSERT copy requires a physical table result.");
-
-        BuildQuickFilterMenu(panel, target);
-        QuickFilterMenuSeparator.IsVisible = panel.CanFilterTable;
-        QuickFilterMenuItem.IsVisible = panel.CanFilterTable;
-
         ImportMenuItem.IsVisible = showMutationActions;
-        ImportCsvMenuItem.IsEnabled = panel.CanMutateRows && storage?.CanOpen == true;
-        ImportMenuItem.IsEnabled = ImportCsvMenuItem.IsEnabled;
+        ImportMenuItem.IsEnabled = panel.CanMutateRows && storage?.CanOpen == true;
         ToolTip.SetTip(ImportMenuItem, mutationUnavailableReason);
-        ExportPageMenuItem.IsEnabled = panel.HasResults && storage?.CanSave == true;
 
         DeleteMenuSeparator.IsVisible = showMutationActions;
         DeleteRowMenuItem.IsVisible = showMutationActions;
         DeleteRowMenuItem.IsEnabled = panel.CanDeleteSelectedRow;
+        DeleteRowMenuItem.Header = panel.SelectedRows.Count > 1
+            ? $"Delete {panel.SelectedRows.Count.ToString(CultureInfo.CurrentCulture)} Rows"
+            : "Delete Row";
         ToolTip.SetTip(DeleteRowMenuItem, mutationUnavailableReason);
     }
 
@@ -346,6 +373,10 @@ public sealed partial class DatabaseWorkspaceView
             {
                 Header = BuildQuickFilterLabel(target, option.Operator),
                 IsEnabled = panel.CanFilterTable,
+
+                // Its menu-bar copy, under Panel ▸ Database, names the
+                // comparison rather than this cell's value.
+                Tag = QuickFilterCommand(option.Operator),
             };
             AutomationProperties.SetName(
                 item,
@@ -450,19 +481,19 @@ public sealed partial class DatabaseWorkspaceView
         return $"'{oneLine}'";
     }
 
-    private void OnQuickLookClick(object? sender, RoutedEventArgs e)
+    private void OnCellEditorClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
         if ((_contextCellTarget ?? ResolveCurrentCellTarget()) is { } target)
         {
-            ShowQuickLook(target);
+            ShowCellEditor(target);
         }
     }
 
-    private void ShowQuickLook(DatabaseGridCellTarget target) => _ = ShowQuickLookAsync(target);
+    private void ShowCellEditor(DatabaseGridCellTarget target) => _ = ShowCellEditorAsync(target);
 
-    private async Task ShowQuickLookAsync(DatabaseGridCellTarget target)
+    private async Task ShowCellEditorAsync(DatabaseGridCellTarget target)
     {
         if (Panel is not { } panel || !IsTargetCurrent(panel, target))
         {
@@ -477,18 +508,18 @@ public sealed partial class DatabaseWorkspaceView
 
         if (ReferenceEquals(Panel, panel) && IsTargetCurrent(panel, target))
         {
-            ShowLoadedQuickLook(target);
+            ShowLoadedCellEditor(target);
         }
     }
 
-    private void ShowLoadedQuickLook(DatabaseGridCellTarget target)
+    private void ShowLoadedCellEditor(DatabaseGridCellTarget target)
     {
         var canEdit = Panel is { CanMutateRows: true }
             && target.Cell.CanSetText;
         var initialState = target.Cell.State;
         var initialEditText = target.Cell.EditText;
-        var smallSpace = QuickLookThemeSpace("ShellSpaceSm", fallback: 8);
-        var mediumSpace = QuickLookThemeSpace("ShellSpaceMd", fallback: 12);
+        var smallSpace = CellEditorThemeSpace("ShellSpaceSm", fallback: 8);
+        var mediumSpace = CellEditorThemeSpace("ShellSpaceMd", fallback: 12);
         var editor = new TextBox
         {
             MinWidth = 0,
@@ -497,24 +528,32 @@ public sealed partial class DatabaseWorkspaceView
             VerticalAlignment = VerticalAlignment.Stretch,
             AcceptsReturn = true,
             // Display text is intentionally compact and may contain an
-            // ellipsis. Only read-only Quick Look uses it; editable cells must
+            // ellipsis. Only a read-only cell editor uses it; editable cells must
             // start with the complete provider-neutral edit representation.
             Text = canEdit ? initialEditText : target.Cell.Text,
             IsReadOnly = !canEdit,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         };
+        // A value is data: set in the data face, as the grid shows it, so
+        // columns of digits and code line up the same way here.
+        if (this.TryFindResource("ShellDataFontFamily", ActualThemeVariant, out var dataFont)
+            && dataFont is Avalonia.Media.FontFamily dataFamily)
+        {
+            editor.FontFamily = dataFamily;
+        }
         ScrollViewer.SetHorizontalScrollBarVisibility(
             editor,
             Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(
             editor,
             Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
-        AutomationProperties.SetName(editor, $"Quick Look value for {target.Column.Name}");
+        AutomationProperties.SetName(editor, $"Cell editor value for {target.Column.Name}");
 
         var header = new StackPanel { Spacing = 2 };
         header.Children.Add(new TextBlock
         {
-            Text = "Quick Look Editor",
+            // Not "Quick Look": that is the system's preview, and this edits.
+            Text = "Cell Editor",
             FontWeight = Avalonia.Media.FontWeight.SemiBold,
         });
         header.Children.Add(new TextBlock
@@ -524,15 +563,19 @@ public sealed partial class DatabaseWorkspaceView
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
         });
 
-        var actions = new WrapPanel
+        // One trailing row, the default action rightmost, as in a sheet:
+        // the buttons never wrap onto a second line out of step.
+        var actions = new CellEditorActionRow { Spacing = smallSpace };
+        var close = new Button
         {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            ItemSpacing = smallSpace,
-            LineSpacing = smallSpace,
+            Content = canEdit ? "Cancel" : "Close",
+            IsCancel = true,
+            IsDefault = !canEdit,
         };
-        var close = new Button { Content = canEdit ? "Cancel" : "Close" };
-        AutomationProperties.SetName(close, "Close the database cell Quick Look");
+        AutomationProperties.SetName(close, "Close the database cell editor");
+        // Stretched, so stacked on a narrow editor the buttons take its
+        // full width; side by side they keep their own.
+        close.HorizontalAlignment = HorizontalAlignment.Stretch;
         var flyout = new Flyout
         {
             Placement = PlacementMode.Center,
@@ -560,9 +603,14 @@ public sealed partial class DatabaseWorkspaceView
 
         if (canEdit)
         {
-            var apply = new Button { Content = "Apply" };
+            var apply = new Button
+            {
+                Content = "Apply",
+                IsDefault = true,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
             apply.Classes.Add("PrimaryButton");
-            AutomationProperties.SetName(apply, "Apply the Quick Look database cell value");
+            AutomationProperties.SetName(apply, "Apply the database cell editor value");
             apply.Click += (_, _) => ApplyAndClose();
             actions.Children.Add(apply);
         }
@@ -600,7 +648,7 @@ public sealed partial class DatabaseWorkspaceView
             RowDefinitions = new RowDefinitions("Auto,*,Auto"),
             RowSpacing = mediumSpace,
         };
-        AutomationProperties.SetName(content, "Database cell Quick Look dialog");
+        AutomationProperties.SetName(content, "Database cell editor dialog");
         content.Children.Add(header);
         Grid.SetRow(editor, 1);
         content.Children.Add(editor);
@@ -609,7 +657,7 @@ public sealed partial class DatabaseWorkspaceView
         flyout.Content = content;
 
         // Opening a second popup while the context menu is closing can be
-        // ignored by native popup hosts. Posting starts Quick Look afterward.
+        // ignored by native popup hosts. Posting opens the editor afterward.
         Dispatcher.UIThread.Post(() =>
         {
             if (VisualRoot is null
@@ -619,7 +667,7 @@ public sealed partial class DatabaseWorkspaceView
                 return;
             }
 
-            var contentSize = QuickLookContentSize(mediumSpace);
+            var contentSize = CellEditorContentSize(mediumSpace);
             content.Width = contentSize.Width;
             content.Height = contentSize.Height;
             content.MaxWidth = contentSize.Width;
@@ -630,8 +678,10 @@ public sealed partial class DatabaseWorkspaceView
         });
     }
 
-    private Size QuickLookContentSize(double viewportInset)
+    private Size CellEditorContentSize(double viewportInset)
     {
+        // Inside the grid it edits. Its actions sit on one row that does not
+        // wrap, so even the narrowest grid keeps Cancel and Apply in line.
         var width = SmallestPositive(
             ResultDataGrid.Bounds.Width,
             Bounds.Width,
@@ -642,14 +692,14 @@ public sealed partial class DatabaseWorkspaceView
             TopLevel.GetTopLevel(this)?.Bounds.Height ?? 0);
         var contentWidth = Math.Max(
             1,
-            Math.Min(QuickLookPreferredWidth, width - (viewportInset * 2)));
+            Math.Min(CellEditorPreferredWidth, width - (viewportInset * 2)));
         var contentHeight = Math.Max(
             1,
-            Math.Min(QuickLookPreferredHeight, height - (viewportInset * 2)));
+            Math.Min(CellEditorPreferredHeight, height - (viewportInset * 2)));
         return new Size(contentWidth, contentHeight);
     }
 
-    private double QuickLookThemeSpace(string key, double fallback) =>
+    private double CellEditorThemeSpace(string key, double fallback) =>
         this.TryFindResource(key, ActualThemeVariant, out var value) && value is double space
             ? space
             : fallback;
@@ -707,7 +757,7 @@ public sealed partial class DatabaseWorkspaceView
             var text = await clipboard.TryGetTextAsync();
             if (text is null)
             {
-                panel.ReportInteractionError("The clipboard does not contain text.");
+                panel.ReportInteractionError("The clipboard doesn’t contain text.");
                 return;
             }
 
@@ -729,7 +779,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not paste from the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t paste from the clipboard. {FailureReason.Report("database.cell.paste.failed", exception)}");
         }
     }
 
@@ -823,7 +873,7 @@ public sealed partial class DatabaseWorkspaceView
 
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = $"Use a file as {target.Column.Name}",
+                Title = $"Choose a File for “{target.Column.Name}”",
                 AllowMultiple = false,
             });
             if (selected.Count != 1)
@@ -844,7 +894,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not add the selected file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t add the selected file. {FailureReason.Report("database.cell.file-add.failed", exception)}");
         }
     }
 
@@ -853,10 +903,19 @@ public sealed partial class DatabaseWorkspaceView
         _ = sender;
         _ = e;
         var target = _contextCellTarget ?? ResolveCurrentCellTarget();
-        await CopyTargetTextAsync(
-            target,
-            static (panel, cellTarget) => panel.BuildRowTsvAsync(cellTarget.Row));
+        await CopyTargetTextAsync(target, BuildSelectedRowsTsvAsync);
     }
+
+    /// <summary>
+    /// Copy takes the whole selection when the row it was asked about is part
+    /// of one, and that row alone otherwise.
+    /// </summary>
+    private static Task<(string Text, long Revision)> BuildSelectedRowsTsvAsync(
+        DatabaseRuntimePanelViewModel panel,
+        DatabaseGridCellTarget target) =>
+        panel.SelectedRows.Count > 1 && panel.SelectedRows.Contains(target.Row)
+            ? panel.BuildRowsTsvAsync(panel.SelectedRows)
+            : panel.BuildRowTsvAsync(target.Row);
 
     private async void OnCopyCellClick(object? sender, RoutedEventArgs e)
     {
@@ -914,7 +973,7 @@ public sealed partial class DatabaseWorkspaceView
         catch (Exception exception)
         {
             panel.ReportInteractionError(
-                $"Could not format the selected database value: {exception.Message}");
+                $"Asura couldn’t copy the selected value. {FailureReason.Report("database.value.copy.failed", exception)}");
         }
     }
 
@@ -940,7 +999,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not copy to the clipboard: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t copy to the clipboard. {FailureReason.Report("database.clipboard.write.failed", exception)}");
             return false;
         }
     }
@@ -962,7 +1021,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Import CSV rows",
+                Title = "Import CSV Rows",
                 AllowMultiple = false,
                 FileTypeFilter = [CsvFileType],
             });
@@ -995,7 +1054,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not import the CSV file: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t import the CSV file. {FailureReason.Report("database.csv.import.failed", exception)}");
         }
     }
 
@@ -1016,7 +1075,7 @@ public sealed partial class DatabaseWorkspaceView
             var sourcePage = CaptureGridPage(panel);
             var selected = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Export the current database page",
+                Title = "Export Page",
                 SuggestedFileName = ExportFileStem(panel) + ".csv",
                 DefaultExtension = "csv",
                 FileTypeChoices = PageExportFileTypes,
@@ -1045,7 +1104,7 @@ public sealed partial class DatabaseWorkspaceView
         }
         catch (Exception exception)
         {
-            panel.ReportInteractionError($"Could not export the database page: {exception.Message}");
+            panel.ReportInteractionError($"Asura couldn’t export the page. {FailureReason.Report("database.page.export.failed", exception)}");
         }
     }
 
@@ -1056,8 +1115,8 @@ public sealed partial class DatabaseWorkspaceView
         {
             ".json" => DatabaseGridExportFormat.Json,
             ".csv" or "" => DatabaseGridExportFormat.Csv,
-            var extension => throw new InvalidDataException(
-                $"Unsupported database export extension '{extension}'. Use .csv or .json."),
+            var extension => throw new ReadableFailureException(
+                $"Asura can’t export a page as a “{extension}” file. Use a name that ends in .csv or .json."),
         };
     }
 
@@ -1106,16 +1165,14 @@ public sealed partial class DatabaseWorkspaceView
         }
 
         var target = ResolveCurrentCellTarget();
-        var accelerator = AcceleratorModifier;
-        if (e.KeyModifiers == accelerator && e.Key == Key.Enter && target is not null)
+        if (IsGridKey(GridCommand.OpenCellEditor, e) && target is not null)
         {
             e.Handled = true;
-            ShowQuickLook(target);
+            ShowCellEditor(target);
             return;
         }
 
-        if (e.KeyModifiers == RefreshModifier
-            && e.Key == Key.R
+        if (IsGridKey(GridCommand.RefreshPage, e)
             && Panel is { CanRefreshTable: true } refreshPanel)
         {
             e.Handled = true;
@@ -1124,8 +1181,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.V
+        if (IsGridKey(GridCommand.PasteCell, e)
             && target is { Cell.CanSetText: true }
             && Panel is { CanMutateRows: true })
         {
@@ -1134,8 +1190,7 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.I
+        if (IsGridKey(GridCommand.AddRow, e)
             && Panel is { CanMutateRows: true } addPanel)
         {
             e.Handled = true;
@@ -1144,8 +1199,9 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        if (e.KeyModifiers == accelerator
-            && e.Key == Key.D
+        // On a Mac Duplicate Row has no key: ⌘D goes on, unhandled, to
+        // Panel ▸ Split Right.
+        if (IsGridKey(GridCommand.DuplicateRow, e)
             && target is not null
             && Panel is { CanDuplicateSelectedRow: true } duplicatePanel)
         {
@@ -1159,29 +1215,23 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        var isCopyGesture = e.Key == Key.C
-            && (e.KeyModifiers == accelerator
-                || e.KeyModifiers == (accelerator | KeyModifiers.Shift));
-        if (isCopyGesture && target is not null)
+        var copiesCell = IsGridKey(GridCommand.CopyCell, e);
+        if ((copiesCell || IsGridKey(GridCommand.CopyRow, e)) && target is not null)
         {
             e.Handled = true;
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            if (copiesCell)
             {
                 await CopyCellAsync(target);
             }
             else
             {
-                await CopyTargetTextAsync(
-                    target,
-                    static (panel, cellTarget) => panel.BuildRowTsvAsync(cellTarget.Row));
+                await CopyTargetTextAsync(target, BuildSelectedRowsTsvAsync);
             }
 
             return;
         }
 
-        var deleteKey = e.Key is Key.Delete or Key.Back;
-        if (deleteKey
-            && e.KeyModifiers == KeyModifiers.None
+        if (IsGridKey(GridCommand.DeleteRow, e)
             && target is not null
             && Panel is { CanDeleteSelectedRow: true } deletePanel)
         {
@@ -1211,7 +1261,7 @@ public sealed partial class DatabaseWorkspaceView
         await using var source = await file.OpenReadAsync();
         if (source.CanSeek && source.Length > MaximumContextFileBytes)
         {
-            throw new InvalidDataException("The selected file is larger than 16 MiB.");
+            throw new ReadableFailureException("The selected file is larger than 16 MiB.");
         }
 
         using var content = new MemoryStream();
@@ -1226,7 +1276,7 @@ public sealed partial class DatabaseWorkspaceView
 
             if (content.Length + count > MaximumContextFileBytes)
             {
-                throw new InvalidDataException("The selected file is larger than 16 MiB.");
+                throw new ReadableFailureException("The selected file is larger than 16 MiB.");
             }
 
             await content.WriteAsync(buffer.AsMemory(0, count));
@@ -1248,9 +1298,9 @@ public sealed partial class DatabaseWorkspaceView
             return;
         }
 
-        throw new InvalidOperationException(
-            "This storage provider cannot replace an export atomically. "
-            + "Choose a local filesystem destination so an interrupted export cannot damage an existing file.");
+        throw new ReadableFailureException(
+            "This location can’t be replaced safely. "
+            + "Choose a folder on this computer so an interrupted export can’t damage an existing file.");
     }
 
     internal static async Task WriteLocalStorageFileAtomicallyAsync(
@@ -1259,7 +1309,7 @@ public sealed partial class DatabaseWorkspaceView
     {
         var target = Path.GetFullPath(localPath);
         var directory = Path.GetDirectoryName(target)
-            ?? throw new InvalidDataException("The export destination has no parent directory.");
+            ?? throw new ReadableFailureException("Choose a folder to export the page to.");
         var temporaryPath = Path.Combine(
             directory,
             $".{Path.GetFileName(target)}.asura-{Guid.NewGuid():N}.tmp");
@@ -1317,4 +1367,67 @@ public sealed partial class DatabaseWorkspaceView
         DatabaseObjectId? ObjectId,
         IReadOnlyList<DatabaseResultColumnViewModel> Columns,
         IReadOnlyList<DatabaseResultRowViewModel> Rows);
+
+    /// <summary>
+    /// The cell editor's buttons on one trailing row, right-aligned at their
+    /// own widths with the default action rightmost. When the editor is too
+    /// narrow for both side by side they stack at its full width, the
+    /// default action first, as a narrow alert lays out its buttons — rather
+    /// than wrapping out of step or clipping their titles.
+    /// </summary>
+    private sealed class CellEditorActionRow : Panel
+    {
+        private bool _fits = true;
+
+        public double Spacing { get; init; }
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (Children.Count == 0)
+            {
+                return default;
+            }
+
+            var width = Spacing * (Children.Count - 1);
+            var rowHeight = 0.0;
+            var stackHeight = Spacing * (Children.Count - 1);
+            foreach (var child in Children)
+            {
+                child.Measure(Size.Infinity);
+                width += child.DesiredSize.Width;
+                rowHeight = Math.Max(rowHeight, child.DesiredSize.Height);
+                stackHeight += child.DesiredSize.Height;
+            }
+
+            _fits = width <= availableSize.Width;
+            return _fits
+                ? new Size(width, rowHeight)
+                : new Size(availableSize.Width, stackHeight);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            if (_fits)
+            {
+                var x = finalSize.Width + Spacing
+                    - Children.Sum(child => child.DesiredSize.Width + Spacing);
+                foreach (var child in Children)
+                {
+                    child.Arrange(new Rect(Math.Max(0, x), 0, child.DesiredSize.Width, finalSize.Height));
+                    x += child.DesiredSize.Width + Spacing;
+                }
+
+                return finalSize;
+            }
+
+            var y = 0.0;
+            foreach (var child in Children.Reverse())
+            {
+                child.Arrange(new Rect(0, y, finalSize.Width, child.DesiredSize.Height));
+                y += child.DesiredSize.Height + Spacing;
+            }
+
+            return finalSize;
+        }
+    }
 }

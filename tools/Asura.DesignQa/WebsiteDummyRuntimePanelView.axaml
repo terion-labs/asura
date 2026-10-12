@@ -40,8 +40,8 @@
         </StackPanel>
         <Border Grid.Row="1" Padding="{controls:Inset Horizontal=Md, Vertical=Sm}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellFontSize9}" Text="SSH · deploy@10.0.1.42" />
-            <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Connected · UTF-8" />
+            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="SSH · deploy@10.0.1.42" />
+            <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Connected · UTF-8" />
           </Grid>
         </Border>
       </Grid>
@@ -90,7 +90,7 @@
         <TextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Ready" />
       </controls:PanelChrome.Footer>
 

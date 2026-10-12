@@ -4,15 +4,45 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia">
   <UserControl.Styles>
-    <Style Selector="Button.IconButton.GitDiffToggle.selected">
+    <!-- Comparison options that stay on are toggle buttons: VoiceOver hears
+         "toggle button, on", and the fill says the same to the eye. -->
+    <Style Selector="ToggleButton.GitDiffToggle">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="MinHeight" Value="0" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.GitDiffToggle /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.GitDiffToggle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ShellControlHoverBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.GitDiffToggle:checked /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.GitDiffToggle:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter, ToggleButton.GitDiffToggle:checked:pressed /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     </Style>
-    <Style Selector="Button.IconButton.GitDiffToggle.selected > icons|SymbolIcon">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+    <Style Selector="ToggleButton.GitDiffToggle icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.GitDiffToggle:checked icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
+    </Style>
+    <Style Selector="Button.GitPullDown">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Button.GitPullDown icons|SymbolIcon">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
     <Style Selector="ListBox.GitDiffLines ListBoxItem">
       <Setter Property="Padding" Value="0" />
@@ -22,8 +52,25 @@
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Focusable" Value="True" />
     </Style>
+    <!-- A diff line keeps its added or removed tint when selected, so the row
+         fill cannot carry the selection. A bar in the gutter does: muted while
+         the diff is not focused, accent while it is, both at least 3:1 against
+         the panel. Selected lines are what Stage Selection acts on. -->
     <Style Selector="ListBox.GitDiffLines ListBoxItem:selected /template/ ContentPresenter">
       <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="Border.GitDiffSelectionMark">
+      <Setter Property="Width" Value="3" />
+      <Setter Property="HorizontalAlignment" Value="Left" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="IsVisible" Value="False" />
+      <Setter Property="Background" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="ListBox.GitDiffLines ListBoxItem:selected Border.GitDiffSelectionMark">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="ListBox.GitDiffLines:focus-within ListBoxItem:selected Border.GitDiffSelectionMark">
+      <Setter Property="Background" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Border.GitDiffLine">
       <Setter Property="Background" Value="Transparent" />
@@ -39,13 +86,14 @@
     </Style>
     <Style Selector="Border.GitDiffLine TextBlock">
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
       <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
+    <!-- Line numbers at the code's own size, so a number sits on its line's
+         baseline rather than a step below it. -->
     <Style Selector="Border.GitDiffLine TextBlock.GitDiffNumber">
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
       <Setter Property="TextAlignment" Value="Right" />
       <Setter Property="Padding" Value="{controls:Inset Right=Xs}" />
     </Style>
@@ -61,6 +109,8 @@
   </UserControl.Styles>
 
   <Grid RowDefinitions="Auto,Auto,Auto,*">
+    <!-- The file and the way through it: previous and next file, previous
+         and next change, as two compact pairs whose tooltips name their keys. -->
     <Border
         Classes="PanelToolbar"
         Padding="{controls:Inset Horizontal=Md, Vertical=Xs}"
@@ -69,10 +119,10 @@
         <TextBlock
             VerticalAlignment="Center"
             FontFamily="{DynamicResource ShellDataFontFamily}"
-            FontSize="{DynamicResource ShellFontSize10}"
-            LineHeight="{DynamicResource ShellLineHeight10}"
-            Text="{Binding DiffFileName}"
-            TextTrimming="CharacterEllipsis" />
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+            Classes="Path"
+            Text="{Binding DiffFileName}" />
         <controls:StatusChip
             Grid.Column="1"
             VerticalAlignment="Center"
@@ -80,43 +130,142 @@
             Shape="Rounded"
             Content="Truncated"
             IsVisible="{Binding DiffIsTruncated}" />
-        <Button
-            Grid.Column="2"
-            Classes="IconButton GitDiffToggle"
-            Classes.selected="{Binding DiffIgnoresWhitespace}"
-            Click="OnToggleWhitespaceClick"
-            ToolTip.Tip="Ignore whitespace changes"
-            AutomationProperties.Name="Ignore whitespace changes">
-          <icons:SymbolIcon Symbol="Spacebar" FontSize="14" />
-        </Button>
-        <Button
-            Grid.Column="3"
-            Classes="IconButton GitDiffToggle"
-            Classes.selected="{Binding DiffIsSplit}"
-            Click="OnToggleSplitClick"
-            ToolTip.Tip="Side-by-side comparison"
-            AutomationProperties.Name="Side-by-side comparison">
-          <icons:SymbolIcon Symbol="SplitVertical" FontSize="14" />
-        </Button>
+        <Border Grid.Column="2" Classes="FileToolbarGroup" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <Button
+                x:Name="PreviousFileButton"
+                Classes="IconButton FileToolbarAction"
+                Tag="PreviousFile"
+                Click="OnDiffNavigate"
+                IsEnabled="{Binding CanSelectPreviousDiffFile}"
+                ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousFileTip}"
+                AutomationProperties.Name="Previous File">
+              <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+            <Button
+                x:Name="NextFileButton"
+                Classes="IconButton FileToolbarAction"
+                Tag="NextFile"
+                Click="OnDiffNavigate"
+                IsEnabled="{Binding CanSelectNextDiffFile}"
+                ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextFileTip}"
+                AutomationProperties.Name="Next File">
+              <icons:SymbolIcon Symbol="ArrowDown" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+          </StackPanel>
+        </Border>
+        <Border Grid.Column="3" Classes="FileToolbarGroup" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal">
+            <Button
+                x:Name="PreviousChangeButton"
+                Classes="IconButton FileToolbarAction"
+                Tag="PreviousChange"
+                Click="OnDiffNavigate"
+                ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousChangeTip}"
+                AutomationProperties.Name="Previous Change">
+              <icons:SymbolIcon Symbol="ChevronUp" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+            <Button
+                x:Name="NextChangeButton"
+                Classes="IconButton FileToolbarAction"
+                Tag="NextChange"
+                Click="OnDiffNavigate"
+                ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextChangeTip}"
+                AutomationProperties.Name="Next Change">
+              <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+          </StackPanel>
+        </Border>
       </Grid>
     </Border>
 
-    <WrapPanel Grid.Row="1" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" IsVisible="{Binding IsLocalChangesSection}">
-      <Button Content="Stage selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
-      <Button Content="Unstage selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
-      <Button Content="Discard selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
-    </WrapPanel>
+    <!-- Finding and how the comparison is drawn. One row that never wraps:
+         the field gives way first, and the four drawing options share one
+         View pull-down whose items carry checkmarks. -->
+    <Grid
+        x:Name="DiffOptionsBar"
+        Grid.Row="1"
+        Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
+        ColumnDefinitions="*,Auto,Auto,Auto"
+        ColumnSpacing="{DynamicResource ShellSpaceXs}"
+        IsVisible="{Binding DiffFileName, Converter={x:Static ObjectConverters.IsNotNull}}">
+      <controls:SearchField
+          x:Name="DiffFindField"
+          MinWidth="96"
+          MaxWidth="260"
+          HorizontalAlignment="Stretch"
+          Classes="Dense"
+          Text="{Binding DiffSearch}"
+          PlaceholderText="Find in diff"
+          AutomationProperties.Name="Find in diff" />
+      <StackPanel
+          Grid.Column="1"
+          Orientation="Horizontal"
+          IsVisible="{Binding DiffSearch, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <Button
+            x:Name="PreviousMatchButton"
+            Classes="IconButton"
+            Tag="Previous"
+            Click="OnDiffNavigate"
+            ToolTip.Tip="{x:Static vm:GitDiffShortcuts.PreviousMatchTip}"
+            AutomationProperties.Name="Previous Match">
+          <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+        <Button
+            x:Name="NextMatchButton"
+            Classes="IconButton"
+            Tag="Next"
+            Click="OnDiffNavigate"
+            ToolTip.Tip="{x:Static vm:GitDiffShortcuts.NextMatchTip}"
+            AutomationProperties.Name="Next Match">
+          <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </Button>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <ToggleButton
+            x:Name="IgnoreWhitespaceToggle"
+            Classes="GitDiffToggle"
+            IsChecked="{Binding DiffIgnoresWhitespace, Mode=TwoWay}"
+            ToolTip.Tip="Ignore whitespace changes"
+            AutomationProperties.Name="Ignore whitespace changes">
+          <icons:SymbolIcon Symbol="Spacebar" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </ToggleButton>
+        <ToggleButton
+            x:Name="SideBySideToggle"
+            Classes="GitDiffToggle"
+            IsChecked="{Binding DiffIsSplit, Mode=TwoWay}"
+            ToolTip.Tip="Side-by-side comparison"
+            AutomationProperties.Name="Side-by-side comparison">
+          <icons:SymbolIcon Symbol="SplitVertical" FontSize="{DynamicResource ShellIconSizeSm}" />
+        </ToggleButton>
+      </StackPanel>
+      <Button
+          x:Name="DiffViewMenuButton"
+          Grid.Column="3"
+          Classes="Dense GitPullDown"
+          ToolTip.Tip="How the comparison is drawn"
+          AutomationProperties.Name="View">
+        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+          <TextBlock VerticalAlignment="Center" Text="View" />
+          <icons:SymbolIcon VerticalAlignment="Center" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+        </StackPanel>
+        <Button.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuItem Header="Wrap Lines" ToggleType="CheckBox" IsChecked="{Binding DiffWrap, Mode=TwoWay}" />
+            <MenuItem Header="Show Invisible Characters" ToggleType="CheckBox" IsChecked="{Binding DiffShowsInvisibles, Mode=TwoWay}" />
+            <MenuItem Header="Highlight Word Changes" ToggleType="CheckBox" IsChecked="{Binding DiffHighlightsWords, Mode=TwoWay}" />
+            <Separator />
+            <MenuItem Header="Show Whole File" ToggleType="CheckBox" IsChecked="{Binding DiffWholeFile, Mode=TwoWay}" />
+          </MenuFlyout>
+        </Button.Flyout>
+      </Button>
+    </Grid>
 
-    <WrapPanel Grid.Row="2" ItemSpacing="{DynamicResource ShellSpaceSm}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
-      <TextBox Text="{Binding DiffSearch}" PlaceholderText="Find in diff" Width="150" AutomationProperties.Name="Find in diff" />
-      <Button Content="Previous" Tag="Previous" Click="OnDiffNavigate" />
-      <Button Content="Next" Tag="Next" Click="OnDiffNavigate" />
-      <Button Content="Previous change" Tag="PreviousChange" Click="OnDiffNavigate" />
-      <Button Content="Next change" Tag="NextChange" Click="OnDiffNavigate" />
-      <CheckBox Content="Wrap" IsChecked="{Binding DiffWrap}" />
-      <CheckBox Content="Invisible characters" IsChecked="{Binding DiffShowsInvisibles}" />
-      <CheckBox Content="Word changes" IsChecked="{Binding DiffHighlightsWords}" />
-      <CheckBox Content="Whole file" IsChecked="{Binding DiffWholeFile}" />
+    <WrapPanel Grid.Row="2" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" IsVisible="{Binding IsLocalChangesSection}">
+      <!-- Dense, as the toolbar controls above them are. -->
+      <Button Classes="SecondaryButton Dense" Content="Stage Selection" Tag="Stage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
+      <Button Classes="SecondaryButton Dense" Content="Unstage Selection" Tag="Unstage" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding SelectedChange.IsStaged}" />
+      <Button Classes="DestructiveButton Dense" Content="Discard Selection…" Tag="Discard" Click="OnApplyPartial" IsEnabled="{Binding CanApplyPartialDiff}" IsVisible="{Binding !SelectedChange.IsStaged}" />
     </WrapPanel>
     <components:GitImageDiffView Grid.Row="3" ImagePair="{Binding DiffImages}" IsVisible="{Binding HasDiffImages}" />
     <ListBox
@@ -125,7 +274,7 @@
         SelectionMode="Multiple,Toggle"
         SelectionChanged="OnDiffSelection"
         SelectedItem="{Binding DiffSearchMatch}"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
@@ -145,28 +294,31 @@
       </ListBox.ItemContainerTheme>
       <ListBox.ItemTemplate>
         <DataTemplate>
-          <Border
-              Classes="GitDiffLine"
-              Classes.added="{Binding IsAdded}"
-              Classes.removed="{Binding IsRemoved}"
-              Classes.hunk="{Binding IsHunkHeader}">
-            <Border.ContextMenu>
-              <ContextMenu>
-                <MenuItem Header="Stage hunk" Tag="Stage" Click="OnHunkAction" />
-                <MenuItem Header="Unstage hunk" Tag="Unstage" Click="OnHunkAction" />
-              </ContextMenu>
-            </Border.ContextMenu>
-            <Grid ColumnDefinitions="44,44,18,*">
-              <TextBlock Classes="GitDiffNumber" Text="{Binding OldNumberText}" />
-              <TextBlock Grid.Column="1" Classes="GitDiffNumber" Text="{Binding NewNumberText}" />
-              <TextBlock
-                  Grid.Column="2"
-                  Classes="GitDiffMarker"
-                  TextAlignment="Center"
-                  Text="{Binding MarkerText}" />
-              <components:GitDiffTextBlock Grid.Column="3" SyntaxText="{Binding Text}" PeerText="{Binding PeerText}" FileName="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffFileName}" ShowInvisibles="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffShowsInvisibles}" HighlightWords="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffHighlightsWords}" TextWrapping="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffTextWrapping}" />
-            </Grid>
-          </Border>
+          <Panel>
+            <Border
+                Classes="GitDiffLine"
+                Classes.added="{Binding IsAdded}"
+                Classes.removed="{Binding IsRemoved}"
+                Classes.hunk="{Binding IsHunkHeader}">
+              <Border.ContextMenu>
+                <ContextMenu Opening="OnHunkMenuOpening">
+                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitHunkStage}" Click="OnHunkAction" />
+                  <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitHunkUnstage}" Click="OnHunkAction" />
+                </ContextMenu>
+              </Border.ContextMenu>
+              <Grid ColumnDefinitions="44,44,18,*">
+                <TextBlock Classes="GitDiffNumber" Text="{Binding OldNumberText}" />
+                <TextBlock Grid.Column="1" Classes="GitDiffNumber" Text="{Binding NewNumberText}" />
+                <TextBlock
+                    Grid.Column="2"
+                    Classes="GitDiffMarker"
+                    TextAlignment="Center"
+                    Text="{Binding MarkerText}" />
+                <components:GitDiffTextBlock Grid.Column="3" SyntaxText="{Binding Text}" PeerText="{Binding PeerText}" FileName="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffFileName}" ShowInvisibles="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffShowsInvisibles}" HighlightWords="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffHighlightsWords}" TextWrapping="{Binding $parent[UserControl].((vm:GitRuntimePanelViewModel)DataContext).DiffTextWrapping}" />
+              </Grid>
+            </Border>
+            <Border Classes="GitDiffSelectionMark" />
+          </Panel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
@@ -176,7 +328,7 @@
     <ListBox
         x:Name="SplitLines"
         Grid.Row="3"
-        Classes="GitDiffLines"
+        Classes="GitDiffLines OwnSelection"
         Background="Transparent"
         BorderThickness="0"
         Padding="0"
@@ -230,6 +382,7 @@
                 </Grid>
               </Border>
             </Grid>
+            <Border Classes="GitDiffSelectionMark" />
           </Panel>
         </DataTemplate>
       </ListBox.ItemTemplate>

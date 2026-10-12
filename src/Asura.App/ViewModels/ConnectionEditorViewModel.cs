@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using Asura.Git;
@@ -46,6 +48,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private string _localShell = string.Empty;
     private string _host = string.Empty;
     private int _port = 22;
+    private string? _unparsedPort;
     private string _username = string.Empty;
     private string _container = string.Empty;
     private string _dockerContext = string.Empty;
@@ -66,7 +69,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     private SavedSshSourceOption _selectedSavedSshSource = SavedSshSourceOption.Manual;
     private bool _isTesting;
     private string _testStatus = "Not tested";
-    private string _testDetail = "Save is allowed without a test; opening validates the profile again.";
+    private string _testDetail = "You can save without testing.";
     private SshHostKeyReview? _hostKeyReview;
 
     public ConnectionEditorViewModel(
@@ -156,7 +159,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit connection" : "New connection";
+    public string EditorTitle => IsEditing ? "Edit Connection" : "New Connection";
 
     public IReadOnlyList<ConnectionKind> ConnectionKinds { get; }
 
@@ -186,6 +189,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(ShowsSshEndpointFields));
                 OnPropertyChanged(nameof(SavedSshSourceSummary));
+                OnPropertyChanged(nameof(SavedSshSourceHint));
             }
         }
     }
@@ -202,6 +206,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     /// </summary>
     public bool ShowsSshEndpointFields =>
         !ShowsSavedSshSources || SelectedSavedSshSource.Profile is null;
+
+    /// <summary>
+    /// What the choice above means, said for the choice that is made: a saved
+    /// connection speaks for the endpoint, and "Enter manually" asks for it in
+    /// the fields below.
+    /// </summary>
+    public string SavedSshSourceHint => SelectedSavedSshSource.Profile is null
+        ? "Enter the host and credentials below."
+        : "Uses this connection’s host and credentials. Changes to it apply here too.";
 
     /// <summary>
     /// The referenced connection's current endpoint — the options carry the
@@ -239,6 +252,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsWsl));
                 OnPropertyChanged(nameof(ShowsLocalShell));
                 OnPropertyChanged(nameof(CanBrowseRepository));
+                OnPropertyChanged(nameof(UsesSystemFolderPicker));
                 OnPropertyChanged(nameof(ShowsSavedSshSources));
                 OnPropertyChanged(nameof(ShowsSshEndpointFields));
             }
@@ -281,7 +295,34 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     public int Port
     {
         get => _port;
-        set => SetProperty(ref _port, value);
+        set
+        {
+            if (SetProperty(ref _port, value))
+            {
+                _unparsedPort = null;
+                OnPropertyChanged(nameof(PortText));
+            }
+        }
+    }
+
+    /// <summary>The port field's text: the port, or what was typed when it isn't one.</summary>
+    public string PortText
+    {
+        get => _unparsedPort ?? PortNumber.Format(Port);
+        set
+        {
+            if (PortNumber.TryParse(value, out var port))
+            {
+                _unparsedPort = null;
+                Port = port;
+            }
+            else
+            {
+                _unparsedPort = value ?? string.Empty;
+            }
+
+            OnPropertyChanged();
+        }
     }
 
     public string Username
@@ -546,6 +587,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     /// </summary>
     public bool CanBrowseRepository => _gitClient is not null && (IsLocal || IsSsh);
 
+    /// <summary>
+    /// Whether the repository folder is chosen with the system's Open panel.
+    /// A local repository is a folder on this computer, so the panel people
+    /// already know chooses it, with its sidebar, recents and search. An SSH
+    /// repository lives where that panel cannot see, so it is browsed on the
+    /// host with Asura's own folder browser.
+    /// </summary>
+    public bool UsesSystemFolderPicker => IsLocal;
+
     public bool UsesSecretReference => Authentication is
         ConnectionAuthenticationChoice.Password or ConnectionAuthenticationChoice.PrivateKey;
 
@@ -566,8 +616,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         ?? "No previously trusted key";
 
     public string TrustHostKeyLabel => HostKeyReview?.Disposition == SshHostKeyDisposition.Changed
-        ? "Replace trusted key…"
-        : "Trust host key…";
+        ? "Replace Trusted Key…"
+        : "Trust Host Key…";
 
     public bool CanTrustHostKey => !IsTesting
         && HostKeyReview?.Disposition is SshHostKeyDisposition.Unknown or SshHostKeyDisposition.Changed;
@@ -590,7 +640,9 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or OverflowException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeRefusal(
+                exception,
+                "Asura can't test the connection with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -667,13 +719,13 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Test cancelled";
-            TestDetail = "The connection test was cancelled.";
+            TestStatus = "Test canceled";
+            TestDetail = "The connection test was canceled.";
         }
         catch (Exception)
         {
             TestStatus = "Test failed";
-            TestDetail = "The connection runtime could not complete the test.";
+            TestDetail = "Asura couldn't finish testing the connection. Try again.";
         }
         finally
         {
@@ -709,17 +761,17 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
             HostKeyReview = ((ConnectionRuntimeResult<SshHostKeyReview>.Success)result).Value;
             TestStatus = "Host key trusted";
-            TestDetail = "The trust decision was stored. Run diagnostics again to verify the endpoint.";
+            TestDetail = "The host key is trusted. Test again to check the connection.";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            TestStatus = "Host-key review cancelled";
-            TestDetail = "The trusted host key was not changed.";
+            TestStatus = "Host-key review canceled";
+            TestDetail = "The trusted host key wasn't changed.";
         }
         catch (Exception)
         {
             TestStatus = "Host key not trusted";
-            TestDetail = "The trust decision could not be stored.";
+            TestDetail = "Asura couldn't save your choice to trust this host key. Try again.";
         }
         finally
         {
@@ -736,7 +788,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         var result = await _securityRuntime!.DiagnoseAsync(profile, progress, cancellationToken);
         if (result is ConnectionRuntimeResult<ConnectionDiagnosticsReport>.Failure failure)
         {
-            TestStatus = "Diagnostics failed";
+            TestStatus = "Test failed";
             TestDetail = $"{failure.Error.Message} {RecoveryText(failure.Error.RecoveryAction)}".Trim();
             ReportError(TestDetail, TestStatus);
             return;
@@ -760,7 +812,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
                 ConnectionRuntimeErrorCode.PermissionDenied => "Permission denied",
                 ConnectionRuntimeErrorCode.Timeout => "Connection timed out",
                 ConnectionRuntimeErrorCode.Offline => "Connection unavailable",
-                _ => "Diagnostics found a problem",
+                _ => "The test found a problem",
             };
             TestDetail = $"{diagnosticFailure.Message} {RecoveryText(diagnosticFailure.RecoveryAction)}".Trim();
             return;
@@ -768,7 +820,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
         TestStatus = report.Verification == ConnectionTestVerification.EndpointAuthenticated
             ? "Connection succeeded"
-            : "Diagnostics passed";
+            : "Test passed";
         TestDetail = report.Verification switch
         {
             ConnectionTestVerification.EndpointAuthenticated => "The SSH endpoint accepted authentication.",
@@ -776,7 +828,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             ConnectionTestVerification.DistributionReachable => "The WSL distribution is reachable.",
             ConnectionTestVerification.RuntimeAvailable => "The required local runtime is available.",
             ConnectionTestVerification.ConfigurationValidated => "The connection configuration is valid.",
-            null => "All completed diagnostics passed.",
+            null => "All completed checks passed.",
             _ => throw new ArgumentOutOfRangeException(nameof(report.Verification)),
         };
         await ProbeGitRepositoryAsync(profile, cancellationToken);
@@ -789,6 +841,14 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     /// </summary>
     private ConnectionProfile? ReferencedSshSource =>
         OpensGitRepository && IsSsh ? SelectedSavedSshSource.Profile : null;
+
+    /// <summary>
+    /// Why the form's values can't make a connection. A field's own message
+    /// is shown as written; a profile rule's argument check is developer text,
+    /// so it goes to diagnostics and the form says what to check instead.
+    /// </summary>
+    internal static string DescribeRefusal(Exception exception, string fallback) =>
+        FailureReason.Refusal("connection.editor.refused", exception, fallback);
 
     private ConnectionProfile BuildProfile()
     {
@@ -816,7 +876,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
             Required(Name, "Connection name"),
             endpoint,
             authentication,
-            new ConnectionStartup(directory, _environment, Optional(StartupCommand)),
+            new ConnectionStartup(directory, _environment, SingleLineCommand()),
             keepAlive,
             reference is not null
                 ? SshHostKeyPolicy.Strict
@@ -833,7 +893,7 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         ConnectionKind.Local => new ConnectionEndpoint.Local(Optional(LocalShell)),
         ConnectionKind.Ssh => new ConnectionEndpoint.Ssh(
             Required(Host, "SSH host"),
-            Port,
+            ValidPort(),
             Optional(Username)),
         ConnectionKind.Docker => new ConnectionEndpoint.Docker(
             Required(Container, "Docker container"),
@@ -854,7 +914,8 @@ public sealed class ConnectionEditorViewModel : ObservableObject
     {
         if (_gitClient is null)
         {
-            throw new InvalidOperationException("Git support is unavailable in this build.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Git isn't available in this version of Asura, so repositories can't be browsed."));
         }
 
         // A chosen saved connection is the endpoint: the browse probe uses it
@@ -988,11 +1049,18 @@ public sealed class ConnectionEditorViewModel : ObservableObject
         }
     }
 
-    private static string Required(string value, string label)
+    /// <summary>
+    /// The trimmed value, or a failure naming the field it came from — the
+    /// property passed in — so the editor can show it under that field.
+    /// </summary>
+    private static string Required(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{label} is required.");
+            throw InvalidField.Exception(field, $"{label} is required.");
         }
 
         return value.Trim();
@@ -1000,6 +1068,17 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     private static string? Optional(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private string? SingleLineCommand() => Optional(StartupCommand) is { } command
+        && command.Any(char.IsControl)
+            ? throw InvalidField.Exception(
+                nameof(StartupCommand),
+                "The startup command must be one line. Remove the line breaks and tabs from it.")
+            : Optional(StartupCommand);
+
+    private int ValidPort() => _unparsedPort is null && Port is >= 1 and <= 65535
+        ? Port
+        : throw InvalidField.Exception(nameof(Port), PortNumber.Requirement);
 
     private static string ProgressTitle(ConnectionProgressStage stage) => stage switch
     {
@@ -1017,15 +1096,15 @@ public sealed class ConnectionEditorViewModel : ObservableObject
 
     private static string RecoveryText(ConnectionRecoveryAction action) => action switch
     {
-        ConnectionRecoveryAction.EditProfile => "Edit the profile and retry.",
-        ConnectionRecoveryAction.InstallRuntime => "Install the required runtime and retry.",
-        ConnectionRecoveryAction.UnlockSecretVault => "Unlock the credential vault and retry.",
-        ConnectionRecoveryAction.ProvideAuthentication => "Update the authentication settings.",
-        ConnectionRecoveryAction.ReviewHostKey => "Review the remote host key before reconnecting.",
-        ConnectionRecoveryAction.GrantPermission => "Grant the required operating-system permission.",
-        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Retry the test.",
-        ConnectionRecoveryAction.SelectContainer => "Choose a running container.",
-        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution.",
+        ConnectionRecoveryAction.EditProfile => "Edit the connection, then try again.",
+        ConnectionRecoveryAction.InstallRuntime => "Install it, then try again.",
+        ConnectionRecoveryAction.UnlockSecretVault => $"Unlock {PlatformTerms.SecretStore}, then try again.",
+        ConnectionRecoveryAction.ProvideAuthentication => "Check the sign-in settings, then try again.",
+        ConnectionRecoveryAction.ReviewHostKey => "Review the host key, then connect again.",
+        ConnectionRecoveryAction.GrantPermission => "Allow access in the system settings, then try again.",
+        ConnectionRecoveryAction.Retry or ConnectionRecoveryAction.Reconnect => "Try again.",
+        ConnectionRecoveryAction.SelectContainer => "Choose a running container, then try again.",
+        ConnectionRecoveryAction.SelectDistribution => "Choose an installed WSL distribution, then try again.",
         _ => string.Empty,
     };
 }

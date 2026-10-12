@@ -16,7 +16,7 @@ namespace Asura.App.Tests;
 public sealed class SavedScreenRuntimeIdentityTests
 {
     [Fact]
-    public async Task New_terminal_policy_preserves_an_existing_runtime_opened_behind_settings()
+    public async Task New_terminal_policy_preserves_an_existing_runtime_while_settings_is_open()
     {
         var connection = LocalConnection("settings-terminal", "Settings terminal");
         var snapshot = new DefinitionCatalogSnapshot(
@@ -28,16 +28,17 @@ public sealed class SavedScreenRuntimeIdentityTests
 
         viewModel.ShowSettings();
 
+        // Settings is a window beside the workspace: the workspace stays in
+        // view and its commands stay available.
         Assert.True(viewModel.HasRuntimeWorkspace);
-        Assert.False(viewModel.IsWorkspaceVisible);
-        Assert.Equal(
+        Assert.True(viewModel.IsWorkspaceVisible);
+        Assert.NotEqual(
             CommandContext.None,
             viewModel.ActiveCommandContexts & CommandContext.Workspace);
         Assert.Equal(
             NewTerminalTarget.ExistingRuntimeWorkspace,
         MainWindow.ResolveNewTerminalTarget(viewModel.HasRuntimeWorkspace));
 
-        viewModel.ShowWorkspace();
         Assert.True(await viewModel.AddLocalTerminalTabAsync());
 
         Assert.Equal(workspaceId, viewModel.RuntimeWorkspace?.Id);
@@ -49,7 +50,7 @@ public sealed class SavedScreenRuntimeIdentityTests
     }
 
     [Fact]
-    public async Task Direct_new_terminal_mutation_cannot_close_a_dirty_layout_overlay()
+    public async Task A_new_terminal_tab_leaves_a_dirty_layout_designer_open()
     {
         var connection = LocalConnection("modal-terminal", "Modal terminal");
         var snapshot = new DefinitionCatalogSnapshot(
@@ -61,12 +62,14 @@ public sealed class SavedScreenRuntimeIdentityTests
         var editor = Assert.IsType<LayoutDesignerViewModel>(viewModel.LayoutDesignerEditor);
         editor.Name = "Unsaved layout";
 
-        Assert.False(await viewModel.AddLocalTerminalTabAsync());
+        // The designer is a window beside the workspace, not an overlay over
+        // it: the workspace stays usable, and the unsaved layout stays put.
+        Assert.True(await viewModel.AddLocalTerminalTabAsync());
 
-        Assert.Single(runtime.Tabs);
+        Assert.Equal(2, runtime.Tabs.Count);
         Assert.Same(editor, viewModel.LayoutDesignerEditor);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
-        Assert.Contains("overlay", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.True(editor.IsDirty);
+        Assert.True(viewModel.IsLayoutDesignerVisible);
     }
 
     /// <summary>
@@ -503,70 +506,6 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.DoesNotContain(thirdRuntime, viewModel.OpenWorkspaces);
     }
 
-    /// <summary>
-    /// A workspace accent retints the shell while that workspace is open, and
-    /// only while it is open. The view model cannot republish application
-    /// resources, so what it owes the host is the announcement — and owing it
-    /// on the way out matters as much as on the way in.
-    /// </summary>
-    [Fact]
-    public async Task An_open_workspace_announces_its_accent_and_takes_it_back()
-    {
-        var connection = LocalConnection("accent-connection", "Connection");
-        var accented = new WorkspaceDefinition(
-            new WorkspaceId("accented"),
-            WorkspaceDefinition.CurrentSchemaVersion,
-            "Accented",
-            null,
-            "#5FA97A",
-            [
-                new WorkspaceEntry.ConnectionReference(
-                    new WorkspaceEntryId("accent-entry"),
-                    connection.Id),
-            ]);
-        var plain = new WorkspaceDefinition(
-            new WorkspaceId("plain"),
-            WorkspaceDefinition.CurrentSchemaVersion,
-            "Plain",
-            null,
-            null,
-            [
-                new WorkspaceEntry.ConnectionReference(
-                    new WorkspaceEntryId("plain-entry"),
-                    connection.Id),
-            ]);
-        var snapshot = new DefinitionCatalogSnapshot(
-            [Store(connection)],
-            [],
-            [],
-            [Store(accented), Store(plain)],
-            [], [], [], [], []);
-        using var viewModel = CreateViewModel(snapshot, new EmptyFileClients());
-        List<string?> announced = [];
-        viewModel.WorkspaceAccentChanged += (_, accent) => announced.Add(accent);
-
-        Assert.True(await viewModel.OpenWorkspaceAsync(accented.Id));
-        Assert.Equal(["#5FA97A"], announced);
-
-        var editedAccent = new WorkspaceDefinition(
-            accented.Id,
-            accented.SchemaVersion,
-            accented.Name,
-            accented.Description,
-            "#35B779",
-            accented.Entries);
-        viewModel.RefreshCatalog(new DefinitionCatalogSnapshot(
-            [Store(connection)],
-            [],
-            [],
-            [Store(editedAccent), Store(plain)],
-            [], [], [], [], []));
-        Assert.Equal(["#5FA97A", "#35B779"], announced);
-
-        Assert.True(await viewModel.OpenWorkspaceAsync(plain.Id));
-        Assert.Equal(["#5FA97A", "#35B779", null], announced);
-    }
-
     [Fact]
     public async Task Workspace_mixed_entry_order_opens_connection_screen_and_owned_tab()
     {
@@ -897,7 +836,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(panel.SelectedProfile);
         Assert.Empty(host.EnsureFilePanelRequests);
         Assert.Contains(
-            "not currently available",
+            "file provider isn't available right now",
             panel.ContentIssue?.Message,
             StringComparison.Ordinal);
 
@@ -905,7 +844,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(panel.SelectedProfile);
         Assert.Empty(host.EnsureFilePanelRequests);
         Assert.Contains(
-            "will not substitute",
+            "won't switch to another file provider",
             panel.OperationIssue?.Message,
             StringComparison.Ordinal);
 
@@ -1613,7 +1552,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         {
             Assert.False(await viewModel.OpenRecentSessionAsync(recent));
             Assert.Contains(
-                "unavailable",
+                "isn't available on this computer",
                 viewModel.OperationError,
                 StringComparison.OrdinalIgnoreCase);
             Assert.Null(viewModel.RuntimeWorkspace);
@@ -1921,7 +1860,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             versionOneSnapshot,
             out _,
             out var versionOneError));
-        Assert.Contains("not supported", versionOneError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("isn't supported", versionOneError, StringComparison.OrdinalIgnoreCase);
 
         var partialJson = json.Replace(
             "\"sourceValue\":\"recovery-screen\",",
@@ -2135,7 +2074,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             out _,
             out var unsupportedSchemaError));
         Assert.Contains(
-            "not supported",
+            "isn't supported",
             unsupportedSchemaError,
             StringComparison.OrdinalIgnoreCase);
 
@@ -2322,7 +2261,7 @@ public sealed class SavedScreenRuntimeIdentityTests
             out _,
             out var unsupportedError));
         Assert.Contains(
-            "not supported",
+            "isn't supported",
             unsupportedError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -2350,7 +2289,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
         Assert.True(viewModel.HasOperationError);
-        Assert.Contains("not supported", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("couldn't read what was open before", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -2370,7 +2309,7 @@ public sealed class SavedScreenRuntimeIdentityTests
         Assert.False(await viewModel.RestoreRuntimeSnapshotsAsync([snapshot]));
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.True(viewModel.HasOperationError);
-        Assert.Contains("not supported", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("couldn't read what was open before", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task AwaitTerminalPanels(RuntimeWorkspaceViewModel workspace) =>

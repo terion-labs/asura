@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Asura.Application;
 
@@ -120,7 +121,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             catch (SqlLanguageProtocolException)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker returned an invalid completion result.");
+                    "SQL completion and validation stopped working. Asura will restart them shortly.");
                 await StopProcessAsync().ConfigureAwait(false);
                 return EmptyCompletion(cursorOffset);
             }
@@ -166,7 +167,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             catch (SqlLanguageProtocolException)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker returned an invalid diagnostic result.");
+                    "SQL completion and validation stopped working. Asura will restart them shortly.");
                 await StopProcessAsync().ConfigureAwait(false);
                 return [];
             }
@@ -202,7 +203,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             }
             else if (response?.Error is not null)
             {
-                await HandleOperationErrorAsync("catalog update", response.Error)
+                await HandleOperationErrorAsync("catalog-update", response.Error)
                     .ConfigureAwait(false);
             }
         }
@@ -279,7 +280,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         await StopProcessAsync().ConfigureAwait(false);
         if (!StartProcess())
         {
-            SetRecoverableFailure("The SQL intelligence worker could not be started.");
+            SetRecoverableFailure("SQL completion and validation couldn't start. Asura will try again shortly.");
             return false;
         }
 
@@ -293,12 +294,12 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         {
             if (response?.Error is { } error)
             {
-                SetPermanentFailure(WorkerError("initialize", error));
+                SetPermanentFailure(WorkerError("initialize", error, permanent: true));
             }
             else if (UnavailableReason is null)
             {
                 SetRecoverableFailure(
-                    "The SQL intelligence worker stopped during initialization.");
+                    "SQL completion and validation couldn't start. Asura will try again shortly.");
             }
             await StopProcessAsync().ConfigureAwait(false);
             return false;
@@ -330,6 +331,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         catch (Exception exception) when (exception is
             Win32Exception or FileNotFoundException or UnauthorizedAccessException)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("sql-language.worker.start-failed", exception);
             process.Dispose();
             return false;
         }
@@ -350,7 +352,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         if (_process is not { } process || !IsProcessRunning())
         {
             SetRecoverableFailure(
-                $"The SQL intelligence worker stopped before {method}.");
+                "SQL completion and validation stopped working. Asura will restart them shortly.");
             return null;
         }
 
@@ -398,9 +400,10 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             or ObjectDisposedException or InvalidOperationException
             or SqlLanguageProtocolException)
         {
+            SecretSafeDiagnosticProjection.WriteTrace("sql-language.worker.request-failed", exception);
             SetRecoverableFailure(exception is OperationCanceledException
-                ? $"The SQL intelligence worker timed out during {method}."
-                : $"The SQL intelligence worker failed during {method}: {exception.Message}");
+                ? "SQL completion and validation took too long to respond. Asura will try again shortly."
+                : "SQL completion and validation stopped working. Asura will restart them shortly.");
             await StopProcessAsync().ConfigureAwait(false);
             return null;
         }
@@ -486,10 +489,18 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             stderr = _stderrTail.ToString();
         }
 
-        var combined = string.IsNullOrWhiteSpace(stderr)
-            ? reason
-            : $"{reason} Worker detail: {stderr}";
-        var sanitized = new string([.. combined.Select(character => char.IsControl(character) ? ' ' : character)]);
+        // The worker's output can quote the query or the connection, so it
+        // never leaves the process. Diagnostics record that the worker wrote
+        // to stderr and how it exited; the status people read says what
+        // happened and what Asura does next.
+        if (!string.IsNullOrWhiteSpace(stderr))
+        {
+            SecretSafeDiagnosticProjection.WriteTrace(
+                WorkerStderrDiagnosticCode(TryGetExitCode()),
+                SecretSafeDiagnosticKind.Unexpected);
+        }
+
+        var sanitized = new string([.. reason.Select(character => char.IsControl(character) ? ' ' : character)]);
         const int maximumCharacters = 320;
         if (sanitized.Length > maximumCharacters)
         {
@@ -545,23 +556,72 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             case "methodNotFound":
             case "invalidEnvelope":
             case "invalidRequest":
-                SetPermanentFailure(WorkerError(operation, error));
+                SetPermanentFailure(WorkerError(operation, error, permanent: true));
                 break;
             default:
-                SetRecoverableFailure(WorkerError(operation, error));
+                SetRecoverableFailure(WorkerError(operation, error, permanent: false));
                 break;
         }
 
         await StopProcessAsync().ConfigureAwait(false);
     }
 
-    private static string WorkerError(string method, WorkerResponseError error)
+    // The worker's message can quote the query, so it stays out of both the
+    // status people read and diagnostics. Diagnostics record the operation and
+    // the worker's error code, which is a closed protocol word.
+    private static string WorkerError(
+        string operation,
+        WorkerResponseError error,
+        bool permanent)
     {
-        var code = string.IsNullOrWhiteSpace(error.Code) ? "workerError" : error.Code;
-        var message = string.IsNullOrWhiteSpace(error.Message)
-            ? "No detail was returned."
-            : error.Message;
-        return $"The SQL intelligence worker rejected {method} ({code}): {message}";
+        SecretSafeDiagnosticProjection.WriteTrace(
+            WorkerRejectedDiagnosticCode(operation, error.Code),
+            SecretSafeDiagnosticKind.Unexpected);
+        return permanent
+            ? "SQL completion and validation aren't available for this connection."
+            : "SQL completion and validation stopped working. Asura will restart them shortly.";
+    }
+
+    /// <summary>
+    /// The diagnostic code for a request the worker refused, such as
+    /// "sql-language.worker.rejected.completion.internalerror".
+    /// </summary>
+    internal static string WorkerRejectedDiagnosticCode(string operation, string? workerCode) =>
+        $"sql-language.worker.rejected.{operation}.{StableCodeSegment(workerCode)}";
+
+    /// <summary>
+    /// The diagnostic code for worker stderr, such as
+    /// "sql-language.worker.stderr.exit-1", or ".running" while it still runs.
+    /// </summary>
+    internal static string WorkerStderrDiagnosticCode(int? exitCode) => exitCode switch
+    {
+        null => "sql-language.worker.stderr.running",
+        < 0 => string.Create(CultureInfo.InvariantCulture, $"sql-language.worker.stderr.exit-neg{-(long)exitCode.Value}"),
+        _ => string.Create(CultureInfo.InvariantCulture, $"sql-language.worker.stderr.exit-{exitCode.Value}"),
+    };
+
+    // Keeps only lowercase letters and digits so a worker code can't add
+    // anything but a protocol word to the diagnostic code.
+    private static string StableCodeSegment(string? value)
+    {
+        const int maximumCharacters = 40;
+        var segment = new string([.. (value ?? string.Empty)
+            .Select(char.ToLowerInvariant)
+            .Where(character => character is >= 'a' and <= 'z' or >= '0' and <= '9')
+            .Take(maximumCharacters)]);
+        return segment.Length == 0 ? "unknown" : segment;
+    }
+
+    private int? TryGetExitCode()
+    {
+        try
+        {
+            return _process is { HasExited: true } process ? process.ExitCode : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     private static void TryKill(Process process)

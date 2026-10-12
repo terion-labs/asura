@@ -113,7 +113,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The workspace graph action was cancelled."),
+                        "The workspace graph action was canceled."),
                     structuralContext.Revision);
             }
             catch (Exception exception)

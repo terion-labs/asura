@@ -14,7 +14,7 @@ public sealed partial class GitRuntimePanelViewModel
         var result = await _client.ReadCommitDetailAsync(repository, untracked ? reference + "^3" : reference, _lifetime.Token);
         if (result is GitResult<GitCommitDetail>.Failure failure)
         {
-            PresentFailure(failure.Error, untracked ? "This stash has no new-file revision" : "Could not inspect stash");
+            PresentFailure(failure.Error, untracked ? "This stash has no new-file revision" : "Couldn't inspect stash");
             return;
         }
 
@@ -31,7 +31,7 @@ public sealed partial class GitRuntimePanelViewModel
         var result = await _client.ReadStashPatchAsync(repository, reference, _lifetime.Token);
         if (result is GitResult<GitTaskOutput>.Failure failure)
         {
-            PresentFailure(failure.Error, "Could not export stash");
+            PresentFailure(failure.Error, "Couldn't export stash");
             return null;
         }
 
@@ -65,7 +65,7 @@ public sealed partial class GitRuntimePanelViewModel
         var result = await _client.ReadDiffAsync(repository, request, _lifetime.Token);
         if (result is GitResult<GitDiffDocument>.Failure failure)
         {
-            PresentFailure(failure.Error, "Could not read patch");
+            PresentFailure(failure.Error, "Couldn't read patch");
             return null;
         }
 

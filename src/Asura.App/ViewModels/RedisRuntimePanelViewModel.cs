@@ -85,12 +85,23 @@ public sealed class RedisKeyItemViewModel : ObservableObject
     /// <summary>Re-reads the clock. Nothing about the key changed.</summary>
     public void Tick() => OnPropertyChanged(nameof(Ttl));
 
-    private static string FormatBytes(long bytes) => bytes switch
-    {
-        < 1024 => $"{bytes} B",
-        < 1024 * 1024 => $"{bytes / 1024d:0.#} KB",
-        _ => $"{bytes / (1024d * 1024d):0.#} MB",
-    };
+    /// <summary>
+    /// A memory figure written the way every other size in the app is: one
+    /// formatter, so a key's size never reads "2,1 KB" beside a file's "2.1 KB".
+    /// </summary>
+    internal static string FormatBytes(long bytes) => ByteSize.Format(bytes);
+}
+
+/// <summary>
+/// Counts on the Redis screen — keys loaded, bytes, members — in the current
+/// culture's digit grouping, with a real plural.
+/// </summary>
+internal static class RedisCounts
+{
+    public static string Format(long count) => count.ToString("N0", CultureInfo.CurrentCulture);
+
+    public static string Count(long count, string singular, string plural) =>
+        count == 1 ? $"1 {singular}" : $"{Format(count)} {plural}";
 }
 
 /// <summary>
@@ -192,46 +203,61 @@ public sealed record RedisKeyForm(
 
     public bool EditsJson => CanEditEntry && IsJson;
 
+    /// <summary>
+    /// Whether the key's value is listed as rows. A JSON document is one
+    /// value: its editor shows the whole document, and a grid of its fields
+    /// beside it only repeated the document with each value cut short.
+    /// </summary>
+    public bool ShowsValueGrid => !IsJson;
+
+    /// <summary>
+    /// The add form's heading, in sentence case and in the type's own terms.
+    /// It used to repeat the button ("Add Fields") over the button itself.
+    /// </summary>
+    public string AddFormHeading => EntriesLabel is { } entries
+        ? $"New {entries.ToLowerInvariant()}"
+        : FieldLabel is not null ? "New entry" : $"New {ValueLabel.ToLowerInvariant()}";
+
     public static RedisKeyForm For(string type) => type switch
     {
         "hash" => new(
-            "Value", "Field", null, "Add fields", true,
+            "Value", "Field", null, "Add Fields", true,
             EntriesLabel: "Fields",
             CanRemoveEntries: true,
-            EditLabel: "Save field",
+            EditLabel: "Save Field",
             EntryIdentityLabel: "Field"),
         "list" => new(
             "Value", null, null, "Append", true,
             EntriesLabel: "Values",
             CanRemoveEntries: true,
-            EditLabel: "Save value",
+            EditLabel: "Save Value",
             EntryIdentityLabel: "Position"),
         "set" => new(
-            "Member", null, null, "Add members", false,
+            "Member", null, null, "Add Members", false,
             EntriesLabel: "Members",
             CanRemoveEntries: true,
-            EditLabel: "Replace member",
+            EditLabel: "Replace Member",
             EntryIdentityLabel: "Member"),
         "zset" => new(
-            "Member", null, "Score", "Add members", false,
+            "Member", null, "Score", "Add Members", false,
             EntriesLabel: "Members",
             CanRemoveEntries: true,
-            EditLabel: "Save member",
+            EditLabel: "Save Member",
             EntryIdentityLabel: "Member"),
         "stream" => new(
-            "Value", "Field", null, "Append entry", true,
+            "Value", "Field", null, "Append Entry", true,
             CanRemoveEntries: true,
             EntryIdentityLabel: "Entry"),
         "json" => new(
-            "JSON", null, null, "Replace document", true,
+            "JSON", null, null, "Replace Document", true,
             IsJson: true,
             HasWholeValue: true,
-            EditLabel: "Replace document"),
-        "timeseries" => new("Sample", null, null, "Add sample", false),
+            EditLabel: "Replace Document"),
+        "timeseries" => new("Sample", null, null, "Add Sample", false),
         _ => new(
-            "Value", null, null, "Set value", true,
+            "Value", null, null, "Set Value", true,
             HasWholeValue: true,
-            EditLabel: "Set value"),
+            EditLabel: "Set Value"),
     };
 }
 
@@ -245,7 +271,8 @@ public sealed record RedisValueEntryViewModel(RedisValueEntry Entry)
 
 public sealed record RedisPubSubMessageViewModel(RedisPubSubMessage Message)
 {
-    public string Time => Message.ReceivedAt.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture);
+    /// <summary>When the message arrived, as the reader's clock writes a time.</summary>
+    public string Time => DisplayDates.FormatTime(Message.ReceivedAt);
     public string Channel => Message.Channel;
     public string Payload => Message.Payload;
     public string Kind => Message.Subscription.Kind.ToString();
@@ -259,6 +286,7 @@ public sealed record RedisPubSubMessageViewModel(RedisPubSubMessage Message)
 public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 {
     private const int ScanBatchSize = 200;
+    private const string AllKeysPattern = "*";
     private const int MaximumValueEntries = 500;
     private const int MaximumPubSubMessages = 500;
 
@@ -288,9 +316,11 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     private bool _initializationStarted;
     private bool _persistedConnection;
     private bool _isBusy;
+    private RedisConnectionProblem _connectionProblem;
     private string _statusText = "Disconnected";
     private string? _errorMessage;
-    private string _scanPattern = "*";
+    private string _scanPattern = string.Empty;
+    private string _activeScanPattern = AllKeysPattern;
     private string? _scanCursor;
     private bool _scanComplete;
     private string _newKeyName = string.Empty;
@@ -333,7 +363,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         Func<DatabaseConnectionProfile, CancellationToken, Task<string?>>? passwordResolver = null,
         Func<DatabaseConnectionProfileId, string, CancellationToken,
             Task<DatabaseConnectionProfile?>>? passwordPersister = null,
-        string passwordStoreLabel = "Save in system credential store",
+        string? passwordStoreLabel = null,
         TimeProvider? timeProvider = null,
         bool deferStoredCredentialAccess = false,
         string? sessionPassword = null,
@@ -354,10 +384,15 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         _recovery = recovery;
         _deferStoredCredentialAccess = deferStoredCredentialAccess;
         ConnectionString = connectionString ?? savedConnection?.ConnectionString ?? string.Empty;
-        PasswordStoreLabel = passwordStoreLabel;
+        PasswordStoreLabel = string.IsNullOrWhiteSpace(passwordStoreLabel)
+            ? PlatformTerms.SaveInSecretStore
+            : passwordStoreLabel;
 
         ConnectCommand = new AsyncActionCommand(ConnectAsync, () => !IsBusy && HasConnectionTarget);
         DisconnectCommand = new AsyncActionCommand(DisconnectAsync, () => IsConnected);
+        ToggleConnectionCommand = new AsyncActionCommand(
+            () => IsConnected ? DisconnectAsync() : ConnectAsync(),
+            () => IsConnected || (!IsBusy && HasConnectionTarget));
         ScanCommand = new AsyncActionCommand(RestartScanAsync, () => IsConnected && !IsBusy);
         LoadMoreCommand = new AsyncActionCommand(LoadMoreAsync, () => IsConnected && !IsBusy && !ScanComplete);
         CreateKeyCommand = new AsyncActionCommand(CreateKeyAsync, () => IsConnected && !IsBusy && !string.IsNullOrWhiteSpace(NewKeyName));
@@ -365,10 +400,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         DeleteKeyCommand = new AsyncActionCommand(DeleteSelectedKeyAsync, () => SelectedKey is not null && IsConnected);
         SaveEntryCommand = new AsyncActionCommand(
             SaveEntryAsync,
-            () => IsConnected
-                && !IsBusy
-                && MutationForm.CanEditEntry
-                && (MutationForm.HasWholeValue || SelectedValueEntry is not null));
+            () => IsConnected && !IsBusy && ShowsEntrySave);
         SetExpiryCommand = new AsyncActionCommand(
             ApplyExpiryAsync,
             () => IsConnected && !IsBusy && SelectedKey is not null);
@@ -392,7 +424,13 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             OnPropertyChanged(nameof(HasKeys));
             OnPropertyChanged(nameof(ScanProgressText));
         };
-        ValueEntries.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasValueEntries));
+        ValueEntries.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasValueEntries));
+            OnPropertyChanged(nameof(ShowsIdentityColumn));
+            OnPropertyChanged(nameof(ShowsFieldColumn));
+            OnPropertyChanged(nameof(ShowsScoreColumn));
+        };
         PubSubMessages.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasPubSubMessages));
         Subscriptions.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSubscriptions));
         SearchResults.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasSearchResults));
@@ -488,6 +526,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             if (SetProperty(ref _isBusy, value))
             {
                 RaiseCommands();
+                PublishConnectionStatus();
             }
         }
     }
@@ -572,7 +611,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             {
                 if (!saved)
                 {
-                    ErrorMessage = "The database target could not be saved in the credential store. The previous saved target is unchanged.";
+                    ErrorMessage = $"Asura couldn't save the connection in {PlatformTerms.SecretStore}. The previously saved connection is unchanged.";
                     if (_recovery.CleanupIncomplete)
                     {
                         ErrorMessage += " An unused recovery credential may need removal in Security & secrets.";
@@ -640,17 +679,36 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
     public bool HasValueEntries => ValueEntries.Count > 0;
 
+    /// <summary>
+    /// The identity column only where it says something the field column
+    /// does not: a hash field is its own identity, a list position is not.
+    /// </summary>
+    public bool ShowsIdentityColumn => ValueEntries.Count == 0
+        || ValueEntries.Any(entry => !string.Equals(entry.Identity, entry.Field, StringComparison.Ordinal));
+
+    public bool ShowsFieldColumn => ValueEntries.Any(entry => entry.Field.Length > 0);
+
+    public bool ShowsScoreColumn => ValueEntries.Any(entry => entry.Score.Length > 0);
+
     public bool HasPubSubMessages => PubSubMessages.Count > 0;
 
     public bool HasSubscriptions => Subscriptions.Count > 0;
 
     public bool HasSearchResults => SearchResults.Count > 0;
 
+    /// <summary>
+    /// The key filter as typed: a SCAN MATCH glob. Empty lists every key, so
+    /// the search field it sits in can be cleared like any other.
+    /// </summary>
     public string ScanPattern
     {
         get => _scanPattern;
         set => SetProperty(ref _scanPattern, value ?? string.Empty);
     }
+
+    /// <summary>Whether the key list was read through a filter narrower than
+    /// every key.</summary>
+    public bool IsFilteringKeys => !string.Equals(_activeScanPattern, AllKeysPattern, StringComparison.Ordinal);
 
     public bool ScanComplete
     {
@@ -666,8 +724,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     public string ScanProgressText => ScanComplete
-        ? $"Scan complete · {Keys.Count} keys loaded"
-        : $"{Keys.Count} keys loaded · live SCAN";
+        ? $"Scan complete · {RedisCounts.Count(Keys.Count, "key", "keys")} loaded"
+        : $"{RedisCounts.Count(Keys.Count, "key", "keys")} loaded · live SCAN";
 
     public IReadOnlyList<string> NewKeyTypeOptions { get; } =
         ["string", "hash", "list", "set", "zset", "stream", "json", "timeseries"];
@@ -744,6 +802,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             OnPropertyChanged(nameof(HasSelectedKey));
             OnPropertyChanged(nameof(CanMutateSelectedKey));
             OnPropertyChanged(nameof(MutationForm));
+            OnPropertyChanged(nameof(ShowsEntrySave));
             _ = value is null ? ClearSelectionAsync() : ReadSelectedKeyAsync();
         }
     }
@@ -767,6 +826,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             EditValue = value?.Value ?? string.Empty;
             EditScore = value?.Score is { Length: > 0 } score ? score : "0";
             OnPropertyChanged(nameof(HasSelectedValueEntry));
+            OnPropertyChanged(nameof(ShowsEntrySave));
             OnPropertyChanged(nameof(EditIdentity));
             RemoveEntryCommand.RaiseCanExecuteChanged();
             SaveEntryCommand.RaiseCanExecuteChanged();
@@ -774,6 +834,12 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     public bool HasSelectedValueEntry => SelectedValueEntry is not null;
+
+    /// <summary>Whether the entry form is showing its Save button: the key's
+    /// type can edit an entry, and there is a whole value or a selected entry
+    /// to edit. The add form's button is the area's primary action otherwise.</summary>
+    public bool ShowsEntrySave => MutationForm.CanEditEntry
+        && (MutationForm.HasWholeValue || SelectedValueEntry is not null);
 
     /// <summary>What the selected entry is addressed by — a field name, a
     /// position, a member, a stream id.</summary>
@@ -795,10 +861,10 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     /// <summary>What removing the pointed-at entry does, in the type's words.</summary>
     public string RemoveEntryLabel => SelectedKeyType switch
     {
-        "hash" => "Remove field",
-        "stream" => "Remove entry",
-        "set" or "zset" => "Remove member",
-        _ => "Remove value",
+        "hash" => "Remove Field",
+        "stream" => "Remove Entry",
+        "set" or "zset" => "Remove Member",
+        _ => "Remove Value",
     };
 
     public string SelectedKeyType => _selectedSnapshot?.Summary.Type ?? string.Empty;
@@ -811,9 +877,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             // A string's length is its bytes; everything else counts members.
             _selectedSnapshot.Length is not { } length
                 ? "size unknown"
-                : string.Equals(_selectedSnapshot.Summary.Type, "string"
-, StringComparison.Ordinal) ? $"{length.ToString(CultureInfo.InvariantCulture)} bytes"
-                    : $"{length.ToString(CultureInfo.InvariantCulture)} items",
+                : string.Equals(_selectedSnapshot.Summary.Type, "string", StringComparison.Ordinal)
+                    ? RedisCounts.Count(length, "byte", "bytes")
+                    : RedisCounts.Count(length, "item", "items"),
             SelectedKey?.IsExpiring == true ? $"TTL {SelectedKey.Ttl}" : "persistent",
             SelectedKey?.Memory ?? "-");
 
@@ -850,7 +916,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     public string MutationValue { get => _mutationValue; set => SetProperty(ref _mutationValue, value ?? string.Empty); }
     public string MutationScore { get => _mutationScore; set => SetProperty(ref _mutationScore, value ?? string.Empty); }
     public string ExpirySeconds { get => _expirySeconds; set => SetProperty(ref _expirySeconds, value ?? string.Empty); }
-    public string DeleteKeyLabel => _deleteArmed ? "Confirm delete" : "Delete key";
+    public string DeleteKeyLabel => _deleteArmed ? "Confirm Delete" : "Delete Key";
 
     /// <summary>
     /// Whether the delete action is one press from running. Quiet until then:
@@ -871,6 +937,52 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
     public AsyncActionCommand ConnectCommand { get; }
     public AsyncActionCommand DisconnectCommand { get; }
+
+    /// <summary>
+    /// The toolbar's one connection button: it connects when there is no
+    /// session and disconnects when there is. Two buttons enabled side by side
+    /// asked people to work out which one applied.
+    /// </summary>
+    public AsyncActionCommand ToggleConnectionCommand { get; }
+
+    public string ConnectionActionLabel => IsConnected ? "Disconnect" : "Connect";
+
+    public string ConnectionActionDescription => IsConnected
+        ? "Disconnect from Redis"
+        : "Connect to Redis";
+
+    /// <summary>
+    /// The header's status mark: what the connection is doing, as a tone the
+    /// dot draws and, with Differentiate Without Color, a glyph.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => IsConnected
+        ? StatusTone.Success
+        : _connectionProblem switch
+        {
+            RedisConnectionProblem.Failed => StatusTone.Danger,
+            RedisConnectionProblem.PasswordRequired => StatusTone.Warning,
+            _ when IsConnecting => StatusTone.Warning,
+            _ => StatusTone.Neutral,
+        };
+
+    /// <summary>
+    /// A connection attempt is in flight: drawn as progress, not as the idle
+    /// "not connected" ring.
+    /// </summary>
+    private bool IsConnecting => !IsConnected && IsBusy && HasConnectionTarget;
+
+    /// <summary>The same state in words, for the mark's tooltip and VoiceOver.</summary>
+    public string ConnectionStatusLabel => IsConnected
+        ? $"Connected to {ConnectionDisplayName}"
+        : _connectionProblem switch
+        {
+            RedisConnectionProblem.Failed => $"Couldn't connect to {ConnectionDisplayName}",
+            RedisConnectionProblem.PasswordRequired => $"{ConnectionDisplayName} needs a password",
+            _ when IsConnecting => $"Connecting to {ConnectionDisplayName}",
+            _ when HasConnectionTarget => "Not connected",
+            _ => "No connection",
+        };
+
     public AsyncActionCommand ScanCommand { get; }
     public AsyncActionCommand LoadMoreCommand { get; }
     public AsyncActionCommand CreateKeyCommand { get; }
@@ -899,6 +1011,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
         IsBusy = true;
         ErrorMessage = null;
+        _connectionProblem = RedisConnectionProblem.None;
         StatusText = "Connecting";
         try
         {
@@ -908,6 +1021,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             var connectionString = await ResolveConnectionStringAsync(_lifetime.Token).ConfigureAwait(true);
             if (connectionString is null)
             {
+                _connectionProblem = RedisConnectionProblem.PasswordRequired;
                 StatusText = "Password required";
                 PasswordRequested?.Invoke(this, EventArgs.Empty);
                 return;
@@ -943,13 +1057,15 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         catch (Exception exception) when (IsAuthenticationFailure(exception))
         {
             ErrorMessage = null;
+            _connectionProblem = RedisConnectionProblem.PasswordRequired;
             StatusText = "Password required";
             await DisconnectCoreAsync().ConfigureAwait(true);
             PasswordRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = RedisErrorText.ForConnection(exception);
+            _connectionProblem = RedisConnectionProblem.Failed;
             StatusText = "Connection failed";
             await DisconnectCoreAsync().ConfigureAwait(true);
         }
@@ -1010,6 +1126,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(SavedConnectionId));
         OnPropertyChanged(nameof(SavedConnectionName));
         OnPropertyChanged(nameof(ConnectionDisplayName));
+        PublishConnectionStatus();
         OnPropertyChanged(nameof(RecoveryTarget));
         OnPropertyChanged(nameof(TunnelConnectionId));
         _ = ConnectAsync();
@@ -1161,6 +1278,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         await DisconnectCoreAsync().ConfigureAwait(true);
         InvalidateHostedSession();
+        _connectionProblem = RedisConnectionProblem.None;
         StatusText = "Disconnected";
         OnConnectionChanged();
     }
@@ -1232,6 +1350,9 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         _selectedKey = null;
         _selectedSnapshot = null;
         _scanCursor = null;
+        // A scan keeps the pattern it started with: a cursor is only
+        // meaningful for the MATCH it was issued under.
+        _activeScanPattern = string.IsNullOrWhiteSpace(ScanPattern) ? AllKeysPattern : ScanPattern.Trim();
         ScanComplete = false;
         await LoadScanPageCoreAsync(cancellationToken).ConfigureAwait(true);
     }
@@ -1243,7 +1364,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         var name = NewKeyName.Trim();
         if (string.IsNullOrWhiteSpace(name))
         {
-            throw new ArgumentException("Enter a key name.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a key name."));
         }
 
         var key = new RedisKeyReference(name, Encoding.UTF8.GetBytes(name));
@@ -1268,13 +1389,13 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "timeseries":
                 if (!double.TryParse(NewKeyValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var sample))
                 {
-                    throw new ArgumentException("Enter a valid time-series sample value.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid time-series sample value."));
                 }
 
                 await _session!.AddTimeSeriesSampleAsync(key, sample, token).ConfigureAwait(true);
                 break;
             default:
-                throw new ArgumentException($"Unsupported Redis key type: {NewKeyType}");
+                throw RedisErrorText.Curated(new ArgumentException("Asura can’t create a key of that type. Choose another type."));
         }
 
         if (ParseExpiry(NewKeyExpirySeconds) is { } expiry)
@@ -1325,7 +1446,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             return;
         }
 
-        var page = await _session.ScanKeysAsync(ScanPattern, _scanCursor, ScanBatchSize, cancellationToken)
+        var page = await _session.ScanKeysAsync(_activeScanPattern, _scanCursor, ScanBatchSize, cancellationToken)
             .ConfigureAwait(true);
         var existing = Keys.Select(item => Convert.ToBase64String(item.Summary.Key.Bytes)).ToHashSet(StringComparer.Ordinal);
         foreach (var summary in page.Keys)
@@ -1400,7 +1521,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "timeseries":
                 if (!double.TryParse(MutationValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var sample))
                 {
-                    throw new ArgumentException("Enter a valid time-series sample value.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid time-series sample value."));
                 }
 
                 await _session.AddTimeSeriesSampleAsync(key, sample, token).ConfigureAwait(true);
@@ -1441,7 +1562,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "list" when entry is not null:
                 if (!long.TryParse(entry.Identity, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index))
                 {
-                    throw new InvalidOperationException("A list element is addressed by its position.");
+                    throw RedisErrorText.Curated(new InvalidOperationException("A list element is addressed by its position."));
                 }
 
                 await _session.SetListValueAsync(key, index, EditValue, token).ConfigureAwait(true);
@@ -1457,7 +1578,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
             case "zset" when entry is not null:
                 if (!double.TryParse(EditScore, NumberStyles.Float, CultureInfo.InvariantCulture, out var score))
                 {
-                    throw new ArgumentException("Enter a valid sorted-set score.");
+                    throw RedisErrorText.Curated(new ArgumentException("Enter a valid sorted-set score."));
                 }
 
                 if (!string.Equals(entry.Value, EditValue, StringComparison.Ordinal))
@@ -1468,8 +1589,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 await _session.AddSortedSetValueAsync(key, EditValue, score, token).ConfigureAwait(true);
                 break;
             default:
-                throw new NotSupportedException(
-                    $"A {SelectedKeyType} entry cannot be rewritten in place.");
+                throw RedisErrorText.Curated(new NotSupportedException(
+                    "This entry can’t be changed in place. Delete it and add it again."));
         }
 
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);
@@ -1532,8 +1653,8 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         await ReadSelectedKeyCoreAsync(key, token).ConfigureAwait(true);
         if (outcome == RedisEntryRemovalOutcome.Stale)
         {
-            throw new InvalidOperationException(
-                "The Redis entry changed after it was displayed. The value was refreshed without deleting it.");
+            throw RedisErrorText.Curated(new InvalidOperationException(
+                "The Redis entry changed after it was displayed. The value was refreshed without deleting it."));
         }
     });
 
@@ -1640,7 +1761,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
+            ErrorMessage = RedisErrorText.ForCommand(exception);
         }
         finally
         {
@@ -1671,7 +1792,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         return double.TryParse(seconds, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
             && parsed > 0
                 ? TimeSpan.FromSeconds(parsed)
-                : throw new ArgumentException("Expiry must be a positive number of seconds.");
+                : throw RedisErrorText.Curated(new ArgumentException("Expiry must be a positive number of seconds."));
     }
 
     /// <summary>
@@ -1699,7 +1820,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                 case "hash":
                     if (string.IsNullOrWhiteSpace(entry.Field))
                     {
-                        throw new ArgumentException("Enter a field name for every row.");
+                        throw RedisErrorText.Curated(new ArgumentException("Enter a field name for every row."));
                     }
 
                     await _session!.SetHashFieldAsync(key, entry.Field, entry.Value, token)
@@ -1718,7 +1839,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
                             CultureInfo.InvariantCulture,
                             out var score))
                     {
-                        throw new ArgumentException("Enter a valid sorted-set score for every row.");
+                        throw RedisErrorText.Curated(new ArgumentException("Enter a valid sorted-set score for every row."));
                     }
 
                     await _session!.AddSortedSetValueAsync(key, entry.Value, score, token)
@@ -1731,7 +1852,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
 
         if (written == 0)
         {
-            throw new ArgumentException("Enter at least one entry.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter at least one entry."));
         }
     }
 
@@ -1739,7 +1860,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (string.IsNullOrWhiteSpace(MutationField))
         {
-            throw new ArgumentException("Enter a field name.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a field name."));
         }
     }
 
@@ -1747,7 +1868,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         if (string.IsNullOrWhiteSpace(NewKeyField))
         {
-            throw new ArgumentException("Enter a field name for the new key.");
+            throw RedisErrorText.Curated(new ArgumentException("Enter a field name for the new key."));
         }
     }
 
@@ -1766,9 +1887,18 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         return false;
     }
 
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
+    }
+
     private void OnConnectionChanged()
     {
         OnPropertyChanged(nameof(IsConnected));
+        OnPropertyChanged(nameof(ConnectionActionLabel));
+        OnPropertyChanged(nameof(ConnectionActionDescription));
+        PublishConnectionStatus();
         OnPropertyChanged(nameof(Facts));
         OnPropertyChanged(nameof(ServerFactsText));
         OnPropertyChanged(nameof(SearchAvailable));
@@ -1807,6 +1937,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(HasSelectedKeyLimitation));
         OnPropertyChanged(nameof(CanMutateSelectedKey));
         OnPropertyChanged(nameof(MutationForm));
+        OnPropertyChanged(nameof(ShowsEntrySave));
         OnPropertyChanged(nameof(RemoveEntryLabel));
         SaveValueCommand.RaiseCanExecuteChanged();
         RemoveEntryCommand.RaiseCanExecuteChanged();
@@ -1818,6 +1949,7 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
     {
         ConnectCommand.RaiseCanExecuteChanged();
         DisconnectCommand.RaiseCanExecuteChanged();
+        ToggleConnectionCommand.RaiseCanExecuteChanged();
         ScanCommand.RaiseCanExecuteChanged();
         LoadMoreCommand.RaiseCanExecuteChanged();
         CreateKeyCommand.RaiseCanExecuteChanged();
@@ -1832,4 +1964,12 @@ public sealed class RedisRuntimePanelViewModel : RuntimePanelViewModel
         RefreshIndexesCommand.RaiseCanExecuteChanged();
         SearchCommand.RaiseCanExecuteChanged();
     }
+}
+
+/// <summary>Why the last connection attempt left the panel without a session.</summary>
+internal enum RedisConnectionProblem
+{
+    None,
+    PasswordRequired,
+    Failed,
 }

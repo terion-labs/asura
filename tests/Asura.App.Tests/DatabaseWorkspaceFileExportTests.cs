@@ -1,4 +1,5 @@
 using System.Text;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
 using Asura.Testing;
@@ -90,10 +91,12 @@ public sealed class DatabaseWorkspaceFileExportTests : IDisposable
     [Fact]
     public void Page_export_rejects_sql_insert_files()
     {
-        var error = Assert.Throws<InvalidDataException>(() =>
+        var error = Assert.Throws<ReadableFailureException>(() =>
             DatabaseWorkspaceView.ResolvePageExportFormat("page.sql"));
 
-        Assert.Contains("Use .csv or .json", error.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "Asura can’t export a page as a “.sql” file. Use a name that ends in .csv or .json.",
+            error.Message);
     }
 
     [Fact]
@@ -123,25 +126,22 @@ public sealed class DatabaseWorkspaceFileExportTests : IDisposable
             .Where(element => string.Equals(element.Name.LocalName, "MenuItem", StringComparison.Ordinal))
             .Select(element => (string?)element.Attribute("Header") ?? string.Empty)
             .ToArray();
-        var inspector = ApplicationViews
-            .FindUniqueNamedElement("InspectorColumn")
+        // The inspector offers the same three formats from one "Copy As"
+        // pull-down that names its verb, not three bare format names.
+        var copyAs = ApplicationViews
+            .FindUniqueNamedElement("InspectorCopyAsButton")
             .Element;
-        // The copy buttons carry their label as a CopyLabel TextBlock so a
-        // success check can fade in over it after copying.
-        var inspectorFormats = inspector.Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal))
-            .Where(element => (string?)element.Attribute("Click") is
-                "OnCopyRowJsonClick" or "OnCopyRowCsvClick" or "OnCopyRowInsertClick")
-            .Select(element => element.Descendants()
-                .Where(child => string.Equals(child.Name.LocalName, "TextBlock"
-, StringComparison.Ordinal) && ((string?)child.Attribute("Classes") ?? string.Empty)
-                        .Contains("CopyLabel", StringComparison.Ordinal))
-                .Select(child => (string?)child.Attribute("Text") ?? string.Empty)
-                .FirstOrDefault() ?? string.Empty)
+        var inspectorFormats = copyAs.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "MenuItem", StringComparison.Ordinal))
+            .Select(element => (string?)element.Attribute("Header") ?? string.Empty)
             .ToArray();
+        var label = copyAs.Descendants()
+            .Single(child => string.Equals(child.Name.LocalName, "TextBlock", StringComparison.Ordinal)
+                && ((string?)child.Attribute("Classes") ?? string.Empty).Contains("CopyLabel", StringComparison.Ordinal));
 
-        Assert.Equal(["JSON", "CSV", "INSERT"], contextMenuFormats);
-        Assert.Equal(["JSON", "CSV", "INSERT"], inspectorFormats);
+        Assert.Equal(["JSON", "CSV", "SQL INSERT"], contextMenuFormats);
+        Assert.Equal(["JSON", "CSV", "SQL INSERT"], inspectorFormats);
+        Assert.Equal("Copy As", (string?)label.Attribute("Text"));
     }
 
     public void Dispose()

@@ -382,7 +382,7 @@ public static class BuiltInAgentTools
             AgentActionRisk.Mutation),
         Tool(
             BrowserEvaluate,
-            "Evaluate bounded browser script",
+            "Run script in browser page",
             AgentCapability.BrowserScripting,
             AgentActionRisk.Privileged),
         Tool(
@@ -457,7 +457,7 @@ public static class BuiltInAgentTools
             AgentActionRisk.Observation),
         Tool(
             FilesCreateDirectory,
-            "Create directory",
+            "Create folder",
             AgentCapability.EditFiles,
             AgentActionRisk.Mutation),
         Tool(

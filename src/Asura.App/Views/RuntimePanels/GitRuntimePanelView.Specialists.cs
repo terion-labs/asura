@@ -1,4 +1,5 @@
 using Asura.Git;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -6,19 +7,102 @@ namespace Asura.App.Views.RuntimePanels;
 
 public sealed partial class GitRuntimePanelView
 {
-    private async void OnLfsBrowser(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Inspectors this panel opened beside itself — LFS, a submodule, a file's
+    /// history, statistics — keyed by what each shows. Asking again brings the
+    /// open one forward instead of stacking another, and they all close when
+    /// the panel leaves the window, changes view model, or opens another
+    /// repository, so none acts on a repository the panel no longer shows.
+    /// </summary>
+    private readonly Dictionary<string, Window> _inspectors = new(StringComparer.Ordinal);
+    private string? _inspectedRepositoryRoot;
+
+    private const string StatisticsInspector = "statistics";
+
+    private bool TryActivateInspector(string key)
     {
-        if (ViewModel is { } panel && OwnerWindow is { } window)
+        if (!_inspectors.TryGetValue(key, out var open))
         {
-            await new GitLfsDialog(panel).ShowDialog(window);
+            return false;
+        }
+
+        open.Activate();
+        return true;
+    }
+
+    private void ShowInspector(string key, Window owner, Func<Window?> create)
+    {
+        if (TryActivateInspector(key))
+        {
+            return;
+        }
+
+        if (create() is not { } inspector)
+        {
+            return;
+        }
+
+        if (_inspectors.Count == 0)
+        {
+            _inspectedRepositoryRoot = ViewModel?.RepositoryRoot;
+        }
+
+        _inspectors[key] = inspector;
+        inspector.Closed += (_, _) =>
+        {
+            if (_inspectors.TryGetValue(key, out var current) && ReferenceEquals(current, inspector))
+            {
+                _inspectors.Remove(key);
+            }
+        };
+        inspector.Show(owner);
+    }
+
+    private void CloseInspectors()
+    {
+        var open = _inspectors.Values.ToArray();
+        _inspectors.Clear();
+        _inspectedRepositoryRoot = null;
+        foreach (var inspector in open)
+        {
+            inspector.Close();
         }
     }
 
-    private async void OnSubmoduleDetails(object? sender, RoutedEventArgs e)
+    private void CloseInspectorsIfRepositoryChanged()
+    {
+        if (_inspectors.Count > 0
+            && !string.Equals(_inspectedRepositoryRoot, ViewModel?.RepositoryRoot, StringComparison.Ordinal))
+        {
+            CloseInspectors();
+        }
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        CloseInspectors();
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnLfsBrowser(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } panel || OwnerWindow is not { } window)
+        {
+            return;
+        }
+
+        ShowInspector("lfs", window, () => new GitLfsDialog(panel));
+    }
+
+    private void OnSubmoduleDetails(object? sender, RoutedEventArgs e)
     {
         if (ViewModel is not { } panel || OwnerWindow is not { } window || sender is not Control { DataContext: GitSubmoduleItem item }) { return; }
-        var opened = await new GitSubmoduleDialog(panel, item).ShowDialog<GitRepositoryHandle?>(window);
-        if (opened is not null) { await panel.OpenRepositoryAsync(opened.WorkingTreeRoot); }
+        ShowInspector("submodule\n" + item.Path, window, () =>
+        {
+            var inspector = new GitSubmoduleDialog(panel, item);
+            inspector.RepositoryOpened += async (_, opened) => await panel.OpenRepositoryAsync(opened.WorkingTreeRoot);
+            return inspector;
+        });
     }
 
     private async void OnOpenSubmodule(object? sender, RoutedEventArgs e)
@@ -26,7 +110,7 @@ public sealed partial class GitRuntimePanelView
         if (ViewModel is not { } panel || OwnerWindow is not { } window || sender is not MenuItem { DataContext: GitSubmoduleItem item }) { return; }
         var result = await panel.OpenSubmoduleAsync(item.Path);
         if (result is GitResult<GitRepositoryHandle>.Success success) { await panel.OpenRepositoryAsync(success.Value.WorkingTreeRoot); }
-        else { await new GitOutputDialog("Could not open submodule", ((GitResult<GitRepositoryHandle>.Failure)result).Error.Message).ShowDialog(window); }
+        else { await Confirmations.Problem("The submodule couldn’t be opened", ((GitResult<GitRepositoryHandle>.Failure)result).Error.Message).ShowDialog(window); }
     }
 
     private async void OnGitFlowPending(object? sender, RoutedEventArgs e)
@@ -35,7 +119,7 @@ public sealed partial class GitRuntimePanelView
         var result = await panel.ReadGitFlowPendingFinishAsync();
         if (result is GitResult<GitFlowPendingFinish?>.Failure failure)
         {
-            await new GitOutputDialog("Could not read Git Flow finish", failure.Error.Message).ShowDialog(window);
+            await Confirmations.Problem("The Git Flow finish couldn’t be read", failure.Error.Message).ShowDialog(window);
             return;
         }
         if (result is not GitResult<GitFlowPendingFinish?>.Success { Value: { } pending }) { return; }
@@ -43,11 +127,11 @@ public sealed partial class GitRuntimePanelView
         {
             if (await new ConfirmationDialog(new ConfirmationDialogOptions
             {
-                Title = "Discard pending Git Flow finish",
-                Heading = pending.Request.Kind + " " + pending.Request.Name,
-                Detail = $"{pending.CompletedSteps}/{pending.TotalSteps} steps have already completed.",
+                Heading = $"Discard the pending finish of {BranchKindName(pending.Request.Kind)} “{pending.Request.Name}”?",
+                Detail = $"{pending.CompletedSteps} of {pending.TotalSteps} steps have already completed.",
                 Notice = "This discards the saved finish plan. Completed merges and tags remain. Abort any active Git operation separately.",
-                ConfirmLabel = "Discard pending plan",
+                ConfirmLabel = "Discard Plan",
+                Intent = ConfirmationIntent.Destructive,
             }).ShowDialog<bool>(window))
             {
                 await panel.GitFlowAsync(pending.Request with { Action = GitFlowAction.CancelFinish });
@@ -84,11 +168,34 @@ public sealed partial class GitRuntimePanelView
         if (sourceRevision is not null) { detail += "\n\nReviewed source: " + sourceRevision; }
         return await new ConfirmationDialog(new ConfirmationDialogOptions
         {
-            Title = "Review Git Flow " + request.Action,
-            Heading = completedSteps > 0 ? $"Resume {request.Kind} {request.Name}" : request.Action + " · " + (request.Name.Length == 0 ? "Git Flow" : topic),
+            Heading = completedSteps > 0
+                ? $"Resume finishing {BranchKindName(request.Kind)} “{request.Name}”?"
+                : $"{ActionTitle(request.Action)} {(request.Name.Length == 0 ? "Git Flow" : topic)}?",
             Detail = detail,
             Notice = $"Repository: {panel.RepositoryRoot}\nGit Flow stops on failure. Resolve and continue an active merge before resuming this saved plan.",
-            ConfirmLabel = completedSteps > 0 ? "Resume finish" : request.Action.ToString(),
+            ConfirmLabel = completedSteps > 0 ? "Resume Finish" : ActionTitle(request.Action),
+            // Each step merges, tags or pushes; none of it throws work away.
+            Intent = ConfirmationIntent.Confirm,
         }).ShowDialog<bool>(window);
     }
+
+    // Enum names are code: "Hotfix" mid-sentence and "CancelFinish" as a
+    // button read as identifiers, so each value has its words here.
+    private static string BranchKindName(GitFlowBranchKind kind) => kind switch
+    {
+        GitFlowBranchKind.Feature => "feature",
+        GitFlowBranchKind.Release => "release",
+        GitFlowBranchKind.Hotfix => "hotfix",
+        _ => "branch",
+    };
+
+    private static string ActionTitle(GitFlowAction action) => action switch
+    {
+        GitFlowAction.Initialize => "Initialize",
+        GitFlowAction.Start => "Start",
+        GitFlowAction.Finish => "Finish",
+        GitFlowAction.Publish => "Publish",
+        GitFlowAction.CancelFinish => "Discard Finish",
+        _ => "Continue",
+    };
 }

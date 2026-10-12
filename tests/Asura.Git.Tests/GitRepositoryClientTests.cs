@@ -98,6 +98,24 @@ public sealed class GitRepositoryClientTests
     }
 
     [Fact]
+    public async Task UnreadableStatusOutputKeepsItsCodeAndSaysWhatToDoNotTheParserReason()
+    {
+        var executor = new RecordingExecutor(new ConnectionCommandResult(
+            ConnectionCommandOutcome.Exited,
+            ExitCode: 0,
+            "# branch.head dev\0" + "1 .M\0"));
+        var client = new GitRepositoryClient(executor, TimeProvider.System);
+        var repository = new GitRepositoryHandle(BuiltInConnections.Local, "/repo");
+
+        var result = await client.ReadWorkingSetAsync(repository, 1, CancellationToken.None);
+
+        var failure = Assert.IsType<GitResult<GitWorkingSet>.Failure>(result);
+        Assert.Equal(GitErrorCode.InvalidResponse, failure.Error.Code);
+        Assert.Equal("Git answered with output Asura couldn't read. Refresh, then try again.", failure.Error.Message);
+        Assert.DoesNotContain("Malformed", failure.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CheckoutSpeaksGitSwitchOverTheRepositoryRoot()
     {
         var executor = new RecordingExecutor(new ConnectionCommandResult(

@@ -1,0 +1,47 @@
+<Window
+    x:Class="Asura.App.Views.SettingsWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:components="using:Asura.App.Views.Components"
+    Title="Settings"
+    Width="850"
+    Height="800"
+    MinWidth="700"
+    MinHeight="500"
+    CanMinimize="False"
+    CanMaximize="False"
+    WindowStartupLocation="CenterScreen">
+  <!--
+    Settings… opens this one window, whichever main window asked. It is not
+    modal: the workspace stays live beside it, so a terminal setting can be
+    watched taking effect. It is laid out as macOS 26 System Settings: 850 by
+    800 to begin with, the sidebar running the full height under the window's
+    buttons, and the page's title on their line. Its title names the page on
+    show, minimize and zoom are dimmed as they are for every Mac settings
+    window, it keeps one size whichever page it shows (a long page scrolls),
+    and it reopens on the page it was left on, where and as large as it was
+    left.
+  -->
+  <Grid>
+    <ContentControl
+        x:Name="SettingsHost"
+        HorizontalContentAlignment="Stretch"
+        VerticalContentAlignment="Stretch" />
+    <!-- A connection or workspace deleted here leaves its Undo here too. -->
+    <components:DefinitionDeleteUndoNoticeView
+        Margin="{controls:Inset Left=Lg, Bottom=Lg}"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Bottom"
+        MaxWidth="520" />
+    <Border
+        Margin="{controls:Inset Right=Lg, Bottom=Lg}"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        MaxWidth="520">
+      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    </Border>
+  </Grid>
+</Window>

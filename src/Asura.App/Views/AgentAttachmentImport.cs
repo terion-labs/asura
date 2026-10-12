@@ -1,4 +1,6 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
+using Asura.Application;
 using Asura.Core;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
@@ -16,7 +18,7 @@ internal static class AgentAttachmentImport
         {
             var files = await pickFiles(new FilePickerOpenOptions
             {
-                Title = "Attach files",
+                Title = "Attach Files",
                 AllowMultiple = true,
                 FileTypeFilter = [FilePickerFileTypes.All],
             });
@@ -28,27 +30,78 @@ internal static class AgentAttachmentImport
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (IsAttachmentFailure(exception))
         {
-            agent.AttachmentError = exception.Message;
+            agent.AttachmentError = FailureText(exception);
         }
     }
+
+    /// <summary>
+    /// The failures a pick, drop, or paste reports in the composer rather than
+    /// letting escape: reading the files or the clipboard, and the import's
+    /// refusals.
+    /// </summary>
+    public static bool IsAttachmentFailure(Exception exception) =>
+        exception is ArgumentException or InvalidOperationException or IOException
+            or UnauthorizedAccessException or TimeoutException;
+
+    /// <summary>
+    /// The composer's line for attachments that couldn't be added. The
+    /// import's own refusals ("At most eight attachments…") are written for
+    /// the composer and shown as they are. Everything else used to be shown
+    /// as the exception's message, which for the attachment records' checks
+    /// ends in "(Parameter 'files')" and for the clipboard and file system is
+    /// written for developers; those go to secret-safe diagnostics, and the
+    /// composer says what to do next.
+    /// </summary>
+    public static string FailureText(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        if (FailureReason.IsReadable(exception))
+        {
+            return exception.Message;
+        }
+
+        SecretSafeDiagnostics.WriteTrace("agent.attachment.refused", exception);
+        return exception switch
+        {
+            AgentAttachmentStorageLimitException =>
+                "This workspace’s agent conversations have used all 1 GiB of attachment storage. "
+                + "Delete older conversations from the conversation history, then attach the files again.",
+            FileNotFoundException or DirectoryNotFoundException =>
+                "One of the files is no longer there. Choose it again.",
+            UnauthorizedAccessException =>
+                "Asura doesn’t have permission to read one of the files. Check its permissions, then attach it again.",
+            IOException =>
+                "Couldn’t read or save one of the files. Check that it still exists and that the disk has free space, then attach it again.",
+            TimeoutException =>
+                "The clipboard didn’t respond in time. Copy the items again, then paste.",
+            // The import refuses the count and the sizes itself, so what's left
+            // of the attachment record's checks is the file's name.
+            ArgumentException =>
+                "One of the files can’t be attached because of its name. Rename it to a plain name of up to 255 characters, then attach it again.",
+            _ => "Asura couldn’t attach the files. Try again.",
+        };
+    }
+
+    private static InvalidOperationException Refusal(string message) =>
+        FailureReason.Readable(new InvalidOperationException(message));
 
     public static async Task AddFilesAsync(
         AgentChatViewModel agent,
         IEnumerable<IStorageItem> files,
         CancellationToken cancellationToken)
     {
-        if (!agent.CanAttachFiles) { throw new InvalidOperationException("Wait for the current run to finish before attaching files."); }
+        if (!agent.CanAttachFiles) { throw Refusal("Wait for the current run to finish before attaching files."); }
         var images = new List<AgentImageAttachment>();
         var attachments = new List<AgentFileAttachment>();
         foreach (var item in files)
         {
             if (agent.PendingImages.Count + agent.PendingFiles.Count + images.Count + attachments.Count >= AgentFileAttachment.MaximumPerMessage)
             {
-                throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+                throw Refusal("At most eight attachments can be added to one prompt.");
             }
-            if (item is not IStorageFile file) { throw new InvalidOperationException("Choose files, not folders."); }
+            if (item is not IStorageFile file) { throw Refusal("Choose files, not folders."); }
             await using var stream = await file.OpenReadAsync();
             var bytes = await ReadBoundedFileAsync(stream, cancellationToken);
             var mediaType = DetectImageMediaType(bytes);
@@ -61,18 +114,22 @@ internal static class AgentAttachmentImport
                 attachments.Add(await agent.ImportFileAsync(file.Name, bytes, cancellationToken));
             }
         }
-        if (!agent.CanAttachFiles) { throw new InvalidOperationException("The composer changed while importing files. Attach them again."); }
+        if (!agent.CanAttachFiles) { throw Refusal("The composer changed while importing files. Attach them again."); }
+        if (agent.PendingFiles.Concat(attachments).Sum(file => (long)file.ByteCount) > AgentFileAttachment.MaximumTotalBytesPerMessage)
+        {
+            throw Refusal("Attachments together can’t be larger than 200 MiB. Remove some, then try again.");
+        }
         // Validate both batches before changing the draft so a failed mixed selection does not partially attach.
         _ = AgentFileAttachment.CopyBatch(agent.PendingFiles.Concat(attachments));
         if (agent.PendingFiles.Count + agent.PendingImages.Count + attachments.Count + images.Count > AgentFileAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+            throw Refusal("At most eight attachments can be added to one prompt.");
         }
         if (agent.PendingImages.Count + images.Count > AgentImageAttachment.MaximumPerMessage
             || agent.PendingImages.Sum(image => (long)image.Content.Length) + images.Sum(image => (long)image.Content.Length)
                 > AgentImageAttachment.MaximumTotalBytesPerMessage)
         {
-            throw new InvalidOperationException("At most four images totalling 8 MiB can be attached to one prompt.");
+            throw Refusal("At most four images totaling 8 MiB can be attached to one prompt.");
         }
         if (images.Count > 0) { agent.AddPendingImages(images); }
         if (attachments.Count > 0) { agent.AddPendingFiles(attachments); }
@@ -82,7 +139,7 @@ internal static class AgentAttachmentImport
     {
         if (!agent.CanAttachImages)
         {
-            throw new InvalidOperationException(
+            throw Refusal(
                 agent.SelectedProvider?.SupportsImageInput != true
                     ? "The selected provider does not support images. Choose an image-capable provider."
                     : agent.IsBusy
@@ -100,14 +157,14 @@ internal static class AgentAttachmentImport
         if (size.Width <= 0 || size.Height <= 0
             || (long)size.Width * size.Height > OrdinaryImagePreviewDecoder.MaximumSourcePixels)
         {
-            throw new InvalidOperationException("The pasted image is too large. Resize it before pasting again.");
+            throw Refusal("The pasted image is too large. Resize it before pasting again.");
         }
 
         using var output = new PastedImageBuffer();
         bitmap.Save(output);
         if (output.ExceededLimit)
         {
-            throw new InvalidOperationException("The pasted image exceeds 4 MiB. Resize it or attach it as a file.");
+            throw Refusal("The pasted image exceeds 4 MiB. Resize it or attach it as a file.");
         }
         return new AgentImageAttachment("Pasted image.png", "image/png",
             output.GetBuffer().AsSpan(0, checked((int)output.Length)));
@@ -183,8 +240,7 @@ internal static class AgentAttachmentImport
 
             if (buffer.Length + read > AgentFileAttachment.MaximumBytes)
             {
-                throw new InvalidOperationException(
-                    "An attachment cannot exceed 50 MiB.");
+                throw Refusal("An attachment can’t be larger than 50 MiB.");
             }
 
             buffer.Write(chunk, 0, read);

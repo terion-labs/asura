@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Windows.Input;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Application.Previews;
 using Asura.Core;
@@ -13,9 +14,16 @@ namespace Asura.App.ViewModels;
 
 public sealed class FileEntryViewModel
 {
-    public FileEntryViewModel(FilePanelEntry entry)
+    private readonly Func<FilePanelEntry, Bitmap?>? _iconSource;
+    private Bitmap? _icon;
+    private bool _iconResolved;
+
+    public FileEntryViewModel(
+        FilePanelEntry entry,
+        Func<FilePanelEntry, Bitmap?>? iconSource = null)
     {
         Entry = entry ?? throw new ArgumentNullException(nameof(entry));
+        _iconSource = iconSource;
     }
 
     public FilePanelEntry Entry { get; }
@@ -28,11 +36,63 @@ public sealed class FileEntryViewModel
         ? "Folder"
         : FormatSize(Entry.Size);
 
-    public string Modified => Entry.LastModifiedAt?.ToLocalTime().ToString("g", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+    public string Modified => DisplayDates.Format(Entry.LastModifiedAt);
+
+    /// <summary>
+    /// The modified date for a narrow column, as Finder shortens it: the time
+    /// alone for today, the short date otherwise, both in the reader's
+    /// culture.
+    /// </summary>
+    public string ModifiedCompact => FormatCompactDate(Entry.LastModifiedAt, DateTimeOffset.Now);
 
     public bool IsDirectory => Entry.Kind == FilePanelEntryKind.Directory;
 
     public bool IsLink => Entry.Kind == FilePanelEntryKind.Link;
+
+    /// <summary>
+    /// The system's icon for this item, asked for the first time a row shows
+    /// it rather than for every entry a listing reads.
+    /// </summary>
+    public Bitmap? Icon
+    {
+        get
+        {
+            if (!_iconResolved)
+            {
+                _iconResolved = true;
+                _icon = _iconSource?.Invoke(Entry);
+            }
+
+            return _icon;
+        }
+    }
+
+    public bool HasIcon => Icon is not null;
+
+    /// <summary>A folder glyph stands in, tinted as folders are.</summary>
+    public bool ShowsFolderGlyph => !HasIcon && IsDirectory;
+
+    /// <summary>A file glyph chosen by kind stands in.</summary>
+    public bool ShowsFileGlyph => !HasIcon && !IsDirectory;
+
+    /// <summary>The glyph shown where the system has no icon to give.</summary>
+    public FluentIcons.Common.Symbol Glyph => FileTypeIcons.FallbackSymbol(Entry);
+
+    /// <summary>Type-to-select reads an item's text, which for a file is its name.</summary>
+    public override string ToString() => Name;
+
+    internal static string FormatCompactDate(DateTimeOffset? value, DateTimeOffset now)
+    {
+        if (value is not { } moment)
+        {
+            return "Unknown";
+        }
+
+        var local = moment.ToLocalTime();
+        return local.Date == now.ToLocalTime().Date
+            ? local.ToString("t", CultureInfo.CurrentCulture)
+            : local.ToString("d", CultureInfo.CurrentCulture);
+    }
 
     internal static string FormatSize(long? size)
     {
@@ -45,7 +105,7 @@ public sealed class FileEntryViewModel
     }
 }
 
-public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNotificationSource
+public sealed partial class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNotificationSource
 {
     private static readonly TimeSpan SearchDebounce = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan ObservationInterval = TimeSpan.FromSeconds(2);
@@ -54,6 +114,12 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     private const int DefaultPreviewBytes = 256 * 1024;
     private const int MaximumFormattedBinaryBytes = 16 * 1024;
     private readonly IFilePanelClient _client;
+
+    /// <summary>
+    /// The system Trash for local deletes, or null to keep every delete a
+    /// confirmed permanent one.
+    /// </summary>
+    private readonly IFileTrash? _trash;
     private readonly ConnectionProfile _connection;
     private readonly IHostedFilePanelClient? _hostedClient;
     private readonly IFileTransferQueueClient? _transferQueue;
@@ -117,6 +183,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     private GridLength _fileNameColumnWidth = new(1, GridUnitType.Star);
     private GridLength _fileSizeColumnWidth = new(90);
     private GridLength _fileModifiedColumnWidth = new(140);
+    private double _fileDetailsAvailableWidth = double.PositiveInfinity;
     private GridLength _fileListColumnWidth = new(3, GridUnitType.Star);
     private GridLength _previewColumnWidth = new(2, GridUnitType.Star);
     private GridLength _hiddenPreviewColumnWidth = new(2, GridUnitType.Star);
@@ -200,10 +267,12 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         IFilePreviewPreferences? previewPreferences = null,
         FileTransferClipboard? clipboard = null,
         FileProviderProfileId? recoveryProfileId = null,
-        KubernetesFileTarget? kubernetesTarget = null)
+        KubernetesFileTarget? kubernetesTarget = null,
+        IFileTrash? trash = null)
         : base(id, PanelKind.FileViewer, title, "Files")
     {
         KubernetesTarget = kubernetesTarget;
+        _trash = trash;
         _clipboard = clipboard;
         _recoveryProfileId = recoveryProfileId;
         _clipboard?.Changed += OnTransferClipboardChanged;
@@ -490,6 +559,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
             if (SetProperty(ref _sortDirection, value))
             {
                 OnPropertyChanged(nameof(IsSortDescending));
+                NotifySortStatusChanged();
                 ApplyFilter();
             }
         }
@@ -505,6 +575,29 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     public bool IsSortingByModified => SortField == FileEntrySortField.Modified;
 
     public bool IsSortDescending => SortDirection == FileEntrySortDirection.Descending;
+
+    /// <summary>
+    /// What a screen reader hears after a column header's name: the header
+    /// keeps its name ("Name") and its state is said apart from it, the way
+    /// a table header in a Mac list reports its sort. Empty for the columns
+    /// the list is not sorted by.
+    /// </summary>
+    public string NameSortStatus => SortStatus(FileEntrySortField.Name);
+
+    public string SizeSortStatus => SortStatus(FileEntrySortField.Size);
+
+    public string ModifiedSortStatus => SortStatus(FileEntrySortField.Modified);
+
+    private string SortStatus(FileEntrySortField field) => SortField != field
+        ? string.Empty
+        : IsSortDescending ? "Sorted descending" : "Sorted ascending";
+
+    private void NotifySortStatusChanged()
+    {
+        OnPropertyChanged(nameof(NameSortStatus));
+        OnPropertyChanged(nameof(SizeSortStatus));
+        OnPropertyChanged(nameof(ModifiedSortStatus));
+    }
 
     public FileBrowserViewMode ViewMode
     {
@@ -543,13 +636,81 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     public GridLength FileSizeColumnWidth
     {
         get => _fileSizeColumnWidth;
-        set => SetProperty(ref _fileSizeColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileSizeColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
     }
 
     public GridLength FileModifiedColumnWidth
     {
         get => _fileModifiedColumnWidth;
-        set => SetProperty(ref _fileModifiedColumnWidth, value);
+        set
+        {
+            if (SetProperty(ref _fileModifiedColumnWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    /// <summary>The narrowest the name column goes before the others give way.</summary>
+    public const double FileNameColumnMinWidth = 140;
+
+    /// <summary>Room for "999.9 KB".</summary>
+    public const double FileSizeColumnMinWidth = 68;
+
+    /// <summary>Room for a time or a short date, which the column falls back to.</summary>
+    public const double FileModifiedColumnMinWidth = 72;
+
+    /// <summary>
+    /// The width the details rows have, set by the view. The columns are as
+    /// wide as the person made them, but a narrow panel cannot hold three
+    /// columns at those widths, and a grid of fixed columns overflows rather
+    /// than shrinks: the date was cut off by the panel's edge, mid-number and
+    /// with no ellipsis. Measured here, the size and then the date give way
+    /// first, so each still fits its own cell and shortens itself.
+    /// </summary>
+    public double FileDetailsAvailableWidth
+    {
+        get => _fileDetailsAvailableWidth;
+        set
+        {
+            if (SetProperty(ref _fileDetailsAvailableWidth, value))
+            {
+                OnDetailsColumnRoomChanged();
+            }
+        }
+    }
+
+    public double FileSizeColumnMaxWidth => DetailsColumnLimits().Size;
+
+    public double FileModifiedColumnMaxWidth => DetailsColumnLimits().Modified;
+
+    private (double Size, double Modified) DetailsColumnLimits()
+    {
+        if (!double.IsFinite(_fileDetailsAvailableWidth) || _fileDetailsAvailableWidth <= 0)
+        {
+            return (double.PositiveInfinity, double.PositiveInfinity);
+        }
+
+        // Two five-point grips sit between the three columns.
+        var room = _fileDetailsAvailableWidth - FileNameColumnMinWidth - 10;
+        var modified = _fileModifiedColumnWidth.IsAbsolute ? _fileModifiedColumnWidth.Value : 0;
+        var size = Math.Max(FileSizeColumnMinWidth, room - modified);
+        var sizeShown = _fileSizeColumnWidth.IsAbsolute
+            ? Math.Min(_fileSizeColumnWidth.Value, size)
+            : size;
+        return (size, Math.Max(FileModifiedColumnMinWidth, room - sizeShown));
+    }
+
+    private void OnDetailsColumnRoomChanged()
+    {
+        OnPropertyChanged(nameof(FileSizeColumnMaxWidth));
+        OnPropertyChanged(nameof(FileModifiedColumnMaxWidth));
     }
 
     /// <summary>
@@ -604,6 +765,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         if (directionChanged)
         {
             OnPropertyChanged(nameof(IsSortDescending));
+            NotifySortStatusChanged();
         }
 
         if (fieldChanged)
@@ -619,6 +781,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
         OnPropertyChanged(nameof(IsSortingByName));
         OnPropertyChanged(nameof(IsSortingBySize));
         OnPropertyChanged(nameof(IsSortingByModified));
+        NotifySortStatusChanged();
     }
 
     public bool ShowHidden
@@ -724,7 +887,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     /// <summary>
     /// The same count with the words taken out, for when the toolbar has no
     /// room for them. A number in a pill beside a folder path is already
-    /// unambiguous; "item(s)" is what goes when something has to.
+    /// unambiguous; the noun is what goes when something has to.
     /// </summary>
     public string ShortStatus
     {
@@ -844,7 +1007,7 @@ public sealed class FileRuntimePanelViewModel : RuntimePanelViewModel, IPanelNot
     /// without asking, for hosts composed without live settings. The setting
     /// of the same meaning overrides this.
     /// </summary>
-    public const long AutoDownloadPreviewBytes = 2 * 1024 * 1024;
+    public const long AutoDownloadPreviewBytes = 2_000_000;
 
     /// <summary>
     /// The size at or below which a remote file is fetched for preview without
@@ -1157,11 +1320,22 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
     private void RebuildActions()
     {
+        // What acts on the selection first, then what acts on the folder, each
+        // in band order: within the selection's commands what removes data
+        // comes last, under its own rule. The overflow menu is the two right-
+        // click menus one after the other, in the same order, so a command
+        // sits in the same place whichever menu it is chosen from.
         var states = FilePanelActionCatalog.Resolve(ActionContext)
             .Where(state => state.IsAvailable)
+            .OrderBy(state => state.Scope == FilePanelActionScope.Selection ? 0 : 1)
+            .ThenBy(state => FilePanelActionPresentation.Band(state.Action))
             .ToArray();
         _menuActions = Dress(states);
-        _toolbarActions = Dress([.. states.Where(state => ToolbarPrimaryActions.Contains(state.Action))]);
+        // The toolbar keeps band order alone, so its delete button stays at
+        // the end of the strip rather than between two transfers.
+        _toolbarActions = Dress([.. states
+            .Where(state => ToolbarPrimaryActions.Contains(state.Action))
+            .OrderBy(state => FilePanelActionPresentation.Band(state.Action))]);
         // Each menu re-groups from its own survivors, so neither opens with a
         // rule across the top or draws one where nothing changed.
         _entryMenuActions = Dress([.. states.Where(state => state.Scope == FilePanelActionScope.Selection)]);
@@ -1174,22 +1348,27 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
     private FileActionViewModel[] Dress(IReadOnlyList<FilePanelActionState> states)
     {
+        var movesToTrash = CanMoveToTrash;
         var dressed = new FileActionViewModel[states.Count];
         for (var index = 0; index < states.Count; index++)
         {
             var state = states[index];
             dressed[index] = new FileActionViewModel(
                 state,
-                FilePanelActionPresentation.Label(state.Action),
+                FilePanelActionPresentation.Label(state.Action, movesToTrash),
                 // What downloading will actually pull is worth saying: a person
                 // about to take a folder tree over a network should be told so.
                 state.Action == FilePanelAction.Download
                     ? DownloadLabel
-                    : FilePanelActionPresentation.Description(state.Action),
+                    : FilePanelActionPresentation.Description(state.Action, movesToTrash),
                 FilePanelActionPresentation.Glyph(state.Action),
                 FilePanelActionPresentation.Gesture(state.Action),
-                startsGroup: index > 0 && states[index - 1].Group != state.Group,
-                RequestAction);
+                startsGroup: index > 0
+                    && (FilePanelActionPresentation.Band(states[index - 1].Action)
+                            != FilePanelActionPresentation.Band(state.Action)
+                        || states[index - 1].Scope != state.Scope),
+                RequestAction,
+                isDestructive: state.Action == FilePanelAction.Delete && !movesToTrash);
         }
 
         return dressed;
@@ -1219,8 +1398,34 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     /// </summary>
     public event EventHandler<FilePanelAction>? ActionRequested;
 
-    private void RequestAction(FilePanelAction action) =>
+    private void RequestAction(FilePanelAction action)
+    {
+        // Moving to the Trash needs nothing from the window — no picker, no
+        // confirmation — so the panel does it itself, wherever it is hosted.
+        if (action == FilePanelAction.Delete && CanMoveToTrash)
+        {
+            _ = MoveSelectionToTrashAsync();
+            return;
+        }
+
         ActionRequested?.Invoke(this, action);
+    }
+
+    /// <summary>
+    /// Asks for an action from the keyboard, the same way a menu row or a
+    /// toolbar button does, and only when it is possible right now.
+    /// </summary>
+    /// <returns>Whether the action was possible and was asked for.</returns>
+    public bool RequestActionIfEnabled(FilePanelAction action)
+    {
+        if (!IsActionEnabled(action))
+        {
+            return false;
+        }
+
+        RequestAction(action);
+        return true;
+    }
 
     /// <summary>
     /// Who can read or change the selected item, as this connection describes
@@ -1330,8 +1535,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 && !string.Equals(profile.Id, _initialProfileId, StringComparison.Ordinal))
             {
                 SetOperationIssue(FileOperationIssue.Configuration(
-                    "This File Viewer is still waiting for its saved provider. "
-                    + "It will not substitute another provider before the saved session binds."));
+                    "This Files panel is still waiting for its saved file provider. "
+                    + "It won't switch to another file provider while it waits."));
                 return;
             }
 
@@ -1431,7 +1636,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeLocationRefusal(exception)));
             return;
         }
 
@@ -1509,7 +1715,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (!CanCreateFolder || CurrentLocation is null)
         {
             SetOperationIssue(FileOperationIssue.Validation(
-                "This provider cannot create a folder at the current location."));
+                "You can't create a folder here. Choose another location."));
             return false;
         }
 
@@ -1520,7 +1726,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeNameRefusal(exception)));
             return false;
         }
 
@@ -1562,7 +1769,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         }
         catch (ArgumentException exception)
         {
-            SetOperationIssue(FileOperationIssue.Validation(exception.Message));
+            SetOperationIssue(FileOperationIssue.Validation(
+                FileLocationPresentation.DescribeNameRefusal(exception)));
             return false;
         }
 
@@ -1645,15 +1853,15 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (IsLoading || CurrentLocation is null || SelectedProfile is null)
         {
-            throw new InvalidOperationException(
-                "Wait for the destination folder to finish loading.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Wait for the destination folder to finish loading."));
         }
 
         if (source.Kind is not (
             FilePanelEntryKind.File or FilePanelEntryKind.Directory))
         {
-            throw new InvalidOperationException(
-                "Only regular files and folders can be transferred.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Only regular files and folders can be transferred."));
         }
 
         var requiredCapabilities = source.Kind == FilePanelEntryKind.Directory
@@ -1661,8 +1869,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             : FilePanelCapability.StreamingWrite;
         if (!SelectedProfile.Capabilities.HasFlag(requiredCapabilities))
         {
-            throw new InvalidOperationException(
-                "The selected destination cannot receive this item type.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "That destination can't hold this kind of item. Choose another destination."));
         }
 
         var destinationParent = destinationFolder?.WithVersion(null)
@@ -1676,8 +1884,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 CurrentLocation.Authority,
                 StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                "The drop folder does not belong to the selected destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The drop folder doesn't belong to the selected destination."));
         }
 
         var destination = FileLocationPresentation.Child(
@@ -1685,15 +1893,15 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             source.Name);
         if (source.Location.WithVersion(null) == destination.WithVersion(null))
         {
-            throw new InvalidOperationException(
-                "The item is already in this destination.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The item is already in this destination."));
         }
 
         if (source.Kind == FilePanelEntryKind.Directory
             && source.Location.WithVersion(null) == destinationParent)
         {
-            throw new InvalidOperationException(
-                "A folder cannot be transferred into itself.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "A folder can't be copied or moved into itself. Choose another destination."));
         }
 
         return new FilePanelTransferRequest(
@@ -1874,8 +2082,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         ArgumentException.ThrowIfNullOrWhiteSpace(localPath);
         if (!CanUpload || CurrentLocation is null || SelectedProfile is null)
         {
-            throw new InvalidOperationException(
-                "This provider cannot receive an uploaded file at the current location.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "You can't upload files here. Choose another location."));
         }
 
         var homeProfile = Profiles.Single(profile => string.Equals(profile.Id, "builtin.files.home", StringComparison.Ordinal));
@@ -1883,7 +2091,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         var file = new FileInfo(sourcePath);
         if (!file.Exists)
         {
-            throw new ArgumentException("The selected local file no longer exists.", nameof(localPath));
+            throw FailureReason.Readable(new ArgumentException("The selected file no longer exists. Choose it again."));
         }
 
         // The local provider is rooted at the filesystem root, so any file the
@@ -1996,8 +2204,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                         ? PanelNotificationKind.FileTransferCompleted
                         : PanelNotificationKind.FileTransferFailed,
                     transfer.State == FilePanelTransferState.Completed
-                        ? "File transfer completed"
-                        : "File transfer failed",
+                        ? "File Transfer Completed"
+                        : "File Transfer Failed",
                     body,
                     transfer.CompletedAt ?? transfer.QueuedAt)
                 {
@@ -2068,7 +2276,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             Status = "No file providers configured";
             SetContentIssue(FileOperationIssue.Configuration(
-                "Add a file-provider profile before opening the File Viewer."));
+                "Add a file-provider profile before opening the Files panel."));
             return;
         }
 
@@ -2079,7 +2287,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             Status = "Waiting for saved file provider";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved File Viewer provider is not currently available."));
+                "This panel's file provider isn't available right now."));
             return;
         }
 
@@ -2143,7 +2351,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             CurrentLocation = null;
             Status = "Saved file provider unavailable";
             SetContentIssue(FileOperationIssue.Configuration(
-                "The saved File Viewer provider is not currently available. Repair the saved screen or provider profile."));
+                "This panel's file provider isn't available. Choose another file provider for the saved screen in Settings, or check the file provider's settings."));
             return;
         }
 
@@ -2154,7 +2362,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             CurrentLocation = null;
             Status = "No file providers configured";
             SetContentIssue(FileOperationIssue.Configuration(
-                "Add a file-provider profile before opening the File Viewer."));
+                "Add a file-provider profile before opening the Files panel."));
             return;
         }
 
@@ -2263,7 +2471,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 CurrentLocation = null;
                 Status = "Saved startup location invalid";
                 SetContentIssue(FileOperationIssue.Configuration(
-                    "The saved File Viewer startup location is not valid for this provider. Repair the saved screen before reopening it."));
+                    "This panel's starting folder doesn't exist on its file provider. Choose another starting folder for the saved screen in Settings, then open it again."));
                 return;
             }
         }
@@ -2285,7 +2493,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 ? string.Empty
                 : FileLocationPresentation.Display(CurrentLocation);
             SetOperationIssue(FileOperationIssue.Configuration(
-                "This File Viewer must bind its exact saved startup location before navigating elsewhere."));
+                "This Files panel must bind its exact saved startup location before navigating elsewhere."));
             return;
         }
 
@@ -2372,8 +2580,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
                 _hasLoadedListing = true;
                 OnPropertyChanged(nameof(HasListingSummary));
                 ApplyFilter();
-                Status = $"{_allEntries.Count.ToString(CultureInfo.InvariantCulture)} items loaded…";
-                ShortStatus = $"{_allEntries.Count.ToString(CultureInfo.InvariantCulture)}+";
+                Status = $"{CountOf(_allEntries.Count, "item")} loaded…";
+                ShortStatus = $"{_allEntries.Count.ToString("N0", CultureInfo.CurrentCulture)}+ items";
                 OnPropertyChanged(nameof(HasMore));
 
             }
@@ -2449,7 +2657,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             return;
         }
 
@@ -2469,7 +2678,8 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             {
                 SelectedMetadata = new FileEntryMetadataViewModel(
                     entry.Entry,
-                    isStatBacked: false);
+                    isStatBacked: false,
+                    ProviderKeepsVersions);
                 MetadataIssue = FileOperationIssue.Unexpected(
                     "The provider failed unexpectedly while reading item metadata.");
             }
@@ -2493,15 +2703,20 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             SelectedMetadata = new FileEntryMetadataViewModel(
                 entry.Entry,
-                isStatBacked: false);
+                isStatBacked: false,
+                ProviderKeepsVersions);
             MetadataIssue = FileOperationIssue.FromProvider(result.Error!);
             return;
         }
 
         SelectedMetadata = new FileEntryMetadataViewModel(
             result.Value!,
-            isStatBacked: true);
+            isStatBacked: true,
+            ProviderKeepsVersions);
     }
+
+    private bool ProviderKeepsVersions =>
+        SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Versioning) == true;
 
     private async Task LoadPreviewAsync(
         FileEntryViewModel? entry,
@@ -3039,7 +3254,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             .OrderBy(item => item, Comparer<FilePanelEntry>.Create(CompareEntries))
             .Select(item => selected is not null && ReferenceEquals(selected.Entry, item)
                 ? selected
-                : new FileEntryViewModel(item))
+                : new FileEntryViewModel(item, ResolveIcon))
             .ToArray();
         Replace(Entries, visible);
         if (selected is not null && !visible.Contains(selected))
@@ -3061,7 +3276,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         if (_allEntries.Count == 0)
         {
             Status = "This location is empty";
-            ShortStatus = "0";
+            ShortStatus = "No items";
             return;
         }
 
@@ -3069,28 +3284,39 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             && SelectedProfile?.Capabilities.HasFlag(FilePanelCapability.Search) == true;
         if (usesProviderSearch)
         {
-            var resultCount = Entries.Count.ToString(CultureInfo.InvariantCulture);
             Status = IsSearchLoading
-                ? $"{resultCount} search result(s) found…"
-                : $"{resultCount} search result(s)";
-            ShortStatus = resultCount + (IsSearchLoading ? "+" : string.Empty);
+                ? $"{CountOf(Entries.Count, "search result")} found…"
+                : CountOf(Entries.Count, "search result");
+            ShortStatus = IsSearchLoading
+                ? $"{Entries.Count.ToString("N0", CultureInfo.CurrentCulture)}+ results"
+                : CountOf(Entries.Count, "result");
             return;
         }
 
-        var loadedCount = _allEntries.Count.ToString(CultureInfo.InvariantCulture);
+        var loadedCount = _allEntries.Count.ToString("N0", CultureInfo.CurrentCulture);
         var loadedLabel = HasMore
-            ? $"{loadedCount} loaded item(s)"
-            : $"{loadedCount} item(s)";
-        var shownCount = Entries.Count.ToString(CultureInfo.InvariantCulture);
+            ? $"{CountOf(_allEntries.Count, "item")} loaded"
+            : CountOf(_allEntries.Count, "item");
+        var shownCount = Entries.Count.ToString("N0", CultureInfo.CurrentCulture);
         var unfiltered = string.IsNullOrWhiteSpace(Filter);
         Status = unfiltered
             ? loadedLabel
             : $"{shownCount} of {loadedLabel}";
-        // A trailing mark for a listing that has not been read to the end, so
-        // the short form does not claim the folder holds exactly this many.
-        ShortStatus = (unfiltered ? loadedCount : $"{shownCount}/{loadedCount}")
-            + (HasMore ? "+" : string.Empty);
+        // The noun stays, so the pill reads as a count of something rather
+        // than a bare number beside a path. A "+" marks a listing that has not
+        // been read to the end, so it does not claim exactly this many.
+        var loadedItems = HasMore ? $"{loadedCount}+ items" : CountOf(_allEntries.Count, "item");
+        ShortStatus = unfiltered
+            ? loadedItems
+            : $"{shownCount} of {loadedItems}";
     }
+
+    /// <summary>
+    /// A count with its noun in the right number: "1 item", "5 items". The
+    /// "item(s)" it replaces made every reader do the grammar.
+    /// </summary>
+    internal static string CountOf(int count, string noun) =>
+        CountText.Of(count, noun, noun + "s");
 
     private int CompareEntries(FilePanelEntry? left, FilePanelEntry? right)
     {
@@ -3251,7 +3477,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_archiveReader is null || _contentSource is null)
         {
-            PreviewText = "Archives cannot be listed on this system.";
+            PreviewText = "Archive previews aren't available on this computer.";
             return;
         }
 
@@ -3294,7 +3520,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
             if (entries is null)
             {
-                PreviewText = "This file could not be read as an archive.";
+                PreviewText = "Asura couldn't read this file as an archive. It may be damaged or in a format Asura doesn't support.";
                 return;
             }
 
@@ -3302,9 +3528,19 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             _archiveOffset = offset;
             _archiveHasMore = entries.Count > ArchivePageSize;
             var page = entries.Take(ArchivePageSize).ToArray();
+            // A page number only means something when there is more than one
+            // page; an archive that fits on one is just its summary.
+            var summary = offset == 0 && !_archiveHasMore
+                ? SummarizeArchive(page)
+                : $"Page {((offset / ArchivePageSize) + 1).ToString(CultureInfo.CurrentCulture)} · {SummarizeArchive(page)}";
+            // The page controls travel with the page: they sit in the
+            // listing's footer, under the entries they turn.
             var listing = new PreviewTreeViewModel(
                 PreviewTreeBuilder.FromPaths(page),
-                $"Page {(offset / ArchivePageSize) + 1}: {SummarizeArchive(page)}");
+                summary,
+                offset == 0 && !_archiveHasMore
+                    ? null
+                    : new PreviewTreePaging(_previousArchivePageCommand, _nextArchivePageCommand));
             PreviewTree = listing;
             // Attached in steps like every other reading; without this the
             // listing exists and nothing of it is on screen.
@@ -3317,7 +3553,10 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = exception.Message;
+                SecretSafeDiagnostics.WriteTrace("files.archive-preview.failed", exception);
+                PreviewText = exception is UnauthorizedAccessException
+                    ? "You don't have permission to read this archive."
+                    : "Asura couldn't read this archive. It may be damaged, or it may have changed. Try again.";
             }
         }
         finally
@@ -3369,7 +3608,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_databaseClient is null || _contentSource is null)
         {
-            PreviewText = "This build cannot open database files in the preview.";
+            PreviewText = "Database previews aren't available in this version of Asura.";
             return;
         }
 
@@ -3414,7 +3653,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The database could not be opened.";
+                PreviewText = "Asura couldn't open the database. It may be damaged or in use.";
             }
 
             return;
@@ -3450,7 +3689,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (connectionString is null)
         {
-            PreviewText = "This build cannot open remote database files in the preview.";
+            PreviewText = "Previews of database files on other computers aren't available in this version of Asura.";
             return;
         }
 
@@ -3494,7 +3733,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_contentSource is null)
         {
-            PreviewText = "This client cannot open whole images.";
+            PreviewText = "Image previews aren't available for this location.";
             return;
         }
 
@@ -3537,7 +3776,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
                 if (decoded is null)
                 {
-                    PreviewText = "The image data could not be decoded safely.";
+                    PreviewText = "Asura couldn't show this image. It may be damaged or in a format Asura doesn't support.";
                     return;
                 }
 
@@ -3560,7 +3799,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
             if (bitmap is null)
             {
-                PreviewText = "The image data could not be decoded safely.";
+                PreviewText = "Asura couldn't show this image. It may be damaged or in a format Asura doesn't support.";
                 return;
             }
 
@@ -3574,7 +3813,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The image could not be opened.";
+                PreviewText = "Asura couldn't open the image. Try again.";
             }
         }
         finally
@@ -3613,7 +3852,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_contentSource is null)
         {
-            PreviewText = "This client cannot open web pages.";
+            PreviewText = "Web page previews aren't available for this location.";
             return;
         }
 
@@ -3672,7 +3911,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The web page could not be opened.";
+                PreviewText = "Asura couldn't open the web page. Try again.";
             }
         }
         finally
@@ -3728,7 +3967,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
     {
         if (_pdfRenderer is null || _contentSource is null)
         {
-            PreviewText = "This build cannot open PDF files in the preview.";
+            PreviewText = "PDF previews aren't available in this version of Asura.";
             return;
         }
 
@@ -3762,7 +4001,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             _pdfPageCount = await _pdfRenderer.CountPagesAsync(_pdfContent, operation.Token);
             if (_pdfPageCount == 0)
             {
-                PreviewText = "This PDF could not be opened; it may be damaged or encrypted.";
+                PreviewText = "Asura couldn't open this PDF. It may be damaged or password-protected.";
                 return;
             }
 
@@ -3775,7 +4014,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         {
             if (ReferenceEquals(_preview, operation))
             {
-                PreviewText = "The PDF could not be opened.";
+                PreviewText = "Asura couldn't open the PDF. Try again.";
             }
         }
         finally
@@ -3806,7 +4045,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
 
         if (page is null)
         {
-            PreviewText = "That page could not be rendered.";
+            PreviewText = "Asura couldn't show that page. Try another page.";
             return;
         }
 
@@ -3905,6 +4144,7 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
         OnPropertyChanged(nameof(ShowErrorState));
         OnPropertyChanged(nameof(CanRetryContentState));
         OnPropertyChanged(nameof(ShowEmptyState));
+        NotifyStatusMarkChanged();
         _retryCommand.RaiseCanExecuteChanged();
     }
 

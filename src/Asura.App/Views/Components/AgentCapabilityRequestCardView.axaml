@@ -28,13 +28,13 @@
         <icons:SymbolIcon
             VerticalAlignment="Center"
             Symbol="Shield"
-            FontSize="15"
-            Foreground="{DynamicResource ShellAccentBrush}" />
+            FontSize="{DynamicResource ShellIconSizeMd}"
+            Foreground="{DynamicResource ShellMutedBrush}" />
         <TextBlock
             Grid.Column="1"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Permission request" />
         <controls:StatusChip Grid.Column="2" VerticalAlignment="Center" Classes.Warning="True" Content="Off → Ask" />
       </Grid>
@@ -47,40 +47,51 @@
             ToolTip.Tip="{Binding AgentChat.PendingCapabilityRequest.CapabilityToken}" />
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingCapabilityRequest.TargetTitle}"
             TextWrapping="Wrap" />
       </StackPanel>
       <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Allows asking to:" />
+        <!-- A bulleted list: the bullet in its own column, so a wrapped
+             title hangs under its first word rather than under the bullet. -->
         <ItemsControl ItemsSource="{Binding AgentChat.PendingCapabilityRequest.AffectedToolTitles}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="x:String">
-              <TextBlock
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  Text="{Binding StringFormat={}· {0}}"
-                  TextWrapping="Wrap" />
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <TextBlock
+                    Classes="Muted"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    Text="•"
+                    AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock
+                    Grid.Column="1"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    Text="{Binding}"
+                    TextWrapping="Wrap" />
+              </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
       </StackPanel>
-      <!-- The exact broker-verified boundary, stated once and quietly: the ids
-           are the trustworthy part, but they are read deliberately, not first. -->
-      <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-        <TextBlock
+      <TextBlock
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          Text="{Binding AgentChat.PendingCapabilityRequest.ExpiresAt, StringFormat={}Expires {0}}"
+          TextWrapping="Wrap" />
+      <!-- The exact broker-verified boundary: the IDs are the trustworthy
+           part, read deliberately and on request. The card itself names the
+           target by its title above. -->
+      <Expander Header="Details" HorizontalAlignment="Stretch" AutomationProperties.Name="Request details">
+        <SelectableTextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding AgentChat.PendingCapabilityRequest.ExactTarget}"
             TextWrapping="Wrap" />
-        <TextBlock
-            Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
-            Text="{Binding AgentChat.PendingCapabilityRequest.ExpiresAt, StringFormat={}Expires {0}}"
-            TextWrapping="Wrap" />
-      </StackPanel>
+      </Expander>
       <controls:Callout
           Tone="Notice"
           Glyph="Info"
@@ -98,7 +109,7 @@
             Grid.Column="1"
             Classes="PrimaryButton"
             Click="OnEnableAgentCapabilityAskClick"
-            Content="Enable Ask for this run"
+            Content="Enable Ask for This Run"
             IsEnabled="{Binding AgentChat.CanDecideCapabilityRequest}"
             TabIndex="1"
             AutomationProperties.Name="Enable Ask for this capability for this run"

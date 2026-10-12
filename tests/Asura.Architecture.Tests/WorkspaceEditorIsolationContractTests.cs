@@ -38,11 +38,11 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "Isolate workspace",
                 StringComparison.Ordinal));
         Assert.Contains(
-            "execution and network boundary",
+            "reach the network from there",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         Assert.Contains(
-            "All workspace panels, connections, and local terminals use it",
+            "Its panels, connections, and terminals",
             AttributeValue(isolationToggleRow, "Description"),
             StringComparison.Ordinal);
         var runtimeRequirement = Assert.Single(
@@ -68,7 +68,7 @@ public sealed class WorkspaceEditorIsolationContractTests
         Assert.Equal(
             "{Binding IsolationImageDescription}",
             AttributeValue(imageRow, "Description"));
-        var image = FindAccessibleElement(imageRow, "Workspace isolation OCI image");
+        var image = FindAccessibleElement(imageRow, "Workspace environment image");
         Assert.Equal(
             "{Binding IsolationImageReference, Mode=TwoWay}",
             AttributeValue(image, "Text"));
@@ -119,13 +119,13 @@ public sealed class WorkspaceEditorIsolationContractTests
             root.Descendants(),
             element => string.Equals(
                 AttributeValue(element, "Label"),
-                "Host mounts",
+                "Shared folders",
                 StringComparison.Ordinal));
 
         Assert.Equal("{Binding IsIsolated}", AttributeValue(mountRow, "IsVisible"));
         Assert.Null(AttributeValue(mountRow, "IsEnabled"));
         Assert.Contains(
-            "Saving mount changes restarts an open workspace",
+            "Saving changes here restarts an open workspace",
             AttributeValue(mountRow, "Description"),
             StringComparison.Ordinal);
         Assert.Contains(
@@ -135,23 +135,39 @@ public sealed class WorkspaceEditorIsolationContractTests
                 "{Binding IsolationMounts}",
                 StringComparison.Ordinal));
 
-        var hostPath = FindAccessibleElement(mountRow, "Host mount source directory");
+        var hostPath = FindAccessibleElement(mountRow, "Host folder");
         Assert.Equal("{Binding HostPath, Mode=TwoWay}", AttributeValue(hostPath, "Text"));
-        var guestPath = FindAccessibleElement(mountRow, "Host mount guest path");
+        // A long host folder keeps both ends in view: an elided copy covers the
+        // field until it is being edited.
+        Assert.Equal("ElidedPath", AttributeValue(hostPath, "Classes"));
+        var elided = Assert.Single(
+            hostPath.Parent!.Elements(),
+            element => string.Equals(AttributeValue(element, "Classes"), "Path", StringComparison.Ordinal));
+        Assert.Equal("{Binding HostPath}", AttributeValue(elided, "Text"));
+        Assert.Equal("{Binding !#HostPathField.IsKeyboardFocusWithin}", AttributeValue(elided, "IsVisible"));
+        Assert.Equal("False", AttributeValue(elided, "IsHitTestVisible"));
+        var guestPath = FindAccessibleElement(mountRow, "Path inside the environment");
         Assert.Equal("{Binding GuestPath, Mode=TwoWay}", AttributeValue(guestPath, "Text"));
         var readOnly = FindAccessibleElement(mountRow, "Mount host path read only");
-        Assert.Equal("{Binding IsReadOnly, Mode=TwoWay}", AttributeValue(readOnly, "IsChecked"));
         var readWrite = FindAccessibleElement(mountRow, "Mount host path read and write");
-        Assert.Equal("{Binding IsReadWrite, Mode=TwoWay}", AttributeValue(readWrite, "IsChecked"));
         // A radio cannot be clicked off, so a mount always has exactly one
-        // access level; a toggle segment could be left with neither.
+        // access level; a toggle segment could be left with neither. The
+        // shared segmented control holds them and is bound by index, Read &
+        // Write second.
         Assert.Equal("RadioButton", readOnly.Name.LocalName);
         Assert.Equal("RadioButton", readWrite.Name.LocalName);
+        var access = Assert.IsType<XElement>(readOnly.Parent);
+        Assert.Same(access, readWrite.Parent);
+        Assert.Equal("SegmentedControl", access.Name.LocalName);
+        Assert.Equal(
+            "{Binding IsReadWrite, Mode=TwoWay, Converter={x:Static controls:SegmentedControl.SecondWhenTrue}}",
+            AttributeValue(access, "SelectedIndex"));
+        Assert.Equal([readOnly, readWrite], access.Elements());
         Assert.Equal("True", AttributeValue(mountRow, "IsStacked"));
         var browse = FindAccessibleElement(mountRow, "Choose a host folder");
         Assert.Equal("OnBrowseIsolationMountHostPathClick", AttributeValue(browse, "Click"));
 
-        var add = FindAccessibleElement(mountRow, "Add host mount");
+        var add = FindAccessibleElement(mountRow, "Add a shared folder");
         Assert.Equal("OnAddIsolationMountClick", AttributeValue(add, "Click"));
         Assert.Equal("{Binding CanAddIsolationMount}", AttributeValue(add, "IsEnabled"));
         var remove = Assert.Single(
@@ -219,7 +235,7 @@ public sealed class WorkspaceEditorIsolationContractTests
         var editorHandler = File.ReadAllText(Path.Combine(views, "MainWindow.axaml.cs"));
 
         Assert.Contains(
-            "Workspace will be restarted to change isolation configuration.",
+            "The workspace restarts to apply the new isolation settings.",
             confirmation,
             StringComparison.Ordinal);
         Assert.Contains(

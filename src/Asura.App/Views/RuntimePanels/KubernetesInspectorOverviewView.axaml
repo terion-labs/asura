@@ -14,30 +14,29 @@
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md, Vertical=Sm}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Muted">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     </Style>
     <Style Selector="Border.PropertyRow TextBlock.Value">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
-    <Style Selector="TextBlock.SectionTitle">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <!-- A section's heading is the shared SectionHeading role; this only
+         places it in the drawer. -->
+    <Style Selector="TextBlock.SectionHeading.SectionTitle">
       <Setter Property="Margin" Value="{controls:Inset Left=Md, Right=Md, Top=Lg, Bottom=Xs}" />
     </Style>
     <Style Selector="TextBlock.SectionNote">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style Selector="ToggleButton.SectionDisclosure">
       <Setter Property="Margin" Value="{controls:Inset Left=Xs, Right=Xs, Top=Md}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
@@ -59,7 +58,7 @@
       <Setter Property="Background" Value="Transparent" />
     </Style>
     <Style Selector="Button.PropertyLink TextBlock">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Button.PropertyLink:pointerover TextBlock">
       <Setter Property="TextDecorations" Value="Underline" />
@@ -69,7 +68,7 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="{controls:Inset Bottom=Lg}">
       <StackPanel IsVisible="{Binding HasResourceMetrics}">
-        <TextBlock Classes="SectionTitle" Text="Metrics" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Metrics" />
         <ProgressBar
             Classes="WorkingStripe"
             IsVisible="{Binding IsMetricsLoading}"
@@ -109,30 +108,20 @@
               AutomationProperties.Name="Kubernetes metrics provider">
             <ComboBox.ItemTemplate>
               <DataTemplate x:DataType="vm:KubernetesMetricsProviderOption">
-                <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                <TextBlock Classes="MiddleTruncated" Text="{Binding DisplayName}" />
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
-          <!-- Which series the history draws: the same either-or the rest of
-               the shell writes as a segmented picker. -->
-          <Border
+          <!-- Which series the history draws: the shell's one segmented
+               control, so it is announced and keyed like every other. -->
+          <controls:SegmentedControl
               Grid.Column="1"
-              VerticalAlignment="Center"
-              Classes="Segmented"
-              IsVisible="{Binding HasMetricHistory}">
-            <UniformGrid Columns="2">
-              <RadioButton
-                  Classes="Segment"
-                  Content="CPU"
-                  IsChecked="{Binding !MemoryHistory, Mode=OneWay}"
-                  AutomationProperties.Name="Show CPU history" />
-              <RadioButton
-                  Classes="Segment"
-                  Content="Memory"
-                  IsChecked="{Binding MemoryHistory, Mode=TwoWay}"
-                  AutomationProperties.Name="Show memory history" />
-            </UniformGrid>
-          </Border>
+              IsVisible="{Binding HasMetricHistory}"
+              SelectedIndex="{Binding HistorySeriesIndex, Mode=TwoWay}"
+              AutomationProperties.Name="Metric history series">
+            <RadioButton Content="CPU" AutomationProperties.Name="CPU" />
+            <RadioButton Content="Memory" AutomationProperties.Name="Memory" />
+          </controls:SegmentedControl>
         </Grid>
       </StackPanel>
 
@@ -147,16 +136,20 @@
               <DataTemplate x:DataType="vm:KubernetesHistoryRow">
                 <StackPanel Margin="{controls:Inset Bottom=Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock Classes="Eyebrow" Text="{Binding Container}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="Eyebrow MiddleTruncated" Text="{Binding Container}" />
                     <TextBlock Grid.Column="1" Classes="Eyebrow" Text="{Binding Scale}" />
                   </Grid>
+                  <!-- Line, fill, grid and labels come from the chart style's
+                       palette slot, so the stroke and its fill always match;
+                       the unit makes the ceiling and readout say cores or
+                       bytes the way the caption does. -->
                   <controls:TimeSeriesChart
                       Height="96"
-                      GridBrush="{DynamicResource ShellBorderBrush}"
-                      LineBrush="{DynamicResource ShellAccentBrush}"
                       Maximum="{Binding Maximum}"
+                      Unit="{Binding Unit}"
+                      SampleInterval="0:1:0"
                       Values="{Binding Values}"
-                      AutomationProperties.Name="Selected resource metric history over the past hour" />
+                      AutomationProperties.Name="{Binding AccessibleName}" />
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -165,7 +158,7 @@
         </StackPanel>
       </StackPanel>
 
-      <TextBlock Classes="SectionTitle" Text="Properties" />
+      <TextBlock Classes="SectionHeading SectionTitle" Text="Properties" />
       <TextBlock Classes="SectionNote" Text="{Binding DetailsStatus}" />
       <ItemsControl ItemsSource="{Binding DetailProperties}">
         <ItemsControl.ItemTemplate>
@@ -242,7 +235,7 @@
       </ItemsControl>
 
       <StackPanel IsVisible="{Binding HasDetailConditions}">
-        <TextBlock Classes="SectionTitle" Text="Conditions" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Conditions" />
         <ItemsControl ItemsSource="{Binding DetailConditions}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:KubernetesDetailCondition">
@@ -263,14 +256,14 @@
       </StackPanel>
 
       <StackPanel IsVisible="{Binding HasDetailContainers}">
-        <TextBlock Classes="SectionTitle" Text="Containers" />
+        <TextBlock Classes="SectionHeading SectionTitle" Text="Containers" />
         <ItemsControl ItemsSource="{Binding DetailContainers}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:KubernetesDetailContainer">
               <Border Classes="PropertyRow">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock FontWeight="SemiBold" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Classes="MiddleTruncated" FontWeight="SemiBold" Text="{Binding Name}" />
                     <TextBlock Grid.Column="1" Classes="Muted" Text="{Binding State}" />
                   </Grid>
                   <TextBlock Classes="Muted Value" Text="{Binding Image}" TextWrapping="Wrap" />
@@ -284,7 +277,7 @@
         </ItemsControl>
       </StackPanel>
 
-      <TextBlock Classes="SectionTitle" Text="Events" />
+      <TextBlock Classes="SectionHeading SectionTitle" Text="Events" />
       <TextBlock Classes="SectionNote" Text="{Binding EventsStatus}" />
       <ItemsControl ItemsSource="{Binding RelatedEvents}">
         <ItemsControl.ItemTemplate>

@@ -1,10 +1,32 @@
-<Window x:Class="Asura.App.Views.GitStatisticsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" Width="850" Height="650" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
-  <controls:DialogShell Title="Repository statistics" Scrolls="False" Subtitle="Tracked blob sizes at HEAD. Each rectangle represents a top-level directory; submodule contents are counted in their own repository.">
-    <controls:DialogShell.Footer><Button Content="Close" Click="OnClose" Classes="SecondaryButton" /></controls:DialogShell.Footer>
-    <Grid RowDefinitions="Auto,2*,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+<controls:DialogWindow x:Class="Asura.App.Views.GitStatisticsDialog" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="using:Asura.App.Controls" xmlns:views="using:Asura.App.Views" Width="850" Height="650" Presentation="Inspector">
+  <!-- An inspector: consulted while working, so it opens beside the panel
+       without blocking it and closes with ⌘W or Escape, like any window. -->
+  <controls:DialogShell Title="Repository Statistics" Scrolls="False" Subtitle="Tracked blob sizes at HEAD. Each rectangle represents a top-level folder; submodule contents are counted in their own repository.">
+    <Grid RowDefinitions="Auto,2*,Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
       <TextBlock x:Name="Summary" />
       <Canvas x:Name="Treemap" Grid.Row="1" SizeChanged="OnTreemapSize" AutomationProperties.Name="Repository size treemap" />
-      <TextBox x:Name="Contributors" Grid.Row="2" IsReadOnly="True" AcceptsReturn="True" AutomationProperties.Name="Contributors by commit count" />
+      <!-- Contributors as a two-column table: the commit count right-aligned
+           in a column of its own, then who made them. The counts are set in
+           the window's face with tabular lining figures, so the digits line up
+           down the column and sit on the author's baseline; the data face's
+           taller line box dropped them below it. Each row keeps a step
+           above and below, as the list's other rows do, so two contributors
+           never read as one wrapped line. -->
+      <Grid Grid.Row="2" ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Horizontal=Sm}">
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextAlignment="Right" Text="Commits" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Contributor" />
+      </Grid>
+      <ListBox x:Name="Contributors" Grid.Row="3" Classes="Rows" AutomationProperties.Name="Contributors by commit count">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="views:GitContributorRow">
+            <Grid ColumnDefinitions="64,*" ColumnSpacing="{DynamicResource ShellSpaceMd}" Margin="{controls:Inset Vertical=Xs}" AutomationProperties.Name="{Binding AccessibleName}">
+              <TextBlock x:Name="CommitCount" TextAlignment="Right" FontFeatures="+tnum,+lnum" Text="{Binding CommitsText}" />
+              <TextBlock Grid.Column="1" Text="{Binding Author}" TextTrimming="CharacterEllipsis" />
+            </Grid>
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock x:Name="NoContributors" Grid.Row="3" Classes="Muted" Margin="{controls:Inset Horizontal=Sm}" Text="No commits yet." IsVisible="False" />
     </Grid>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

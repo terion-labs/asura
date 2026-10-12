@@ -224,9 +224,37 @@ public sealed class FileRuntimePanelViewModelTests
         for (var index = 1; index < panel.MenuActions.Count; index++)
         {
             Assert.Equal(
-                panel.MenuActions[index - 1].Group != panel.MenuActions[index].Group,
+                panel.MenuActions[index - 1].Band != panel.MenuActions[index].Band
+                    || panel.MenuActions[index - 1].Scope != panel.MenuActions[index].Scope,
                 panel.MenuActions[index].StartsGroup);
         }
+    }
+
+    /// <summary>
+    /// The overflow menu is the item menu followed by the folder menu, in the
+    /// same order, so a command is in the same place in every menu it is in.
+    /// </summary>
+    [Fact]
+    public async Task TheOverflowMenuListsItemCommandsThenFolderCommands()
+    {
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            new StubFilePanelClient(),
+            deferInitialization: true);
+
+        await panel.StartInitialization();
+
+        Assert.Equal(
+            panel.EntryMenuActions.Concat(panel.FolderMenuActions).Select(action => action.Action),
+            panel.MenuActions.Select(action => action.Action));
+        var firstFolderCommand = panel.MenuActions.First(action => action.Scope == FilePanelActionScope.Folder);
+        Assert.True(firstFolderCommand.StartsGroup);
+        Assert.Contains(
+            panel.MenuActions.SkipWhile(action => action.Scope == FilePanelActionScope.Selection),
+            action => action.Action == FilePanelAction.NewFolder);
+        Assert.All(panel.ToolbarActions.Zip(panel.ToolbarActions.Skip(1)), pair =>
+            Assert.True(pair.First.Band <= pair.Second.Band));
     }
 
     /// <summary>
@@ -340,13 +368,13 @@ public sealed class FileRuntimePanelViewModelTests
 
         await panel.StartInitialization();
 
-        Assert.Equal("2 item(s)", panel.Status);
-        Assert.Equal("2", panel.ShortStatus);
+        Assert.Equal("2 items", panel.Status);
+        Assert.Equal("2 items", panel.ShortStatus);
 
         panel.Filter = "alp";
 
-        Assert.Equal("1 of 2 item(s)", panel.Status);
-        Assert.Equal("1/2", panel.ShortStatus);
+        Assert.Equal("1 of 2 items", panel.Status);
+        Assert.Equal("1 of 2 items", panel.ShortStatus);
     }
 
     private static FilePanelEntry Entry(StubFilePanelClient client, string name) =>
@@ -440,7 +468,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.Equal(FileBrowserContentState.Loading, panel.ContentState);
         Assert.True(panel.ShowLoadingState);
-        Assert.Equal("File Viewer loading", panel.ContentPresentation.AccessibleName);
+        Assert.Equal("Files panel loading", panel.ContentPresentation.AccessibleName);
 
         listing.SetResult(FilePanelResult<FilePanelPage>.Success(
             new FilePanelPage([], null)));
@@ -449,7 +477,7 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.Equal(FileBrowserContentState.EmptyLocation, panel.ContentState);
         Assert.True(panel.ShowEmptyLocationState);
         Assert.False(panel.ShowSearchNoResultsState);
-        Assert.Equal("File Viewer empty location", panel.ContentPresentation.AccessibleName);
+        Assert.Equal("Files panel empty location", panel.ContentPresentation.AccessibleName);
         Assert.Contains(
             "Create a folder",
             panel.ContentPresentation.SuggestedAction,
@@ -511,29 +539,29 @@ public sealed class FileRuntimePanelViewModelTests
             panel.Entries,
             item => Assert.Equal("alpha", item.Name),
             item => Assert.Equal("zeta.txt", item.Name));
-        Assert.Equal("2 item(s)", panel.Status);
+        Assert.Equal("2 items", panel.Status);
 
         panel.Filter = "zeta";
 
         var visible = Assert.Single(panel.Entries);
         Assert.Equal("zeta.txt", visible.Name);
-        Assert.Equal("1 of 2 item(s)", panel.Status);
+        Assert.Equal("1 of 2 items", panel.Status);
 
         panel.Filter = "missing";
 
         Assert.Empty(panel.Entries);
-        Assert.Equal("0 of 2 item(s)", panel.Status);
+        Assert.Equal("0 of 2 items", panel.Status);
         Assert.Equal(FileBrowserContentState.SearchNoResults, panel.ContentState);
         Assert.True(panel.ShowSearchNoResultsState);
         Assert.Equal(
-            "File Viewer search has no results",
+            "Files panel search has no results",
             panel.ContentPresentation.AccessibleName);
         Assert.Contains("missing", panel.ContentPresentation.Message, StringComparison.Ordinal);
 
         panel.Filter = string.Empty;
 
         Assert.Equal(2, panel.Entries.Count);
-        Assert.Equal("2 item(s)", panel.Status);
+        Assert.Equal("2 items", panel.Status);
         Assert.Equal(FileBrowserContentState.Ready, panel.ContentState);
     }
 
@@ -628,7 +656,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         var result = Assert.Single(panel.Entries);
         Assert.Equal(nested, result.Entry.Location);
-        Assert.Equal("1 search result(s)", panel.Status);
+        Assert.Equal("1 search result", panel.Status);
     }
 
     [Fact]
@@ -764,11 +792,11 @@ public sealed class FileRuntimePanelViewModelTests
     [InlineData(
         FilePanelErrorCode.AccessDenied,
         FileBrowserContentState.AccessRequired,
-        "File Viewer access required")]
+        "Files panel access required")]
     [InlineData(
         FilePanelErrorCode.UnsupportedCapability,
         FileBrowserContentState.Unsupported,
-        "File Viewer location unsupported")]
+        "Files panel location unsupported")]
     public async Task PermissionAndUnsupportedFailuresHaveDistinctPresentation(
         FilePanelErrorCode errorCode,
         FileBrowserContentState expectedState,
@@ -966,7 +994,7 @@ public sealed class FileRuntimePanelViewModelTests
                 Assert.Equal(
                     PanelNotificationEffects.Visual | PanelNotificationEffects.System,
                     completed.Effects);
-                Assert.Equal("File transfer completed", completed.Title);
+                Assert.Equal("File Transfer Completed", completed.Title);
                 Assert.Equal("/source.txt → /copy.txt", completed.Body);
                 Assert.Equal(completedAt, completed.TimestampUtc);
             },
@@ -977,7 +1005,7 @@ public sealed class FileRuntimePanelViewModelTests
                 Assert.Equal(
                     PanelNotificationEffects.Visual | PanelNotificationEffects.System,
                     failed.Effects);
-                Assert.Equal("File transfer failed", failed.Title);
+                Assert.Equal("File Transfer Failed", failed.Title);
                 Assert.Contains("/source.txt → /backup.txt", failed.Body);
                 Assert.Contains("went offline", failed.Body);
                 Assert.Equal(failedAt, failed.TimestampUtc);
@@ -1101,7 +1129,7 @@ public sealed class FileRuntimePanelViewModelTests
         "Destination already exists",
         "Keep Both")]
     [InlineData(FilePanelErrorCode.SharingViolation, "File is in use", "process")]
-    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder is not empty", "recursive")]
+    [InlineData(FilePanelErrorCode.DirectoryNotEmpty, "Folder isn't empty", "recursive")]
     public void ConflictFailuresKeepOperationSpecificRecovery(
         FilePanelErrorCode errorCode,
         string title,
@@ -1117,6 +1145,35 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.Equal(title, issue.Title);
         Assert.Contains(expectedAction, issue.SuggestedAction, StringComparison.OrdinalIgnoreCase);
         Assert.True(issue.CanRetry);
+    }
+
+    [Fact]
+    public void AnUnsupportedActionIsNamedOnceAndFollowedOnlyByWhatToTry()
+    {
+        var issue = FileOperationIssue.FromProvider(new FilePanelError(
+            FilePanelErrorCode.UnsupportedCapability,
+            "file_copy_unsupported",
+            "This location doesn't support copying.",
+            Retryable: false));
+
+        Assert.Equal("Try another action or location.", issue.SuggestedAction);
+        Assert.DoesNotContain("support", issue.SuggestedAction, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARemovedFileLocationSaysToChooseAnotherInTheSettingsWords()
+    {
+        var issue = FileOperationIssue.FromProvider(new FilePanelError(
+            FilePanelErrorCode.UnknownProfile,
+            "file_provider_profile_unknown",
+            "That file location no longer exists.",
+            Retryable: false));
+        var configuration = FileOperationIssue.Configuration("No file location is selected.");
+
+        Assert.Equal(FileOperationIssueKind.Configuration, issue.Kind);
+        Assert.Equal("Choose another file location, or set one up in Settings.", issue.SuggestedAction);
+        Assert.Equal("File location unavailable", configuration.Title);
+        Assert.DoesNotContain("provider", configuration.SuggestedAction, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -1151,6 +1208,61 @@ public sealed class FileRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ANarrowListingShrinksTheSizeThenTheDateInsteadOfOverflowing()
+    {
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            new StubFilePanelClient());
+        await panel.Initialization;
+
+        // Unmeasured, the columns keep the widths the person chose.
+        Assert.Equal(double.PositiveInfinity, panel.FileSizeColumnMaxWidth);
+        Assert.Equal(double.PositiveInfinity, panel.FileModifiedColumnMaxWidth);
+
+        // A wide listing holds 140 + 90 + 140 and the grips.
+        panel.FileDetailsAvailableWidth = 600;
+        Assert.True(panel.FileSizeColumnMaxWidth >= 90);
+        Assert.True(panel.FileModifiedColumnMaxWidth >= 140);
+
+        // 311 points: the name keeps its minimum, the size gives way to its
+        // own minimum, and the date takes what is left.
+        panel.FileDetailsAvailableWidth = 311;
+        Assert.Equal(FileRuntimePanelViewModel.FileSizeColumnMinWidth, panel.FileSizeColumnMaxWidth);
+        Assert.Equal(
+            311 - FileRuntimePanelViewModel.FileNameColumnMinWidth - 10 - FileRuntimePanelViewModel.FileSizeColumnMinWidth,
+            panel.FileModifiedColumnMaxWidth);
+
+        // Narrower still, nothing goes below its minimum.
+        panel.FileDetailsAvailableWidth = 200;
+        Assert.Equal(FileRuntimePanelViewModel.FileModifiedColumnMinWidth, panel.FileModifiedColumnMaxWidth);
+    }
+
+    [Fact]
+    public async Task AProviderThatKeepsVersionsShowsTheSelectedItemsVersion()
+    {
+        var client = new StubFilePanelClient();
+        client.EnableCapabilities(FilePanelCapability.Versioning);
+        var listed = Entry(client.Root, "report.bin", FilePanelEntryKind.File, 4);
+        client.Entries.Add(listed);
+        client.StatEntry = new FilePanelEntry(
+            listed.Location.WithVersion("v7"),
+            listed.Name,
+            listed.Kind,
+            4096,
+            null,
+            false);
+        using var panel = new FileRuntimePanelViewModel(PanelInstanceId.New(), "Files", client);
+        await panel.Initialization;
+
+        panel.SelectedEntry = Assert.Single(panel.Entries);
+        await panel.PreviewSelectedAsync();
+
+        Assert.True(panel.SelectedMetadata?.HasVersion);
+        Assert.Equal("v7", panel.SelectedMetadata?.Version);
+    }
+
+    [Fact]
     public async Task SelectionPresentsFreshStatMetadataAlongsidePreview()
     {
         var client = new StubFilePanelClient();
@@ -1174,9 +1286,12 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.Equal(listed.Location, client.LastStatLocation);
         Assert.True(panel.SelectedMetadata?.IsStatBacked);
-        Assert.Equal("4 KB", panel.SelectedMetadata?.Size);
-        Assert.Equal("stat-version", panel.SelectedMetadata?.Version);
-        Assert.Equal("Live provider metadata", panel.SelectedMetadata?.Source);
+        Assert.Equal("4.1 KB", panel.SelectedMetadata?.Size);
+        // The fresh stat's entry is the one presented. This provider keeps
+        // no versions, so its tag is a change stamp the details keep to
+        // themselves.
+        Assert.Equal("stat-version", panel.SelectedMetadata?.Entry.Location.Version);
+        Assert.False(panel.SelectedMetadata?.HasVersion);
         Assert.Null(panel.MetadataIssue);
     }
 
@@ -1432,7 +1547,7 @@ public sealed class FileRuntimePanelViewModelTests
                 otherProfile.Root));
 
         Assert.Contains(
-            "does not belong",
+            "doesn't belong",
             error.Message,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1593,7 +1708,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         await panel.Initialization;
         Assert.Null(panel.SelectedProfile);
-        Assert.Contains("not currently available", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("file provider isn't available right now", panel.ErrorMessage, StringComparison.Ordinal);
 
         client.AddProfile("files.saved", "Saved provider");
 
@@ -1835,7 +1950,8 @@ public sealed class FileRuntimePanelViewModelTests
         var panel = await PreviewOf("notes.md", "# Title");
 
         var toggle = Assert.Single(panel.PreviewToggles);
-        Assert.Equal("Show raw", toggle.Label);
+        Assert.Equal("Source", toggle.Label);
+        Assert.Equal(PreviewToggleViewModel.PreviewSegment, toggle.SelectedSegment);
         Assert.True(panel.HasMarkdownPreview);
         panel.Dispose();
     }
@@ -1956,7 +2072,7 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.True(panel.HasBinaryPreview);
         Assert.False(panel.HasSourcePreview);
-        Assert.Equal("DYLIB binary", panel.PreviewBinary!.FormatName);
+        Assert.Equal("Dynamic library", panel.PreviewBinary!.FormatName);
         panel.Dispose();
     }
 
@@ -2019,6 +2135,8 @@ public sealed class FileRuntimePanelViewModelTests
         Assert.True(panel.HasTreePreview);
         Assert.Equal(2, panel.PreviewTree!.Nodes.Count);
         Assert.Equal(["docs", "src"], panel.PreviewTree.Nodes.Select(node => node.Name), StringComparer.Ordinal);
+        // One page: the summary alone, with no "Page 1" in front of it.
+        Assert.DoesNotContain("Page", panel.PreviewTree.Summary, StringComparison.Ordinal);
     }
 
     private sealed class StubArchiveReader(IReadOnlyList<ArchiveEntryDescriptor> entries)
@@ -2057,11 +2175,19 @@ public sealed class FileRuntimePanelViewModelTests
         await panel.PreviewSelectedAsync();
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
         Assert.True(panel.HasNextArchivePage);
+        // The page controls ride on the listing, for its footer to show.
+        var paging = Assert.IsType<PreviewTreePaging>(panel.PreviewTree.Paging);
+        Assert.Same(panel.NextArchivePageCommand, paging.Next);
+        Assert.Same(panel.PreviousArchivePageCommand, paging.Previous);
+        // Several pages: each summary says which page it is.
+        Assert.StartsWith("Page 1 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         await panel.ChangeArchivePageAsync(1);
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
         Assert.True(panel.HasPreviousArchivePage);
+        Assert.StartsWith("Page 2 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         await panel.ChangeArchivePageAsync(1);
         Assert.Equal("entry-500.txt", Assert.Single(panel.PreviewTree!.Nodes).Name);
+        Assert.StartsWith("Page 3 · ", panel.PreviewTree.Summary, StringComparison.Ordinal);
         Assert.False(panel.HasNextArchivePage);
         await panel.ChangeArchivePageAsync(-1);
         Assert.Equal(250, panel.PreviewTree!.Nodes.Count);
@@ -2123,7 +2249,8 @@ public sealed class FileRuntimePanelViewModelTests
 
         Assert.False(panel.HasHexPreview);
         Assert.True(panel.HasTablePreview);
-        Assert.Equal("As table", panel.PreviewToggles.Single().Label);
+        Assert.Equal("Source", panel.PreviewToggles.Single().Label);
+        Assert.False(panel.PreviewToggles.Single().ShowsSource);
     }
 
     private static FilePanelPreview BinaryPreview(FilePanelLocation root, string name) =>
@@ -2333,7 +2460,7 @@ public sealed class FileRuntimePanelViewModelTests
         panel.PropertyChanged += (_, e) =>
             announced |= string.Equals(e.PropertyName, nameof(panel.AutoDownloadPreviewLabel), StringComparison.Ordinal);
         await preferences.ApplyAsync(
-            preferences.Current with { AutoLoadThresholdBytes = 8 * 1024 * 1024 },
+            preferences.Current with { AutoLoadThresholdBytes = 8_000_000 },
             CancellationToken.None);
 
         // A caption that promises a number must follow the number.

@@ -55,7 +55,7 @@ public sealed class MagickImagePreviewDecoderTests : IDisposable
         Assert.NotNull(decoded);
         Assert.Equal(120, decoded!.Width);
         Assert.Equal(90, decoded.Height);
-        Assert.Equal("Tiff", decoded.FormatName);
+        Assert.Equal("TIFF", decoded.FormatName);
         Assert.True(decoded.PngBytes.Span.StartsWith(
             new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }));
     }

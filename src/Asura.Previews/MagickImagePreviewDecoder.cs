@@ -135,7 +135,7 @@ public sealed class MagickImagePreviewDecoder : IImagePreviewDecoder
         using var image = new MagickImage(source, settings);
         var width = (int)image.Width;
         var height = (int)image.Height;
-        var format = image.Format.ToString();
+        var format = DisplayFormatName(image.Format);
 
         cancellationToken.ThrowIfCancellationRequested();
         var pixels = (long)width * height;
@@ -155,4 +155,31 @@ public sealed class MagickImagePreviewDecoder : IImagePreviewDecoder
         cancellationToken.ThrowIfCancellationRequested();
         return new DecodedImage(image.ToByteArray(), width, height, format);
     }
+
+    /// <summary>
+    /// A format as people write it: "TIFF" and "JPEG", not the codec's enum
+    /// names "Tiff" and "Jpeg". Formats outside the common set keep the
+    /// codec's name in capitals, which is how their abbreviations are written.
+    /// </summary>
+    internal static string DisplayFormatName(MagickFormat format) => format switch
+    {
+        MagickFormat.Tiff or MagickFormat.Tiff64 or MagickFormat.Tif or MagickFormat.Ptif => "TIFF",
+        MagickFormat.Jpeg or MagickFormat.Jpg or MagickFormat.Pjpeg or MagickFormat.Jpe => "JPEG",
+        MagickFormat.Jp2 or MagickFormat.J2k => "JPEG 2000",
+        MagickFormat.Jxl => "JPEG XL",
+        MagickFormat.Png or MagickFormat.Png8 or MagickFormat.Png24 or MagickFormat.Png32
+            or MagickFormat.Png48 or MagickFormat.Png64 or MagickFormat.Png00 => "PNG",
+        MagickFormat.APng => "APNG",
+        MagickFormat.WebP => "WebP",
+        MagickFormat.Gif or MagickFormat.Gif87 => "GIF",
+        MagickFormat.Heic or MagickFormat.Heif => "HEIC",
+        MagickFormat.Avif => "AVIF",
+        MagickFormat.Bmp or MagickFormat.Bmp2 or MagickFormat.Bmp3 => "BMP",
+        MagickFormat.Ico => "ICO",
+        MagickFormat.Psd or MagickFormat.Psb => "Photoshop",
+        MagickFormat.Svg or MagickFormat.Svgz or MagickFormat.Msvg => "SVG",
+        MagickFormat.Dng => "DNG",
+        MagickFormat.Xcf => "GIMP",
+        _ => format.ToString().ToUpperInvariant(),
+    };
 }

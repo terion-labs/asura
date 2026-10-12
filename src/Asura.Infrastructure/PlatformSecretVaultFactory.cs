@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.Infrastructure;
 
@@ -17,7 +18,7 @@ public static class PlatformSecretVaultFactory
             SecretVaultPlatform.Linux => CreateLinux(options),
             _ => new UnavailableSecretVault(
                 "platform_not_supported",
-                "This operating system does not have a configured Asura secret-vault adapter.",
+                "Asura can't store passwords and keys on this operating system.",
                 accessPolicy: options.AccessPolicy),
         };
 
@@ -50,7 +51,7 @@ public static class PlatformSecretVaultFactory
         {
             return new UnavailableSecretVault(
                 "macos_keychain_unavailable",
-                "macOS Keychain Services could not be loaded.",
+                $"Asura couldn't open {PlatformTerms.SecretStoreFor(HostOperatingSystem.MacOS)}. Restart Asura, then try again.",
                 "macos-keychain",
                 accessPolicy);
         }
@@ -62,7 +63,7 @@ public static class PlatformSecretVaultFactory
         {
             return new UnavailableSecretVault(
                 "windows_dpapi_wrong_platform",
-                "The Windows DPAPI vault is available only on Windows.",
+                $"{PlatformTerms.SecretStoreFor(HostOperatingSystem.Windows)} is available only on Windows.",
                 "windows-dpapi",
                 options.AccessPolicy);
         }
@@ -80,7 +81,7 @@ public static class PlatformSecretVaultFactory
         {
             return new UnavailableSecretVault(
                 "linux_secret_service_tool_missing",
-                "Secret Service support requires the secret-tool executable.",
+                $"To store passwords in {PlatformTerms.SecretStoreFor(HostOperatingSystem.Linux)}, install the secret-tool command from libsecret, then restart Asura.",
                 "linux-secret-service",
                 options.AccessPolicy);
         }

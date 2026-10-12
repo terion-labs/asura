@@ -127,7 +127,7 @@ public sealed class DeterministicRecentSessionHistoryExporter
         Cancelled() =>
         Failure(
             RecentSessionHistoryExportErrorCode.Cancelled,
-            "The recent-session history export was cancelled.");
+            "The recent-session history export was canceled.");
 
     private static RecentSessionHistoryExportResult<RecentSessionHistoryExportReceipt>
         Failure(

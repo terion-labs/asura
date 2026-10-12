@@ -3,77 +3,69 @@ using Asura.Testing;
 
 namespace Asura.Architecture.Tests;
 
+/// <summary>
+/// The menu bar is built in one place from the command registry and given to
+/// every window. Asura.App.Tests covers its structure, shortcuts and
+/// behavior; these tests keep menus from being declared again per view.
+/// </summary>
 public sealed class NativeMenuContractTests
 {
     private static readonly string RepositoryRoot =
         ApplicationViewCatalog.Load().RepositoryRoot;
 
     [Fact]
-    public void Application_menu_uses_macOS_application_commands()
+    public void Views_do_not_declare_their_own_native_menus()
     {
-        var application = XDocument.Load(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "Asura.App",
-            "App.axaml"));
-        var headers = application
-            .Descendants()
-            .Where(element => element.Name.LocalName == "NativeMenuItem")
-            .Select(element => AttributeValue(element, "Header") ?? string.Empty)
+        var declaring = Directory
+            .EnumerateFiles(Path.Combine(RepositoryRoot, "src", "Asura.App"), "*.axaml", SearchOption.AllDirectories)
+            .Where(path => XDocument.Load(path)
+                .Descendants()
+                .Any(element => string.Equals(element.Name.LocalName, "NativeMenu.Menu", StringComparison.Ordinal)))
+            .Select(path => Path.GetRelativePath(RepositoryRoot, path))
             .ToArray();
 
-        Assert.Equal(["About Asura…", "Check for Updates…", "Settings…"], headers);
-        var checkForUpdates = Assert.Single(
-            application.Descendants(),
-            element => AttributeValue(element, "Header") == "Check for Updates…");
-        Assert.Equal("OnCheckForUpdatesMenuClick", AttributeValue(checkForUpdates, "Click"));
+        Assert.Empty(declaring);
     }
 
     [Fact]
-    public void Main_window_exports_standard_grouped_menus_and_new_window_shortcut()
+    public void Every_window_receives_the_shared_menu_bar_when_it_opens()
     {
-        var mainWindow = XDocument.Load(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "Asura.App",
-            "Views",
-            "MainWindow.axaml"));
-        var root = Assert.IsType<XElement>(mainWindow.Root);
-        var menu = Assert.Single(
-            root.Elements(),
-            element => element.Name.LocalName == "NativeMenu.Menu");
-        var topLevelHeaders = menu
-            .Elements()
-            .Single(element => element.Name.LocalName == "NativeMenu")
-            .Elements()
-            .Where(element => element.Name.LocalName == "NativeMenuItem")
-            .Select(element => AttributeValue(element, "Header") ?? string.Empty)
-            .ToArray();
-        var newWindow = Assert.Single(
-            menu.Descendants(),
-            element => AttributeValue(element, "Header") == "New Window");
+        var menus = Read("App.Menus.cs");
 
-        Assert.Equal(["File", "Edit", "View", "Window"], topLevelHeaders);
-        Assert.Equal("Meta+N", AttributeValue(newWindow, "Gesture"));
-        Assert.Equal("OnNewWindowMenuClick", AttributeValue(newWindow, "Click"));
+        Assert.Contains(
+            "Window.WindowOpenedEvent.AddClassHandler<Window>((window, _) => AttachMenuBar(window));",
+            menus,
+            StringComparison.Ordinal);
+        Assert.Contains("ApplicationMenuBar.CreateMenuBar(host)", menus, StringComparison.Ordinal);
+        Assert.Contains("NativeMenu.SetMenu(window, menuBar.Menu);", menus, StringComparison.Ordinal);
+        Assert.Contains(
+            "MacOsMenuBar.AdoptStandardMenus(",
+            menus,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Application_menu_renames_quit_for_the_app()
+    {
+        var menus = Read("App.Menus.cs");
+
+        Assert.Contains("item.Header = $\"Quit {ProductName}\";", menus, StringComparison.Ordinal);
+        Assert.Contains("NativeMenu.SetMenu(this, menu);", menus, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Desktop_lifetime_is_explicit_and_closes_after_the_last_main_window()
     {
-        var source = File.ReadAllText(Path.Combine(
-            RepositoryRoot,
-            "src",
-            "Asura.App",
-            "App.axaml.cs"));
+        var source = Read("App.axaml.cs");
 
         Assert.Contains("ShutdownMode.OnExplicitShutdown", source, StringComparison.Ordinal);
         Assert.Contains("FirstOrDefault(window => !ReferenceEquals(window, mainWindow))", source, StringComparison.Ordinal);
         Assert.Contains("desktop.Shutdown();", source, StringComparison.Ordinal);
     }
 
-    private static string? AttributeValue(XElement element, string localName) =>
-        element.Attributes()
-            .SingleOrDefault(attribute => attribute.Name.LocalName == localName)
-            ?.Value;
+    private static string Read(string fileName) => File.ReadAllText(Path.Combine(
+        RepositoryRoot,
+        "src",
+        "Asura.App",
+        fileName));
 }

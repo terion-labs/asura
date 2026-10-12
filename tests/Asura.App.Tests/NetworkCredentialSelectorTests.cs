@@ -11,6 +11,25 @@ namespace Asura.App.Tests;
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class NetworkCredentialSelectorTests
 {
+    [Fact]
+    public void A_stored_credentials_update_date_reads_as_every_other_date()
+    {
+        using var culture = new CultureScope("de-DE");
+        var moment = new DateTimeOffset(2026, 9, 17, 14, 5, 9, TimeSpan.Zero);
+
+        var option = new NetworkCredentialOption(
+            new SecretRef("secret.proxy"),
+            "Proxy password",
+            SecretKind.Password,
+            SecretVaultPersistenceKind.MemoryOnly,
+            moment,
+            NetworkCredentialOptionState.Available);
+        var undated = option with { UpdatedAt = null };
+
+        Assert.EndsWith($"Updated {DisplayDates.Format(moment)}", option.Detail, StringComparison.Ordinal);
+        Assert.EndsWith("Updated unknown", undated.Detail, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(NetworkCredentialTarget.ProxyPassword, NetworkConnectionKind.Proxy, SecretKind.Password, "Password")]
     [InlineData(NetworkCredentialTarget.AnyConnectPassword, NetworkConnectionKind.AnyConnect, SecretKind.Password, "Password")]

@@ -2,6 +2,45 @@
 
 This review checks Asura's macOS experience against Apple's Human Interface Guidelines. It uses the guidelines current for macOS 26 and 27, including the Liquid Glass guidance. The review covers every HIG area that applies to a desktop app: foundations, patterns, components, inputs, and writing.
 
+## Implementation follow-up, 2026-10-12
+
+Everything below the follow-up is the original review and stays as the baseline. The fixes landed on branch `hig/macos-conformance` (tracked as `asura-zngc`): 225 commits touching 773 source files and adding 114 test files.
+
+### How it was done
+
+The 112 findings were split into packages that each owned a disjoint set of files. The packages ran in waves: foundations (menus, keyboard, terminal and agent accessibility, appearance, control themes, window lifecycle), then Settings, dialogs, window chrome and every panel, then a writing pass. An independent reviewer checked each package's branch and a fixer addressed what it found before the merge. A read-only audit of all 112 findings against the merged code then drove four closing rounds, and a final re-audit of the last open findings found nothing left that is not listed under accepted deviations below.
+
+### What changed for people using Asura
+
+- **Menus and keyboard.** A complete menu bar built from the command registry: Edit with Find, View, Terminal, Panel, Workspace, Git, Window and Help. Every context-menu command, including every panel's, also has a menu-bar path. A macOS keymap built on ⌘ shortcuts is the default; the tmux-style ⌃B prefix is opt-in and no longer swallows ⌃B. Quick Terminal defaults to ⌃`, and Escape reaches the shell. Shortcuts render in one notation (⌃⌥⇧⌘ plus key glyphs) and are checked against macOS reserved chords.
+- **Windows.** Settings is its own window. Dialogs share one keyboard contract: Cancel and ⌘. cancel, Return confirms safe actions, and destructive actions never default. ⌘Q shows one alert. Window frames and every window's workspace restore on relaunch, and closing the last window keeps Asura running with a Dock menu. The workspace editor and layout designer are separate windows.
+- **Accessibility.** VoiceOver can read terminal output, agent replies and Markdown, and hears agent run and approval announcements, including in Quick Terminal. Every control shows keyboard focus, and form fields have accessible names. Selection is visible, and text on accent fills meets contrast. Reduce Motion, Reduce Transparency, Increase Contrast and Differentiate Without Color are honored, and layouts scale to 250% text.
+- **Visual foundations.** Content surfaces are opaque, with glass only on the chrome. The accent is reserved for interactive state, and status colors come from tokens. The type ramp follows the macOS text styles with a 10 pt floor. The app no longer replaces its Dock icon at runtime.
+- **Components and writing.** One search field, one segmented control, one table style and inline validation are used everywhere. Copy uses title case for commands, "Keychain" for the secret store, US spelling and one name per panel type. `docs/ui-writing-guide.md` records the rules, and `scripts/check-ui-copy.py` enforces them in the quality gate.
+
+### Verification
+
+- `./scripts/check.sh --full` passes at the final head, with every test project green. App tests grew from 2,387 to 3,750 and architecture tests from 901 to 1,533.
+- The design-QA harness was repaired (an earlier route left the window swapped and broke every route after it) and now captures 185 routes. Each capture round was reviewed by eye against the earlier captures before the baseline was approved, and `./scripts/check-design-qa.sh` passes.
+- The development build launches cleanly on a throwaway profile, restores an edited window frame exactly, and quits cleanly. Hands-on checks that need UI control (VoiceOver, Quick Terminal over a full-screen Space, ⌘Q with two windows, native menus) are listed in `asura-9r1u`.
+
+### Accepted deviations and follow-ups
+
+| Item | Decision | Issue |
+|---|---|---|
+| V-14, V-11 | The pre-26 fallback icon grid and the icon recolor change files bound by the owner-approved macOS legal record. They are kept on branch `hig/icon-assets`, and the integration branch keeps the approved icon bytes. | `asura-g6ai` |
+| Panel header "…" | The components audit behind this review asked for a menu. That reverses the icon strip from #119, so the owner should confirm it. | `asura-pdgg` |
+| W-08 | Native `NSAlert` sheets were not adopted; dialogs follow the shared dialog contract instead. | `asura-ll2c` |
+| V-12 | SF Symbols not adopted; icon size ramp and native file-type icons shipped. | `asura-lypp` |
+| A-20 | Full string-resource extraction not done; culture-aware dates and right-to-left paragraphs shipped. | `asura-3p2d` |
+| C-05 | Dragging files out of remote providers needs file-promise interop. | `asura-3u0v` |
+| C-01 | Credential deletes keep a destructive confirmation, because Undo would keep a secret in memory. | n/a |
+| M-16 | "Repository Identity and Signing…" stays in the Git panel because it edits repository config. | n/a |
+| T-06 | "Working directory" stays as the standard shell term. | n/a |
+| V-10 | The agent activity glow keeps the accent because it marks a live run. | n/a |
+
+Other follow-ups: a flaky native networking test (`asura-lb6g`), design-QA capture determinism (`asura-e5hf`), a dedicated Kubernetes input-refusal error code (`asura-w6pj`), and a shorter Panel ▸ Database menu (`asura-s9s1`).
+
 ## Scope and method
 
 - **Build under review.** `main` at `a878ce49`, plus the installed 0.1.81 (154) app bundle from 2026-10-06.

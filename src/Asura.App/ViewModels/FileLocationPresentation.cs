@@ -1,9 +1,29 @@
+using Asura.App.Controls;
 using Asura.Application;
 
 namespace Asura.App.ViewModels;
 
 internal static class FileLocationPresentation
 {
+    /// <summary>
+    /// Why a typed location can't be opened. The location model's own checks
+    /// name parameters and traversal rules, so they go to diagnostics and the
+    /// person reads which folder names a location can't hold.
+    /// </summary>
+    public static string DescribeLocationRefusal(Exception exception) =>
+        FailureReason.Refusal(
+            "files.location.parse.refused",
+            exception,
+            "Asura can’t open that location. A folder in it can’t be named “.” or “..” or contain a null character. "
+            + "Check the location, then try again.");
+
+    /// <summary>Why a new or changed file or folder name can't be used.</summary>
+    public static string DescribeNameRefusal(Exception exception) =>
+        FailureReason.Refusal(
+            "files.name.refused",
+            exception,
+            "That name can’t be used. A name can’t be “.” or “..” or contain “/” or a null character. Choose another name.");
+
     public static FilePanelLocation Parse(
         FileProviderProfileDescriptor profile,
         string input)
@@ -29,7 +49,8 @@ internal static class FileLocationPresentation
                 profile.Id,
                 profile.Root.Authority,
                 new FilePanelAddress.ObjectKey(value)),
-            _ => throw new ArgumentException("This provider uses an unsupported location format."),
+            _ => throw FailureReason.Readable(new ArgumentException(
+                "Locations for this provider can’t be typed. Choose a folder in the list instead.")),
         };
     }
 
@@ -80,9 +101,8 @@ internal static class FileLocationPresentation
                 parent.ProviderProfileId,
                 parent.Authority,
                 new FilePanelAddress.ObjectKey(name)),
-            _ => throw new ArgumentException(
-                "This destination cannot contain files or folders.",
-                nameof(parent)),
+            _ => throw FailureReason.Readable(new ArgumentException(
+                "This destination can't hold files or folders. Choose another one.")),
         };
     }
 }

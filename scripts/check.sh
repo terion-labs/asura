@@ -46,6 +46,8 @@ export NUGET_PACKAGES="${repository_dir}/.nuget/packages"
 cd "${repository_dir}"
 
 python3 "${script_dir}/check-product-name.py"
+python3 "${script_dir}/check-ui-copy.py"
+python3 "${script_dir}/test-check-ui-copy.py"
 python3 "${script_dir}/test-cef-keychain-scope.py"
 python3 "${script_dir}/test-gvisor-forwarding.py"
 python3 "${script_dir}/test-workspace-runtime-toolchain.py"

@@ -22,10 +22,10 @@
       </Setter>
     </Style>
     <Style Selector="Button.ChatSecret:pointerover /template/ ContentPresenter">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <Style Selector="Button.ChatSecret:focus-visible /template/ ContentPresenter">
-      <Setter Property="Foreground" Value="{DynamicResource ShellAccentBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentTextBrush}" />
     </Style>
     <!-- Every text block is selectable, so a preview can be read out of as
          well as looked at: select, copy, paste elsewhere. -->
@@ -45,7 +45,7 @@
     <TextBlock
         x:Name="RenderingState"
         Classes="Muted"
-        FontSize="{DynamicResource ShellFontSize9}"
+        FontSize="{DynamicResource ShellSecondaryFontSize}"
         Text="Rendering message…"
         IsVisible="False"
         AutomationProperties.Name="Rendering Markdown message" />

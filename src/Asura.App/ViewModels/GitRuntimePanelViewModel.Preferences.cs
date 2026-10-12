@@ -80,7 +80,7 @@ public sealed partial class GitRuntimePanelViewModel
         var dictionary = _gitPreferences.SpellingDictionary;
         if (dictionary.Length == 0)
         {
-            return "Choose a spelling dictionary in Git preferences. Use a UTF-8 file with one word per line.";
+            return "Choose a spelling dictionary in Settings ▸ Git. Use a UTF-8 file with one word per line.";
         }
 
         try
@@ -98,7 +98,8 @@ public sealed partial class GitRuntimePanelViewModel
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            return "Could not read the spelling dictionary: " + exception.Message;
+            SecretSafeDiagnostics.WriteTrace("git.spelling-dictionary.read.failed", exception);
+            return "Asura couldn't read the spelling dictionary. Check that the dictionary file still exists, then try again.";
         }
     }
 

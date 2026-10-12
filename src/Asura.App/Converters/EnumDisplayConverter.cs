@@ -5,10 +5,13 @@ using Avalonia.Data.Converters;
 namespace Asura.App.Converters;
 
 /// <summary>
-/// Renders enum options as prose. Option lists bind straight to enum values, so
-/// without this a menu reads <c>DiscardAndShowHint</c> or <c>ConfirmBeforeOpen</c>
-/// — the identifier rather than the choice. Non-enum values pass through
-/// untouched so lists of profiles and descriptors keep their own text.
+/// Renders enum options as the items of a pop-up menu. Option lists bind
+/// straight to enum values, so without this a menu reads
+/// <c>DiscardAndShowHint</c> or <c>ConfirmBeforeOpen</c> — the identifier
+/// rather than the choice. A pop-up button's items are menu items, and menu
+/// items are title case on the Mac, as the profile names beside them
+/// ("macOS Native") already were. Non-enum values pass through untouched so
+/// lists of profiles and descriptors keep their own text.
 /// </summary>
 public sealed class EnumDisplayConverter : IValueConverter
 {
@@ -21,7 +24,23 @@ public sealed class EnumDisplayConverter : IValueConverter
     private static readonly Dictionary<string, string> Overrides = new(StringComparer.Ordinal)
     {
         ["OpenAi"] = "OpenAI",
-        ["OpenAiCompatible"] = "OpenAI-compatible",
+        ["OpenAiCompatible"] = "OpenAI-Compatible",
+        ["OpenAiResponses"] = "OpenAI Responses API",
+        ["GitHub"] = "GitHub",
+        ["GitHubCopilot"] = "GitHub Copilot",
+        ["GitLab"] = "GitLab",
+        ["DeepSeek"] = "DeepSeek",
+        ["MoonshotAi"] = "Moonshot AI",
+        ["OpenRouter"] = "OpenRouter",
+        ["XAi"] = "xAI",
+        ["Xterm256Color"] = "xterm-256color",
+    };
+
+    /// <summary>Short words that stay lowercase inside a title.</summary>
+    private static readonly HashSet<string> MinorWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
+        "nor", "of", "on", "or", "the", "to", "via", "vs", "with",
     };
 
     /// <summary>
@@ -71,17 +90,18 @@ public sealed class EnumDisplayConverter : IValueConverter
             }
 
             var word = words[index];
+            var isEdge = index == 0 || index == words.Count - 1;
             if (Initialisms.Contains(word))
             {
                 builder.Append(word.ToUpperInvariant());
             }
-            else if (index == 0)
+            else if (!isEdge && MinorWords.Contains(word))
             {
-                builder.Append(char.ToUpperInvariant(word[0])).Append(word[1..].ToLowerInvariant());
+                builder.Append(word.ToLowerInvariant());
             }
             else
             {
-                builder.Append(word.ToLowerInvariant());
+                builder.Append(char.ToUpperInvariant(word[0])).Append(word[1..].ToLowerInvariant());
             }
         }
 

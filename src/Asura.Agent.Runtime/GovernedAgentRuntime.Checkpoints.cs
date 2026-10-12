@@ -248,7 +248,7 @@ public sealed partial class GovernedAgentRuntime
                 _snapshot = _snapshot with
                 {
                     PersistenceError = originalsSaved ? null
-                    : "Conversation saved with hidden content. Some originals could not be stored in the operating-system vault and will be unavailable after restart."
+                    : $"The conversation was saved with hidden content, but some originals couldn't be stored in {PlatformTerms.SecretStore}. They won't be available after Asura restarts."
                 };
             }
         }
@@ -691,7 +691,7 @@ public sealed partial class GovernedAgentRuntime
         {
             return CheckpointStoreFailure<Unit>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Saving the agent conversation was cancelled.");
+                "Saving the agent conversation was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

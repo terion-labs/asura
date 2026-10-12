@@ -241,7 +241,7 @@ public sealed class ApplicationEncryptionRuntimeTests : IAsyncDisposable
         await runtime.InitializeAsync(wrappedKeysPending: false, CancellationToken.None);
 
         Assert.True(runtime.IsEnabled);
-        Assert.Contains("key is not in", runtime.StartupError, StringComparison.Ordinal);
+        Assert.Contains("key isn't in", runtime.StartupError, StringComparison.Ordinal);
         Assert.Equal(original, await File.ReadAllBytesAsync(DatabasePath));
     }
 
@@ -343,7 +343,7 @@ public sealed class ApplicationEncryptionRuntimeTests : IAsyncDisposable
 
         var error = await runtime.SetEnabledAsync(true, CancellationToken.None);
 
-        Assert.Contains("retained", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("kept its keys", error, StringComparison.Ordinal);
         Assert.NotNull(await _vault.ReadAsync(ConfigKeyReference));
         Assert.NotNull(await _vault.ReadAsync(CacheKeyReference));
         Assert.Contains(
@@ -377,7 +377,7 @@ public sealed class ApplicationEncryptionRuntimeTests : IAsyncDisposable
 
         var error = await runtime.SetEnabledAsync(false, CancellationToken.None);
 
-        Assert.Contains("retained", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("kept its keys", error, StringComparison.Ordinal);
         Assert.NotNull(await _vault.ReadAsync(ConfigKeyReference));
         Assert.NotNull(await _vault.ReadAsync(CacheKeyReference));
         Assert.Contains(

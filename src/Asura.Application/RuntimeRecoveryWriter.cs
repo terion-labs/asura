@@ -148,7 +148,7 @@ public sealed class RuntimeRecoveryWriter
             {
                 return Failure(
                     ApplicationRunErrorCode.Cancelled,
-                    "Waiting for runtime recovery persistence was cancelled.");
+                    "Waiting for runtime recovery persistence was canceled.");
             }
 
             lock (_gate)
@@ -185,7 +185,7 @@ public sealed class RuntimeRecoveryWriter
         {
             return Failure(
                 ApplicationRunErrorCode.Cancelled,
-                "Waiting for runtime recovery persistence was cancelled.");
+                "Waiting for runtime recovery persistence was canceled.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {

@@ -142,19 +142,19 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
         {
             return Failure(
                 DefinitionStoreErrorCode.Cancelled,
-                "The layout save was cancelled and rolled back.");
+                "The layout save was canceled and rolled back.");
         }
         catch (SqliteException)
         {
             return Failure(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The definition store could not complete the layout save.");
+                "Asura couldn't save the layout. Try again.");
         }
         catch (FormatException)
         {
             return Failure(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Stored definition metadata is corrupt.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -175,7 +175,7 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
             {
                 return new DefinitionStoreError(
                     DefinitionStoreErrorCode.InvalidDefinition,
-                    $"Definition '{write.Definition.Key}' cannot be serialized by this application version.");
+                    "This version of Asura can't save this item.");
             }
 
             pending.Add((prepared, write.ExpectedRevision));
@@ -246,19 +246,19 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.Cancelled,
-                "The graph save was cancelled and rolled back.");
+                "The graph save was canceled and rolled back.");
         }
         catch (SqliteException)
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.StorageFailure,
-                "The definition store could not complete the graph save.");
+                "Asura couldn't save the change. Try again.");
         }
         catch (FormatException)
         {
             return new DefinitionStoreError(
                 DefinitionStoreErrorCode.StorageFailure,
-                "Stored definition metadata is corrupt.");
+                "A saved item is damaged and can't be read.");
         }
     }
 
@@ -387,8 +387,8 @@ public sealed class SqliteLayoutGraphStore : ILayoutGraphStore
             default,
             DefinitionStoreErrorCode.RevisionConflict,
             expectedRevision is null
-                ? $"A definition with identity '{definition.Key}' already exists."
-                : $"Definition '{definition.Key}' changed before it could be saved.");
+                ? "It already exists. Reopen it and try again."
+                : "It changed somewhere else before it could be saved. Reopen it and try again.");
     }
 
     private static async Task ReplaceReferencesAsync(

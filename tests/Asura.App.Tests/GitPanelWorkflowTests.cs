@@ -438,7 +438,7 @@ public sealed class GitPanelWorkflowTests
 
         Assert.True(recorder.PullToken.IsCancellationRequested);
         Assert.False(panel.IsMutating);
-        Assert.Contains("cancelled", panel.IssueMessage ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("canceled", panel.IssueMessage ?? "", StringComparison.OrdinalIgnoreCase);
     }
 
     private static GitRuntimePanelViewModel CreatePanel(IGitRepositoryClient client, IGitPanelPreferences? preferences = null,

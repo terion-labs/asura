@@ -1,3 +1,5 @@
+using Asura.Core;
+
 namespace Asura.Application.Previews;
 
 /// <summary>A node of a listed hierarchy — an archive's contents, for now.</summary>
@@ -93,7 +95,7 @@ public static class PreviewTreeBuilder
         }
 
         private static string Describe(int count) =>
-            count == 1 ? "1 item" : $"{count} items";
+            CountText.OrNone(count, "item", "items");
     }
 
     /// <summary>

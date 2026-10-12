@@ -22,6 +22,31 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
     }
 
     [Fact]
+    public void AnEmptyPortShowsTheProtocolsOwnPortAsItsPlaceholder()
+    {
+        var editor = new BrowserProfileSettingsEditorViewModel(new InMemoryBrowserProfilePreferences());
+        var changed = new List<string?>();
+        editor.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("443", editor.AuthenticationDefaultPort);
+        editor.AuthenticationOriginScheme = "http";
+
+        Assert.Equal("80", editor.AuthenticationDefaultPort);
+        Assert.Contains(nameof(BrowserProfileSettingsEditorViewModel.AuthenticationDefaultPort), changed, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void SharingChoicesAreTitleCaseMenuItems()
+    {
+        var editor = new BrowserProfileSettingsEditorViewModel(new InMemoryBrowserProfilePreferences());
+
+        Assert.Equal(
+            ["Shared Across Workspaces", "Separate by Workspace"],
+            editor.SharingOptions.Select(option => option.DisplayName),
+            StringComparer.Ordinal);
+    }
+
+    [Fact]
     public async Task CookieClearTargetsOnlyTheSelectedNamedProfileRevision()
     {
         var profile = Profile("browser.operations", BrowserProfilePersistence.DurableMetadata);
@@ -68,7 +93,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
         editor.CancelClearCommand.Execute(null);
         await WaitForAsync(() => !editor.IsClearing);
 
-        Assert.Equal("Browser profile clearing was cancelled.", editor.OperationStatus);
+        Assert.Equal("Browser profile clearing was canceled.", editor.OperationStatus);
     }
 
     [Fact]
@@ -102,7 +127,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
 
         Assert.False(editor.ClearAuthenticationCommand.CanExecute(null));
         Assert.Contains("per workspace", editor.StateText, StringComparison.Ordinal);
-        Assert.Contains("will not issue a broad", editor.StateText, StringComparison.Ordinal);
+        Assert.Contains("won't issue a broad", editor.StateText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -121,6 +146,39 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
 
         Assert.False(editor.SelectedProfile!.IsEnabled);
         Assert.Contains("disabled", editor.OperationStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The + popover's name starts empty, a refused name is said where it was
+    /// typed and leaves the name as it was, and a profile that is made empties
+    /// the name again, so the next popover never offers a name already taken.
+    /// It used to start at "Browser profile", report a refusal elsewhere on
+    /// the page, and keep the made profile's name for the next one.
+    /// </summary>
+    [Fact]
+    public async Task NewProfileNameStartsEmptyRefusesInPlaceAndResetsAfterCreating()
+    {
+        var fixture = Catalog(Store(BuiltInBrowserProfiles.Default, 1));
+        var editor = new BrowserProfileSettingsEditorViewModel(
+            new InMemoryBrowserProfilePreferences(),
+            catalog: fixture.Catalog);
+        Assert.Equal(string.Empty, editor.NewProfileName);
+
+        Assert.False(await editor.CreateProfileAsync(BrowserProfilePersistence.DurableMetadata));
+        Assert.True(editor.HasCreationError);
+        Assert.False(string.IsNullOrWhiteSpace(editor.CreationError));
+        Assert.Null(fixture.Proxy.LastSaved);
+        Assert.Null(editor.OperationStatus);
+
+        editor.NewProfileName = "Staging";
+        Assert.False(editor.HasCreationError);
+        Assert.True(await editor.CreateProfileAsync(BrowserProfilePersistence.PrivateSession));
+
+        Assert.Equal("Staging", fixture.Proxy.LastSaved?.Name);
+        Assert.Equal("Staging", editor.SelectedProfile?.Name);
+        Assert.Equal(string.Empty, editor.NewProfileName);
+        Assert.False(editor.HasCreationError);
+        Assert.Contains("Private browser profile created", editor.OperationStatus, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -166,6 +224,32 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
         Assert.Equal("https", authentication.OriginScheme);
         Assert.Equal("local", authentication.RouteIdentity);
         Assert.Equal(string.Empty, editor.AuthenticationPassword);
+    }
+
+    [Fact]
+    public void Unsaved_http_authentication_is_a_draft_until_saved_or_discarded()
+    {
+        var profile = Profile(
+            "browser.auth",
+            BrowserProfilePersistence.DurableMetadata);
+        var fixture = Catalog(Store(BuiltInBrowserProfiles.Default, 1), Store(profile, 7));
+        var editor = new BrowserProfileSettingsEditorViewModel(
+            new InMemoryBrowserProfilePreferences(),
+            catalog: fixture.Catalog,
+            secretVault: Vault().Vault);
+        editor.SelectedProfile = Assert.Single(editor.Profiles, item => item.Id == profile.Id);
+
+        Assert.False(editor.HasUnsavedAuthentication);
+
+        editor.AuthenticationHost = "internal.example";
+        Assert.True(editor.HasUnsavedAuthentication);
+
+        editor.DiscardAuthenticationDraft();
+        Assert.False(editor.HasUnsavedAuthentication);
+        Assert.Equal(string.Empty, editor.AuthenticationHost);
+
+        editor.AuthenticationPassword = "secret";
+        Assert.True(editor.HasUnsavedAuthentication);
     }
 
     [Fact]
@@ -514,7 +598,7 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
                 return new BrowserProfileClearResult(
                     BrowserProfileClearStatus.Cancelled,
                     0,
-                    "Browser profile clearing was cancelled.");
+                    "Browser profile clearing was canceled.");
             }
         }
     }

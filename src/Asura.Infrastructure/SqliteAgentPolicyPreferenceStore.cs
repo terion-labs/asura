@@ -43,7 +43,7 @@ public sealed class SqliteAgentPolicyPreferenceStore : IAgentPolicyPreferenceSto
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Failure<AgentPolicy?>(
-                "Loading the default agent policy was cancelled.",
+                "Loading the default agent policy was canceled.",
                 ApplicationRunErrorCode.Cancelled);
         }
         catch (JsonException)
@@ -90,7 +90,7 @@ public sealed class SqliteAgentPolicyPreferenceStore : IAgentPolicyPreferenceSto
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             return Failure<Unit>(
-                "Saving the default agent policy was cancelled.",
+                "Saving the default agent policy was canceled.",
                 ApplicationRunErrorCode.Cancelled);
         }
         catch (SqliteException exception)

@@ -1,3 +1,4 @@
+using Asura.App.Views.Components;
 using Avalonia.Svg.Skia;
 using Mermaider;
 using Mermaider.Models;
@@ -35,9 +36,10 @@ internal sealed class DatabaseDiagramPicture : IDisposable
                 Border = dark ? "#888888" : "#666666",
                 Accent = "#FF8400",
                 Font = "Inter",
+                MonoFont = MermaidDiagramTypefaces.MonoFamily,
                 FontSize = "13px",
             });
-            var picture = SvgSource.LoadFromSvg(svg);
+            var picture = MermaidDiagramTypefaces.LoadSvg(svg);
             if (picture.Picture is null)
             {
                 picture.Dispose();

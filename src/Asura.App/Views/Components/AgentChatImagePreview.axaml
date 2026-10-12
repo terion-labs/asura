@@ -35,7 +35,7 @@
             <TextBlock x:Name="PreviewTitle" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             <Button x:Name="ClosePreview" Grid.Column="1" Classes="IconButton" Click="OnClosePreviewClick"
                 ToolTip.Tip="Close image preview" AutomationProperties.Name="Close image preview">
-              <icons:SymbolIcon Symbol="Dismiss" FontSize="12" />
+              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
           </Grid>
           <components:ZoomableImageView x:Name="EnlargedImage" Grid.Row="1" />

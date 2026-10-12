@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -5,7 +6,7 @@ using Avalonia.Markup.Xaml;
 
 namespace Asura.App.Views;
 
-public sealed partial class McpServerProfileEditorDialog : Window
+public sealed partial class McpServerProfileEditorDialog : DialogWindow
 {
     public McpServerProfileEditorDialog()
     {
@@ -151,7 +152,15 @@ public sealed partial class McpServerProfileEditorDialog : Window
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            ShowValidationError(exception.Message);
+            // Under the field it is about, with everything typed kept; a
+            // failure about the whole server goes to the list at the top.
+            if (!FieldValidation.Present(this, exception))
+            {
+                ShowValidationError(FailureReason.Refusal(
+                    "mcp-server.editor.save.refused",
+                    exception,
+                    "Asura can't save the MCP server with these settings. Check each value, then try again."));
+            }
         }
     }
 
@@ -163,7 +172,10 @@ public sealed partial class McpServerProfileEditorDialog : Window
         }
         catch (InvalidOperationException exception)
         {
-            ShowValidationError(exception.Message);
+            ShowValidationError(FailureReason.Refusal(
+                "mcp-server.editor.change.refused",
+                exception,
+                "Asura couldn't make that change to the MCP server. Try again."));
         }
     }
 

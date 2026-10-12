@@ -1,18 +1,21 @@
-<Window x:Class="Asura.App.Views.GitFileHistoryDialog" x:DataType="vm:GitFileInvestigationViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:components="using:Asura.App.Views.Components" xmlns:controls="using:Asura.App.Controls" Width="1100" Height="760" MinWidth="700" MinHeight="480" ShowInTaskbar="False" WindowStartupLocation="CenterOwner">
-  <Window.Styles>
-    <Style Selector="TabItem">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+<controls:DialogWindow x:Class="Asura.App.Views.GitFileHistoryDialog" x:DataType="vm:GitFileInvestigationViewModel" xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:Asura.App.ViewModels" xmlns:git="using:Asura.Git" xmlns:components="using:Asura.App.Views.Components" xmlns:controls="using:Asura.App.Controls" Width="1100" Height="760" MinWidth="700" MinHeight="480" Presentation="Inspector">
+  <!-- An inspector: consulted while working, so it opens beside the panel
+       without blocking it and closes with ⌘W or Escape, like any window. -->
+  <controls:DialogWindow.Styles>
+    <!-- The focused list's selected revision is the accent row with all of
+         its text in the accent's own foreground, the author and SHA line too;
+         muted gray left on the accent made the selection read faint. -->
+    <Style Selector="ListBox#Revisions:focus-within ListBoxItem:selected TextBlock.Muted">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
-  </Window.Styles>
-  <controls:DialogShell Title="File history" Subtitle="Follow revisions, compare changes, and trace lines to their commits." Scrolls="False">
+  </controls:DialogWindow.Styles>
+  <controls:DialogShell Title="File History" Subtitle="Follow revisions, compare changes, and trace lines to their commits." Scrolls="False">
     <controls:DialogShell.Footer>
       <WrapPanel Orientation="Horizontal">
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Copy patch" Click="OnCopyPatch" Classes="SecondaryButton" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="Save revision…" Click="OnSaveRevision" Classes="SecondaryButton" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="History of selected lines…" Click="OnRangeHistory" Classes="SecondaryButton" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Open commit in panel" Click="OnOpenCommit" Classes="PrimaryButton" />
-        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Close" Click="OnClose" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Copy Patch" Click="OnCopyPatch" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="Save Revision…" Click="OnSaveRevision" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" IsEnabled="{Binding IsFile}" Content="History of Selected Lines…" Click="OnRangeHistory" Classes="SecondaryButton" />
+        <Button Margin="{controls:Inset Right=Xs, Bottom=Xs}" Content="Show Commit in Panel" Click="OnOpenCommit" Classes="PrimaryButton" />
       </WrapPanel>
     </controls:DialogShell.Footer>
     <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="{DynamicResource ShellSpaceSm}">
@@ -26,37 +29,59 @@
           <ListBox x:Name="Revisions" ItemsSource="{Binding Commits}" SelectedItem="{Binding SelectedCommit}" SelectionChanged="OnRevisionChanged" AutomationProperties.Name="File revisions">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="git:GitCommitItem">
+                <!-- The subject, then who and which revision on one secondary
+                     line. The secondary text is muted by class rather than by
+                     a fixed brush, so a focused selection turns it with the
+                     subject instead of leaving gray on the accent. -->
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}" Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}">
                   <TextBlock Text="{Binding Subject}" TextWrapping="Wrap" />
-                  <TextBlock Text="{Binding AuthorName}" FontSize="{DynamicResource ShellFontSize10}" Foreground="{DynamicResource ShellMutedBrush}" />
-                  <TextBlock Text="{Binding ShortSha}" FontFamily="{DynamicResource ShellMonospaceFont}" FontSize="{DynamicResource ShellFontSize10}" />
+                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding AuthorName}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FontFamily="{DynamicResource ShellDataFontFamily}" Text="{Binding ShortSha}" />
+                  </StackPanel>
                 </StackPanel>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <Button Grid.Row="1" Content="Load more revisions" IsVisible="{Binding HasMore}" Click="OnLoadMore" IsEnabled="{Binding !IsBusy}" />
+          <Button Grid.Row="1" Content="Load More Revisions" IsVisible="{Binding HasMore}" Click="OnLoadMore" IsEnabled="{Binding !IsBusy}" />
         </Grid>
         <GridSplitter Grid.Column="1" Width="5" ResizeDirection="Columns" />
-        <TabControl Grid.Column="2">
-          <TabItem Header="Changes"><components:CodePreviewView Text="{Binding Diff}" FileName="changes.diff" WordWrap="False" /></TabItem>
-          <TabItem Header="File"><components:CodePreviewView x:Name="FileContent" Text="{Binding Content}" FileName="{Binding Path}" WordWrap="False" /></TabItem>
-          <TabItem Header="Blame">
-            <ListBox ItemsSource="{Binding Blame}" AutomationProperties.Name="Line attribution">
-              <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="git:GitBlameLine">
-                  <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Text="{Binding LineNumber}" />
-                    <Button Grid.Column="1" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
-                    <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt}" />
-                    <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellMonospaceFont}" TextWrapping="NoWrap" />
-                  </Grid>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
-          </TabItem>
-        </TabControl>
+        <!-- Three fixed views of the selected revision: the shared segmented
+             control picks one, and the tab view below only hosts it. -->
+        <Grid Grid.Column="2" RowDefinitions="Auto,*" RowSpacing="{DynamicResource ShellSpaceSm}">
+          <controls:SegmentedControl
+              x:Name="RevisionViewSegments"
+              HorizontalAlignment="Center"
+              AutomationProperties.Name="Revision view">
+            <RadioButton Content="Changes" AutomationProperties.Name="Changes" />
+            <RadioButton Content="File" AutomationProperties.Name="File" />
+            <RadioButton Content="Blame" AutomationProperties.Name="Blame" />
+          </controls:SegmentedControl>
+          <TabControl
+              x:Name="RevisionViews"
+              Grid.Row="1"
+              Classes="Headless"
+              SelectedIndex="{Binding #RevisionViewSegments.SelectedIndex}">
+            <TabItem Header="Changes"><components:CodePreviewView Text="{Binding Diff}" FileName="changes.diff" WordWrap="False" /></TabItem>
+            <TabItem Header="File"><components:CodePreviewView x:Name="FileContent" Text="{Binding Content}" FileName="{Binding Path}" WordWrap="False" /></TabItem>
+            <TabItem Header="Blame">
+              <ListBox ItemsSource="{Binding Blame}" AutomationProperties.Name="Line attribution">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="git:GitBlameLine">
+                    <Grid ColumnDefinitions="45,90,140,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                      <TextBlock Text="{Binding LineNumber}" />
+                      <Button Grid.Column="1" Classes="TextButton" Content="{Binding CommitSha}" ToolTip.Tip="{Binding Summary}" Click="OnBlameCommit" AutomationProperties.Name="Open responsible commit" />
+                      <TextBlock Grid.Column="2" Text="{Binding Author}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoredAt, Converter={x:Static vm:GitDateText.Converter}}" />
+                      <TextBlock Grid.Column="3" Text="{Binding Text}" FontFamily="{DynamicResource ShellDataFontFamily}" TextWrapping="NoWrap" />
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </TabItem>
+          </TabControl>
+        </Grid>
       </Grid>
       <TextBlock Grid.Row="3" Text="{Binding Status}" TextWrapping="Wrap" />
     </Grid>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

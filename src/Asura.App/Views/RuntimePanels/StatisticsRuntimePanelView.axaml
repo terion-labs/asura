@@ -25,7 +25,7 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Background="{Binding StatusColor}" />
+      <controls:StatusMark Tone="{Binding StatusTone}" Description="{Binding StatusText}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -41,7 +41,7 @@
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Statistics state" />
@@ -50,113 +50,156 @@
             Command="{Binding RefreshCommand}"
             ToolTip.Tip="Refresh statistics"
             AutomationProperties.Name="Refresh statistics">
-          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellFontSize12}" />
+          <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
         </Button>
       </StackPanel>
     </controls:PanelChrome.Actions>
 
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding CapturedAtText}" />
+        <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding CapturedAtText}" />
       </Grid>
     </controls:PanelChrome.Footer>
 
-    <Grid>
-        <ScrollViewer Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent}">
+    <Grid RowDefinitions="Auto,*">
+        <!-- A later failure while charts are on screen: its reason sits in a
+             notice row under the header, where the panel's notices live, and
+             the older charts stay readable below it. -->
+        <controls:Callout
+            Margin="{controls:Inset Left=Lg, Right=Lg, Top=Md}"
+            Glyph="Warning"
+            Title="{Binding IssueTitle}"
+            Text="{Binding IssueMessage}"
+            IsVisible="{Binding ShowStaleNotice, FallbackValue=False}"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="Statistics refresh status">
+          <controls:Callout.Action>
+            <Button Classes="SecondaryButton" Command="{Binding RefreshCommand}" Content="Retry" AutomationProperties.Name="Retry statistics" />
+          </controls:Callout.Action>
+        </controls:Callout>
+
+        <!-- One of four fills this area: the charts, the wait for the
+             first sample, the failure that replaced them, or a stopped panel
+             that never got a sample. A state never floats over the charts. -->
+        <ScrollViewer Grid.Row="1" Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent, FallbackValue=False}">
+          <!-- A card is padded 16 on every side, and its eyebrow, figure,
+               detail and chart sit on the 4-point grid, a step apart: with the
+               row padding the cards were wider than tall inside, and their
+               lines touched. -->
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="CPU usage" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding CpuText}" />
-                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Normalized across logical processors" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Normalized across logical processors" TextWrapping="Wrap" />
                   <controls:TimeSeriesChart
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding CpuHistory}"
+                      Unit="Percent"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
                       Maximum="100"
-                      LineBrush="{DynamicResource ShellAccentBrush}"
-                      AreaBrush="{DynamicResource ShellAccentSoftBrush}"
+                      LineBrush="{DynamicResource ShellChartSeries1Brush}"
+                      AreaBrush="{DynamicResource ShellChartSeries1FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="CPU usage history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · 100% max" />
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Process memory" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding MemoryText}" />
-                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Combined RSS from accessible processes" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Memory in use by the processes Asura can read" TextWrapping="Wrap" />
                   <controls:TimeSeriesChart
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding MemoryHistory}"
-                      LineBrush="{DynamicResource ShellSuccessBrush}"
-                      AreaBrush="{DynamicResource ShellSuccessSoftBrush}"
+                      Unit="Bytes"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
+                      LineBrush="{DynamicResource ShellChartSeries2Brush}"
+                      AreaBrush="{DynamicResource ShellChartSeries2FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Process memory history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Network receive" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding NetworkReceivedText}" />
-                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
                   <controls:TimeSeriesChart
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding NetworkReceivedHistory}"
-                      LineBrush="{DynamicResource ShellAccentBrush}"
-                      AreaBrush="{DynamicResource ShellAccentSoftBrush}"
+                      Unit="BytesPerSecond"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
+                      LineBrush="{DynamicResource ShellChartSeries3Brush}"
+                      AreaBrush="{DynamicResource ShellChartSeries3FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network receive history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Network send" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding NetworkSentText}" />
-                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
+                  <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
                   <controls:TimeSeriesChart
                       Grid.Row="3"
                       Margin="{controls:Inset Top=Md}"
                       Values="{Binding NetworkSentHistory}"
-                      LineBrush="{DynamicResource ShellSuccessBrush}"
-                      AreaBrush="{DynamicResource ShellSuccessSoftBrush}"
+                      Unit="BytesPerSecond"
+                      SampleInterval="{Binding SampleInterval}"
+                      LabelBrush="{DynamicResource ShellMutedBrush}"
+                      ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
+                      LineBrush="{DynamicResource ShellChartSeries4Brush}"
+                      AreaBrush="{DynamicResource ShellChartSeries4FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network send history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Last 2 min" />
-                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Now · auto scale" />
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
+                    <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
             </controls:CardGridPanel>
 
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Running processes" />
                   <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="{Binding ProcessCountText}" TextWrapping="Wrap" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ProcessDetailText}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ProcessDetailText}" TextWrapping="Wrap" />
                 </StackPanel>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Host uptime" />
                   <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="{Binding UptimeText}" />
-                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding ProcessorCountText, StringFormat={}{0} logical processors}" TextWrapping="Wrap" />
+                  <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ProcessorCountText, StringFormat={}{0} logical processors}" TextWrapping="Wrap" />
                 </StackPanel>
               </controls:SurfaceCard>
             </controls:CardGridPanel>
@@ -165,23 +208,37 @@
         </ScrollViewer>
 
         <controls:StateOverlay
+            Grid.Row="1"
             Kind="Loading"
             Heading="Waiting for first sample…"
             Body="Collecting resource statistics…"
-            IsVisible="{Binding ShowLoading}"
+            IsVisible="{Binding ShowLoading, FallbackValue=False}"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Statistics loading" />
 
+        <!-- The failure's own reason, not a generic line: what went wrong
+             and what to do is the message the panel was given. -->
         <controls:StateOverlay
+            Grid.Row="1"
             Kind="TerminalError"
             Glyph="ErrorCircle"
-            Heading="Statistics unavailable"
-            Body="Use Retry to request the current state."
+            Heading="{Binding IssueTitle, TargetNullValue='Statistics unavailable', FallbackValue='Statistics unavailable'}"
+            Body="{Binding IssueMessage}"
             ActionLabel="Retry"
             ActionCommand="{Binding RefreshCommand}"
-            IsVisible="{Binding ShowTerminalError}"
+            Background="{DynamicResource ShellSurfaceBrush}"
+            IsVisible="{Binding ShowTerminalError, FallbackValue=False}"
             AutomationProperties.LiveSetting="Assertive"
             AutomationProperties.Name="Statistics unavailable" />
+
+        <controls:StateOverlay
+            Grid.Row="1"
+            Kind="Empty"
+            Glyph="DataArea"
+            Heading="Statistics stopped"
+            Body="This panel stopped before its first sample. Open a new Statistics panel to start again."
+            IsVisible="{Binding ShowUnavailable, FallbackValue=False}"
+            AutomationProperties.Name="Statistics stopped" />
     </Grid>
   </controls:PanelChrome>
 </UserControl>

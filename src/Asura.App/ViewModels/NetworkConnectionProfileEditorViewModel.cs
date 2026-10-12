@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -52,20 +53,32 @@ public sealed record NetworkCredentialOption(
 
     public string Detail => State switch
     {
-        NetworkCredentialOptionState.None => "Do not use a credential for this field.",
+        NetworkCredentialOptionState.None => "Don't use a credential for this field.",
         NetworkCredentialOptionState.Prompt =>
-            "The password is used for that connection only and is not stored.",
+            "The password is used for that connection only and isn't stored.",
         NetworkCredentialOptionState.Available =>
             $"{KindLabel} · {PersistenceLabel} · Updated {UpdatedLabel}",
         NetworkCredentialOptionState.Pending =>
             $"{KindLabel} · Stored when the connection is saved",
-        NetworkCredentialOptionState.Unavailable =>
-            "The saved credential was not found in this connection's vault scope.",
-        NetworkCredentialOptionState.MetadataUnavailable =>
-            "The operating-system vault could not provide metadata for this binding.",
+        NetworkCredentialOptionState.Unavailable => "Missing",
+        NetworkCredentialOptionState.MetadataUnavailable => "Details unavailable",
         NetworkCredentialOptionState.Loading =>
-            "Reading this connection's credential metadata from the operating-system vault.",
+            $"Reading this connection's credentials from {PlatformTerms.SecretStore}…",
         _ => throw new ArgumentOutOfRangeException(nameof(State), State, null),
+    };
+
+    /// <summary>
+    /// What is wrong with this credential when it is the one chosen, said
+    /// under the field rather than squeezed into a pop-up item; null when
+    /// nothing is.
+    /// </summary>
+    public string? Problem => State switch
+    {
+        NetworkCredentialOptionState.Unavailable =>
+            $"This credential is no longer in {PlatformTerms.SecretStore}. Choose another one or add a new one.",
+        NetworkCredentialOptionState.MetadataUnavailable =>
+            $"{PlatformTerms.SecretStore} couldn't provide details for this credential.",
+        _ => null,
     };
 
     public bool IsAvailable => State is NetworkCredentialOptionState.None
@@ -84,14 +97,12 @@ public sealed record NetworkCredentialOption(
 
     private string PersistenceLabel => Persistence switch
     {
-        SecretVaultPersistenceKind.OsProtectedPersistent => "OS vault",
+        SecretVaultPersistenceKind.OsProtectedPersistent => PlatformTerms.SecretStore,
         SecretVaultPersistenceKind.MemoryOnly => "This session",
         _ => "Storage unavailable",
     };
 
-    private string UpdatedLabel => UpdatedAt?.ToLocalTime().ToString(
-        "g",
-        System.Globalization.CultureInfo.CurrentCulture) ?? "unknown";
+    private string UpdatedLabel => DisplayDates.Format(UpdatedAt, "unknown");
 }
 
 /// <summary>
@@ -139,8 +150,8 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         KindOptions =
         [
             new(NetworkConnectionKind.Proxy, "Proxy", "SOCKS5, HTTP, or HTTPS proxy."),
-            new(NetworkConnectionKind.WireGuard, "WireGuard", "WireGuard client configuration stored in the credential vault."),
-            new(NetworkConnectionKind.OpenVpn, "OpenVPN", "OpenVPN client profile stored in the credential vault."),
+            new(NetworkConnectionKind.WireGuard, "WireGuard", $"WireGuard client configuration stored in {PlatformTerms.SecretStore}."),
+            new(NetworkConnectionKind.OpenVpn, "OpenVPN", $"OpenVPN client profile stored in {PlatformTerms.SecretStore}."),
             new(NetworkConnectionKind.AnyConnect, "AnyConnect", "Cisco AnyConnect-compatible gateway through OpenConnect."),
             new(NetworkConnectionKind.Tailscale, "Tailscale", "Tailscale exit node for workspace traffic."),
         ];
@@ -179,7 +190,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     public bool IsNew => ExpectedRevision is null;
 
-    public string EditorTitle => IsNew ? "New network connection" : "Edit network connection";
+    public string EditorTitle => IsNew ? "New Network Connection" : "Edit Network Connection";
 
     /// <summary>
     /// Whether the draft for one credential slot is open. It opens from the
@@ -422,16 +433,32 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         ? "Connection configuration is valid."
         : error;
 
-    /// <summary>The footer's one sentence: what is still missing, or what saving does.</summary>
-    public string FooterHint => TryBuild(out _, out var error)
-        ? "Saving stores any new credential in the operating-system vault."
+    /// <summary>
+    /// The property the current validation failure is about, when it names
+    /// one, so the editor can show the message under that field.
+    /// </summary>
+    public string? InvalidFieldName => TryBuild(out _, out _, out var invalidField) ? null : invalidField;
+
+    /// <summary>
+    /// The footer's one sentence: what is still missing, or nothing. Where the
+    /// credentials go is the dialog's subtitle; saying it again here was the
+    /// same sentence twice.
+    /// </summary>
+    public string? FooterHint => TryBuild(out _, out var error)
+        ? null
         : error;
 
     public NetworkConnectionProfileSaveRequest CreateSaveRequest()
     {
-        if (!TryBuild(out var profile, out var error))
+        if (!TryBuild(out var profile, out var error, out _, out var failure))
         {
-            throw new InvalidOperationException(error);
+            // The sentence is curated; the refusal behind it goes to diagnostics.
+            if (failure is not null && InvalidField.Of(failure) is null)
+            {
+                SecretSafeDiagnostics.WriteTrace("network.connection.profile.refused", failure);
+            }
+
+            throw FailureReason.Readable(new InvalidOperationException(error));
         }
 
         return new(profile!, ExpectedRevision);
@@ -521,8 +548,21 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     private bool TryBuild(
         out NetworkConnectionProfile? profile,
-        out string error)
+        out string error) => TryBuild(out profile, out error, out _, out _);
+
+    private bool TryBuild(
+        out NetworkConnectionProfile? profile,
+        out string error,
+        out string? field) => TryBuild(out profile, out error, out field, out _);
+
+    private bool TryBuild(
+        out NetworkConnectionProfile? profile,
+        out string error,
+        out string? field,
+        out Exception? failure)
     {
+        field = null;
+        failure = null;
         try
         {
             profile = new(
@@ -536,9 +576,63 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or UriFormatException)
         {
             profile = null;
-            error = FriendlyValidationMessage(exception);
+            failure = exception;
+            (field, error) = DescribeRefusal(exception);
             return false;
         }
+    }
+
+    /// <summary>
+    /// The field a refused profile is about and the sentence to show under it.
+    ///
+    /// The editor's own checks name their field and are written for people.
+    /// The profile constructors in Core write for developers ("A network
+    /// gateway must use an absolute HTTPS URL…", "(Parameter 'value')"), and
+    /// <see cref="Uri"/> parsing writes "Invalid URI: …", so those are mapped
+    /// by the parameter or field they are about.
+    /// </summary>
+    private (string? Field, string Message) DescribeRefusal(Exception exception)
+    {
+        if (InvalidField.Of(exception) is { } invalidField)
+        {
+            return (invalidField, exception.Message);
+        }
+
+        if (exception is UriFormatException)
+        {
+            return SelectedKind.Kind == NetworkConnectionKind.Tailscale
+                ? (nameof(ControlServer), ControlServerMessage)
+                : (nameof(Gateway), GatewayMessage);
+        }
+
+        return (exception as ArgumentException)?.ParamName switch
+        {
+            "name" => (nameof(Name), "Enter a name for this connection."),
+            "port" => (nameof(Port), "Enter a proxy port between 1 and 65535."),
+            "gateway" => (nameof(Gateway), GatewayMessage),
+            "controlServer" => (nameof(ControlServer), ControlServerMessage),
+            "exitNode" => (nameof(ExitNode), "Enter the exit node’s name or address."),
+            "passwordSecret" => (nameof(Username), "A password needs a username. Enter the username, or remove the password."),
+            "value" when SelectedKind.Kind == NetworkConnectionKind.Proxy && !IsUsableHost(Host) =>
+                (nameof(Host), "Enter the proxy’s host name or IP address, without spaces, slashes, or a scheme such as http://."),
+            "value" => (null, "Remove line breaks and other control characters from the connection’s settings."),
+            _ => (null, "Asura can’t use these connection settings. Check each field, then try again."),
+        };
+    }
+
+    private const string GatewayMessage =
+        "Enter the gateway as a complete HTTPS address, such as https://vpn.example.com.";
+
+    private const string ControlServerMessage =
+        "Enter the control server as a complete HTTPS address, such as https://login.example.com, or leave it empty.";
+
+    /// <summary>Mirrors Core's proxy host check, so its refusal can name the field.</summary>
+    private static bool IsUsableHost(string host)
+    {
+        var trimmed = host.Trim();
+        return trimmed.Length is > 0 and <= 253
+            && !trimmed.Any(character => char.IsControl(character) || char.IsWhiteSpace(character))
+            && !trimmed.Contains('/', StringComparison.Ordinal);
     }
 
     private NetworkConnectionConfiguration BuildConfiguration() => SelectedKind.Kind switch
@@ -576,7 +670,7 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
             System.Globalization.CultureInfo.InvariantCulture,
             out var port))
         {
-            throw new ArgumentException("Enter a proxy port between 1 and 65535.");
+            throw InvalidField.Exception(nameof(Port), "Enter a proxy port between 1 and 65535.");
         }
 
         return port;
@@ -676,28 +770,11 @@ public sealed class NetworkConnectionProfileEditorViewModel : ObservableObject
 
     private static SecretRef RequiredSecret(string value, string label) =>
         new(string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException($"Enter the {label} reference.")
+            ? throw InvalidField.Exception(nameof(ConfigurationSecretReference), $"Enter the {label} reference.")
             : value.Trim());
 
     private static Uri? OptionalUri(string value) =>
         Optional(value) is { } uri ? new Uri(uri, UriKind.RelativeOrAbsolute) : null;
-
-    private static string FriendlyValidationMessage(Exception exception)
-    {
-        var message = exception.Message;
-        var parameterSuffix = message.IndexOf("\nParameter", StringComparison.Ordinal);
-        if (parameterSuffix > 0)
-        {
-            message = message[..parameterSuffix];
-        }
-
-        if (!string.IsNullOrWhiteSpace(message))
-        {
-            return message.Trim();
-        }
-
-        return "Complete the required fields with a valid network configuration.";
-    }
 
     private void RebuildCredentialOptions()
     {

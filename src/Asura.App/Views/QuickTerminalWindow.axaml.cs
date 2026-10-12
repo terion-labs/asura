@@ -28,6 +28,7 @@ public sealed partial class QuickTerminalWindow : Window
         WindowTransparencyLevel.Transparent,
     ];
     private bool _allowClose;
+    private bool _isConfiguredAsPanel;
     private QuickTerminalSettings _settings = QuickTerminalSettings.Default;
     private HostAccessibilityPreferences _hostPreferences =
         HostAccessibilityPreferences.Default;
@@ -351,21 +352,96 @@ public sealed partial class QuickTerminalWindow : Window
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key != Key.Escape)
+        // A search field with a query clears it on this Escape; only the
+        // next one is the window's.
+        if (e.Key != Key.Escape
+            || e.KeyModifiers != Avalonia.Input.KeyModifiers.None
+            || Asura.App.Controls.SearchField.ClaimsEscape(e))
         {
             return;
         }
 
-        e.Handled = true;
         var action = QuickTerminalRuntimeRules.ResolveEscape(
             IsVisible,
-            TryCancelPendingInteraction());
-        if (action != QuickTerminalEscapeAction.Hide)
+            TryCancelPendingInteraction(),
+            _settings.HideOnEscape);
+        switch (action)
         {
-            return;
+            case QuickTerminalEscapeAction.CancelPendingInteraction:
+                e.Handled = true;
+                return;
+            case QuickTerminalEscapeAction.Hide:
+                e.Handled = true;
+                RequestDismiss();
+                return;
+            default:
+                // vim, less, fzf, and readline need Escape. Leave it unhandled
+                // so the terminal sends it to the running program.
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Sets the native panel behavior. AppKit by default; a test passes a fake
+    /// that records when it ran.
+    /// </summary>
+    internal Func<Window, bool> PanelConfigurator { get; init; } =
+        MacOsQuickTerminalReveal.TryConfigurePanelBehavior;
+
+    /// <summary>
+    /// Whether the native window has been given the panel behavior at least
+    /// once.
+    /// </summary>
+    internal bool IsConfiguredAsPanel => _isConfiguredAsPanel;
+
+    /// <summary>
+    /// Makes the window behave as a panel: it joins whichever Space is
+    /// current, including another app's full-screen Space, and stays out of
+    /// window cycling and Mission Control.
+    ///
+    /// It has to happen before the window is first shown: a window ordered in
+    /// without the behavior is placed on the desktop's Space and takes the
+    /// person there, out of the full-screen app they summoned it over. Setting
+    /// the behavior again is harmless, so every call applies it; a platform
+    /// with no native window yet leaves it to the next call.
+    /// </summary>
+    public void ConfigureAsPanel()
+    {
+        if (PanelConfigurator(this))
+        {
+            _isConfiguredAsPanel = true;
+        }
+    }
+
+    /// <summary>
+    /// Shows the window for a reveal that starts at <paramref name="progress"/>,
+    /// or moves an open one there. The panel behavior is set before the first
+    /// show and again after every show, and the backdrop is applied before the
+    /// first visible frame.
+    /// </summary>
+    internal void ShowForReveal(double progress)
+    {
+        ConfigureAsPanel();
+        var wasVisible = IsVisible;
+        if (!wasVisible)
+        {
+            PrepareReveal(progress);
+            Show();
+        }
+        else
+        {
+            SetRevealProgress(progress);
         }
 
-        RequestDismiss();
+        // Applied again after the show: a platform that creates its native
+        // window on show is configured now, and a show cannot leave the
+        // window without the panel behavior.
+        ConfigureAsPanel();
+        ApplyBackdrop();
+        if (!wasVisible)
+        {
+            CompletePreparedReveal();
+        }
     }
 
     private void OnHideClick(object? sender, RoutedEventArgs e)

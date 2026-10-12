@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -101,10 +102,15 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         Files?.PropertyChanged += OnFamilyEditorPropertyChanged;
 
         Database?.PropertyChanged += OnFamilyEditorPropertyChanged;
+        ErrorNotices.PropertyChanged += OnErrorNoticesPropertyChanged;
+        Terminal.ErrorNotices.PropertyChanged += OnErrorNoticesPropertyChanged;
+        Files?.ErrorNotices.PropertyChanged += OnErrorNoticesPropertyChanged;
+        Database?.ErrorNotices.PropertyChanged += OnErrorNoticesPropertyChanged;
     }
 
     public ConnectionSecretEditorViewModel CreateSecretEditor(SecretKind kind, SecretScope scope) =>
-        new(_secretVault ?? throw new InvalidOperationException("The credential vault is unavailable."),
+        new(_secretVault ?? throw FailureReason.Readable(new InvalidOperationException(
+                $"Asura can't reach {PlatformTerms.SecretStore}, so it can't store the credential. Try again later.")),
             scope, kind, $"{Name} {kind}");
 
     public ConnectionEditorViewModel Terminal { get; }
@@ -144,6 +150,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
             OnPropertyChanged(nameof(TestFooterHint));
             OnPropertyChanged(nameof(IsTesting));
             OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(NamePlaceholder));
         }
     }
 
@@ -185,13 +192,42 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         _ => string.Empty,
     };
 
+    /// <summary>
+    /// The one place the test speaks, in the footer beside its button so it
+    /// stays in view while the form scrolls: before a test, that one isn't
+    /// needed; after it, what it found.
+    /// </summary>
     public string TestFooterHint => HasTestFeedback
         ? $"{TestStatus}: {TestDetail}"
-        : "Opening revalidates runtime, credentials, and platform support.";
+        : TestDetail;
 
-    public string TestLabel => IsTesting
-        ? "Testing…"
-        : IsTerminal ? "Run diagnostics" : "Test";
+    /// <summary>One name for the action in every family.</summary>
+    public string TestLabel => IsTesting ? "Testing…" : "Test";
+
+    /// <summary>
+    /// What the Name field suggests, for the kind of connection being made:
+    /// a database's name doesn't fit a folder.
+    /// </summary>
+    public string NamePlaceholder => SelectedType switch
+    {
+        { Family: SavedConnectionFamily.Files, FileKind: FileProviderKind.Local } => "Project files",
+        { Family: SavedConnectionFamily.Files } => "Shared files",
+        { Family: SavedConnectionFamily.Database } => "Production database",
+        { Family: SavedConnectionFamily.Kubernetes } => "Production cluster",
+        { GitRepository: true } => "Project repository",
+        { TerminalKind: ConnectionKind.Docker } => "Development container",
+        { TerminalKind: ConnectionKind.Local } => "Local shell",
+        _ => "Production server",
+    };
+
+    /// <summary>
+    /// Whether any family has a failure to show at the top of the form. Empty,
+    /// the error area takes no room.
+    /// </summary>
+    public bool HasFormErrors => ErrorNotices.HasErrors
+        || Terminal.ErrorNotices.HasErrors
+        || Files?.ErrorNotices.HasErrors == true
+        || Database?.ErrorNotices.HasErrors == true;
 
     /// <summary>
     /// Families whose connect purpose can open without persisting. Files
@@ -208,7 +244,7 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
         _ => false,
     };
 
-    public string EditorTitle => IsEditing ? "Edit connection" : "New connection";
+    public string EditorTitle => IsEditing ? "Edit Connection" : "New Connection";
 
     /// <summary>
     /// One name for whichever definition the dialog produces. Writing through
@@ -311,6 +347,17 @@ public sealed class UnifiedConnectionEditorViewModel : ObservableObject
             or nameof(ConnectionEditorViewModel.TestDetail))
         {
             OnTestStateChanged();
+        }
+    }
+
+    private void OnErrorNoticesPropertyChanged(
+        object? sender,
+        System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        if (eventArgs.PropertyName is nameof(ErrorNoticeCollection.HasErrors))
+        {
+            OnPropertyChanged(nameof(HasFormErrors));
         }
     }
 

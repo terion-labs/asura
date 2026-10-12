@@ -104,7 +104,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         {
             return HistoryFailure<Unit>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Saving agent history metadata was cancelled.");
+                "Saving agent history metadata was canceled.");
         }
         catch (Exception exception) when (IsHistoryDataFailure(exception))
         {
@@ -177,7 +177,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         {
             return HistoryFailure<AgentRunHistoryMetadata>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Reading agent history metadata was cancelled.");
+                "Reading agent history metadata was canceled.");
         }
         catch (Exception exception) when (IsHistoryDataFailure(exception))
         {
@@ -214,7 +214,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         {
             return HistoryFailure<AgentRunHistoryRetention>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Reading agent history retention was cancelled.");
+                "Reading agent history retention was canceled.");
         }
         catch (Exception exception) when (IsHistoryDataFailure(exception))
         {
@@ -346,7 +346,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         {
             return HistoryFailure<AgentRunHistoryRetention>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Updating agent history retention was cancelled.");
+                "Updating agent history retention was canceled.");
         }
         catch (Exception exception) when (IsHistoryDataFailure(exception))
         {
@@ -436,7 +436,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         {
             return HistoryFailure<AgentRunHistoryExportReceipt>(
                 AgentSessionCheckpointStoreErrorCode.Cancelled,
-                "Exporting agent history was cancelled.");
+                "Exporting agent history was canceled.");
         }
         catch (Exception exception) when (IsHistoryDataFailure(exception))
         {

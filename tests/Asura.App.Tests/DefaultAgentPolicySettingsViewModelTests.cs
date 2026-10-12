@@ -21,7 +21,7 @@ public sealed class DefaultAgentPolicySettingsViewModelTests
         viewModel.QueuePersistence(onlyWhenMissing: false);
         await viewModel.QuiesceAsync();
 
-        Assert.Contains("disabled until you review", Assert.Single(errors), StringComparison.Ordinal);
+        Assert.Contains("agent capabilities are off", Assert.Single(errors), StringComparison.Ordinal);
         Assert.Equal(0, store.WriteCount);
         Assert.All(coordinator.Policy!.Permissions.Values, permission => Assert.Equal(AgentPermission.Off, permission));
     }
@@ -43,6 +43,38 @@ public sealed class DefaultAgentPolicySettingsViewModelTests
         Assert.Equal(
             "Default AI configuration storage is unavailable.",
             errors.Single());
+    }
+
+    [Fact]
+    public void Incomplete_default_is_reported_only_after_it_is_changed()
+    {
+        using var viewModel = new DefaultAgentPolicySettingsViewModel(
+            null,
+            null,
+            new ImmediateDispatcher(),
+            _ => { },
+            () => { });
+        Assert.False(viewModel.Editor.IsValid);
+
+        // An untouched page shows the notice, not an error.
+        Assert.False(viewModel.ShowsIncompleteDefault);
+        viewModel.RefreshProviders(null);
+        Assert.False(viewModel.ShowsIncompleteDefault);
+
+        var changes = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        var capability = viewModel.Editor.Capabilities[0];
+        if (capability.IsAsk)
+        {
+            capability.IsAuto = true;
+        }
+        else
+        {
+            capability.IsAsk = true;
+        }
+
+        Assert.True(viewModel.ShowsIncompleteDefault);
+        Assert.Contains(nameof(DefaultAgentPolicySettingsViewModel.ShowsIncompleteDefault), changes, StringComparer.Ordinal);
     }
 
     [Fact]

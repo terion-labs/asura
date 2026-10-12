@@ -22,7 +22,7 @@
   <controls:PanelChrome
       x:Name="BrowserChrome"
       MinimumHeaderContentWidth="220"
-      CloseLabel="Close browser panel"
+      CloseLabel="Close Browser panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"
@@ -32,9 +32,13 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border
-          Classes="StatusDot"
-          Background="{Binding StatusBrush, ElementName=RuntimeBrowser}" />
+      <!-- The page's real state in words, and a glyph per state under
+           Differentiate Without Color. -->
+      <controls:StatusMark
+          x:Name="BrowserStatusMark"
+          AutomationProperties.AccessibilityView="Content"
+          Tone="{Binding StatusTone, ElementName=RuntimeBrowser}"
+          Description="{Binding StatusText, ElementName=RuntimeBrowser, StringFormat='Browser: {0}'}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -51,6 +55,11 @@
           SizeChanged="OnBrowserHeaderSizeChanged"
           ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto">
         <Grid.Styles>
+          <!-- While the address field isn't being edited, its text is drawn
+               by a label that ends in an ellipsis; a text box can only cut. -->
+          <Style Selector="TextBox.BrowserAddress:not(:focus-within) /template/ TextPresenter#PART_TextPresenter">
+            <Setter Property="Opacity" Value="0" />
+          </Style>
           <Style Selector="Grid#BrowserHeader">
             <Setter Property="ColumnSpacing" Value="{DynamicResource ShellSpaceXs}" />
           </Style>
@@ -78,11 +87,14 @@
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="ArrowRight" />
         </Button>
         <Grid Grid.Column="2">
+          <!-- A long address ends in an ellipsis rather than being cut
+               through a character at the field's edge. -->
           <TextBox
               x:Name="AddressBox"
+              Classes="BrowserAddress"
               VerticalAlignment="Center"
               AutomationProperties.Name="Browser address"
-              FontSize="{DynamicResource ShellFontSize10}"
+              FontSize="{DynamicResource ShellBaseFontSize}"
               GotFocus="OnAddressGotFocus"
               IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
               KeyDown="OnAddressKeyDown"
@@ -90,6 +102,18 @@
               PlaceholderText="about:blank"
               TextChanged="OnAddressTextChanged"
               Text="{Binding AddressText, ElementName=RuntimeBrowser, Mode=TwoWay}" />
+          <Border
+              Margin="{Binding #AddressBox.BorderThickness}"
+              IsHitTestVisible="False"
+              IsVisible="{Binding !#AddressBox.IsKeyboardFocusWithin}">
+            <TextBlock
+                x:Name="AddressDisplay"
+                Margin="{Binding #AddressBox.Padding}"
+                VerticalAlignment="Center"
+                FontSize="{DynamicResource ShellBaseFontSize}"
+                Text="{Binding AddressText, ElementName=RuntimeBrowser}"
+                TextTrimming="CharacterEllipsis" />
+          </Border>
           <!-- Keep changing suggestions in the window compositor, avoiding native popup
                window resizing as the result count changes. -->
           <Popup
@@ -112,10 +136,10 @@
               <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                 <Grid Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" ColumnDefinitions="*,Auto">
                   <TextBlock Text="History" Classes="Muted" VerticalAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize9}" />
+                      FontSize="{DynamicResource ShellSecondaryFontSize}" />
                   <Button Grid.Column="1" Classes="IconButton" Click="OnClearHistoryClick"
                       AutomationProperties.Name="Clear browsing history" ToolTip.Tip="Clear browsing history">
-                    <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Delete" />
+                    <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Delete" />
                   </Button>
                 </Grid>
                 <ListBox x:Name="HistoryList" Classes="Rows" ItemsSource="{Binding HistorySuggestions}"
@@ -135,30 +159,37 @@
                           Background="Transparent" Tapped="OnHistoryEntryTapped" ToolTip.Tip="{Binding Address}">
                         <icons:SymbolIcon Symbol="History" FontSize="{DynamicResource ShellFontSize13}"
                             Foreground="{DynamicResource ShellMutedBrush}" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                           <TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"
-                              FontSize="{DynamicResource ShellFontSize11}" />
-                          <TextBlock Text="{Binding DisplayAddress}" TextTrimming="CharacterEllipsis"
-                              Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" />
+                              FontSize="{DynamicResource ShellBaseFontSize}" />
+                          <TextBlock Text="{Binding DisplayAddress}"
+                              Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" />
                         </StackPanel>
                       </Grid>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
                 </ListBox>
                 <TextBlock Text="{Binding HistoryStatus}" IsVisible="{Binding HistoryStatus, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
-                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellFontSize9}" />
+                    Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}" TextWrapping="Wrap" FontSize="{DynamicResource ShellSecondaryFontSize}" />
               </StackPanel>
             </Border>
           </Popup>
         </Grid>
+        <!-- Reload is live with the page, and also when the browser couldn't
+             start: then reloading is the way to try again. -->
         <Button
             Grid.Column="3"
             AutomationProperties.Name="Reload page"
             Classes="IconButton"
             Click="OnReloadClick"
-            IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
             IsVisible="{Binding !IsLoading, ElementName=RuntimeBrowser}"
             ToolTip.Tip="Reload">
+          <Button.IsEnabled>
+            <MultiBinding Converter="{x:Static BoolConverters.Or}">
+              <Binding Path="IsLive" ElementName="RuntimeBrowser" />
+              <Binding Path="HasRouteError" />
+            </MultiBinding>
+          </Button.IsEnabled>
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="ArrowClockwise" />
         </Button>
         <Button
@@ -177,7 +208,8 @@
             Classes="IconButton"
             Click="OnFindClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Find in page">
+            ToolTip.Tip="Find in page"
+            controls:PanelChrome.OverflowHeader="Find in Page…">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Search" />
         </Button>
         <Button
@@ -187,7 +219,8 @@
             Classes="IconButton"
             Click="OnOpenInSystemBrowserClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Open in system browser for sign-in">
+            ToolTip.Tip="Open in system browser for sign-in"
+            controls:PanelChrome.OverflowHeader="Open in System Browser">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Open" />
         </Button>
         <Button
@@ -197,7 +230,8 @@
             Classes="IconButton"
             Click="OnDeveloperToolsClick"
             IsEnabled="{Binding IsLive, ElementName=RuntimeBrowser}"
-            ToolTip.Tip="Developer tools">
+            ToolTip.Tip="Developer tools"
+            controls:PanelChrome.OverflowHeader="Developer Tools">
           <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize13}" Symbol="Code" />
         </Button>
         <Button x:Name="BrowserOverflowButton" Grid.Column="7"
@@ -212,19 +246,25 @@
          remain visible without taking width from the address editor. -->
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <!-- One status at a time. The page's state and its message while the
+             page is up; while the start-up card is showing, the card carries
+             the message and the footer only the state, so "Waiting" isn't
+             said twice; and a browser that couldn't start is "Unavailable",
+             never "Waiting". -->
         <controls:LiveRegionTextBlock
             VerticalAlignment="Center"
             AutomationProperties.LiveSetting="Polite"
             AutomationProperties.Name="Browser session status"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusText, ElementName=RuntimeBrowser}" />
         <TextBlock
             Grid.Column="1"
             Margin="{controls:Inset Right=Xl}"
             VerticalAlignment="Center"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            IsVisible="{Binding !ShowFallback, ElementName=RuntimeBrowser}"
             Text="{Binding StatusMessage, ElementName=RuntimeBrowser}"
             TextTrimming="CharacterEllipsis" />
         <TextBlock
@@ -232,7 +272,7 @@
             VerticalAlignment="Center"
             AutomationProperties.Name="Pinned browser profile"
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize9}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding BrowserProfileDisplayName, StringFormat=Profile: {0}}" />
       </Grid>
     </controls:PanelChrome.Footer>
@@ -259,11 +299,15 @@
           Margin="{DynamicResource ShellHairline}"
           Background="{DynamicResource ShellSurfaceBrush}"
           IsVisible="{Binding HasRouteError}">
+        <!-- The card's action is the suggested one; Reload in the header
+             does the same while the card is up. -->
         <controls:StateOverlay
             Kind="TerminalError"
             Glyph="ErrorCircle"
             Heading="Browser unavailable"
-            Body="Check the connection settings and reload to try again." />
+            Body="{Binding RouteErrorMessage}"
+            ActionLabel="Try Again"
+            ActionRequested="OnRetryBrowserClick" />
       </Border>
 
       <Border
@@ -281,12 +325,11 @@
         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
+                Classes="Headline"
                 Text="{Binding ProductHeading, ElementName=RuntimeBrowser}" />
             <TextBlock
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize9}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="{Binding ProductMessage, ElementName=RuntimeBrowser}"
                 TextWrapping="Wrap" />
           </StackPanel>
@@ -294,6 +337,7 @@
               Grid.Column="1"
               VerticalAlignment="Center"
               AutomationProperties.Name="Run browser recovery action"
+              Classes="SecondaryButton"
               Click="OnProductActionClick"
               Content="{Binding ProductActionLabel, ElementName=RuntimeBrowser}"
               IsVisible="{Binding HasProductAction, ElementName=RuntimeBrowser}" />
@@ -304,7 +348,7 @@
               Classes="IconButton"
               Click="OnDismissProductNoticeClick"
               ToolTip.Tip="Dismiss">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Dismiss" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
           </Button>
           <ProgressBar
               Grid.Row="1"
@@ -330,7 +374,7 @@
           CornerRadius="{DynamicResource ShellInnerCornerRadius}"
           IsVisible="{Binding IsFindVisible, ElementName=RuntimeBrowser}">
         <Grid ColumnDefinitions="220,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
-          <TextBox
+          <controls:SearchField
               x:Name="FindBox"
               AutomationProperties.Name="Find text in page"
               KeyDown="OnFindBoxKeyDown"
@@ -344,16 +388,16 @@
               AutomationProperties.LiveSetting="Polite"
               AutomationProperties.Name="Find result count"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="{Binding FindResultText, ElementName=RuntimeBrowser}" />
           <Button Grid.Column="2" AutomationProperties.Name="Previous find match" Classes="IconButton" Click="OnFindPreviousClick" ToolTip.Tip="Previous match">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronUp" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronUp" />
           </Button>
           <Button Grid.Column="3" AutomationProperties.Name="Next find match" Classes="IconButton" Click="OnFindNextClick" ToolTip.Tip="Next match">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="ChevronDown" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="ChevronDown" />
           </Button>
           <Button Grid.Column="4" AutomationProperties.Name="Close find in page" Classes="IconButton" Click="OnCloseFindClick" ToolTip.Tip="Close find">
-            <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize11}" Symbol="Dismiss" />
+            <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
           </Button>
         </Grid>
       </Border>

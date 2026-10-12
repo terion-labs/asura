@@ -92,7 +92,7 @@ public sealed class AgentFileActionComposer
         if (proposal.TargetIdentity != targetIdentity)
         {
             throw new ArgumentException(
-                "The fresh File Viewer target does not match the prepared action.",
+                "The fresh Files panel target does not match the prepared action.",
                 nameof(freshContext));
         }
 
@@ -236,7 +236,7 @@ public sealed class AgentFileActionComposer
     {
         var metadata = panel.FileMetadata
             ?? throw new ArgumentException(
-                "The File Viewer session has no trusted provider scope.",
+                "The Files panel session has no trusted provider scope.",
                 nameof(panel));
         var relativePath = RequestPath(request);
         if (request is AgentFileRequest.Read
@@ -289,7 +289,7 @@ public sealed class AgentFileActionComposer
         var relativeDisplay = DisplayPath(relativePath, isRelative: true);
         var sessionRevision = panel.SessionRevision
             ?? throw new ArgumentException(
-                "The File Viewer session has no live revision.",
+                "The Files panel session has no live revision.",
                 nameof(panel));
         var arguments = new List<MaterialArgument>
         {
@@ -492,7 +492,7 @@ public sealed class AgentFileActionComposer
                     || !AgentTargetScope.Contains(context.Target, narrowedPanel))
                 {
                     throw new ArgumentException(
-                        "The matching File Viewer session is stale or outside the resolved target.",
+                        "The matching Files panel session is stale or outside the resolved target.",
                         nameof(context));
                 }
 
@@ -524,7 +524,7 @@ public sealed class AgentFileActionComposer
                 break;
             default:
                 throw new ArgumentException(
-                    "Execution binding requires a freshly resolved exact File Viewer target.",
+                    "Execution binding requires a freshly resolved exact Files panel target.",
                     nameof(context));
         }
 
@@ -541,7 +541,7 @@ public sealed class AgentFileActionComposer
         if (matches.Length != 1)
         {
             throw new ArgumentException(
-                "The resolved target must contain exactly one matching File Viewer session.",
+                "The resolved target must contain exactly one matching Files panel session.",
                 nameof(context));
         }
 
@@ -549,14 +549,14 @@ public sealed class AgentFileActionComposer
         if (panel.Kind != PanelKind.FileViewer)
         {
             throw new ArgumentException(
-                "An agent file action cannot target a non-File Viewer panel.",
+                "An agent file action cannot target a panel other than Files.",
                 nameof(context));
         }
 
         if (panel.Lifecycle != SessionLifecycle.Active)
         {
             throw new ArgumentException(
-                "An agent file action requires an active File Viewer session.",
+                "An agent file action requires an active Files panel session.",
                 nameof(context));
         }
 
@@ -565,14 +565,14 @@ public sealed class AgentFileActionComposer
                 StringComparer.Ordinal))
         {
             throw new ArgumentException(
-                $"The File Viewer session does not support "
+                $"The Files panel session does not support "
                 + $"'{operation.SessionCapability}'.",
                 nameof(context));
         }
 
         var metadata = panel.FileMetadata
             ?? throw new ArgumentException(
-                "The File Viewer session has no trusted provider scope.",
+                "The Files panel session has no trusted provider scope.",
                 nameof(context));
         if (!SupportsProviderCapability(
                 operation.ToolName,
@@ -594,7 +594,7 @@ public sealed class AgentFileActionComposer
         if (context.Panels.Count != 1)
         {
             throw new ArgumentException(
-                "An exact File Viewer target must resolve to one panel/session.",
+                "An exact Files panel target must resolve to one panel/session.",
                 nameof(context));
         }
     }
@@ -611,7 +611,7 @@ public sealed class AgentFileActionComposer
             || !panel.IsCurrentPanelSession)
         {
             throw new ArgumentException(
-                "The resolved File Viewer owner is stale or does not match the exact panel target.",
+                "The resolved Files panel owner is stale or does not match the exact panel target.",
                 nameof(target));
         }
     }
@@ -625,7 +625,7 @@ public sealed class AgentFileActionComposer
             || (panel.HasRegisteredGraph && !panel.IsCurrentPanelSession))
         {
             throw new ArgumentException(
-                "The resolved File Viewer owner is stale or does not match the exact session target.",
+                "The resolved Files panel owner is stale or does not match the exact session target.",
                 nameof(target));
         }
     }
@@ -646,11 +646,11 @@ public sealed class AgentFileActionComposer
         var targetTitle = target switch
         {
             AgentTarget.Panel exactPanel =>
-                $"{EscapeForApproval(panel.PanelTitle ?? "File Viewer")} — panel "
+                $"{EscapeForApproval(panel.PanelTitle ?? "Files")} — panel "
                 + $"{EscapeForApproval(exactPanel.PanelId.Value)} — session "
                 + EscapeForApproval(panel.SessionId!.Value.Value),
             AgentTarget.ConnectionSession exactSession =>
-                $"{EscapeForApproval(panel.PanelTitle ?? "File Viewer")} — session "
+                $"{EscapeForApproval(panel.PanelTitle ?? "Files")} — session "
                 + $"{EscapeForApproval(exactSession.SessionId.Value)} — panel "
                 + EscapeForApproval(panel.PanelId.Value),
             _ => throw new ArgumentOutOfRangeException(

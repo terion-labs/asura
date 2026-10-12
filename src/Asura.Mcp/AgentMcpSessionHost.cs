@@ -436,7 +436,7 @@ public sealed class AgentMcpSessionHost :
                 if (cancellationToken.IsCancellationRequested)
                 {
                     throw new OperationCanceledException(
-                        "MCP discovery was cancelled.",
+                        "MCP discovery was canceled.",
                         exception,
                         cancellationToken);
                 }
@@ -511,7 +511,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before entering the run.");
+                "The MCP call was canceled before entering the run.");
         }
 
         try
@@ -543,7 +543,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before entering the run.");
+                "The MCP call was canceled before entering the run.");
         }
 
         if (!entered)
@@ -762,7 +762,7 @@ public sealed class AgentMcpSessionHost :
                 McpServerSessionKind.Test,
                 McpServerLifecycleState.Testing,
                 "mcp_testing",
-                "Testing the MCP server connection and tool discovery.");
+                "Testing the server's connection and loading its tools.");
             var session = await OpenProfileAsync(
                     stored,
                     diagnostic,
@@ -846,7 +846,7 @@ public sealed class AgentMcpSessionHost :
             _ = exception;
             return TestFailure(
                 "mcp_test_failed",
-                "The MCP server test failed safely.",
+                "The test didn't finish. Try again.",
                 retryable: true);
         }
         finally
@@ -1212,7 +1212,7 @@ public sealed class AgentMcpSessionHost :
                     McpServerSessionKind.AgentRun,
                     McpServerLifecycleState.Starting,
                     "mcp_starting",
-                    "Starting the MCP server and negotiating its protocol.");
+                    "Starting the server for an agent run.");
                 sessions.Add(await OpenProfileAsync(
                         profile,
                         diagnostic,
@@ -1570,7 +1570,7 @@ public sealed class AgentMcpSessionHost :
                 diagnostic,
                 McpServerLifecycleState.Healthy,
                 "mcp_healthy",
-                "MCP initialization and bounded tool discovery succeeded.");
+                "Connected to the server and loaded its tools.");
             return new ProfileSession(
                 stored,
                 client,
@@ -1619,7 +1619,7 @@ public sealed class AgentMcpSessionHost :
                     diagnostic,
                     McpServerLifecycleState.Failed,
                     stableCode,
-                    "The MCP server failed during bounded startup or discovery.");
+                    "The server failed while starting or loading its tools.");
                 await PersistDiagnosticsAsync().ConfigureAwait(false);
             }
 
@@ -1666,7 +1666,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before authorization consumption.");
+                "The MCP call was canceled before authorization consumption.");
         }
         catch (McpHostFailureException exception)
         {
@@ -1706,7 +1706,7 @@ public sealed class AgentMcpSessionHost :
         {
             return Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before dispatch.");
+                "The MCP call was canceled before dispatch.");
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -1783,8 +1783,8 @@ public sealed class AgentMcpSessionHost :
                     : McpServerLifecycleState.Degraded,
                 stableCode,
                 error.OutcomeUncertain
-                    ? "The live MCP session returned an outcome that could not be confirmed."
-                    : "The live MCP session reported a bounded tool failure.");
+                    ? "Asura couldn't confirm whether the tool call finished."
+                    : "A tool call failed. The server is still running.");
             var completed = await CompleteAsync(
                     permit,
                     AgentActionOutcome.Failed,
@@ -1951,7 +1951,7 @@ public sealed class AgentMcpSessionHost :
         return completion
             ?? Failure<AgentMcpToolCallReceipt>(
                 "caller_cancelled",
-                "The MCP call was cancelled before dispatch.");
+                "The MCP call was canceled before dispatch.");
     }
 
     private async Task<ResolvedTransportSecrets> ResolveTransportSecretsAsync(
@@ -2132,7 +2132,7 @@ public sealed class AgentMcpSessionHost :
                 McpErrorCode.MissingToolsCapability =>
                     "The MCP server does not advertise tools.",
                 McpErrorCode.Cancelled =>
-                    "The MCP operation was cancelled.",
+                    "The MCP operation was canceled.",
                 _ => "The MCP server returned an invalid or unavailable tool surface.",
             });
 
@@ -2196,7 +2196,7 @@ public sealed class AgentMcpSessionHost :
         {
             return TestFailure(
                 "mcp_test_cancelled",
-                "The MCP server test was cancelled.",
+                "The MCP server test was canceled.",
                 retryable: true);
         }
 
@@ -2211,11 +2211,11 @@ public sealed class AgentMcpSessionHost :
         return operationCancellation.IsCancellationRequested
             ? TestFailure(
                 "mcp_test_timed_out",
-                "The MCP server did not finish bounded discovery in time.",
+                "The server didn't finish loading its tools in time.",
                 retryable: true)
             : TestFailure(
                 "mcp_test_failed",
-                "The MCP server test failed safely.",
+                "The test didn't finish. Try again.",
                 retryable: true);
     }
 
@@ -2454,8 +2454,8 @@ public sealed class AgentMcpSessionHost :
             McpServerLifecycleState.Stopped,
             "mcp_stopped",
             stderr.ObservedByteCount == 0 && !stderr.ReadFailed
-                ? "The MCP process stopped cleanly."
-                : "The MCP process stopped; bounded stderr shape metadata was retained.",
+                ? "The server stopped."
+                : "The server stopped after writing to its error output.",
             stderr);
         await PersistDiagnosticsAsync().ConfigureAwait(false);
     }

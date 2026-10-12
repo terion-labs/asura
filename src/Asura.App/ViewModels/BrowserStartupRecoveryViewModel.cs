@@ -22,7 +22,7 @@ public sealed class BrowserStartupRecoveryViewModel : ObservableObject, IDisposa
     public string? Message => _recovery?.Error;
     public bool HasError => Message is not null;
     public bool CanRetry => HasError && _recovery?.CanRetry == true;
-    public string RetryLabel => _isRetrying ? "Retrying…" : _recovery?.RequiresRestart == true ? "Restart Asura" : "Retry browser";
+    public string RetryLabel => _isRetrying ? "Retrying…" : _recovery?.RequiresRestart == true ? "Restart Asura" : "Try Again";
     public ICommand RetryCommand { get; }
 
     private async Task RetryAsync()

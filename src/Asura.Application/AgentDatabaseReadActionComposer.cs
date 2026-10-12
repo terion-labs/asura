@@ -156,7 +156,7 @@ public sealed partial class AgentDatabaseReadActionComposer
             || panel.Lifecycle != SessionLifecycle.Active)
         {
             throw new ArgumentException(
-                "A database read requires one current active Database Viewer session.",
+                "A database read needs one open Database panel.",
                 nameof(context));
         }
 
@@ -265,7 +265,7 @@ public sealed partial class AgentDatabaseReadActionComposer
 
         return new AgentApprovalPresentation(
             "Database read",
-            panel.PanelTitle ?? "Database Viewer",
+            panel.PanelTitle ?? "Database",
             workingDirectory: null,
             arguments);
     }

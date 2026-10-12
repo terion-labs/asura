@@ -30,7 +30,12 @@ public sealed partial class FileRuntimePanelView : UserControl
     public FileRuntimePanelView()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => ObservePanel();
+        DataContextChanged += (_, _) =>
+        {
+            ObservePanel();
+            ReportDetailsRoom();
+        };
+        FileDetailsHeaderGrid.SizeChanged += (_, _) => ReportDetailsRoom();
         AddHandler(
             KeyDownEvent,
             OnPanelKeyDownTunnel,
@@ -53,6 +58,19 @@ public sealed partial class FileRuntimePanelView : UserControl
         AddHandler(DragDrop.DragOverEvent, OnFileDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnFileDragLeave);
         AddHandler(DragDrop.DropEvent, OnFileDrop);
+    }
+
+    /// <summary>
+    /// The details header is as wide as the rows below it, so its width is
+    /// the room the panel shares out between the name, size and date.
+    /// </summary>
+    private void ReportDetailsRoom()
+    {
+        if (DataContext is FileRuntimePanelViewModel panel
+            && FileDetailsHeaderGrid.Bounds.Width > 0)
+        {
+            panel.FileDetailsAvailableWidth = FileDetailsHeaderGrid.Bounds.Width;
+        }
     }
 
     /// <summary>
@@ -240,7 +258,7 @@ public sealed partial class FileRuntimePanelView : UserControl
                     Classes = { "Muted" },
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Text = "Web pages cannot be previewed on this system.",
+                    Text = "Web pages can’t be previewed on this computer.",
                 };
                 return;
             }
@@ -369,26 +387,59 @@ public sealed partial class FileRuntimePanelView : UserControl
         }
     }
 
+    /// <summary>
+    /// The Finder's keys in a listing — Return or Command-Down opens,
+    /// Command-Up goes to the enclosing folder, Command-Delete moves to the
+    /// Trash, Shift-Command-N makes a folder, and Command-C, X and V carry
+    /// files between folders. Read by <see cref="FileListShortcuts"/>, which
+    /// on a Mac takes Command alone: Control is not Command.
+    /// </summary>
     private void OnFilePanelKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Source is not Control source
+        if (e.Handled
+            || e.Source is not Control source
             || FindFileList(source) is not { } list
-            || !HasTransferModifier(e.KeyModifiers)
-            || e.Key is not (Key.C or Key.X or Key.V))
+            || DataContext is not FileRuntimePanelViewModel panel
+            || !ReferenceEquals(list.ItemsSource, panel.Entries))
         {
             return;
         }
 
-        var entries = SelectedEntries(list);
-        if (e.Key is Key.C or Key.X && entries.Count == 0)
+        var shortcut = FileListShortcuts.Resolve(e.Key, e.KeyModifiers, OperatingSystem.IsMacOS());
+        switch (shortcut)
         {
-            return;
-        }
+            case FileListShortcut.Copy or FileListShortcut.Cut or FileListShortcut.Paste:
+                var entries = SelectedEntries(list);
+                if (shortcut != FileListShortcut.Paste && entries.Count == 0)
+                {
+                    return;
+                }
 
-        EntryTransferKeyRequested?.Invoke(
-            list,
-            new FilePanelTransferKeyEventArgs(entries, e));
+                EntryTransferKeyRequested?.Invoke(
+                    list,
+                    new FilePanelTransferKeyEventArgs(entries, e));
+                return;
+            case FileListShortcut.Open:
+                e.Handled = panel.RequestActionIfEnabled(FilePanelAction.Open);
+                return;
+            case FileListShortcut.OpenEnclosingFolder:
+                if (panel.CanNavigateUp)
+                {
+                    e.Handled = true;
+                    NavigateUpRequested?.Invoke(list, new RoutedEventArgs());
+                }
+
+                return;
+            case FileListShortcut.Delete:
+                e.Handled = panel.RequestActionIfEnabled(FilePanelAction.Delete);
+                return;
+            case FileListShortcut.NewFolder:
+                e.Handled = panel.RequestActionIfEnabled(FilePanelAction.NewFolder);
+                return;
+            default:
+                return;
+        }
     }
 
     /// <summary>
@@ -425,7 +476,8 @@ public sealed partial class FileRuntimePanelView : UserControl
             list,
             entry.Entry,
             point.Position,
-            e.Pointer);
+            e.Pointer,
+            e);
     }
 
     /// <summary>
@@ -562,7 +614,9 @@ public sealed partial class FileRuntimePanelView : UserControl
         var activeDrag = new ActiveFileDrag(
             candidate.Pointer,
             payload,
-            CreateDragGhostPayload(entries, panel.ConnectionDisplayName));
+            CreateDragGhostPayload(candidate.Source, entries, panel.ConnectionDisplayName),
+            candidate.PressEvent,
+            LookUpSystemDragItems(panel, entries));
         // Changing capture can synchronously raise capture-lost for the list
         // row. Establish the drag only after that old capture has unwound.
         candidate.Pointer.Capture(this);
@@ -605,6 +659,11 @@ public sealed partial class FileRuntimePanelView : UserControl
         if (TopLevel.GetTopLevel(this) is not MainWindow window)
         {
             CancelActiveFileDrag(active.Pointer);
+            return;
+        }
+
+        if (TryHandOffToSystemDrag(e, active, window))
+        {
             return;
         }
 
@@ -825,14 +884,16 @@ public sealed partial class FileRuntimePanelView : UserControl
             .ToArray()
         ?? [];
 
-    private static bool HasTransferModifier(KeyModifiers modifiers) =>
-        modifiers.HasFlag(KeyModifiers.Meta)
-        || modifiers.HasFlag(KeyModifiers.Control);
-
     private static DragGhostPayload CreateDragGhostPayload(
+        ListBox list,
         IReadOnlyList<FilePanelEntry> entries,
         string source)
     {
+        // One file drags its own Finder icon; several share a glyph.
+        var icon = entries.Count == 1
+            ? list.Items.OfType<FileEntryViewModel>()
+                .FirstOrDefault(item => item.Entry == entries[0])?.Icon
+            : null;
         var title = entries.Count == 1
             ? entries[0].Name
             : $"{entries.Count} items";
@@ -840,7 +901,7 @@ public sealed partial class FileRuntimePanelView : UserControl
             && entries[0].Kind == FilePanelEntryKind.Directory
             ? Symbol.Folder
             : Symbol.DocumentMultiple;
-        return new DragGhostPayload(symbol, title, $"From {source}");
+        return new DragGhostPayload(symbol, title, $"From {source}", icon);
     }
 
     private sealed record FileDropTarget(
@@ -856,13 +917,16 @@ public sealed partial class FileRuntimePanelView : UserControl
     private sealed record ActiveFileDrag(
         IPointer Pointer,
         FilePanelTransferPayload Payload,
-        DragGhostPayload Ghost);
+        DragGhostPayload Ghost,
+        PointerPressedEventArgs PressEvent,
+        IReadOnlyList<Task>? SystemItems);
 
     private sealed record FileDragCandidate(
         ListBox Source,
         FilePanelEntry Entry,
         Point Origin,
-        IPointer Pointer);
+        IPointer Pointer,
+        PointerPressedEventArgs PressEvent);
 }
 
 /// <summary>

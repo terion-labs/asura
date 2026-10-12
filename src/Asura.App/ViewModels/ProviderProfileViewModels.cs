@@ -16,7 +16,14 @@ public sealed record FileProviderProfileItemViewModel(
     string Status,
     string StatusDetail,
     bool HasError,
-    bool HasWarning);
+    bool HasWarning)
+{
+    /// <summary>
+    /// True while nothing needs attention, so the row's chip stays neutral
+    /// instead of reading as good news for a provider that is still loading.
+    /// </summary>
+    public bool IsStatusNeutral => !HasError && !HasWarning;
+}
 
 public sealed record AiProviderProfileItemViewModel(
     AiProviderProfileId Id,
@@ -131,22 +138,20 @@ public sealed class McpServerProfileItemViewModel : ObservableObject
     };
 
     public string ArgumentSummary =>
-        ArgumentCount == 1 ? "1 ordered arg" : $"{ArgumentCount} ordered args";
+        ArgumentCount == 1 ? "1 argument" : $"{ArgumentCount:N0} arguments";
 
     public string EnvironmentBindingSummary =>
         EnvironmentBindingCount == 1
-            ? "1 vault binding"
-            : $"{EnvironmentBindingCount} vault bindings";
+            ? "1 stored credential"
+            : $"{EnvironmentBindingCount:N0} stored credentials";
 
     public string CredentialBindingSummary =>
         CredentialBindingCount == 1
-            ? "1 vault binding"
-            : $"{CredentialBindingCount} vault bindings";
+            ? "1 stored credential"
+            : $"{CredentialBindingCount:N0} stored credentials";
 
     public string EnabledToolSummary =>
-        EnabledToolCount == 1
-            ? "1 enabled tool"
-            : $"{EnabledToolCount} enabled tools";
+        CountText.OrNone(EnabledToolCount, "enabled tool", "enabled tools");
 
     public string TestActionLabel => IsTesting ? "Testing…" : "Test";
 

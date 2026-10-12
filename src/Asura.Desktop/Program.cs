@@ -209,12 +209,12 @@ internal static class Program
                 mainWindowViewModel = services.GetRequiredService<MainWindowViewModel>();
                 if (profile.IsRecovery)
                 {
+                    // Every window says so, not just the first: the titles
+                    // follow the workspace and tab, and this rides along.
+                    services.GetRequiredService<AsuraApplication>()
+                        .WindowTitleQualifier = "Recovery Workspace";
                     lifetime.Startup += (_, _) =>
                     {
-                        if (lifetime.MainWindow is { } window)
-                        {
-                            window.Title = "Asura recovery workspace";
-                        }
                         if (!profileAlreadyExists)
                         {
                             browserStartup.ReportRecoveryWorkspace();
@@ -631,31 +631,14 @@ internal static class Program
         Environment.ExitCode = 1;
     }
 
+    /// <summary>
+    /// A second launch or a notification brings Asura forward. With every
+    /// window closed and Asura still running, as on a Mac, that opens one.
+    /// </summary>
     private static void RequestMainWindowActivation()
     {
         Dispatcher.UIThread.Post(() =>
-        {
-            if (Avalonia.Application.Current?.ApplicationLifetime
-                    is not IClassicDesktopStyleApplicationLifetime
-                    {
-                        MainWindow: { } mainWindow,
-                    })
-            {
-                return;
-            }
-
-            if (mainWindow.WindowState == WindowState.Minimized)
-            {
-                mainWindow.WindowState = WindowState.Normal;
-            }
-
-            if (!mainWindow.IsVisible)
-            {
-                mainWindow.Show();
-            }
-
-            mainWindow.Activate();
-        });
+            (Avalonia.Application.Current as AsuraApplication)?.ShowOrOpenMainWindow());
     }
 
     private static void OnNativeNotificationActivated(

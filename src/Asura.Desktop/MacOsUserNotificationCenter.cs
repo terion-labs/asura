@@ -92,6 +92,54 @@ internal sealed partial class MacOsUserNotificationCenter : IDisposable
         return result.Granted;
     }
 
+    /// <summary>
+    /// What the person decided in System Settings, read fresh each time:
+    /// they can change it there at any moment.
+    /// </summary>
+    public async ValueTask<NotificationAuthorization> ReadAuthorizationAsync(
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var completion = new TaskCompletionSource<NotificationAuthorization>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        using var block = MacOsObjectiveCBlock.CreateError(settings =>
+        {
+            try
+            {
+                completion.TrySetResult(RunWithAutoreleasePool(
+                    () => settings == 0
+                        ? NotificationAuthorization.Unknown
+                        : MapAuthorizationStatus(
+                            SendObject(settings, Selector("authorizationStatus")))));
+            }
+            catch (Exception exception)
+            {
+                completion.TrySetException(exception);
+            }
+        });
+        RunWithAutoreleasePool(() =>
+            SendVoid(
+                _center,
+                Selector("getNotificationSettingsWithCompletionHandler:"),
+                block.Pointer));
+
+        return await completion.Task
+            .WaitAsync(cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>UNAuthorizationStatus, as the settings page describes it.</summary>
+    internal static NotificationAuthorization MapAuthorizationStatus(nint status) => status switch
+    {
+        0 => NotificationAuthorization.NotDetermined,
+        1 => NotificationAuthorization.Denied,
+        // Authorized, provisional and ephemeral all let notifications through.
+        2 or 3 or 4 => NotificationAuthorization.Authorized,
+        _ => NotificationAuthorization.Unknown,
+    };
+
     public async ValueTask AddAsync(
         NativeNotification notification,
         CancellationToken cancellationToken)

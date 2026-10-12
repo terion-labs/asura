@@ -37,17 +37,17 @@
         x:Name="CustomPicker"
         Classes="Swatch Round"
         ColorChanged="OnCustomColorChanged"
-        ToolTip.Tip="Any other colour"
+        ToolTip.Tip="Any other color"
         AutomationProperties.Name="{Binding Purpose, ElementName=Root, StringFormat=Any other {0}}" />
 
     <Button
         x:Name="Sampler"
         Classes="IconButton"
         Click="OnSampleClick"
-        ToolTip.Tip="Sample a colour from the screen"
+        ToolTip.Tip="Sample a color from the screen"
         IsVisible="{Binding CanSample, ElementName=Root}"
         AutomationProperties.Name="{Binding Purpose, ElementName=Root, StringFormat=Sample the {0} from the screen}">
-      <icons:SymbolIcon Symbol="Eyedropper" FontSize="14" />
+      <icons:SymbolIcon Symbol="Eyedropper" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
 
     <Button

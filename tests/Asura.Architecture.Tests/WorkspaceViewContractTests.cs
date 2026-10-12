@@ -19,6 +19,8 @@ public sealed class WorkspaceViewContractTests
             ["CancelFileTransferRequested"] = "OnCancelFileTransferClick",
             ["ClearAgentChatRequested"] = "OnClearAgentChatClick",
             ["CloseRuntimeTabRequested"] = "OnCloseRuntimeTabClick",
+            ["CloseOtherRuntimeTabsRequested"] = "OnCloseOtherRuntimeTabsClick",
+            ["MoveRuntimeTabToWorkspaceRequested"] = "OnMoveRuntimeTabToWorkspaceRequested",
             ["DeclineAgentQuestionRequested"] = "OnDeclineAgentQuestionClick",
             ["DenyAgentActionRequested"] = "OnDenyAgentActionClick",
             ["DisableAgentYoloRequested"] = "OnDisableAgentYoloClick",
@@ -46,6 +48,7 @@ public sealed class WorkspaceViewContractTests
             ["ShowNewPanelRequested"] = "OnShowNewPanelClick",
             ["ShowSettingsRequested"] = "OnShowSettingsClick",
             ["SubmitAgentQuestionRequested"] = "OnSubmitAgentQuestionClick",
+            ["TerminateWorkspaceRequested"] = "OnTerminateWorkspaceClick",
             ["ToggleAgentRequested"] = "OnToggleAgentClick",
         };
 
@@ -84,18 +87,22 @@ public sealed class WorkspaceViewContractTests
     }
 
     [Fact]
-    public void Workspace_network_status_avoids_Avalonia_macOS_empty_live_region_crash()
+    public void Workspace_network_route_is_a_menu_built_as_it_opens()
     {
         var root = Assert.IsType<XElement>(LoadView("WorkspaceView").Root);
-        var status = FindNamedElement(root, "WorkspaceNetworkStatus");
+        var button = FindNamedElement(root, "WorkspaceNetworkButton");
 
-        Assert.Equal(
-            "{Binding WorkspaceNetwork.StatusText}",
-            AttributeValue(status, "Text"));
-        Assert.Equal(
-            "Workspace network status",
-            AttributeValue(status, "AutomationProperties.Name"));
-        Assert.Null(AttributeValue(status, "AutomationProperties.LiveSetting"));
+        // A menu of radio items rather than a popover of button rows, and no
+        // live region inside it: an empty one crashes Avalonia's macOS peer.
+        var menu = Assert.Single(
+            button.Descendants(),
+            element => string.Equals(element.Name.LocalName, "DynamicMenuFlyout", StringComparison.Ordinal));
+        Assert.Equal("OnWorkspaceNetworkMenuOpening", AttributeValue(menu, "Opening"));
+        Assert.Equal("{Binding WorkspaceNetwork}", AttributeValue(button, "Tag"));
+        Assert.DoesNotContain(
+            button.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Flyout", StringComparison.Ordinal)
+                || AttributeValue(element, "AutomationProperties.LiveSetting") is not null);
     }
 
     [Fact]
@@ -127,7 +134,7 @@ public sealed class WorkspaceViewContractTests
             designSystem.Descendants(),
             element => string.Equals(element.Name.LocalName, "Style"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Selector")
-, "icons|SymbolIcon.AgentToolbarActivityPulse.running", StringComparison.Ordinal));
+, "Window:not(.motion-disabled) icons|SymbolIcon.AgentToolbarActivityPulse.running", StringComparison.Ordinal));
         var animation = Assert.Single(
             pulseStyle.Descendants(),
             element => string.Equals(element.Name.LocalName, "Animation", StringComparison.Ordinal));
@@ -219,7 +226,7 @@ public sealed class WorkspaceViewContractTests
         // selects; the template it renders lives in that component.
         Assert.Equal("RuntimeTabStripView", tabStrip.Name.LocalName);
         Assert.Equal("Horizontal", AttributeValue(tabStrip, "Orientation"));
-        Assert.Equal("Open runtime tabs", AttributeValue(
+        Assert.Equal("Tabs", AttributeValue(
             tabStrip,
             "AutomationProperties.Name"));
         Assert.Equal(
@@ -239,20 +246,43 @@ public sealed class WorkspaceViewContractTests
             workspacesMenuIcon.Descendants(),
             element => string.Equals(element.Name.LocalName, "SymbolIcon"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Symbol"), "Bot", StringComparison.Ordinal));
-        Assert.Single(
+        // A menu, built as it opens, with no switch inside it: the rail's
+        // own toggle is Show Sidebar in the View menu.
+        Assert.Equal("{Binding WorkspacesMenuName}", AttributeValue(workspacesMenu, "AutomationProperties.Name"));
+        var workspacesFlyout = Assert.Single(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ItemsControl"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "ItemsSource"),
-                    "{Binding Workspaces}",
-                    StringComparison.Ordinal));
-        Assert.Single(
+            element => string.Equals(element.Name.LocalName, "DynamicMenuFlyout", StringComparison.Ordinal));
+        Assert.Equal("OnWorkspacesMenuOpening", AttributeValue(workspacesFlyout, "Opening"));
+        Assert.DoesNotContain(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ToggleSwitch"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "IsChecked"),
-                    "{Binding ShowWorkspacesPanel, Mode=TwoWay}",
-                    StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
+
+        // Settings is a gear at the foot of the workspaces rail on every
+        // platform, named for VoiceOver and tipped with its shortcut.
+        var settingsButtons = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Click"), "OnShowSettingsClick", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(2, settingsButtons.Length);
+        var railSettings = FindNamedElement(root, "RailSettingsButton");
+        Assert.Contains(railSettings, settingsButtons);
+        Assert.Equal("Bottom", AttributeValue(railSettings, "DockPanel.Dock"));
+        Assert.Equal("Settings", AttributeValue(railSettings, "AutomationProperties.Name"));
+        Assert.Equal(
+            "{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}",
+            AttributeValue(railSettings, "ToolTip.Tip"));
+        Assert.Null(AttributeValue(railSettings, "IsVisible"));
+        Assert.Contains(
+            railSettings.Ancestors(),
+            element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "IsVisible"), "{Binding IsWorkspaceRailVisible}", StringComparison.Ordinal));
+
+        // While the rail is hidden the gear stands in the title bar instead,
+        // so Settings never leaves the window.
+        var titleBarSettings = FindNamedElement(root, "TitleBarSettingsButton");
+        Assert.Contains(titleBarSettings, settingsButtons);
+        Assert.Equal("{Binding !IsWorkspaceRailVisible}", AttributeValue(titleBarSettings, "IsVisible"));
+        Assert.Equal("Settings", AttributeValue(titleBarSettings, "AutomationProperties.Name"));
 
         // Every edge the setting offers has a host, and each is bound to the
         // stored placement rather than being always visible.
@@ -276,7 +306,8 @@ public sealed class WorkspaceViewContractTests
             AttributeValue(FindNamedElement(root, "RuntimeTabStripSide"), "Orientation"));
 
         // The rail's edge and visibility follow the stored appearance profile, so
-        // both are bindings rather than fixed values.
+        // both are bindings rather than fixed values. Visibility also gives way
+        // to a narrow window, where the Workspaces menu stands in for the rail.
         var rail = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Border"
@@ -286,7 +317,7 @@ public sealed class WorkspaceViewContractTests
                     StringComparison.Ordinal));
         Assert.True(HasClass(rail, "FloatingSidebar"));
         Assert.Equal(
-            "{Binding ShowWorkspacesPanel}",
+            "{Binding IsWorkspaceRailVisible}",
             AttributeValue(rail, "IsVisible"));
 
         // The agent panel is an in-window overlay in both of its states: the
@@ -313,14 +344,16 @@ public sealed class WorkspaceViewContractTests
         // later clear back to the style's defaults.
         Assert.Null(AttributeValue(agentWorkspace, "Margin"));
         Assert.Null(AttributeValue(agentWorkspace, "Width"));
+        // A pinned panel floats while the window is too narrow to give it a
+        // column, and docks again when the window is widened.
         Assert.Equal(
-            "{Binding !IsAgentPanelDocked}",
+            "{Binding IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.floating"));
         Assert.Equal(
-            "{Binding IsAgentPanelDocked}",
+            "{Binding !IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.edgeResizable"));
         Assert.Equal(
-            "{Binding IsAgentPanelDocked}",
+            "{Binding !IsAgentPanelFloating}",
             AttributeValue(agentWorkspace, "Classes.edgeRight"));
         Assert.Equal(
             "{Binding #AgentWorkspaceSurface.Bounds.Width}",
@@ -332,12 +365,18 @@ public sealed class WorkspaceViewContractTests
                 element => element, StringComparer.Ordinal);
         // The base style supplies the initial width. Once the docked resize
         // edge changes it, the spacer follows the surface's live bounds.
+        // Both default lengths follow the text-size setting, so larger text
+        // does not wrap the conversation into an unreadably narrow column.
         var agentBase = agentStates["views|AgentWorkspaceView"];
         Assert.Contains(
             agentBase.Descendants(),
             setter => string.Equals(AttributeValue(setter, "Property"), "Width"
-, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "352", StringComparison.Ordinal));
+, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "{controls:TextScaled 352}", StringComparison.Ordinal));
         Assert.True(agentStates.ContainsKey("views|AgentWorkspaceView.floating"));
+        Assert.Contains(
+            agentStates["views|AgentWorkspaceView.floating"].Descendants(),
+            setter => string.Equals(AttributeValue(setter, "Property"), "Height"
+, StringComparison.Ordinal) && string.Equals(AttributeValue(setter, "Value"), "{controls:TextScaled 620}", StringComparison.Ordinal));
         // Floating wears the sidebar's own swatch as glass over the blurred
         // snapshot of what it covers, ringed by the flyout shadow — spread on
         // every edge, because an offset shadow on near-black only ever peeks
@@ -356,7 +395,7 @@ public sealed class WorkspaceViewContractTests
         Assert.Equal("AgentViewport", AttributeValue(agentViewport, "Name"));
         Assert.Null(AttributeValue(agentViewport, "Background"));
         Assert.Equal("False", AttributeValue(agentViewport, "ClipToBounds"));
-        Assert.Equal("{Binding !IsAgentPanelDocked}", AttributeValue(agentViewport, "Classes.floating"));
+        Assert.Equal("{Binding IsAgentPanelFloating}", AttributeValue(agentViewport, "Classes.floating"));
         Assert.Equal("{Binding #AgentViewport.Bounds.Width}", AttributeValue(agentWorkspace, "MaxWidth"));
         Assert.Equal("{Binding #AgentViewport.Bounds.Height}", AttributeValue(agentWorkspace, "MaxHeight"));
         var agentOverlay = agentViewport.Parent!;
@@ -437,13 +476,13 @@ public sealed class WorkspaceViewContractTests
         // dock control builds only what it is showing.
         Assert.Equal("{Binding IsCanvasShown}", AttributeValue(dockControl, "IsVisible"));
         Assert.Equal("{Binding CanvasDepth}", AttributeValue(dockControl, "ZIndex"));
-        // Docking pauses while the layout designer overlay is open: Dock resolves
-        // drop targets across every registered DockControl, and the designer's
-        // canvas must not be able to dock a slot into the live workspace beneath.
-        Assert.Contains(
-            "IsLayoutDesignerVisible",
-            AttributeValue(dockControl, "IsDockingEnabled") ?? string.Empty,
-            StringComparison.Ordinal);
+        // Docking pauses only while a slot is held in the Layout Designer
+        // window: Dock resolves drop targets across every registered
+        // DockControl, and a designer slot must not land in the live workspace.
+        // The rest of the time the workspace docks as usual beside the designer.
+        Assert.Equal(
+            "{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}",
+            AttributeValue(dockControl, "IsDockingEnabled"));
         Assert.Equal("True", AttributeValue(dockControl, "InitializeFactory"));
         Assert.Equal("False", AttributeValue(dockControl, "InitializeLayout"));
         // Dock windows are real platform windows. The managed-window layer would

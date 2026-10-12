@@ -43,7 +43,7 @@ public sealed class ThemePreferenceTests
             MaterialDisposition.DisabledByHighContrast,
             effective.MaterialDisposition);
         Assert.Equal(1.5, effective.TextScale);
-        Assert.Equal(ThemePreference.BronzeFallback, effective.Accent);
+        Assert.Equal(ThemePreference.BrandAccent, effective.Accent);
         Assert.Equal(AccentSource.AsuraFallback, effective.AccentSource);
     }
 
@@ -153,4 +153,38 @@ public sealed class ThemePreferenceTests
         PlatformProfile.Automatic,
         accent,
         textScaleOverride);
+
+    [Fact]
+    public void The_products_own_accent_is_the_one_brand_orange()
+    {
+        var preference = new ThemePreference(
+            ThemePreference.Default.Id,
+            ThemePreference.Default.Name,
+            AppearanceMode.System,
+            PlatformProfile.Automatic,
+            AccentPreference.AsuraBronze);
+        var host = new HostAppearance(
+            HostOperatingSystem.MacOS,
+            HostColorScheme.Dark,
+            RgbColor.Parse("#007AFF"));
+
+        Assert.Equal(RgbColor.Parse("#FF8400"), ThemePreference.BrandAccent);
+        Assert.Equal(ThemePreference.BrandAccent, preference.Resolve(host).Accent);
+        Assert.NotEqual(ThemePreference.LegacyBronzeSeed, ThemePreference.BrandAccent);
+    }
+
+    [Fact]
+    public void Differentiate_without_color_is_carried_from_the_host()
+    {
+        var host = new HostAppearance(
+            HostOperatingSystem.MacOS,
+            HostColorScheme.Light,
+            accent: null,
+            differentiateWithoutColor: true);
+
+        Assert.True(ThemePreference.Default.Resolve(host).DifferentiateWithoutColor);
+        Assert.False(ThemePreference.Default.Resolve(
+            new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Light, accent: null))
+            .DifferentiateWithoutColor);
+    }
 }

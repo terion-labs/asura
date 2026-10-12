@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -13,6 +15,9 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
     private DefinitionCatalogSnapshot _snapshot;
     private TerminalProfileEditorViewModel? _terminalEditor;
     private QuickTerminalSettingsEditorViewModel? _quickTerminalEditor;
+    private (KeyStroke Gesture, GlobalHotkeyRegistrationResult Result)? _lastQuickTerminalRegistration;
+    private (TerminalProfileEditorViewModel Editor, TerminalProfile Profile)? _submittedTerminal;
+    private (QuickTerminalSettingsEditorViewModel Editor, QuickTerminalSettings Settings)? _submittedQuickTerminal;
     private bool _disposed;
 
     public TerminalSettingsViewModel(IDefinitionCatalog catalog)
@@ -22,16 +27,58 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         ApplyCatalog(_snapshot);
     }
 
+    /// <summary>
+    /// A field of the current <see cref="TerminalEditor"/> changed. Settings
+    /// that apply as they change listen here rather than to each editor the
+    /// catalog replaces after a save.
+    /// </summary>
+    public event EventHandler<PropertyChangedEventArgs>? TerminalEditorEdited;
+
+    /// <summary>A field of the current <see cref="QuickTerminalEditor"/> changed.</summary>
+    public event EventHandler<PropertyChangedEventArgs>? QuickTerminalEditorEdited;
+
     public TerminalProfileEditorViewModel? TerminalEditor
     {
         get => _terminalEditor;
-        private set => SetProperty(ref _terminalEditor, value);
+        private set
+        {
+            var previous = _terminalEditor;
+            if (SetProperty(ref _terminalEditor, value))
+            {
+                previous?.PropertyChanged -= OnTerminalEditorPropertyChanged;
+                value?.PropertyChanged += OnTerminalEditorPropertyChanged;
+            }
+        }
     }
 
     public QuickTerminalSettingsEditorViewModel? QuickTerminalEditor
     {
         get => _quickTerminalEditor;
-        private set => SetProperty(ref _quickTerminalEditor, value);
+        private set
+        {
+            var previous = _quickTerminalEditor;
+            if (SetProperty(ref _quickTerminalEditor, value))
+            {
+                previous?.PropertyChanged -= OnQuickTerminalEditorPropertyChanged;
+                value?.PropertyChanged += OnQuickTerminalEditorPropertyChanged;
+            }
+        }
+    }
+
+    private void OnTerminalEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _terminalEditor))
+        {
+            TerminalEditorEdited?.Invoke(this, e);
+        }
+    }
+
+    private void OnQuickTerminalEditorPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ReferenceEquals(sender, _quickTerminalEditor))
+        {
+            QuickTerminalEditorEdited?.Invoke(this, e);
+        }
     }
 
     public TerminalProfile? ActiveTerminalProfile =>
@@ -82,7 +129,10 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            return Fail<StoredDefinition<TerminalProfile>>(exception.Message);
+            return Fail<StoredDefinition<TerminalProfile>>(FailureReason.Refusal(
+                "terminal.profile.save.refused",
+                exception,
+                "Asura couldn't save the terminal profile with these settings. Check the font, sizes, and colors, then try again."));
         }
 
         // A no-op save must not publish a catalog change. Rebinding the editor
@@ -103,10 +153,21 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
                     DateTimeOffset.UnixEpoch));
         }
 
-        return await _catalog.SaveTerminalProfileAsync(
+        // Settings that apply as they change keep editing while this save is
+        // in flight. Remember what was sent so the catalog refresh it causes
+        // moves this editor to the new revision instead of replacing it.
+        var editor = TerminalEditor;
+        _submittedTerminal = (editor, request.Profile);
+        var result = await _catalog.SaveTerminalProfileAsync(
             request.Profile,
             expectedRevision,
             cancellationToken);
+        if (result.IsSuccess && ReferenceEquals(TerminalEditor, editor))
+        {
+            editor.AcceptSavedRevision(result.Value!.Revision);
+        }
+
+        return result;
     }
 
     public async ValueTask<DefinitionStoreResult<StoredDefinition<QuickTerminalSettings>>>
@@ -126,25 +187,34 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            return Fail<StoredDefinition<QuickTerminalSettings>>(exception.Message);
+            return Fail<StoredDefinition<QuickTerminalSettings>>(FailureReason.Refusal(
+                "terminal.quick-terminal.save.refused",
+                exception,
+                "Asura couldn't save the Quick Terminal settings. Check the shortcut, height, and opacity, then try again."));
         }
 
-        return await _catalog.SaveQuickTerminalSettingsAsync(
+        var editor = QuickTerminalEditor;
+        _submittedQuickTerminal = (editor, request.Settings);
+        var result = await _catalog.SaveQuickTerminalSettingsAsync(
             request.Settings,
             request.ExpectedRevision,
             cancellationToken);
+        if (result.IsSuccess && ReferenceEquals(QuickTerminalEditor, editor))
+        {
+            editor.AcceptSavedRevision(result.Value!.Revision);
+        }
+
+        return result;
     }
 
     public void ApplyQuickTerminalRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result)
     {
         ThrowIfDisposed();
-        QuickTerminalEditor?.ApplyRegistration(
-            configuredGesture,
-            activeGesture,
-            result);
+        ArgumentNullException.ThrowIfNull(result);
+        _lastQuickTerminalRegistration = (configuredGesture, result);
+        QuickTerminalEditor?.ApplyRegistration(configuredGesture, result);
     }
 
     public void Dispose()
@@ -155,6 +225,8 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
         }
 
         _disposed = true;
+        _submittedTerminal = null;
+        _submittedQuickTerminal = null;
         TerminalEditor = null;
         QuickTerminalEditor = null;
     }
@@ -170,12 +242,26 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (TerminalEditor is not null
-            && TerminalEditor.ProfileId == terminal.Value.Id
-            && TerminalEditor.ExpectedRevision == terminal.Revision
-            && TerminalEditor.MatchesTerminalKeymaps(snapshot.Keymaps.Select(item => item.Value)))
+        if (TerminalEditor is { } current
+            && current.ProfileId == terminal.Value.Id
+            && current.MatchesTerminalKeymaps(snapshot.Keymaps.Select(item => item.Value)))
         {
-            return;
+            if (current.ExpectedRevision == terminal.Revision)
+            {
+                return;
+            }
+
+            // The catalog now holds what this editor saved. Edits made while
+            // the save was in flight stay in the editor and save against the
+            // new revision; rebuilding it would put the older value back
+            // under the user's pointer.
+            if (_submittedTerminal is { } submitted
+                && ReferenceEquals(submitted.Editor, current)
+                && submitted.Profile.RepresentsSameAs(terminal.Value))
+            {
+                current.AcceptSavedRevision(terminal.Revision);
+                return;
+            }
         }
 
         TerminalEditor = new TerminalProfileEditorViewModel(
@@ -196,16 +282,33 @@ public sealed class TerminalSettingsViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (QuickTerminalEditor is not null
-            && QuickTerminalEditor.SettingsId == quickTerminal.Value.Id
-            && QuickTerminalEditor.ExpectedRevision == quickTerminal.Revision)
+        if (QuickTerminalEditor is { } current
+            && current.SettingsId == quickTerminal.Value.Id)
         {
-            return;
+            if (current.ExpectedRevision == quickTerminal.Revision)
+            {
+                return;
+            }
+
+            if (_submittedQuickTerminal is { } submitted
+                && ReferenceEquals(submitted.Editor, current)
+                && submitted.Settings == quickTerminal.Value)
+            {
+                current.AcceptSavedRevision(quickTerminal.Revision);
+                return;
+            }
         }
 
         QuickTerminalEditor = new QuickTerminalSettingsEditorViewModel(
             quickTerminal.Value,
             quickTerminal.Revision);
+        // A saved edit replaces the editor. The registration it reported still
+        // describes the hotkey until the controller registers a new one.
+        if (_lastQuickTerminalRegistration is { } last
+            && last.Gesture == quickTerminal.Value.Hotkey)
+        {
+            QuickTerminalEditor.ApplyRegistration(last.Gesture, last.Result);
+        }
     }
 
     private static DefinitionStoreResult<T> Fail<T>(string message) =>

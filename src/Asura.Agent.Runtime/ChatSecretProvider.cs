@@ -32,7 +32,7 @@ internal sealed class ChatSecretProvider(
             var resolved = await secrets.ResolveTextAsync(reference, SecretUseKind.ChatModelDisclosure, cancellationToken).ConfigureAwait(false);
             if (resolved is not SecretVaultResult<string>.Success success)
             {
-                throw new InvalidOperationException("Selected hidden content is unavailable. Reveal it locally to check the vault, then retry.");
+                throw new InvalidOperationException($"The selected hidden content isn't available. Reveal it here to check {PlatformTerms.SecretStore}, then try again.");
             }
             originals.Add(reference, success.Value);
         }

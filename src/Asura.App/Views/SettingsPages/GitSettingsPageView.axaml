@@ -1,0 +1,189 @@
+<UserControl
+    x:Class="Asura.App.Views.SettingsPages.GitSettingsPageView"
+    x:DataType="vm:GitSettingsPageViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:components="using:Asura.App.Views.Components"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:icons="using:FluentIcons.Avalonia"
+    HorizontalContentAlignment="Stretch"
+    VerticalContentAlignment="Stretch">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.FieldError">
+      <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
+      <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </UserControl.Styles>
+  <!--
+    The choices every Git panel shares. They lived in a form under each
+    panel's Tools menu, where they read as the repository's own; identity and
+    signing are the repository's, and stay in the panel. Every choice applies
+    as it changes and reaches every open Git panel at once.
+  -->
+  <StackPanel Classes="SettingsPage">
+    <components:SettingsPageHeader
+        Heading="Git"
+        Description="Choices that apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository." />
+
+    <controls:SettingsGroup
+        Heading="Git command"
+        Description="Choices here apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository."
+        ControlWidth="300">
+      <controls:SettingRow
+          Label="Git executable"
+          Description="The program each Git panel runs, on that panel's own connection: a command name such as git, or a full path.">
+        <StackPanel Spacing="{DynamicResource ShellSpace2Xs}">
+          <!-- Stored when the field is left, so a path half typed never
+               becomes the program every panel restarts with. -->
+          <TextBox
+              x:Name="GitExecutableInput"
+              Text="{Binding GitExecutable, UpdateSourceTrigger=LostFocus}"
+              AutomationProperties.Name="Git executable" />
+          <TextBlock
+              Classes="FieldError"
+              IsVisible="{Binding HasGitExecutableError}"
+              Text="{Binding GitExecutableError}"
+              AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Fetch in the background"
+          Description="Fetches from every remote every five minutes while a repository is open."
+          IsLast="True">
+        <ToggleSwitch
+            IsChecked="{Binding BackgroundFetch}"
+            AutomationProperties.Name="Fetch in the background" />
+      </controls:SettingRow>
+    </controls:SettingsGroup>
+
+    <controls:SettingsGroup Heading="Commit messages" ControlWidth="300">
+      <controls:SettingRow
+          Label="Subject length guide"
+          Description="The count shown as you type a subject. A guide only; it never blocks a commit.">
+        <StackPanel Spacing="{DynamicResource ShellSpace2Xs}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+            <NumericUpDown
+                x:Name="SubjectGuideInput"
+                Minimum="1"
+                Maximum="1000"
+                Increment="1"
+                FormatString="0"
+                Value="{Binding SubjectGuide}"
+                AutomationProperties.Name="Subject length guide in characters" />
+            <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Muted" Text="characters" />
+          </Grid>
+          <TextBlock
+              Classes="FieldError"
+              IsVisible="{Binding HasSubjectGuideError}"
+              Text="{Binding SubjectGuideError}"
+              AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Spelling dictionary"
+          Description="A UTF-8 text file on this computer with one word per line. Check Spelling looks up a commit message's words in it."
+          IsLast="True">
+        <StackPanel Spacing="{DynamicResource ShellSpace2Xs}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+            <TextBox
+                x:Name="SpellingDictionaryInput"
+                Text="{Binding SpellingDictionary, UpdateSourceTrigger=LostFocus}"
+                PlaceholderText="None"
+                AutomationProperties.Name="Spelling dictionary file" />
+            <Button
+                x:Name="ChooseSpellingDictionaryButton"
+                Grid.Column="1"
+                Classes="SecondaryButton"
+                Click="OnChooseSpellingDictionaryClick"
+                Content="Choose…"
+                AutomationProperties.Name="Choose spelling dictionary file" />
+          </Grid>
+          <TextBlock
+              Classes="FieldError"
+              IsVisible="{Binding HasSpellingDictionaryError}"
+              Text="{Binding SpellingDictionaryError}"
+              AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+      </controls:SettingRow>
+    </controls:SettingsGroup>
+
+    <controls:SettingsGroup
+        Heading="Diffs"
+        Description="How Git panels show changes. A panel's View menu changes the same choices.">
+      <controls:SettingRow Label="Show side by side">
+        <ToggleSwitch IsChecked="{Binding DiffIsSplit}" AutomationProperties.Name="Show diffs side by side" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Wrap long lines">
+        <ToggleSwitch IsChecked="{Binding DiffWrap}" AutomationProperties.Name="Wrap long lines in diffs" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Ignore whitespace changes">
+        <ToggleSwitch IsChecked="{Binding DiffIgnoresWhitespace}" AutomationProperties.Name="Ignore whitespace changes in diffs" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Show whitespace characters">
+        <ToggleSwitch IsChecked="{Binding DiffShowsInvisibles}" AutomationProperties.Name="Show whitespace characters in diffs" />
+      </controls:SettingRow>
+      <controls:SettingRow Label="Highlight changed words" IsLast="True">
+        <ToggleSwitch IsChecked="{Binding DiffHighlightsWords}" AutomationProperties.Name="Highlight changed words in diffs" />
+      </controls:SettingRow>
+    </controls:SettingsGroup>
+
+    <!-- The Mac list pattern: select a command, then – below the list, its
+         context menu, or Delete removes it. Commands are saved from a Git
+         panel's Run Custom Command…, next to the repository they run in. -->
+    <controls:SettingsGroup
+        Heading="Saved commands"
+        Description="Commands saved from Run Custom Command… in a Git panel. Every Git panel offers them.">
+      <Panel>
+        <StackPanel IsVisible="{Binding HasCustomCommands}">
+          <ListBox
+              x:Name="CustomCommandList"
+              Classes="Rows Separated"
+              ItemsSource="{Binding CustomCommands}"
+              SelectedItem="{Binding SelectedCustomCommand}"
+              KeyDown="OnCustomCommandListKeyDown"
+              AutomationProperties.Name="Saved commands">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:GitCustomCommandItemViewModel">
+                <controls:ListItem
+                    ContentPadding="{DynamicResource ShellListRowPadding}"
+                    Title="{Binding Name}"
+                    Detail="{Binding CommandLine}">
+                  <controls:ListItem.ContextMenu>
+                    <ContextMenu>
+                      <MenuItem Header="Delete" Click="OnDeleteCustomCommandClick" />
+                    </ContextMenu>
+                  </controls:ListItem.ContextMenu>
+                </controls:ListItem>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <Border Classes="ListActionBar">
+            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+              <Button
+                  x:Name="RemoveCustomCommandButton"
+                  Classes="IconButton"
+                  Click="OnRemoveCustomCommandClick"
+                  IsEnabled="{Binding CanRemoveCustomCommand}"
+                  ToolTip.Tip="Delete command"
+                  AutomationProperties.Name="Delete selected command">
+                <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+        <Border
+            MinHeight="{DynamicResource ShellSettingsRowMinHeight}"
+            Padding="{DynamicResource ShellSettingsRowPadding}"
+            IsVisible="{Binding !HasCustomCommands}">
+          <TextBlock
+              VerticalAlignment="Center"
+              Classes="Muted"
+              Text="No saved commands."
+              TextWrapping="Wrap" />
+        </Border>
+      </Panel>
+    </controls:SettingsGroup>
+  </StackPanel>
+</UserControl>

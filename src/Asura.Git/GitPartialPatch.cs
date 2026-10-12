@@ -15,12 +15,12 @@ public static class GitPartialPatch
         var firstHunk = Array.FindIndex(rows, row => row.StartsWith("@@ ", StringComparison.Ordinal));
         if (firstHunk < 0 || selected.Count == 0)
         {
-            throw new ArgumentException("Choose changed lines from a text diff.", nameof(selection));
+            throw new ArgumentException("Choose changed lines from a text diff.");
         }
 
         if (rows.Take(firstHunk).Any(row => row.StartsWith("old mode ", StringComparison.Ordinal) || row.StartsWith("new mode ", StringComparison.Ordinal)))
         {
-            throw new ArgumentException("Use whole-file actions for executable mode changes.", nameof(patch));
+            throw new ArgumentException("Use whole-file actions for executable mode changes.");
         }
 
         var output = new StringBuilder();
@@ -97,7 +97,7 @@ public static class GitPartialPatch
 
         if (output.Length == 0)
         {
-            throw new ArgumentException("Choose at least one changed line.", nameof(selection));
+            throw new ArgumentException("Choose at least one changed line.");
         }
 
         return BuildHeaders(rows[..firstHunk], reverse, totalNewLines) + output;

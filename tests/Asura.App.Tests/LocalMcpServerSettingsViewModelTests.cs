@@ -114,7 +114,7 @@ public sealed class LocalMcpServerSettingsViewModelTests
         var control = new Control();
         using var model = new LocalMcpServerSettingsViewModel(control, new Dispatcher());
         await model.CopyTokenAsync(_ => throw new InvalidOperationException("clipboard missing"));
-        Assert.Contains("could not", model.Message, StringComparison.Ordinal);
+        Assert.Contains("couldn't", model.Message, StringComparison.Ordinal);
         Assert.True(model.CanEdit);
     }
 

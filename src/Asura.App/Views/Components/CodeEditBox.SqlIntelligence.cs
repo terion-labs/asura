@@ -125,7 +125,7 @@ public sealed partial class CodeEditBox
         }
 
         ApplySqlLanguageStatus(
-            session.UnavailableReason ?? "SQL intelligence worker is unavailable.");
+            session.UnavailableReason ?? "SQL completion isn’t available.");
     }
 
     private void ApplySqlLanguageStatus(string? value)

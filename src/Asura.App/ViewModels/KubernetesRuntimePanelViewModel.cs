@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -53,7 +54,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         _namespace = target is not null ? target.NamespaceName ?? string.Empty : profile?.DefaultNamespace ?? "default";
         // The view can attach while the first API requests are still pending.
         // Its configured scope must already be selectable before discovery adds choices.
-        _namespaceChoices = string.IsNullOrWhiteSpace(_namespace) ? ["All namespaces"] : ["All namespaces", _namespace.Trim()];
+        _namespaceChoices = string.IsNullOrWhiteSpace(_namespace) ? ["All Namespaces"] : ["All Namespaces", _namespace.Trim()];
         _refreshCommand = new(RefreshAsync, () => !_disposed && !IsBusy && _connect is not null && !HasUnsavedChanges);
         _logsCommand = new(LoadLogsAsync, () => !_disposed && !IsBusy && CanReadLogs);
         _moreCommand = new(LoadMoreAsync, () => !_disposed && !IsBusy && HasMore);
@@ -77,6 +78,26 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string ContextName => Profile?.ContextName ?? "No context selected";
     public bool HasConnection => Profile is not null;
     public bool HasIssue => Issue is not null;
+
+    /// <summary>
+    /// The cluster's state for the header's status mark. It was green for any
+    /// saved connection, reachable or not.
+    /// </summary>
+    public StatusTone ConnectionStatusTone => Profile is null ? StatusTone.Neutral
+        : _session is null ? HasIssue ? StatusTone.Danger : IsBusy ? StatusTone.Warning : StatusTone.Neutral
+        : HasIssue ? StatusTone.Warning
+        : StatusTone.Success;
+
+    public string ConnectionStatusLabel => ConnectionStatusTone switch
+    {
+        StatusTone.Success => $"Connected to {ContextName}",
+        StatusTone.Danger => $"Can't reach “{ContextName}”",
+        StatusTone.Warning when _session is null => $"Connecting to {ContextName}",
+        StatusTone.Warning => $"Connected to {ContextName} with a problem",
+        _ => Profile is null ? "No Kubernetes connection" : $"Not connected to {ContextName}",
+    };
+
+    public Symbol ConnectionStatusGlyph => StatusToneGlyph.For(ConnectionStatusTone);
     public bool HasSelection => SelectedResource is not null;
     public bool IsEmpty => HasConnection && !IsBusy && Resources.Count == 0 && !HasIssue;
     public bool CanReadLogs => SelectedResource is { Reference.Group: "", Reference.Resource: "pods" };
@@ -138,7 +159,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     public string? Issue
     {
         get => _issue;
-        private set { ReportError(value, "Kubernetes error"); SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); }
+        private set { ReportError(value, "Kubernetes error"); SetProperty(ref _issue, value); OnPropertyChanged(nameof(HasIssue)); OnPropertyChanged(nameof(IsEmpty)); PublishConnectionStatus(); }
     }
     public bool IsBusy
     {
@@ -151,7 +172,15 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             _moreCommand.RaiseCanExecuteChanged();
             OnPropertyChanged(nameof(IsEmpty));
             PublishMutationState();
+            PublishConnectionStatus();
         }
+    }
+
+    private void PublishConnectionStatus()
+    {
+        OnPropertyChanged(nameof(ConnectionStatusTone));
+        OnPropertyChanged(nameof(ConnectionStatusLabel));
+        OnPropertyChanged(nameof(ConnectionStatusGlyph));
     }
 
     public async Task RefreshAsync()
@@ -164,6 +193,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         IsBusy = true;
         Issue = null;
         var generation = ++_generation;
+        var activity = KubernetesActivity.Connect;
         try
         {
             Status = "Connecting…";
@@ -172,9 +202,11 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                 var session = await _connect(_lifetime.Token);
                 if (_disposed) { await session.DisposeAsync(); return; }
                 _session = session;
+                PublishConnectionStatus();
                 OnPropertyChanged(nameof(HasMetrics)); OnPropertyChanged(nameof(HasHelm));
                 OnPropertyChanged(nameof(IsHelmNavigationVisible)); OnPropertyChanged(nameof(HasNavigationMatches));
             }
+            activity = KubernetesActivity.Request;
             if (Kinds.Count == 0)
             {
                 var discovery = await _session.DiscoverAsync(_lifetime.Token);
@@ -189,7 +221,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
                     ?? Kinds.FirstOrDefault();
                 if (discovery.UnavailableGroups.Count > 0)
                 {
-                    Issue = "Some API groups could not be discovered. Available resources are shown.";
+                    Issue = "Asura couldn't list some kinds of resources. The ones it could list are shown.";
                 }
             }
             if (SelectedKind is not { } kindToLoad) { Status = "No listable resource types were discovered."; return; }
@@ -206,10 +238,10 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             OnPropertyChanged(nameof(HasMore));
             ApplyFilter();
             SelectedResource = Resources.FirstOrDefault(item => string.Equals(item.Reference.Uid, selectedUid, StringComparison.Ordinal));
-            Status = $"{page.Items.Count} resources{(page.IsTruncated || page.ContinueToken is not null ? " · Results limited" : "")}";
+            Status = TableStatus(page.IsTruncated || page.ContinueToken is not null ? "Results limited" : null);
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, activity); }
         finally
         {
             if (!_disposed)
@@ -260,7 +292,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
             if (!_disposed && SelectedResource?.Reference == resource.Reference)
             {
                 Logs = page.Text;
-                Status = page.IsTruncated ? "Recent logs · Output limited" : "Recent logs loaded";
+                Status = page.IsTruncated ? "Showing the most recent log lines · Older lines omitted" : "Showing the most recent log lines";
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
@@ -308,18 +340,58 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
         _logsCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanFollowLogs));
         OnPropertyChanged(nameof(CanOpenShell)); OnPropertyChanged(nameof(ContainerChoices)); OnPropertyChanged(nameof(CanLaunchShell));
+        OnPropertyChanged(nameof(HasInspectorActions));
         OnPropertyChanged(nameof(IsServiceForward)); OnPropertyChanged(nameof(IsPodForward));
         OnPropertyChanged(nameof(CanForward)); OnPropertyChanged(nameof(HasForwardTools)); OnPropertyChanged(nameof(DeclaredPorts));
         PublishMutationState();
     }
 
-    private void PresentError(KubernetesRequestException exception)
+    private void PresentError(
+        KubernetesRequestException exception,
+        KubernetesActivity activity = KubernetesActivity.Request)
     {
-        Status = exception.Code.ToString();
-        Issue = exception.Code == KubernetesErrorCode.Forbidden
-            ? "Access denied for this scope. Enter an allowed namespace and refresh, or review your Kubernetes permissions."
-            : exception.Message;
+        // A refused change leaves the table as it was; a refused browse names
+        // the request, not the connection, unless the connection never opened.
+        if (!KubernetesErrorText.IsRefusedChange(exception, activity))
+        {
+            Status = exception.Code == KubernetesErrorCode.InvalidConfiguration && activity != KubernetesActivity.Connect
+                ? "Request not sent"
+                : ErrorStatus(exception.Code);
+        }
+        Issue = KubernetesErrorText.Describe(exception, activity);
     }
+
+    /// <summary>
+    /// What the status bar says about the table: which resources, where, and
+    /// how current they are. The count lives once, beside the filter.
+    /// </summary>
+    private string TableStatus(string? note)
+    {
+        var scope = SelectedKind?.Namespaced == true
+            ? EffectiveNamespace is { Length: > 0 } ns ? $"in {ns}" : "in all namespaces"
+            : "across the cluster";
+        var table = $"{ResourceTitle} {scope}";
+        return note is null ? table : $"{table} · {note}";
+    }
+
+    /// <summary>A request failure in the status bar, in words rather than an error code.</summary>
+    internal static string ErrorStatus(KubernetesErrorCode code) => code switch
+    {
+        KubernetesErrorCode.InvalidConfiguration => "Connection settings need attention",
+        KubernetesErrorCode.Unauthorized => "Sign-in required",
+        KubernetesErrorCode.Forbidden => "Access denied",
+        KubernetesErrorCode.NotFound => "Not found",
+        KubernetesErrorCode.Conflict => "Changed on the server",
+        KubernetesErrorCode.ResourceExpired => "Out of date",
+        KubernetesErrorCode.TooManyRequests => "The cluster is busy",
+        KubernetesErrorCode.ServerUnavailable => "Cluster unavailable",
+        KubernetesErrorCode.InvalidResponse => "Unexpected response from the cluster",
+        KubernetesErrorCode.ResponseTooLarge => "Response too large",
+        KubernetesErrorCode.TargetChanged => "The cluster changed",
+        KubernetesErrorCode.ConnectionFailed => "Can’t connect to the cluster",
+        KubernetesErrorCode.Unsupported => "Not supported by this cluster",
+        _ => "Request failed",
+    };
 
     public override void Dispose()
     {

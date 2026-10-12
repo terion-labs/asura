@@ -742,7 +742,7 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
             return NetworkConnectionResult<byte[]>.Fail(new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "host_userspace_vpn_secret_cancelled",
-                $"Access to the {label} was cancelled.",
+                $"Access to the {label} was canceled.",
                 retryable: false));
         }
 
@@ -785,7 +785,7 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
             return NetworkConnectionResult<IHostVpnProcess>.Fail(new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "host_userspace_vpn_cancelled",
-                $"Connecting {displayName} was cancelled.",
+                $"Connecting {displayName} was canceled.",
                 retryable: false));
         }
         catch (IOException)

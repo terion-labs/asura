@@ -1,53 +1,125 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.ConfirmationDialog"
     x:DataType="views:ConfirmationDialog"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:views="using:Asura.App.Views"
     xmlns:controls="using:Asura.App.Controls"
-    Title="Confirm"
-    Width="480"
+    xmlns:icons="using:FluentIcons.Avalonia"
+    Width="300"
     SizeToContent="Height"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="False">
   <!--
-    The shell's one confirmation window.
+    The shell's one alert.
 
     There used to be ten of these — delete, clear, reset, discard, close,
-    error — each its own Window with the same three rows re-typed: heading and
-    detail, an optional card stating the blast radius, and a Cancel/act pair.
-    They differed only in strings, in three arbitrary widths, and in a heading
-    size that had drifted a point. What a confirmation asks is configuration;
-    what one looks like is decided here, once.
+    error — each its own Window with the same rows re-typed. What an alert asks
+    is configuration; what one looks like is decided here, once, in the shape
+    of the host's current alert: a narrow window with the app's icon on top,
+    the question in bold and the detail under it, both centred, and the
+    buttons across the full width at the bottom. A destructive question
+    badges the icon with a caution mark; it does not repaint the alert red.
+    The question is also the window's title, so it is never shown twice.
   -->
-  <Grid Margin="{controls:Inset Xl}" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceLg}">
-    <controls:StateOverlay
-        x:Name="ConfirmationState"
-        HorizontalAlignment="Stretch"
-        Heading="{Binding Heading}"
-        Body="{Binding Detail}" />
-    <controls:SurfaceCard
-        x:Name="NoticeCard"
-        Grid.Row="1"
-        Tone="Notice"
-        Padding="{DynamicResource ShellCardPaddingCompact}"
-        IsVisible="{Binding HasNotice}">
-      <TextBlock Classes="Muted" Text="{Binding Notice}" TextWrapping="Wrap" />
-    </controls:SurfaceCard>
-    <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+  <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
+    <Panel
+        Width="64"
+        Height="64"
+        HorizontalAlignment="Center"
+        AutomationProperties.AccessibilityView="Raw">
+      <Image x:Name="ApplicationIcon" Width="64" Height="64" />
+      <icons:SymbolIcon
+          x:Name="FallbackGlyph"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          FontSize="{DynamicResource ShellIconSizeXl}"
+          Foreground="{DynamicResource ShellAccentBrush}"
+          Symbol="Info"
+          IsVisible="False" />
+      <Border
+          x:Name="CautionBadge"
+          Width="30"
+          Height="30"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Bottom"
+          Background="{DynamicResource ShellBackgroundBrush}"
+          CornerRadius="15"
+          IsVisible="False">
+        <icons:SymbolIcon
+            x:Name="CautionGlyph"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontSize="{controls:TextScaled 22}"
+            Foreground="{DynamicResource ShellWarningBrush}"
+            IconVariant="Filled"
+            Symbol="Warning" />
+      </Border>
+    </Panel>
+
+    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+      <TextBlock
+          x:Name="HeadingText"
+          FontSize="{DynamicResource ShellFontSize13}"
+          FontWeight="Bold"
+          Text="{Binding Heading}"
+          TextAlignment="Center"
+          TextWrapping="Wrap" />
+      <TextBlock
+          x:Name="DetailText"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+          Text="{Binding Detail}"
+          TextAlignment="Center"
+          TextWrapping="Wrap" />
+      <!-- The blast radius, or the sessions a close would end: read after
+           the detail, in the same voice, not boxed in a callout. -->
+      <TextBlock
+          x:Name="NoticeText"
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+          Text="{Binding Notice}"
+          TextAlignment="Center"
+          TextWrapping="Wrap"
+          IsVisible="{Binding HasNotice}" />
+    </StackPanel>
+
+    <!-- "Don't ask again" sits above the buttons, as the host's own
+         suppression checkbox does. -->
+    <CheckBox
+        x:Name="SuppressionCheckBox"
+        HorizontalAlignment="Left"
+        Content="{Binding SuppressionLabel}"
+        IsChecked="{Binding IsSuppressionChecked}"
+        IsVisible="{Binding HasSuppression}" />
+
+    <!-- Two answers share the row, the default on the trailing side. Three —
+         Save, Don't Save, Cancel — stack at full width with the default on
+         top, as the host stacks them; the code-behind picks the shape. -->
+    <Grid x:Name="ButtonRow" ColumnSpacing="{DynamicResource ShellSpaceSm}" RowSpacing="{DynamicResource ShellSpaceSm}">
       <Button
           x:Name="CancelButton"
-          MinWidth="88"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
+          Classes="SecondaryButton"
           Click="OnCancelClick"
           Content="{Binding CancelLabel}"
           IsCancel="True"
           IsVisible="{Binding ShowsCancel}" />
       <Button
+          x:Name="AlternateButton"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
+          Classes="SecondaryButton"
+          Click="OnAlternateClick"
+          Content="{Binding AlternateLabel}"
+          IsVisible="{Binding HasAlternate}" />
+      <Button
           x:Name="ConfirmButton"
-          MinWidth="112"
+          HorizontalAlignment="Stretch"
+          HorizontalContentAlignment="Center"
           Click="OnConfirmClick"
           Content="{Binding ConfirmLabel}" />
-    </StackPanel>
-  </Grid>
-</Window>
+    </Grid>
+  </StackPanel>
+</controls:DialogWindow>

@@ -26,9 +26,9 @@ public sealed class DatabaseConnectionControlsTests
         Assert.True(panel.HasDatabaseChoices);
         Assert.Equal(["app", "postgres", "staging"], panel.Databases);
         Assert.Equal("app", panel.SelectedDatabase);
-        Assert.Equal("Reconnect", panel.ConnectButtonLabel);
+        Assert.Equal("Disconnect", panel.ConnectionActionLabel);
         Assert.Equal(
-            "PostgreSQL 16.4 : TLSv1.3 : ops : app",
+            "PostgreSQL 16.4 · TLSv1.3 · ops · app",
             panel.ConnectionSummary);
         Assert.DoesNotContain("Host=", panel.ConnectionSummary, StringComparison.Ordinal);
     }
@@ -78,7 +78,7 @@ public sealed class DatabaseConnectionControlsTests
         Assert.Empty(panel.Tables);
         Assert.False(panel.HasDatabaseChoices);
         Assert.Equal(string.Empty, panel.ConnectionSummary);
-        Assert.Equal("Connect", panel.ConnectButtonLabel);
+        Assert.Equal("Connect", panel.ConnectionActionLabel);
         // The target survives, so Connect brings the session back.
         await panel.ConnectAsync();
         Assert.True(panel.IsConnected);
@@ -101,7 +101,7 @@ public sealed class DatabaseConnectionControlsTests
         Assert.True(panel.IsConnected);
         Assert.False(panel.HasError);
         Assert.False(panel.HasDatabaseChoices);
-        Assert.Equal("PostgreSQL : ops : app", panel.ConnectionSummary);
+        Assert.Equal("PostgreSQL · ops · app", panel.ConnectionSummary);
     }
 
     private static DatabaseRuntimePanelViewModel CreatePanel(

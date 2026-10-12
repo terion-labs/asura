@@ -104,7 +104,7 @@ public sealed class DatabaseSqlLanguageViewModelTests
 
         Assert.Equal(0, client.CatalogCallCount);
         Assert.Null(panel.SqlLanguageSession);
-        Assert.Contains("not installed", panel.SqlLanguageStatus, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("aren't installed", panel.SqlLanguageStatus, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

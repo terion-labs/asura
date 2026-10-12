@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
 using Asura.App;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
@@ -1182,7 +1183,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(recorder.CurrentWorkspace);
         Assert.Empty(provider.PrepareRequests);
         Assert.Contains(
-            "stale runtime was discarded",
+            "changed while the workspace was opening. Open it again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1239,7 +1240,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(recorder.CurrentWorkspace);
         Assert.Single(provider.StopBindings);
         Assert.Contains(
-            "stale runtime was discarded",
+            "changed while the workspace was being restored. Restore it again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1313,7 +1314,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(occupancy.IsOccupied(
             new DefinitionKey(WorkspaceDefinition.Kind, WorkspaceId.Value)));
         Assert.Contains(
-            "not available on this platform",
+            "isn't available on this platform",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -1597,7 +1598,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(recreated);
         Assert.NotNull(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "could not be recreated",
+            "couldn't set up the workspace again",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
         Assert.Equal(2, provider.PrepareRequests.Count);
@@ -2296,7 +2297,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(sourceTabs, source.Tabs);
         Assert.Equal(destinationTabs, destination.Tabs);
         Assert.Contains(
-            "different workspace isolation scopes",
+            "workspaces that are isolated differently",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -3632,7 +3633,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 disabledRecovery.RuntimeWorkspace!.Tabs.SelectMany(tab => tab.Panels),
                 panel => panel.Kind == PanelKind.Browser));
         Assert.Contains(
-            "disabled",
+            "turned off",
             disabled.CapabilityMessage,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -4175,6 +4176,89 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         {
             await session.DisposeAsync();
         }
+    }
+
+    [Fact]
+    public async Task A_waiting_approval_brings_out_the_agent_panel_and_marks_its_toggle()
+    {
+        var provider = CreateAgentProvider();
+        using var profiles = new FixedAiProfileRuntime([provider]);
+        var factory = new RecordingAgentWorkspaceRuntimeFactory();
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(
+            client,
+            CreateCatalogSnapshot(),
+            aiProfiles: profiles,
+            agentRuntimeFactory: factory);
+
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var chat = Assert.IsType<AgentChatViewModel>(viewModel.AgentChat);
+        var runtime = Assert.Single(factory.CreatedRuntimes);
+        viewModel.IsAgentPanelVisible = false;
+        Assert.Equal(string.Empty, viewModel.AgentToggleStatus);
+
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            State = GovernedAgentState.StreamingProvider,
+            RunId = new AgentRunId("approval-run"),
+            ProviderId = provider.Id,
+        });
+        await WaitForAsync(() => viewModel.HasRunningAgent);
+        Assert.Equal("Running", viewModel.AgentToggleStatus);
+        Assert.False(viewModel.IsAgentPanelVisible);
+
+        var target = new AgentTarget.Panel(
+            new WindowInstanceId("window-1"),
+            new WorkspaceInstanceId("workspace-1"),
+            new TabInstanceId("tab-1"),
+            new PanelInstanceId("panel-1"));
+        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(5);
+        GovernedAgentApproval Approval(string id, string text) => new(
+            new AgentApprovalId(id),
+            "terminal.send_text",
+            "Send text to terminal",
+            AgentActionRisk.Mutation,
+            AgentPermission.Ask,
+            target,
+            new AgentApprovalPresentation(
+                "Production API shell",
+                "api.example.test",
+                "/srv/api",
+                [new AgentApprovalArgument("text", text)]),
+            expiresAt,
+            TemporarilyYieldsTerminalInput: false);
+
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            PendingApproval = Approval("approval-1", "uptime"),
+        });
+        await WaitForAsync(() => chat.HasPendingApproval);
+
+        Assert.True(viewModel.IsAgentAwaitingDecision);
+        Assert.True(viewModel.IsAgentPanelVisible);
+        Assert.Equal("Waiting for approval", viewModel.AgentToggleStatus);
+
+        // Hidden while the same approval waits, the panel stays hidden when
+        // a later refresh republishes that approval.
+        viewModel.IsAgentPanelVisible = false;
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            PendingApproval = Approval("approval-1", "uptime -p"),
+        });
+        await WaitForAsync(() => chat.PendingApproval?.Arguments
+            .Any(argument => argument.DisplayValue == "uptime -p") == true);
+        Assert.True(viewModel.IsAgentAwaitingDecision);
+        Assert.False(viewModel.IsAgentPanelVisible);
+        Assert.Equal("Waiting for approval", viewModel.AgentToggleStatus);
+
+        // A new approval brings it out again.
+        runtime.SetSnapshot(runtime.Snapshot with
+        {
+            PendingApproval = Approval("approval-2", "whoami"),
+        });
+        await WaitForAsync(() => chat.PendingApproval?.Id == new AgentApprovalId("approval-2"));
+        Assert.True(viewModel.IsAgentPanelVisible);
     }
 
     [Fact]
@@ -4853,7 +4937,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         Assert.Null(viewModel.RuntimeWorkspace);
         Assert.Contains(
-            "invalid workspace registration receipt",
+            "couldn't confirm that the workspace opened",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5000,7 +5084,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.False(activated);
         Assert.Same(originalTab, runtime.ActiveTab);
         Assert.Equal(1, runtime.HostRevision);
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the tab activation.", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
         var call = Assert.Single(recorder.TabActivations);
         Assert.Equal(requestedTab.Id, call.Request.TabId);
         Assert.Equal(1, call.Context.ExpectedRevision);
@@ -5053,7 +5139,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5093,7 +5179,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid tab activation receipt",
+            "couldn't confirm the tab activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5166,8 +5252,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 Assert.True(tab.FloatPanel(panels[0].Id));
                 window.UpdateLayout();
                 var launcher = Assert.Single(launcherHost.GetVisualDescendants().OfType<LauncherView>());
-                var databaseButton = Assert.Single(launcher.GetVisualDescendants().OfType<Button>(),
-                    button => AutomationProperties.GetName(button) == "Open a new database viewer");
+                var databaseButton = Assert.Single(launcher.GetVisualDescendants().OfType<ChooserTile>(),
+                    tile => tile.Title == PanelTypes.Database);
                 var launched = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
                 tab.Panels.CollectionChanged += (_, _) => launched.TrySetResult();
                 databaseButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -5461,7 +5547,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid panel activation receipt",
+            "couldn't confirm the panel activation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5570,7 +5656,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(1, runtime.HostRevision);
         Assert.Equal(1, runtime.HostSequence);
         Assert.Contains(
-            "invalid File Viewer creation receipt",
+            "couldn't confirm the Files panel creation",
             viewModel.OperationError,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -5626,28 +5712,36 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
-    public async Task Shell_routes_and_subroutes_expose_exactly_one_visible_surface()
+    public async Task Settings_opens_beside_the_workspace_on_exactly_one_page()
     {
         var (client, _) = CreateSessionClient();
         using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
 
         Assert.Equal(1, VisibleRouteCount(viewModel));
         Assert.True(viewModel.IsWorkspaceVisible);
+        Assert.False(viewModel.IsSettingsVisible);
 
         foreach (var page in Enum.GetValues<SettingsPage>())
         {
             viewModel.ShowSettings(page);
 
+            // Settings is a window of its own: the workspace stays the route.
             Assert.Equal(1, VisibleRouteCount(viewModel));
+            Assert.True(viewModel.IsWorkspaceVisible);
             Assert.True(viewModel.IsSettingsVisible);
             Assert.Equal(1, VisibleSettingsPageCount(viewModel));
         }
+
+        viewModel.HideSettings();
+        Assert.False(viewModel.IsSettingsVisible);
 
         Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
         Assert.Equal(1, VisibleRouteCount(viewModel));
         Assert.True(viewModel.IsWorkspaceVisible);
 
-        foreach (var overlay in Enum.GetValues<ShellOverlay>())
+        // The workspace editor and the Layout Designer are windows of their
+        // own now, not overlays; only the transient overlays are counted.
+        foreach (var overlay in new[] { ShellOverlay.None, ShellOverlay.CommandPalette, ShellOverlay.NewPanel })
         {
             viewModel.ShowOverlay(overlay);
 
@@ -5681,7 +5775,6 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             nameof(MainWindowViewModel.IsCommandPaletteVisible),
             nameof(MainWindowViewModel.SettingsPage),
             nameof(MainWindowViewModel.IsFilesSettingsVisible),
-            nameof(MainWindowViewModel.Route),
             nameof(MainWindowViewModel.IsSettingsVisible),
             nameof(MainWindowViewModel.IsWorkspaceCanvasVisible),
         ];
@@ -5706,7 +5799,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         viewModel.ShowSettings(SettingsPage.Files);
 
-        Assert.Equal(ShellRoute.Settings, viewModel.Route);
+        Assert.Equal(ShellRoute.Workspace, viewModel.Route);
+        Assert.True(viewModel.IsSettingsVisible);
         Assert.Equal(SettingsPage.Files, viewModel.SettingsPage);
         Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.Equal(1, VisibleRouteCount(viewModel));
@@ -5714,7 +5808,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
-    public async Task Dirty_layout_designer_blocks_navigation_and_preserves_its_surface()
+    public async Task Dirty_layout_designer_stays_open_when_settings_opens_beside_it()
     {
         var snapshot = CreateCatalogSnapshot();
         var layout = Assert.Single(snapshot.Layouts).Value;
@@ -5728,11 +5822,14 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         viewModel.ShowSettings(SettingsPage.Appearance);
 
+        // Settings is a window beside this one, so nothing here is replaced
+        // and the unsaved layout needs no question.
         Assert.True(editor.IsDirty);
         Assert.Same(editor, viewModel.LayoutDesignerEditor);
         Assert.Equal(ShellRoute.Workspace, viewModel.Route);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
-        Assert.Contains("discard", viewModel.OperationError, StringComparison.OrdinalIgnoreCase);
+        Assert.True(viewModel.IsLayoutDesignerVisible);
+        Assert.False(viewModel.HasOverlay);
+        Assert.True(viewModel.IsSettingsVisible);
     }
 
     [Theory]
@@ -5968,7 +6065,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         recorder.AllowDelayedRegistration.TrySetResult();
         Assert.True(await append);
 
-        Assert.Equal(ShellRoute.Settings, viewModel.Route);
+        Assert.True(viewModel.IsSettingsVisible);
         Assert.Equal(SettingsPage.Files, viewModel.SettingsPage);
         Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.Equal("Secondary local", viewModel.RuntimeWorkspace?.ActiveTab?.Title);
@@ -6001,10 +6098,11 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     {
         var (client, recorder) = CreateSessionClient();
         using var viewModel = CreateViewModel(client, CreateTabAppendCatalogSnapshot());
-        Assert.Equal("New Session", viewModel.NewItemLauncherTitle);
+        Assert.Equal("New Workspace", viewModel.NewItemLauncherTitle);
         viewModel.LauncherSearchQuery = "Secondary local";
+        // A palette row carries no action label of its own: Return opens it.
         Assert.Equal(
-            "Open",
+            string.Empty,
             Assert.Single(
                 viewModel.LauncherSearchResults,
                 result => result.Target
@@ -6019,7 +6117,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             .ToArray();
         Assert.Equal("New Tab", viewModel.NewItemLauncherTitle);
         Assert.Equal(
-            "Add tab",
+            string.Empty,
             Assert.Single(
                 viewModel.LauncherSearchResults,
                 result => result.Target
@@ -6098,7 +6196,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal("Secondary local", runtime.ActiveTab?.Title);
         Assert.Same(editor, viewModel.WorkspaceEditor);
         Assert.True(editor.IsDirty);
-        Assert.Equal(ShellOverlay.DefinitionEditor, viewModel.Overlay);
+        // The editor is a window of its own: the palette the append began
+        // from closes, and the editor and its edits stay.
+        Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.True(viewModel.IsDefinitionEditorVisible);
     }
 
@@ -6130,7 +6230,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal("Operations screen", runtime.ActiveTab?.Title);
         Assert.Same(designer, viewModel.LayoutDesignerEditor);
         Assert.True(designer.IsDirty);
-        Assert.Equal(ShellOverlay.LayoutDesigner, viewModel.Overlay);
+        Assert.Equal(ShellOverlay.None, viewModel.Overlay);
         Assert.True(viewModel.IsLayoutDesignerVisible);
     }
 
@@ -6848,7 +6948,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             originalTabIds,
             Assert.IsType<WorkspaceGraphSnapshot>(recorder.CurrentWorkspace)
                 .Workspace.Tabs.Select(tab => tab.Id));
-        Assert.Contains("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
+        // Stable codes go to diagnostics; the message says what happened.
+        Assert.StartsWith("Asura couldn't finish the", viewModel.OperationError, StringComparison.Ordinal);
+        Assert.DoesNotContain("revision_conflict", viewModel.OperationError, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -7215,21 +7317,25 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             try
             {
                 window.NavigateToSettings(SettingsPage.Appearance);
-                window.UpdateLayout();
-                var compact = window.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
-                    .Single(button => button.Name == "DensityCompact");
-                compact.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                settings.UpdateLayout();
+                var density = settings.GetVisualDescendants().OfType<SegmentedControl>()
+                    .Single(picker => picker.Name == "DensityPicker");
+                var compact = density.GetVisualDescendants().OfType<RadioButton>()
+                    .Single(segment => Equals(segment.Content, "Compact"));
+                compact.IsChecked = true;
                 Assert.Equal(InterfaceDensity.Compact, coordinator.Current.Theme?.Density);
                 Assert.Equal(1, recording.SaveCount);
                 Assert.False(viewModel.CanRetryAppearanceSave);
                 if (leaveBeforeSaveCompletes)
                 {
-                    viewModel.ShowWorkspace();
+                    settings.Close();
+                    Assert.False(viewModel.IsSettingsVisible);
                 }
                 pending.SetResult();
                 await saved.Task.WaitAsync(timeout.Token);
                 await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Background);
-                viewModel.ShowWorkspace();
+                settings.Close();
                 Assert.False(viewModel.HasThemeAppearanceDraft);
                 Assert.False(viewModel.CanRetryAppearanceSave);
                 Assert.Equal(InterfaceDensity.Compact, viewModel.ActiveTheme.Density);
@@ -7411,6 +7517,90 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         var graphTab = Assert.Single(registration.Request.Workspace.Tabs);
         Assert.Equal(request.Owner.TabId, graphTab.Id);
         Assert.Equal(request.Owner.PanelId, Assert.Single(graphTab.Panels).Id);
+    }
+
+    /// <summary>
+    /// While Quick Terminal is the key window, its File › Delete
+    /// Conversation… acts on its own agent panel, as the conversation row's
+    /// menu there does: the window reports the fact and runs the command.
+    /// </summary>
+    [Fact]
+    public async Task Quick_terminal_menu_deletes_the_conversation_its_agent_panel_shows()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        try
+        {
+            var completed = await session.Dispatch(
+                async () =>
+                {
+                    var provider = CreateAgentProvider();
+                    using var agentRuntime = new RecordingGovernedAgentRuntime();
+                    using var aiProfiles = new FixedAiProfileRuntime([provider]);
+                    var snapshot = CreateCatalogSnapshot();
+                    var (client, _) = CreateSessionClient();
+                    using var mainWindow = CreateViewModel(client, snapshot);
+                    using var quickTerminal = new QuickTerminalViewModel(
+                        mainWindow,
+                        CreateFixedCatalog(snapshot),
+                        new SuccessfulConnectionRuntime(),
+                        agentRuntime: agentRuntime,
+                        aiProviderRuntime: aiProfiles);
+                    await quickTerminal.Initialization;
+                    var chat = Assert.IsType<AgentChatViewModel>(quickTerminal.AgentChat);
+                    var window = new QuickTerminalWindow
+                    {
+                        DataContext = quickTerminal,
+                    };
+                    var menu = new QuickTerminalMenuHost(
+                        window,
+                        controller: null!,
+                        new IdleApplicationCommandService(),
+                        CancellationToken.None);
+                    var none = new Dictionary<string, string>(StringComparer.Ordinal);
+
+                    bool IsEnabled() =>
+                        BuiltInCommands.Registry.TryGet(BuiltInCommands.DeleteAgentConversation, out var definition)
+                        && definition?.IsAvailable(menu.CaptureInvocation(none)) == true
+                        && menu.CanExecute(BuiltInCommands.DeleteAgentConversation, none);
+
+                    try
+                    {
+                        quickTerminal.IsAgentPanelVisible = true;
+                        Assert.False(IsEnabled());
+
+                        agentRuntime.SetSnapshot(WithSavedConversation(agentRuntime.Snapshot, provider.Id));
+                        await WaitForAsync(() => chat.ConversationDeletedByClear is not null);
+                        Assert.Equal(SavedConversationRunId, quickTerminal.CurrentAgentConversation?.RunId);
+                        Assert.True(IsEnabled());
+
+                        quickTerminal.IsAgentPanelVisible = false;
+                        Assert.Null(quickTerminal.CurrentAgentConversation);
+                        Assert.False(IsEnabled());
+
+                        quickTerminal.IsAgentPanelVisible = true;
+                        agentRuntime.SetSnapshot(agentRuntime.Snapshot with
+                        {
+                            State = GovernedAgentState.StreamingProvider,
+                        });
+                        await WaitForAsync(() => chat.IsBusy);
+                        Assert.Null(quickTerminal.CurrentAgentConversation);
+                        Assert.False(IsEnabled());
+                    }
+                    finally
+                    {
+                        window.ClosePermanently();
+                    }
+
+                    return true;
+                },
+                timeout.Token);
+            Assert.True(completed);
+        }
+        finally
+        {
+            await session.DisposeAsync();
+        }
     }
 
     [Fact]
@@ -7985,7 +8175,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(agentRuntime.LastRequest);
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.Contains(
-            "No live target or agent authority",
+            "The agent has no access yet",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
 
@@ -8071,7 +8261,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(viewModel.AgentSavedScreenLiveTarget);
         Assert.False(viewModel.HasAuthorizedAgentSavedScreenTarget);
         Assert.Contains(
-            "grants no agent authority",
+            "gives the agent no access",
             viewModel.AgentSavedScreenTargetStatus,
             StringComparison.Ordinal);
     }
@@ -8260,7 +8450,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Null(agentRuntime.LastRequest);
         Assert.Contains(
-            "different saved agent policy providers or models",
+            "agent policies use different AI providers or models",
             viewModel.AgentChat.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -8292,7 +8482,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Null(agentRuntime.LastRequest);
         Assert.Contains(
-            "saved policy overrides with inherited provider settings",
+            "follow a saved screen's own agent policy and others follow AI Settings",
             viewModel.AgentChat.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -8786,8 +8976,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(0, agentRuntime.SendCount);
         Assert.Equal("Try to target a non-agent panel.", viewModel.AgentChat.Prompt);
         Assert.Equal(
-            "Select an active terminal, browser, File Viewer, hosted Statistics, "
-            + "or hosted Process Monitor panel, or choose a broader agent scope.",
+            "Select a Terminal, Browser, Files, Statistics, or Processes panel, "
+            + "or choose a broader agent scope.",
             viewModel.AgentChat.Status);
     }
 
@@ -8979,7 +9169,6 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         new[]
         {
             viewModel.IsWorkspaceVisible,
-            viewModel.IsSettingsVisible,
         }.Count(isVisible => isVisible);
 
     private static int VisibleSettingsPageCount(MainWindowViewModel viewModel) =>
@@ -8993,9 +9182,11 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             viewModel.IsBrowserSettingsVisible,
             viewModel.IsTerminalSettingsVisible,
             viewModel.IsQuickTerminalSettingsVisible,
+            viewModel.IsGitSettingsVisible,
             viewModel.IsSecretsSettingsVisible,
             viewModel.IsDiagnosticsSettingsVisible,
             viewModel.IsAgentSettingsVisible,
+            viewModel.IsNotificationSettingsVisible,
             viewModel.IsAboutSettingsVisible,
         }.Count(isVisible => isVisible);
 
@@ -9004,9 +9195,124 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         {
             viewModel.IsCommandPaletteVisible,
             viewModel.IsNewPanelVisible,
-            viewModel.IsLayoutDesignerVisible,
-            viewModel.IsDefinitionEditorVisible,
         }.Count(isVisible => isVisible);
+
+    // Window lifecycle in a real headless window. The view-model side of the
+    // lifecycle lives in MainWindowRuntimeGraphIntegrationTests.WindowLifecycle.cs.
+    [Fact]
+    public async Task A_window_at_its_minimum_size_keeps_the_title_band_on_screen()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            await using var host = new InMemorySessionHostClient(
+                new FakeTerminalSessionFactory(), new DesktopLifecyclePolicy());
+            using var viewModel = CreateViewModel(host, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var window = new MainWindow { DataContext = viewModel };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new TextBlock { Text = panel!.Title }));
+
+            // Small enough to tile beside another app on a 13-inch display.
+            Assert.InRange(window.MinWidth, 1, 640);
+            Assert.InRange(window.MinHeight, 1, 480);
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.Show();
+            try
+            {
+                window.UpdateLayout();
+                Assert.True(viewModel.IsCompactWindow);
+                Assert.False(viewModel.IsWorkspaceRailVisible);
+                Assert.True(viewModel.IsAgentPanelFloating);
+
+                Control Named(string name) => window.GetVisualDescendants()
+                    .OfType<Control>()
+                    .Single(control => control.Name == name && control.IsEffectivelyVisible);
+                var actions = Named("WorkspaceTitleBarActions");
+                var actionsRight = actions.TranslatePoint(new Point(actions.Bounds.Width, 0), window)!.Value.X;
+                Assert.InRange(actionsRight, 0, window.ClientSize.Width + 0.5);
+                Assert.True(Named("RuntimeTabStrip").Bounds.Width > 0);
+
+                // The title names the workspace and tab, not just the app.
+                var workspace = viewModel.RuntimeWorkspace!;
+                Assert.Equal($"{workspace.Name} · {workspace.ActiveTab!.Title}", window.Title);
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
+    [Fact]
+    public async Task An_isolated_workspace_start_covers_only_its_canvas()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var provider = new RecordingWorkspaceIsolationProvider
+            {
+                PrepareEntered = new(TaskCreationOptions.RunContinuationsAsynchronously),
+                AllowPrepare = new(TaskCreationOptions.RunContinuationsAsynchronously),
+            };
+            var (host, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(
+                host,
+                WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId),
+                workspaceIsolationProvider: provider);
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new TextBlock { Text = panel!.Title }));
+            window.Show();
+            Task<bool>? opening = null;
+            try
+            {
+                opening = viewModel.OpenWorkspaceAsync(WorkspaceId);
+                await provider.PrepareEntered!.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await Task.Yield();
+                window.UpdateLayout();
+                window.UpdateLayout();
+
+                var progress = window.FindControl<Control>("WorkspaceIsolationProgress")!;
+                Assert.True(progress.IsEffectivelyVisible);
+                var progressTop = progress.TranslatePoint(default, window)!.Value.Y;
+                var progressLeft = progress.TranslatePoint(default, window)!.Value.X;
+                Control Named(string name) => window.GetVisualDescendants()
+                    .OfType<Control>()
+                    .Single(control => control.Name == name && control.IsEffectivelyVisible);
+                var tabStrip = Named("RuntimeTabStrip");
+                var tabStripBottom = tabStrip.TranslatePoint(
+                    new Point(0, tabStrip.Bounds.Height), window)!.Value.Y;
+
+                // The title band and tab strip stay above it, and the rail
+                // beside it, so the window can be dragged and another
+                // workspace chosen while this one starts.
+                Assert.True(progressTop >= tabStripBottom, $"{progressTop} < {tabStripBottom}");
+                Assert.True(progressLeft > 0);
+                Assert.True(progress.Bounds.Width < window.ClientSize.Width);
+                var titleBandPoint = tabStrip.TranslatePoint(
+                    new Point(tabStrip.Bounds.Width / 2, tabStrip.Bounds.Height / 2), window)!.Value;
+                var hit = Avalonia.Input.InputExtensions.InputHitTest(window, titleBandPoint) as Visual;
+                Assert.False(hit is not null && (ReferenceEquals(hit, progress) || hit.GetVisualAncestors().Contains(progress)));
+
+                viewModel.CancelWorkspaceIsolationStartup();
+                Assert.False(await opening.WaitAsync(TimeSpan.FromSeconds(5)));
+                window.UpdateLayout();
+                Assert.False(progress.IsEffectivelyVisible);
+                return true;
+            }
+            finally
+            {
+                provider.AllowPrepare!.TrySetResult(false);
+                window.Close();
+            }
+        }, timeout.Token));
+    }
 
     private static MainWindowViewModel CreateViewModel(
         ISessionHostClient sessionClient,
@@ -10419,6 +10725,22 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 
         public SessionCloseOutcome? NextWindowCloseOutcome { get; set; }
 
+        /// <summary>What a close inspection reports as still running; null fails it.</summary>
+        public IReadOnlyList<ActiveSessionSummary>? RunningSessions { get; set; } = [];
+
+        public List<string> InspectedCloseTargets { get; } = [];
+
+        private ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> ResolveCloseInspection(
+            string targetId)
+        {
+            InspectedCloseTargets.Add(targetId);
+            return ValueTask.FromResult(RunningSessions is { } running
+                ? HostResult<IReadOnlyList<ActiveSessionSummary>>.Succeed(running, 0)
+                : HostResult<IReadOnlyList<ActiveSessionSummary>>.Fail(
+                    HostError.Create(HostErrorCode.CapabilityNotSupported, "No inspection."),
+                    0));
+        }
+
         public bool AcceptThenCancelNextRegistration { get; set; }
 
         public bool FailNextRegistrationWithTransportError { get; set; }
@@ -10721,6 +11043,9 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                         OperationContext context,
                         ..
                     ] => ResolveClose(request, context),
+                nameof(ISessionHostClient.InspectCloseAsync)
+                    when args is [CloseScopeKind, string targetId, ..] =>
+                    ResolveCloseInspection(targetId),
                 _ => throw new NotSupportedException(targetMethod?.Name),
             };
 
@@ -11774,8 +12099,34 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             {
                 "get_Snapshot" => Snapshot,
                 "add_Changed" or "remove_Changed" => null,
+                // Settings' + popover makes a browser profile; it lands in the
+                // snapshot as a new one would.
+                nameof(IDefinitionCatalog.SaveBrowserProfileAsync) => SaveBrowserProfile(
+                    (BrowserProfileDefinition)args![0]!,
+                    (long?)args[1]),
                 _ => throw new NotSupportedException(targetMethod?.Name),
             };
+
+        private ValueTask<DefinitionStoreResult<StoredDefinition<BrowserProfileDefinition>>> SaveBrowserProfile(
+            BrowserProfileDefinition definition,
+            long? expectedRevision)
+        {
+            var stored = new StoredDefinition<BrowserProfileDefinition>(
+                definition,
+                (expectedRevision ?? 0) + 1,
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UnixEpoch);
+            Snapshot = Snapshot with
+            {
+                BrowserProfiles =
+                [
+                    .. Snapshot.BrowserProfiles.Where(item => item.Value.Id != definition.Id),
+                    stored,
+                ],
+            };
+            return ValueTask.FromResult(
+                DefinitionStoreResult<StoredDefinition<BrowserProfileDefinition>>.Success(stored));
+        }
     }
 
     public class MutableWorkspaceCatalogProxy : DispatchProxy

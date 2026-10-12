@@ -24,8 +24,9 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
     private bool _restoreLastSession;
     private bool _restoreOnStart;
     private bool _hideOnFocusLoss;
-    private string _registrationStatus = "Shortcut registration has not been checked yet.";
-    private string _registrationStatusBrush = "#8B8B91";
+    private bool _hideOnEscape;
+    private string _registrationStatus = "Shortcut registration hasn't been checked yet.";
+    private StatusTone _registrationStatusTone = StatusTone.Neutral;
 
     public QuickTerminalSettingsEditorViewModel(
         QuickTerminalSettings settings,
@@ -48,13 +49,21 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         _restoreLastSession = settings.RestoreLastSession;
         _restoreOnStart = settings.RestoreOnStart;
         _hideOnFocusLoss = settings.HideOnFocusLoss;
+        _hideOnEscape = settings.HideOnEscape;
     }
 
     public QuickTerminalSettingsId SettingsId { get; }
 
     public string Name { get; }
 
-    public long ExpectedRevision { get; }
+    /// <summary>
+    /// The revision the next save is checked against. It moves forward when a
+    /// save from this editor lands, so edits made meanwhile are kept and saved
+    /// on top of it.
+    /// </summary>
+    public long ExpectedRevision { get; private set; }
+
+    public void AcceptSavedRevision(long revision) => ExpectedRevision = revision;
 
     public IReadOnlyList<QuickTerminalMonitorOption> MonitorOptions { get; } =
     [
@@ -75,16 +84,44 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         }
     }
 
-    public string HotkeyExample => QuickTerminalHotkeyText.Example;
-
-    public string HotkeyHelpText =>
-        $"Enter a modifier and key, for example {HotkeyExample}.";
-
     public string HotkeyText
     {
         get => _hotkeyText;
-        set => SetProperty(ref _hotkeyText, value);
+        set
+        {
+            if (SetProperty(ref _hotkeyText, value))
+            {
+                OnPropertyChanged(nameof(HotkeyWarning));
+                OnPropertyChanged(nameof(HasHotkeyWarning));
+                OnPropertyChanged(nameof(UsesDefaultHotkey));
+            }
+        }
     }
+
+    /// <summary>Whether the shortcut is the one Quick Terminal arrives with.</summary>
+    public bool UsesDefaultHotkey => string.Equals(
+        HotkeyText,
+        QuickTerminalHotkeyText.Format(QuickTerminalSettings.DefaultHotkey),
+        StringComparison.Ordinal);
+
+    /// <summary>
+    /// Puts back the shortcut Quick Terminal arrives with. The shortcut is
+    /// recorded rather than typed, so this is how a recorded one is undone;
+    /// a Quick Terminal always has a shortcut, so there is nothing to clear.
+    /// </summary>
+    public void UseDefaultHotkey() =>
+        HotkeyText = QuickTerminalHotkeyText.Format(QuickTerminalSettings.DefaultHotkey);
+
+    /// <summary>
+    /// Warns while the field holds a shortcut that macOS or Asura's own menu
+    /// bar already answers. Saving is still allowed; the warning says what the
+    /// hotkey would take away.
+    /// </summary>
+    public string? HotkeyWarning => ShortcutText.TryParseStroke(HotkeyText, out var stroke)
+        ? QuickTerminalHotkeyText.ReservedWarning(stroke, HostPlatform.Current)
+        : null;
+
+    public bool HasHotkeyWarning => HotkeyWarning is not null;
 
     public QuickTerminalMonitorPolicy MonitorPolicy
     {
@@ -152,16 +189,44 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         set => SetProperty(ref _hideOnFocusLoss, value);
     }
 
+    public bool HideOnEscape
+    {
+        get => _hideOnEscape;
+        set
+        {
+            if (SetProperty(ref _hideOnEscape, value))
+            {
+                OnPropertyChanged(nameof(DismissSummary));
+            }
+        }
+    }
+
+    /// <summary>Every way the panel can be dismissed with these settings.</summary>
+    public string DismissSummary
+    {
+        get
+        {
+            var close = QuickTerminalHotkeyText.FormatApplicationCommand("W");
+            return HideOnEscape
+                ? $"Hide the panel with its global shortcut, {close}, or Escape."
+                : $"Hide the panel with its global shortcut or {close}. Escape goes to the terminal.";
+        }
+    }
+
     public string RegistrationStatus
     {
         get => _registrationStatus;
         private set => SetProperty(ref _registrationStatus, value);
     }
 
-    public string RegistrationStatusBrush
+    /// <summary>
+    /// How registration went, as the status tone the mark beside the status
+    /// draws in: success, warning, or neutral before anything was tried.
+    /// </summary>
+    public StatusTone RegistrationStatusTone
     {
-        get => _registrationStatusBrush;
-        private set => SetProperty(ref _registrationStatusBrush, value);
+        get => _registrationStatusTone;
+        private set => SetProperty(ref _registrationStatusTone, value);
     }
 
     public QuickTerminalSettingsSaveRequest CreateSaveRequest()
@@ -179,13 +244,18 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
             RestoreLastSession,
             HideOnFocusLoss,
             IsTranslucent,
-            RestoreOnStart);
+            RestoreOnStart,
+            HideOnEscape);
         return new QuickTerminalSettingsSaveRequest(settings, ExpectedRevision);
     }
 
+    /// <summary>
+    /// Reports what the system made of the configured hotkey. A failure is
+    /// final: no other shortcut is registered in its place, so the status says
+    /// that Quick Terminal has no hotkey until another one is chosen.
+    /// </summary>
     public void ApplyRegistration(
         KeyStroke configuredGesture,
-        KeyStroke? activeGesture,
         GlobalHotkeyRegistrationResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
@@ -193,15 +263,15 @@ public sealed class QuickTerminalSettingsEditorViewModel : ObservableObject
         if (result is GlobalHotkeyRegistrationResult.Success)
         {
             RegistrationStatus = $"{configured} is registered globally.";
-            RegistrationStatusBrush = "#3FB950";
+            RegistrationStatusTone = StatusTone.Success;
             return;
         }
 
         var error = ((GlobalHotkeyRegistrationResult.Failure)result).Error;
-        var fallback = activeGesture is null
-            ? string.Empty
-            : $" {QuickTerminalHotkeyText.Format(activeGesture.Value)} remains active.";
-        RegistrationStatus = $"{error.Message}{fallback}";
-        RegistrationStatusBrush = "#FFB224";
+        RegistrationStatus =
+            $"Asura couldn't set {configured} as the global shortcut. {error.Message} "
+            + "Quick Terminal has no global shortcut until you choose another one. "
+            + "Meanwhile, show it from the View menu.";
+        RegistrationStatusTone = StatusTone.Warning;
     }
 }

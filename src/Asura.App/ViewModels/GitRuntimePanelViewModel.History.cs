@@ -1,3 +1,4 @@
+using Asura.Core;
 using Asura.Git;
 
 namespace Asura.App.ViewModels;
@@ -72,7 +73,7 @@ public sealed partial class GitRuntimePanelViewModel
 
     public string OperationLabel => Operation.FirstBadRevision is { } firstBad ? $"Bisect found first bad commit: {firstBad}"
         : Operation.Kind == GitOperationKind.Bisect ? $"Bisect candidate: {Operation.CurrentRevision}"
-        : $"{Operation.Kind} in progress · {_snapshot?.UnstagedChanges.Count(change => change.Kind == GitChangeKind.Conflicted) ?? 0} unresolved files";
+        : $"{Operation.Kind} in progress · {CountText.OrNone(_snapshot?.UnstagedChanges.Count(change => change.Kind == GitChangeKind.Conflicted) ?? 0, "unresolved file", "unresolved files")}";
 
     public string HistorySearch { get => _historySearch; set => SetProperty(ref _historySearch, value); }
     public string HistoryAuthor { get => _historyAuthor; set => SetProperty(ref _historyAuthor, value); }
@@ -130,7 +131,7 @@ public sealed partial class GitRuntimePanelViewModel
             }
             if (result is GitResult<GitCommitDetail>.Failure failure)
             {
-                PresentFailure(failure.Error, "Could not find commit");
+                PresentFailure(failure.Error, "Couldn't find commit");
                 return;
             }
 
@@ -146,7 +147,7 @@ public sealed partial class GitRuntimePanelViewModel
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (ArgumentException exception)
         {
-            PresentFailure(new GitError(GitErrorCode.CommandFailed, exception.Message, Retryable: false), "Invalid commit revision");
+            PresentFailure(GitRequestRefusal.Error(exception, GitRequestRefusal.Commit), "Couldn't find commit");
         }
     }
 
@@ -169,7 +170,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<GitConflictContent>.Failure)result).Error, "Could not read conflict");
+        PresentFailure(((GitResult<GitConflictContent>.Failure)result).Error, "Couldn't read conflict");
         return null;
     }
 
@@ -189,7 +190,7 @@ public sealed partial class GitRuntimePanelViewModel
             return success.Value;
         }
 
-        PresentFailure(((GitResult<IReadOnlyList<GitReflogEntry>>.Failure)result).Error, "Could not read reflog");
+        PresentFailure(((GitResult<IReadOnlyList<GitReflogEntry>>.Failure)result).Error, "Couldn't read reflog");
         return [];
     }
 

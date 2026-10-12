@@ -47,7 +47,7 @@ public sealed class LinuxSecretServiceSecretVault : ISecretVault
                 SecretVaultCapabilities.All,
                 "linux-secret-service",
                 "linux_secret_tool",
-                "Credentials are stored through the desktop Secret Service.")
+                $"Credentials are stored in {PlatformTerms.SecretStore}.")
             : new SecretVaultAvailability(
                 SecretVaultAvailabilityState.Unavailable,
                 SecretVaultPersistenceKind.None,

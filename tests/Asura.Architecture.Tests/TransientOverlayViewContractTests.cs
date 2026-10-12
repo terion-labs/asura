@@ -22,7 +22,7 @@ public sealed class TransientOverlayViewContractTests
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["AddSlotRequested"] = "OnLayoutAddSlotClick",
-                ["CloseRequested"] = "OnCloseOverlayClick",
+                ["CloseRequested"] = "OnLayoutDesignerCancelClick",
                 ["EditLayoutRequested"] = "OnEditLayoutClick",
                 ["RemoveSlotRequested"] = "OnLayoutRemoveSlotClick",
                 ["ResetRequested"] = "OnResetLayoutClick",
@@ -42,12 +42,17 @@ public sealed class TransientOverlayViewContractTests
                     "OnAddProcessMonitorPanelClick",
                 ["AddStatisticsPanelRequested"] = "OnAddStatisticsPanelClick",
                 ["AddTerminalPanelRequested"] = "OnAddTerminalPanelClick",
-                ["CloseRequested"] = "OnCloseOverlayClick",
                 ["ShowLayoutDesignerRequested"] = "OnShowLayoutDesignerClick",
             };
 
+    /// <summary>
+    /// The command palette is the one overlay left, deferred behind its host.
+    /// Add Panel is a popover and the two editors are windows of their own:
+    /// their views are still templates of this window, so their events reach
+    /// its handlers, but nothing in this window hosts them.
+    /// </summary>
     [Fact]
-    public void Main_window_defers_transient_overlays_behind_named_hosts()
+    public void Main_window_defers_the_palette_and_templates_the_popover_and_editor_windows()
     {
         var mainWindow = LoadView("MainWindow");
         AssertDelegatedOverlay(
@@ -57,33 +62,34 @@ public sealed class TransientOverlayViewContractTests
             "CommandPaletteOverlayHost",
             "{Binding IsCommandPaletteVisible}",
             CommandPaletteInteractions);
-        AssertDelegatedOverlay(
+        AssertTemplatedView(
             mainWindow,
             "LayoutDesignerView",
-            "LayoutDesignerOverlayTemplate",
-            "LayoutDesignerOverlayHost",
-            "{Binding IsLayoutDesignerVisible}",
+            "LayoutDesignerTemplate",
             LayoutDesignerInteractions);
-        AssertDelegatedOverlay(
+        AssertTemplatedView(
             mainWindow,
             "NewPanelChooserView",
-            "NewPanelOverlayTemplate",
-            "NewPanelOverlayHost",
-            "{Binding IsNewPanelVisible}",
+            "NewPanelChooserTemplate",
             NewPanelChooserInteractions);
-        var definitionTemplate = Assert.Single(
+        var editorTemplate = Assert.Single(
             mainWindow.Descendants(),
-            element => AttributeValue(element, "Key") == "DefinitionEditorOverlayTemplate");
-        Assert.Contains(
-            definitionTemplate.Descendants(),
+            element => AttributeValue(element, "Key") == "WorkspaceEditorTemplate");
+        var editor = Assert.Single(
+            editorTemplate.Elements(),
             element => element.Name.LocalName == "WorkspaceEditorView");
-        var definitionHost = Assert.Single(
-            mainWindow.Descendants(),
-            element => AttributeValue(element, "Name") == "DefinitionEditorOverlayHost");
-        Assert.Equal(
-            "{Binding IsDefinitionEditorVisible}",
-            AttributeValue(definitionHost, "IsVisible"));
-        Assert.Empty(definitionHost.Elements());
+        Assert.Equal("{Binding WorkspaceEditor}", AttributeValue(editor, "DataContext"));
+        foreach (var retiredHost in new[]
+                 {
+                     "NewPanelOverlayHost",
+                     "LayoutDesignerOverlayHost",
+                     "DefinitionEditorOverlayHost",
+                 })
+        {
+            Assert.DoesNotContain(
+                mainWindow.Descendants(),
+                element => AttributeValue(element, "Name") == retiredHost);
+        }
 
         foreach (var extractedName in ExtractedControlNames)
         {
@@ -129,8 +135,11 @@ public sealed class TransientOverlayViewContractTests
         var root = Assert.IsType<XElement>(commandPalette.Root);
         AssertStretchingUserControl(root);
 
+        // No fixed width: the code-behind caps it at the window's width less
+        // its margins, so a narrow window keeps the whole palette in view.
         var card = AssertOverlayCard(root);
-        Assert.Equal("680", AttributeValue(card, "Width"));
+        Assert.Null(AttributeValue(card, "Width"));
+        Assert.Equal("PaletteCard", AttributeValue(card, "Name"));
         Assert.Equal("700", AttributeValue(card, "MaxHeight"));
 
         var search = FindNamedElement(root, "CommandSearchBox");
@@ -149,17 +158,23 @@ public sealed class TransientOverlayViewContractTests
         Assert.Equal(
             "{Binding SelectedLauncherSearchResult, Mode=TwoWay}",
             AttributeValue(results, "SelectedItem"));
+        // Rows are list items that open on Return or a click, not a column
+        // of buttons, and they never show a command's identifier.
+        Assert.DoesNotContain(
+            results.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal));
         Assert.Contains(
             results.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Click"),
-                    "OnActivateSearchResultClick",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding IsAvailable}",
-                    StringComparison.Ordinal));
+            element => string.Equals(
+                AttributeValue(element, "Tapped"),
+                "OnActivateSearchResultTapped",
+                StringComparison.Ordinal));
+        Assert.Contains(
+            results.Descendants(),
+            element => string.Equals(element.Name.LocalName, "Setter", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Property"), "IsEnabled", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Value"), "{Binding IsAvailable}", StringComparison.Ordinal));
+        Assert.Equal("SearchField", search.Name.LocalName);
 
         Assert.Contains(
             root.Descendants(),
@@ -180,25 +195,21 @@ public sealed class TransientOverlayViewContractTests
         var root = Assert.IsType<XElement>(designer.Root);
         AssertStretchingUserControl(root);
 
-        var card = AssertOverlayCard(root);
-        Assert.Equal("1000", AttributeValue(card, "Width"));
-        Assert.Equal("648", AttributeValue(card, "Height"));
-        Assert.Equal("Center", AttributeValue(card, "HorizontalAlignment"));
-        Assert.Equal("Center", AttributeValue(card, "VerticalAlignment"));
-
+        // It fills its own window: no card, no fixed size, the footer last.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "SurfaceCard", StringComparison.Ordinal)
+                && AttributeValue(element, "Elevation") == "Overlay");
         var layout = Assert.Single(
-            card.Elements(),
+            root.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
+        // The name row, the canvas, the footer: no in-content title repeats
+        // the window's own.
         Assert.Equal(
-            "60,Auto,*,60",
+            "Auto,*,Auto",
             AttributeValue(layout, "RowDefinitions"));
-        Assert.Contains(
-            layout.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Grid"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "ColumnDefinitions"),
-                    "*,300",
-                    StringComparison.Ordinal));
+        Assert.Null(AttributeValue(layout, "Width"));
+        Assert.Null(AttributeValue(layout, "Height"));
 
         var nameEditor = FindNamedElement(root, "NewLayoutName");
         Assert.Equal(
@@ -216,7 +227,8 @@ public sealed class TransientOverlayViewContractTests
         Assert.Equal(
             "{Binding LayoutDesignerEditor.DockFactory}",
             AttributeValue(canvas, "Factory"));
-        Assert.Equal("True", AttributeValue(canvas, "IsDockingEnabled"));
+        // It stops taking drops only while a live panel is held in the workspace.
+        Assert.Equal("{Binding IsLayoutDesignerDockingEnabled}", AttributeValue(canvas, "IsDockingEnabled"));
         Assert.Equal("False", AttributeValue(canvas, "InitializeLayout"));
         Assert.DoesNotContain(
             root.Descendants(),
@@ -264,7 +276,7 @@ public sealed class TransientOverlayViewContractTests
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Save layout",
+                    "Save",
                     StringComparison.Ordinal)
                 && string.Equals(
                     AttributeValue(element, "IsEnabled"),
@@ -314,12 +326,8 @@ public sealed class TransientOverlayViewContractTests
         var choices = catalogRoot.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(
-        [
-            "New terminal", "New browser", "Statistics", "File Viewer", "Process monitor", "Database", "Docker", "Kubernetes", "Git",
-        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
-        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnNewKubernetesClick", StringComparison.Ordinal)
-            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Open a Kubernetes panel", StringComparison.Ordinal));
+        Assert.Equal(PanelTypeTitles, choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnNewKubernetesClick", StringComparison.Ordinal));
 
         var initialAction = FindNamedElement(catalogRoot, "NewTerminalButton");
         Assert.Equal(
@@ -328,12 +336,12 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             choices,
             element => string.Equals(
-                AttributeValue(element, "AutomationProperties.Name"),
-                "Open a new browser",
+                AttributeValue(element, "IsEnabled"),
+                "{Binding CanStartBrowserSession}",
                 StringComparison.Ordinal)
                 && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding CanStartBrowserSession}",
+                    AttributeValue(element, "UnavailableReason"),
+                    "{Binding BrowserSessionUnavailableReason}",
                     StringComparison.Ordinal));
 
         // The reusable catalog, not the overlay wrapper, owns all collections.
@@ -377,10 +385,14 @@ public sealed class TransientOverlayViewContractTests
 
         // No inline create form: the launcher opens things, and creating a
         // screen or workspace belongs to the page that owns that list. The one
-        // text box narrows what is already there rather than adding to it.
-        var textBox = Assert.Single(
+        // text box narrows what is already there rather than adding to it, and
+        // is the shared search field: a magnifier, a clear button, Esc clears.
+        Assert.DoesNotContain(
             catalogRoot.Descendants(),
             element => string.Equals(element.Name.LocalName, "TextBox", StringComparison.Ordinal));
+        var textBox = Assert.Single(
+            catalogRoot.Descendants(),
+            element => string.Equals(element.Name.LocalName, "SearchField", StringComparison.Ordinal));
         Assert.Equal("HistorySearchBox", AttributeValue(textBox, "Name"));
         Assert.Equal("{Binding HistorySearchQuery}", AttributeValue(textBox, "Text"));
 
@@ -427,18 +439,25 @@ public sealed class TransientOverlayViewContractTests
         var root = Assert.IsType<XElement>(chooser.Root);
         AssertStretchingUserControl(root);
 
-        var card = AssertOverlayCard(root);
-        Assert.Equal("900", AttributeValue(card, "Width"));
+        // A popover's content: it scrolls itself, and its size comes from the
+        // window it opens over rather than a fixed 900.
+        var scroll = Assert.Single(
+            root.Elements(),
+            element => string.Equals(element.Name.LocalName, "ScrollViewer", StringComparison.Ordinal));
+        Assert.Null(AttributeValue(scroll, "Width"));
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => AttributeValue(element, "Width") == "900");
 
         var choices = root.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
             .ToArray();
-        Assert.Equal(
-        [
-            "Terminal", "Browser", "Statistics", "Files", "Processes", "Database", "Docker", "Kubernetes", "Git",
-        ], choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
-        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal)
-            && string.Equals(AttributeValue(element, "AutomationProperties.Name"), "Add Kubernetes panel", StringComparison.Ordinal));
+        Assert.Equal(PanelTypeTitles, choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
+        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal));
+        Assert.Contains(
+            root.Descendants(),
+            element => string.Equals(AttributeValue(element, "Text"), "Add Panel", StringComparison.Ordinal)
+                && HasClasses(element, "Title2"));
 
         var initialAction = FindNamedElement(root, "NewPanelTerminalButton");
         Assert.Equal(
@@ -447,19 +466,19 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             choices,
             element => string.Equals(
-                AttributeValue(element, "AutomationProperties.Name"),
-                "Add browser panel",
+                AttributeValue(element, "IsEnabled"),
+                "{Binding CanCreateBrowserPanel}",
                 StringComparison.Ordinal)
                 && string.Equals(
-                    AttributeValue(element, "IsEnabled"),
-                    "{Binding CanCreateBrowserPanel}",
+                    AttributeValue(element, "UnavailableReason"),
+                    "{Binding BrowserPanelUnavailableReason}",
                     StringComparison.Ordinal));
         Assert.Contains(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Open layout designer instead",
+                    "Open Layout Designer…",
                     StringComparison.Ordinal)
                 && string.Equals(
                     AttributeValue(element, "Click"),
@@ -530,10 +549,13 @@ public sealed class TransientOverlayViewContractTests
             "MaterializeRoute<CommandPaletteView>(",
             mainWindowCode);
         Assert.Contains(
-            "MaterializeRoute<LayoutDesignerView>(",
+            "BuildEditorView<LayoutDesignerView>(",
             mainWindowCode);
         Assert.Contains(
-            "MaterializeRoute<NewPanelChooserView>(",
+            "BuildEditorView<WorkspaceEditorView>(",
+            mainWindowCode);
+        Assert.Contains(
+            "\"NewPanelChooserTemplate\"",
             mainWindowCode);
         Assert.Contains("CommandPaletteOverlay.FocusSearch();", mainWindowCode);
         Assert.Contains(
@@ -543,7 +565,7 @@ public sealed class TransientOverlayViewContractTests
             "FocusNavigator.FocusLayoutDesignerName();",
             mainWindowCode);
         Assert.Contains(
-            "NewPanelChooserOverlay.FocusInitialAction();",
+            "chooser.FocusInitialAction();",
             mainWindowCode);
 
         foreach (var extractedName in ExtractedControlNames)
@@ -552,7 +574,7 @@ public sealed class TransientOverlayViewContractTests
         }
 
         Assert.Contains(
-            "CloseCoordinator.TryCloseOverlayAsync();",
+            "ViewModel.CloseOverlay();",
             mainWindowCode);
         Assert.Contains("Confirmations.DiscardChanges()", mainWindowCode);
         Assert.Contains("ExecuteLauncherSearchTargetAsync(", mainWindowCode);
@@ -578,16 +600,17 @@ public sealed class TransientOverlayViewContractTests
             mainWindowCode);
         Assert.Contains("ViewModel.SaveLayoutDesignerAsync(", mainWindowCode);
         Assert.Contains("ViewModel.DismissLayoutDesigner();", mainWindowCode);
-        Assert.Contains("ViewModel.BeginEditLayout(layout.Id);", mainWindowCode);
+        Assert.Contains("ViewModel.BeginEditLayout(layout.Id, replaceCurrent: true);", mainWindowCode);
         Assert.Contains("FocusCurrentRoute();", mainWindowCode);
     }
 
     /// <summary>
-    /// Creating a screen closes whatever opened the editor and hands focus back to
-    /// the route, rather than leaving the shell focused on a dismissed overlay.
+    /// New Saved Screen… is asked for from the Settings window, so its editor
+    /// opens over that window and leaves whatever the main window shows alone:
+    /// an editor open there is not the one that asked.
     /// </summary>
     [Fact]
-    public void Main_window_restores_route_focus_after_successful_new_item_creation()
+    public void New_saved_screen_opens_over_the_window_that_asked_and_leaves_overlays_alone()
     {
         var createScreen = ExtractMethod(
             ApplicationViews.FindPartialClassSources("MainWindow"),
@@ -595,8 +618,9 @@ public sealed class TransientOverlayViewContractTests
 
         AssertOccursInOrder(
             createScreen,
-            "ViewModel.CloseOverlay();",
-            "FocusCurrentRoute();");
+            "new SavedScreenEditorDialog(",
+            ".ShowDialog<bool>(DialogOwnerFor(sender))");
+        Assert.DoesNotContain("ViewModel.CloseOverlay();", createScreen, StringComparison.Ordinal);
     }
 
     private static string ExtractMethod(string source, string signature)
@@ -643,6 +667,23 @@ public sealed class TransientOverlayViewContractTests
         }
     }
 
+    /// <summary>
+    /// The launcher and the Add Panel chooser name every type from the one
+    /// catalog, in the same order.
+    /// </summary>
+    private static readonly string[] PanelTypeTitles =
+    [
+        "{x:Static vm:PanelTypes.Terminal}",
+        "{x:Static vm:PanelTypes.Browser}",
+        "{x:Static vm:PanelTypes.Statistics}",
+        "{x:Static vm:PanelTypes.Files}",
+        "{x:Static vm:PanelTypes.Processes}",
+        "{x:Static vm:PanelTypes.Database}",
+        "{x:Static vm:PanelTypes.Docker}",
+        "{x:Static vm:PanelTypes.Kubernetes}",
+        "{x:Static vm:PanelTypes.Git}",
+    ];
+
     private static readonly string[] ExtractedControlNames =
     [
         "CommandSearchBox",
@@ -678,6 +719,24 @@ public sealed class TransientOverlayViewContractTests
         foreach (var (interaction, handler) in interactions)
         {
             Assert.Equal(handler, AttributeValue(overlay, interaction));
+        }
+    }
+
+    private static void AssertTemplatedView(
+        XDocument mainWindow,
+        string viewName,
+        string templateName,
+        IReadOnlyDictionary<string, string> interactions)
+    {
+        var view = Assert.Single(
+            mainWindow.Descendants(),
+            element => string.Equals(element.Name.LocalName, viewName, StringComparison.Ordinal));
+        var template = Assert.IsType<XElement>(view.Parent);
+        Assert.Equal("DataTemplate", template.Name.LocalName);
+        Assert.Equal(templateName, AttributeValue(template, "Key"));
+        foreach (var (interaction, handler) in interactions)
+        {
+            Assert.Equal(handler, AttributeValue(view, interaction));
         }
     }
 

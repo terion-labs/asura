@@ -32,6 +32,10 @@ public sealed class LayoutDesignerViewModelTests
         Assert.True(editor.CanSave);
         Assert.Equal(2, editor.PanelCount);
         Assert.Equal("Unsaved new layout", editor.DirtyStatus);
+
+        // Untouched, it has nothing to lose; once changed, closing asks.
+        Assert.Equal(LayoutDesignerCancelDisposition.Close, editor.RequestCancel());
+        editor.Name = "Changed";
         Assert.Equal(
             LayoutDesignerCancelDisposition.ConfirmDiscard,
             editor.RequestCancel());

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Asura.Application;
 using Asura.Core;
+using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
@@ -93,6 +94,21 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
 
     public bool IsDirect => _snapshot.State == WorkspaceNetworkState.Direct;
 
+    /// <summary>
+    /// The title bar's route mark, one glyph per state: a plain globe for
+    /// direct, a globe turning while a route comes up, a shielded globe once
+    /// one carries traffic, and the failure and block marks. Colour repeats
+    /// what the shape says rather than being the only thing that says it.
+    /// </summary>
+    public Symbol RouteSymbol => _snapshot.State switch
+    {
+        WorkspaceNetworkState.Failed => Symbol.ShieldError,
+        WorkspaceNetworkState.Blocked => Symbol.LockClosed,
+        _ when IsConnecting => Symbol.GlobeSync,
+        WorkspaceNetworkState.Connected => Symbol.GlobeShield,
+        _ => Symbol.Globe,
+    };
+
     /// <summary>A route that is not carrying traffic the way it was asked to.</summary>
     public bool IsDegraded => IsFailed || IsBlocked;
 
@@ -124,10 +140,10 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                 WorkspaceNetworkState.Connecting => $"Connecting to {SelectedName}.",
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.Udp)
-                    => $"Workspace TCP traffic and DNS use {SelectedName}. This route does not support other UDP traffic or ping.",
+                    => $"Workspace TCP traffic and DNS use {SelectedName}. This route doesn't support other UDP traffic or ping.",
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.ControlMessages)
-                    => $"Workspace TCP and UDP traffic use {SelectedName}. This route does not support ping or other IP protocols.",
+                    => $"Workspace TCP and UDP traffic use {SelectedName}. This route doesn't support ping or other IP protocols.",
                 WorkspaceNetworkState.Connected => $"Workspace traffic uses {SelectedName}.",
                 WorkspaceNetworkState.Failed =>
                     _snapshot.Error?.Message ?? "The network connection failed.",
@@ -203,7 +219,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         if (_policy.Policy.Connections.All(id => id != connectionId))
         {
             throw new ArgumentException(
-                "The network connection is not available to this workspace.",
+                "The network connection isn't available to this workspace.",
                 nameof(connectionId));
         }
 
@@ -379,7 +395,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                     WorkspaceNetworkEgress.Blocked, _snapshot.SelectedConnectionId,
                     new NetworkConnectionError(NetworkConnectionErrorCode.RouteUnavailable,
                         "browser_auth_route_reset_failed",
-                        "Traffic stays blocked because saved browser authentication could not be cleared for the new route. Select the connection again to retry.",
+                        "Traffic stays blocked because Asura couldn't clear the browser's saved sign-in for the new route. Select the connection again to retry.",
                         retryable: true));
                 NotifyStatusChanged();
             }, _lifetime.Token);
@@ -404,6 +420,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         }
 
         OnPropertyChanged(nameof(IsConnecting));
+        OnPropertyChanged(nameof(RouteSymbol));
         OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(ToggleAction));
         OnPropertyChanged(nameof(StatusText));
@@ -420,6 +437,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         OnPropertyChanged(nameof(IsBlocked));
         OnPropertyChanged(nameof(IsDirect));
         OnPropertyChanged(nameof(IsDegraded));
+        OnPropertyChanged(nameof(RouteSymbol));
         OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(ToggleAction));
         OnPropertyChanged(nameof(RouteLabel));

@@ -1,127 +1,310 @@
+using Asura.App.Controls;
+using Asura.App.ViewModels;
+using Asura.Core;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+
 namespace Asura.App.Views;
 
-public sealed partial class MainWindow
+/// <summary>
+/// The main window's side of the menu bar and of the shared command
+/// executor. Menu items, keymap shortcuts and the command palette all run
+/// through <see cref="ShellCommands"/>.
+/// </summary>
+public sealed partial class MainWindow : IShellCommandPresentation, IApplicationMenuHost
 {
+    private static readonly IReadOnlyDictionary<string, string> NoCommandArguments =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
     private ShellCommandExecutor? _shellCommands;
+
+    /// <summary>
+    /// What had focus when the command palette opened. Edit commands chosen in
+    /// the palette act on it, not on the palette's own search field.
+    /// </summary>
+    private IInputElement? _commandPaletteOrigin;
 
     private static App AsuraApplication => Avalonia.Application.Current as App
         ?? throw new InvalidOperationException("The Asura application is unavailable.");
 
     private ShellCommandExecutor ShellCommands => _shellCommands ??= new(
         ViewModel,
-        new ApplicationCommandPresentation(
-            ShowNewItemLauncherAsync,
-            FocusNavigator.FocusActivePanel,
-            CloseActivePanelAsync,
-            RenameActiveTabAsync,
-            CloseActiveTabAsync,
-            position => OpenRuntimeWorkspaceAsync(token =>
-                ViewModel.SelectWorkspaceAtPositionAsync(position, token)),
-            SendLiteralPrefixAsync),
-        new NativeMenuCommandActions(
-            AsuraApplication.OpenNewWindow,
-            () => AsuraApplication.OpenNewTabAsync(this),
-            RequestNewTerminalAsync,
-            () => AsuraApplication.CloseTabAsync(this),
-            ShowCommandPalette,
-            NavigateToLauncherAsync,
-            AsuraApplication.ToggleQuickTerminal,
-            ToggleAgentPanel,
-            ShowNewPanelChooserAsync,
-            ShowLayoutDesignerAsync,
-            () => SelectRelativeTabAsync(-1),
-            () => SelectRelativeTabAsync(1),
-            RequestClosePanelAsync),
+        this,
         _lifetime.Token);
 
-    private async void OnNewWindowMenuClick(object? sender, EventArgs e)
+    public CommandInvocation CaptureInvocation(IReadOnlyDictionary<string, string> arguments) =>
+        CaptureInvocation(FocusManager?.GetFocusedElement(), arguments);
+
+    private CommandInvocation CaptureInvocation(
+        IInputElement? focused,
+        IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewWindow);
+        var state = new List<KeyValuePair<string, bool>>(ViewModel.ActiveCommandState)
+        {
+            new(CommandStates.IsQuickTerminalVisible, AsuraApplication.IsQuickTerminalVisible),
+            new(CommandStates.IsFullScreen, WindowState == WindowState.FullScreen),
+        };
+        FocusedCommandTargets.AddState(state, FocusedEditTarget(focused), FocusedFindTarget(focused));
+        PanelCommandTargets.AddState(state, FocusedPanelTargets(focused), focused);
+        var contexts = ViewModel.ActiveCommandContexts;
+        if (focused is TextBox)
+        {
+            contexts |= CommandContext.TextEditing;
+        }
+
+        return new CommandInvocation(contexts, arguments, state);
     }
 
-    private async void OnNewTabMenuClick(object? sender, EventArgs e)
+    /// <summary>
+    /// Remembers what has focus before the command palette takes it, so the
+    /// palette's rows reflect, and its Edit commands act on, that element.
+    /// </summary>
+    private void CaptureCommandPaletteOrigin()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewTab);
+        if (!ViewModel.IsCommandPaletteVisible)
+        {
+            _commandPaletteOrigin = FocusManager?.GetFocusedElement();
+        }
+
+        ViewModel.CommandInvocationSource = () => CaptureInvocation(_commandPaletteOrigin, NoCommandArguments);
     }
 
-    private async void OnNewTerminalMenuClick(object? sender, EventArgs e)
+    /// <summary>
+    /// Gives focus back to what had it before the palette opened, so an Edit
+    /// or panel command chosen there reaches it. With nothing focused then,
+    /// the active panel takes focus.
+    /// </summary>
+    private void RestoreCommandPaletteOrigin(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NewTerminal);
+        if (!FocusedCommandTargets.IsEditCommand(command)
+            && !BuiltInCommands.PanelContextCommands.Contains(command))
+        {
+            return;
+        }
+
+        if (_commandPaletteOrigin is InputElement { IsEffectivelyVisible: true } origin && origin.Focus())
+        {
+            return;
+        }
+
+        FocusNavigator.FocusActivePanel();
     }
 
-    private async void OnCloseTabMenuClick(object? sender, EventArgs e)
+    /// <summary>
+    /// While the shell is locked only editing in the unlock field, help and
+    /// the window frame stay available: no command may act behind the veil.
+    /// While an overlay is open, the workspace behind it is out of reach
+    /// except for closing what is in front.
+    /// </summary>
+    bool IApplicationMenuHost.CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.CloseTab);
+        if (ViewModel.ApplicationSecurityEditor.IsLocked)
+        {
+            return FocusedCommandTargets.IsEditCommand(command)
+                || command == BuiltInCommands.About
+                || command == BuiltInCommands.ShowHelp
+                || WindowFrameCommands.Handles(command);
+        }
+
+        if (WindowFrameCommands.Handles(command))
+        {
+            return WindowFrameCommands.CanExecute(this, command);
+        }
+
+        if (ViewModel.HasOverlay
+            && !ApplicationCommandRouter.IsApplicationCommand(command)
+            && !FocusedCommandTargets.IsEditCommand(command)
+            && command != BuiltInCommands.CloseTab
+            && command != BuiltInCommands.ClosePanel
+            && command != BuiltInCommands.CloseWindow)
+        {
+            return false;
+        }
+
+        // The menu bar has checked the registry against the facts this window
+        // captured, including what the focused field can do.
+        return ViewModel.AllowsCommand(command, arguments);
     }
 
-    private async void OnCommandPaletteMenuClick(object? sender, EventArgs e)
+    async Task IApplicationMenuHost.ExecuteAsync(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.CommandPalette);
+        await ShellCommands.ExecuteAsync(command, arguments);
     }
 
-    private async void OnLauncherMenuClick(object? sender, EventArgs e)
+    MenuShortcutResolver IApplicationMenuHost.CreateShortcutResolver() =>
+        AsuraApplication.CreateShortcutResolver(ViewModel);
+
+    async Task IShellCommandPresentation.OpenNewTerminalTabAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.Launcher);
+        await RequestNewTerminalAsync();
     }
 
-    private async void OnQuickTerminalMenuClick(object? sender, EventArgs e)
+    void IShellCommandPresentation.FocusActivePanel() => FocusNavigator.FocusActivePanel();
+
+    void IShellCommandPresentation.FocusAdjacentArea(int direction) =>
+        FocusNavigator.FocusAdjacentArea(direction);
+
+    async Task IShellCommandPresentation.CloseActivePanelAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.QuickTerminal);
+        if (ViewModel.HasOverlay)
+        {
+            _ = await TryCloseOverlayAsync();
+            return;
+        }
+
+        await CloseActivePanelAsync();
     }
 
-    private async void OnToggleAgentMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.ShowAddPanelAsync() => ShowNewPanelChooserAsync();
+
+    Task IShellCommandPresentation.RenameActiveTabAsync() => RenameActiveTabAsync();
+
+    async Task IShellCommandPresentation.CloseActiveTabAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.ToggleAgent);
+        if (ViewModel.HasOverlay)
+        {
+            _ = await TryCloseOverlayAsync();
+            return;
+        }
+
+        await CloseActiveTabAsync();
     }
 
-    private async void OnAddPanelMenuClick(object? sender, EventArgs e)
+    void IShellCommandPresentation.CloseWindow() => Close();
+
+    Task IShellCommandPresentation.SelectWorkspaceAsync(int position) =>
+        OpenRuntimeWorkspaceAsync(token =>
+            ViewModel.SelectWorkspaceAtPositionAsync(position, token));
+
+    async Task IShellCommandPresentation.EditFrontWorkspaceAsync()
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.AddPanel);
+        if (ViewModel.FrontWorkspace is { } workspace)
+        {
+            await EditWorkspaceAsync(workspace.Id);
+        }
     }
 
-    private async void OnLayoutDesignerMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.TerminateFrontWorkspaceAsync() =>
+        ViewModel.FrontWorkspace is { } workspace
+            ? CloseWorkspaceAsync(workspace, confirmFirst: true)
+            : Task.CompletedTask;
+
+    Task IShellCommandPresentation.DeleteCurrentAgentConversationAsync() =>
+        ViewModel.CurrentAgentConversation is { } conversation
+            ? DeleteAgentConversationAsync(conversation.RunId)
+            : Task.CompletedTask;
+
+    Task IShellCommandPresentation.SendLiteralPrefixAsync() => SendLiteralPrefixAsync();
+
+    void IShellCommandPresentation.ToggleSidebar() =>
+        ViewModel.ShowWorkspacesPanel = !ViewModel.ShowWorkspacesPanel;
+
+    async Task IShellCommandPresentation.ExecuteTerminalCommandAsync(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.LayoutDesigner);
+        if (ActiveTerminalSurface() is not { } terminal)
+        {
+            ViewModel.SetError("The active panel is not a terminal.");
+            return;
+        }
+
+        _ = await terminal.ExecuteCommandAsync(command, _lifetime.Token);
     }
 
-    private async void OnPreviousTabMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.ExecuteEditCommandAsync(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.PreviousTab);
+        var focused = FocusManager?.GetFocusedElement();
+        return FocusedCommandTargets.ExecuteAsync(command, FocusedEditTarget(focused), FocusedFindTarget(focused));
     }
 
-    private async void OnNextTabMenuClick(object? sender, EventArgs e)
+    void IShellCommandPresentation.ExecuteWindowCommand(CommandId command) =>
+        WindowFrameCommands.Execute(this, command);
+
+    Task IShellCommandPresentation.ExecuteApplicationCommandAsync(CommandId command) =>
+        AsuraApplication.ExecuteAsync(command, this);
+
+    void IShellCommandPresentation.ExecuteGitCommand(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.NextTab);
+        if (ViewModel.ActiveGitCommand(command) is { } git && git.CanExecute(null))
+        {
+            git.Execute(null);
+        }
     }
 
-    private async void OnClosePanelMenuClick(object? sender, EventArgs e)
+    Task IShellCommandPresentation.ExecutePanelCommandAsync(CommandId command)
     {
-        _ = sender;
-        _ = e;
-        await ShellCommands.ExecuteNativeAsync(NativeMenuCommand.ClosePanel);
+        var focused = FocusManager?.GetFocusedElement();
+        return PanelCommandTargets.ExecuteAsync(FocusedPanelTargets(focused), command);
     }
+
+    /// <summary>
+    /// The panel views the panel commands act on: those around the focused
+    /// element, or the active panel's when nothing in the window has focus.
+    /// </summary>
+    private IReadOnlyList<IPanelCommandTarget> FocusedPanelTargets(IInputElement? focused) =>
+        PanelCommandTargets.For(
+            focused,
+            () => ViewModel.ActivePanel is { } activePanel && ViewModel.IsWorkspaceVisible
+                ? PanelCommandTargets.Within(this, activePanel)
+                : []);
+
+    /// <summary>
+    /// The focused editable element. Only when nothing in the window has
+    /// focus does the Edit menu act on the terminal the window shows. A
+    /// focused button, list or Settings field has no target, so its Edit items
+    /// dim and Command-C or Command-V reach that control instead of pasting
+    /// into a terminal behind it.
+    /// </summary>
+    private IEditTarget? FocusedEditTarget(IInputElement? focused)
+    {
+        if (FocusedCommandTargets.EditTargetFor(focused, _lifetime.Token) is { } target)
+        {
+            return target;
+        }
+
+        return (focused is null || ReferenceEquals(focused, this))
+            && ViewModel.IsWorkspaceVisible
+            && ActiveTerminalSurface(focused) is { } terminal
+                ? FocusedCommandTargets.TerminalEdit(terminal, _lifetime.Token)
+                : null;
+    }
+
+    /// <summary>
+    /// The focused panel's find target, or the active panel's when focus is
+    /// elsewhere in the window, for example in the agent panel.
+    /// </summary>
+    private IFindTarget? FocusedFindTarget(IInputElement? focusedElement)
+    {
+        if (FocusedCommandTargets.FindTargetFor(focusedElement, _lifetime.Token) is { } focused)
+        {
+            return focused;
+        }
+
+        if (ViewModel.ActivePanel is not { } activePanel || !ViewModel.IsWorkspaceVisible)
+        {
+            return null;
+        }
+
+        if (ActiveTerminalSurface(focusedElement) is { } terminal)
+        {
+            return FocusedCommandTargets.TerminalFind(terminal, _lifetime.Token);
+        }
+
+        return this.GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control =>
+                control is IFindTarget && ReferenceEquals(control.DataContext, activePanel))
+            as IFindTarget;
+    }
+
+    private ManagedTerminalSurface? ActiveTerminalSurface() =>
+        ActiveTerminalSurface(FocusManager?.GetFocusedElement());
+
+    private ManagedTerminalSurface? ActiveTerminalSurface(IInputElement? focused) =>
+        (focused as Avalonia.Visual)?
+            .GetSelfAndVisualAncestors()
+            .OfType<ManagedTerminalSurface>()
+            .FirstOrDefault()
+        ?? (FindActiveTerminalHost()?.Presentation as ManagedTerminalSessionHost)?.Surface;
 }

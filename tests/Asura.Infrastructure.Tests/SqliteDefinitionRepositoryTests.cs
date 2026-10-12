@@ -459,6 +459,9 @@ public sealed class SqliteDefinitionRepositoryTests
             null,
             CancellationToken.None);
         Assert.Equal(DefinitionStoreErrorCode.DependencyConflict, wrongLayer.Error!.Code);
+        Assert.Equal(
+            "The terminal profile “wrong-layer-terminal” needs a terminal keymap. Choose one, then save again.",
+            wrongLayer.Error.Message);
 
         var terminalKeymap = new KeymapProfile(
             new KeymapProfileId("terminal-map"),
@@ -484,9 +487,57 @@ public sealed class SqliteDefinitionRepositoryTests
             CancellationToken.None);
 
         Assert.Equal(DefinitionStoreErrorCode.DependencyConflict, replaced.Error!.Code);
+        Assert.StartsWith(
+            "This change would break the terminal profile “terminal-one”, which uses it.",
+            replaced.Error.Message,
+            StringComparison.Ordinal);
         var stored = await keymaps.GetAsync(terminalKeymap.Key, CancellationToken.None);
         Assert.Equal(KeymapLayer.Terminal, stored.Value!.Value.Layer);
         Assert.Equal(1, stored.Value.Revision);
+    }
+
+    [Fact]
+    public async Task TerminalAskBeforeClosingRoundTripsAndDefaultsToAskingForOlderProfiles()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var keymaps = new SqliteDefinitionRepository<KeymapProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var terminals = new SqliteDefinitionRepository<TerminalProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var keymap = new KeymapProfile(
+            new KeymapProfileId("terminal-map"),
+            "Terminal map",
+            KeymapLayer.Terminal,
+            bindings: []);
+        Assert.True((await keymaps.SaveAsync(keymap, null, CancellationToken.None)).IsSuccess);
+        var asking = Terminal("asking-terminal", keymap.Id);
+        var silent = Terminal("silent-terminal", keymap.Id) with { AskBeforeClosing = false };
+        Assert.True((await terminals.SaveAsync(asking, null, CancellationToken.None)).IsSuccess);
+        Assert.True((await terminals.SaveAsync(silent, null, CancellationToken.None)).IsSuccess);
+
+        await temporary.ReopenAsync();
+        var reopened = new SqliteDefinitionRepository<TerminalProfile>(
+            temporary.Database,
+            TimeProvider.System);
+        var restoredAsking = await reopened.GetAsync(asking.Key, CancellationToken.None);
+        var restoredSilent = await reopened.GetAsync(silent.Key, CancellationToken.None);
+
+        Assert.True(restoredAsking.Value!.Value.AskBeforeClosing);
+        Assert.False(restoredSilent.Value!.Value.AskBeforeClosing);
+        Assert.False(asking.RepresentsSameAs(asking with { AskBeforeClosing = false }));
+
+        // A profile written before the setting existed has no such member.
+        var legacy = System.Text.Json.Nodes.JsonNode.Parse(DefinitionJson.Serialize(silent))!
+            .AsObject();
+        var member = legacy.Select(item => item.Key).Single(key =>
+            string.Equals(key, nameof(TerminalProfile.AskBeforeClosing), StringComparison.OrdinalIgnoreCase));
+        legacy.Remove(member);
+        var upgraded = Assert.IsType<TerminalProfile>(DefinitionJson.Deserialize(
+            DefinitionKind.TerminalProfile,
+            legacy.ToJsonString()));
+        Assert.True(upgraded.AskBeforeClosing);
     }
 
     [Fact]
@@ -510,6 +561,10 @@ public sealed class SqliteDefinitionRepositoryTests
         var deleted = await layouts.DeleteAsync(layout.Key, 1, CancellationToken.None);
 
         Assert.Equal(DefinitionStoreErrorCode.DependencyConflict, deleted.Error!.Code);
+        // The message names both items so people know what to change.
+        Assert.Equal(
+            "“Layout One” is still used by the screen “Screen One”. Remove it from “Screen One” first, then delete it.",
+            deleted.Error.Message);
         Assert.True((await layouts.GetAsync(layout.Key, CancellationToken.None)).IsSuccess);
     }
 
@@ -1039,7 +1094,9 @@ public sealed class SqliteDefinitionRepositoryTests
 
         Assert.True(primaryResult.IsSuccess, primaryResult.Error?.Message);
         Assert.Equal(DefinitionStoreErrorCode.InvalidDefinition, duplicateResult.Error!.Code);
-        Assert.Contains("display order 0", duplicateResult.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "The AI providers “Duplicate” and “Primary” have the same place in the list. Move one of them, then save again.",
+            duplicateResult.Error.Message);
         Assert.True(fallbackResult.IsSuccess, fallbackResult.Error?.Message);
         var stored = await providers.ListAsync(CancellationToken.None);
         Assert.True(stored.IsSuccess, stored.Error?.Message);

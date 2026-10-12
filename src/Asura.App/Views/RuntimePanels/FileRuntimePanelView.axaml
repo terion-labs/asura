@@ -39,6 +39,25 @@
         <Setter Property="Width" Value="110" />
       </Style>
     </ContainerQuery>
+    <!-- A row's icon is sized from the icon ramp, so it grows with the text
+         beside it: the list size in rows, the tile size in the grid. The
+         system icon and the stand-in glyph share one box. -->
+    <Style Selector="Panel.FileEntryIcon">
+      <Setter Property="Width" Value="{DynamicResource ShellIconSizeMd}" />
+      <Setter Property="Height" Value="{DynamicResource ShellIconSizeMd}" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon.large">
+      <Setter Property="Width" Value="{DynamicResource ShellIconSizeLg}" />
+      <Setter Property="Height" Value="{DynamicResource ShellIconSizeLg}" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeMd}" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Panel.FileEntryIcon.large icons|SymbolIcon">
+      <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeLg}" />
+    </Style>
     <Style Selector="ListBoxItem.transferDropTarget /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource ShellAccentSoftBrush}" />
     </Style>
@@ -96,7 +115,7 @@
   </UserControl.Styles>
   <controls:PanelChrome
       Classes.embedded="{Binding IsEmbedded, ElementName=FileRuntimePanelRoot}"
-      CloseLabel="Close File Viewer panel"
+      CloseLabel="Close Files panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"
@@ -106,7 +125,7 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Background="{DynamicResource ShellSuccessBrush}" />
+      <controls:StatusMark Tone="{Binding StatusTone}" Description="{Binding StatusDescription}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -127,16 +146,16 @@
           <Border
               Classes="FileToolbarGroup">
             <StackPanel Orientation="Horizontal">
-              <Button Classes="SecondaryButton" Content="Previous page"
+              <Button Classes="SecondaryButton" Content="Previous Page"
                   Command="{Binding PreviousPageCommand}" IsVisible="{Binding HasPreviousPage}" />
-              <Button Classes="SecondaryButton" Content="Next page"
+              <Button Classes="SecondaryButton" Content="Next Page"
                   Command="{Binding NextPageCommand}" IsVisible="{Binding HasNextPage}" />
               <Button Classes="IconButton FileToolbarAction" Click="OnNavigateUpClick" IsEnabled="{Binding CanNavigateUp}" ToolTip.Tip="Parent folder" AutomationProperties.Name="Parent folder">
-                <icons:SymbolIcon Symbol="ArrowUp" FontSize="14" />
+                <icons:SymbolIcon Symbol="ArrowUp" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
               <Border Width="1" Margin="{DynamicResource ShellToolbarSeparatorMargin}" Background="{DynamicResource ShellBorderBrush}" />
               <Button Classes="IconButton FileToolbarAction" Click="OnRefreshClick" ToolTip.Tip="Refresh location" AutomationProperties.Name="Refresh files">
-                <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="14" />
+                <icons:SymbolIcon Symbol="ArrowClockwise" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
             </StackPanel>
           </Border>
@@ -145,8 +164,6 @@
               ColumnDefinitions="*,Auto"
               ColumnSpacing="{DynamicResource ShellSpaceXs}">
             <TextBox
-                FontSize="{DynamicResource ShellFontSize10}"
-                FontWeight="SemiBold"
                 Background="Transparent"
                 BorderThickness="0"
                 Text="{Binding LocationText}"
@@ -160,7 +177,7 @@
                 Value="{Binding Status}"
                 CompactValue="{Binding ShortStatus}"
                 AutomationProperties.LiveSetting="Polite"
-                AutomationProperties.Name="File Viewer item count" />
+                AutomationProperties.Name="Files item count" />
           </Grid>
           <Border
               Grid.Column="2"
@@ -170,7 +187,7 @@
                   Classes="IconButton FileToolbarAction"
                   ToolTip.Tip="Sort and view options"
                   AutomationProperties.Name="Open file sort and view options">
-                <icons:SymbolIcon Symbol="Grid" FontSize="14" />
+                <icons:SymbolIcon Symbol="Grid" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <Button.Flyout>
                   <Flyout Placement="Bottom">
                     <StackPanel Width="250" Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceSm}">
@@ -193,9 +210,9 @@
                   Classes.active="{Binding IsPreviewVisible}"
                   Click="OnTogglePreviewClick"
                   ToolTip.Tip="Show or hide preview"
-                  AutomationProperties.Name="Toggle file preview"
+                  AutomationProperties.Name="Show or hide file preview"
                   AutomationProperties.ItemStatus="{Binding PreviewVisibilityStatus}">
-                <icons:SymbolIcon Symbol="PanelRight" FontSize="14" />
+                <icons:SymbolIcon Symbol="PanelRight" FontSize="{DynamicResource ShellIconSizeMd}" />
               </Button>
               <!-- The actions themselves are data, and this strip is one of the
                    three places that data is shown. When the panel narrows the
@@ -217,12 +234,11 @@
                           IsVisible="{Binding StartsGroup}" />
                       <Button
                           Classes="IconButton FileToolbarAction"
-                          Classes.Danger="{Binding IsDestructive}"
                           Command="{Binding Command}"
                           IsEnabled="{Binding IsEnabled}"
                           ToolTip.Tip="{Binding Description}"
                           AutomationProperties.Name="{Binding Description}">
-                        <icons:SymbolIcon Symbol="{Binding Symbol}" FontSize="14" />
+                        <icons:SymbolIcon Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeMd}" />
                       </Button>
                     </StackPanel>
                   </DataTemplate>
@@ -231,19 +247,20 @@
               </StackPanel>
               <Border Width="1" Margin="{DynamicResource ShellToolbarSeparatorMargin}" Background="{DynamicResource ShellBorderBrush}" />
               <Button x:Name="FileActionsOverflowButton" Classes="IconButton FileToolbarAction" ToolTip.Tip="More file actions" AutomationProperties.Name="Open more file actions">
-                <icons:SymbolIcon Symbol="MoreVertical" FontSize="14" />
+                <icons:SymbolIcon Symbol="MoreCircle" FontSize="{DynamicResource ShellIconSizeMd}" />
                 <Button.Flyout>
                   <MenuFlyout Placement="Bottom">
                     <MenuFlyout.ItemContainerTheme>
                       <ControlTheme TargetType="MenuItem" x:DataType="vm:FileActionViewModel" BasedOn="{StaticResource {x:Type MenuItem}}">
                         <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+                        <Setter Property="InputGesture" Value="{Binding Gesture}" />
                       </ControlTheme>
                     </MenuFlyout.ItemContainerTheme>
                     <MenuFlyout.ItemTemplate>
                       <DataTemplate DataType="vm:FileActionViewModel">
                         <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                          <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="14" />
+                          <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
                           <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
                         </StackPanel>
                       </DataTemplate>
@@ -253,7 +270,13 @@
               </Button>
             </StackPanel>
           </Border>
-          <TextBox x:Name="FileFilterBox" Grid.Column="3" Width="180" Text="{Binding Filter}" PlaceholderText="Search files" AutomationProperties.Name="Filter file items" />
+          <controls:SearchField
+              x:Name="FileFilterBox"
+              Grid.Column="3"
+              Width="180"
+              Text="{Binding Filter}"
+              PlaceholderText="{Binding FilterPlaceholder}"
+              AutomationProperties.Name="{Binding FilterAccessibleName}" />
         </Grid>
       </Border>
 
@@ -287,7 +310,7 @@
                 <ContextMenu.ItemTemplate>
                   <DataTemplate DataType="vm:FileActionViewModel">
                     <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="14" />
+                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding Symbol}" FontSize="{DynamicResource ShellIconSizeSm}" />
                       <TextBlock VerticalAlignment="Center" Text="{Binding Label}" />
                     </StackPanel>
                   </DataTemplate>
@@ -295,41 +318,45 @@
               </ContextMenu>
             </Grid.ContextMenu>
             <Border
-                Height="29"
+                MinHeight="{controls:TextScaled 29}"
                 Background="{DynamicResource ShellSurfaceBrush}"
                 IsVisible="{Binding IsDetailsView}">
-              <Grid Margin="{controls:Inset Horizontal=Md}">
+              <!-- Its width is the room the rows have: the panel narrows the
+                   size and date columns to fit it rather than letting the
+                   date run off the edge. -->
+              <Grid x:Name="FileDetailsHeaderGrid" Margin="{controls:Inset Horizontal=Md}">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="140" />
+                  <ColumnDefinition Width="{Binding FileNameColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="72" />
+                  <ColumnDefinition Width="{Binding FileSizeColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding FileSizeColumnMaxWidth}" />
                   <ColumnDefinition Width="5" />
-                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="112" />
+                  <ColumnDefinition Width="{Binding FileModifiedColumnWidth, Mode=TwoWay}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding FileModifiedColumnMaxWidth}" />
                 </Grid.ColumnDefinitions>
                 <Button
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingByName}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="0"
                     Click="OnSortNameClick"
-                    AutomationProperties.Name="Sort files by name">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Name" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by name"
+                    AutomationProperties.ItemStatus="{Binding NameSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Name" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
                 <Border Grid.Column="1" Width="1" HorizontalAlignment="Center" Background="{DynamicResource ShellBorderBrush}" IsHitTestVisible="False" />
                 <GridSplitter
@@ -345,26 +372,27 @@
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingBySize}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="{controls:Inset Horizontal=Sm}"
                     Click="OnSortSizeClick"
-                    AutomationProperties.Name="Sort files by size">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Size" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by size"
+                    AutomationProperties.ItemStatus="{Binding SizeSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Size" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
                 <Border Grid.Column="3" Width="1" HorizontalAlignment="Center" Background="{DynamicResource ShellBorderBrush}" IsHitTestVisible="False" />
                 <GridSplitter
@@ -376,30 +404,32 @@
                     ResizeBehavior="PreviousAndNext"
                     AutomationProperties.Name="Resize file size and modified columns" />
                 <Button
+                    x:Name="ModifiedColumnHeader"
                     Grid.Column="4"
                     Classes="FileColumnHeader"
                     Classes.sorted="{Binding IsSortingByModified}"
                     Classes.descending="{Binding IsSortDescending}"
-                    HorizontalContentAlignment="Left"
+                    HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Padding="{controls:Inset Horizontal=Sm}"
                     Click="OnSortModifiedClick"
-                    AutomationProperties.Name="Sort files by modified date">
-                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="Modified" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortAscending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowUp"
-                        AutomationProperties.Name="Sorted ascending" />
-                    <icons:SymbolIcon
-                        Classes="FileSortIndicator FileSortDescending"
-                        FontSize="10"
-                        IsHitTestVisible="False"
-                        Symbol="ArrowDown"
-                        AutomationProperties.Name="Sorted descending" />
-                  </StackPanel>
+                    AutomationProperties.Name="Sort files by modified date"
+                    AutomationProperties.ItemStatus="{Binding ModifiedSortStatus}">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Eyebrow" Text="Modified" TextTrimming="CharacterEllipsis" />
+                    <Panel Grid.Column="1" VerticalAlignment="Center" AutomationProperties.AccessibilityView="Raw">
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortAscending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronUp" />
+                      <icons:SymbolIcon
+                          Classes="FileSortIndicator FileSortDescending"
+                          FontSize="{DynamicResource ShellIconSizeXs}"
+                          IsHitTestVisible="False"
+                          Symbol="ChevronDown" />
+                    </Panel>
+                  </Grid>
                 </Button>
               </Grid>
             </Border>
@@ -410,6 +440,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsDetailsView}"
@@ -425,19 +456,22 @@
                          header stop shrinking while the rows keep collapsing,
                          and the columns visibly part ways. -->
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="140" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileNameColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileNameColumnMinWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="72" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileSizeColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileSizeColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileSizeColumnMaxWidth}" />
                       <ColumnDefinition Width="5" />
-                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="112" />
+                      <ColumnDefinition Width="{Binding $parent[UserControl].DataContext.FileModifiedColumnWidth}" MinWidth="{x:Static vm:FileRuntimePanelViewModel.FileModifiedColumnMinWidth}" MaxWidth="{Binding $parent[UserControl].DataContext.FileModifiedColumnMaxWidth}" />
                     </Grid.ColumnDefinitions>
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                      <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                      <Panel Classes="FileEntryIcon" VerticalAlignment="Center">
+                        <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                        <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                        <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                      </Panel>
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
-                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
-                    <TextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Modified}" />
+                    <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" TextTrimming="CharacterEllipsis" />
+                    <components:FittingTextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FullText="{Binding Modified}" CompactText="{Binding ModifiedCompact}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -450,6 +484,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsListView}"
@@ -460,10 +495,13 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <Grid MinHeight="30" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Folder" FontSize="13" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Code" FontSize="13" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
+                    <Panel Classes="FileEntryIcon" VerticalAlignment="Center">
+                      <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                      <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                      <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                    </Panel>
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -477,6 +515,7 @@
                 ItemsSource="{Binding Entries}"
                 SelectedItem="{Binding SelectedEntry}"
                 SelectionMode="Multiple"
+                IsTextSearchEnabled="True"
                 SelectionChanged="OnEntrySelectionChanged"
                 DoubleTapped="OnEntryDoubleTapped"
                 IsVisible="{Binding IsGridView}"
@@ -488,12 +527,15 @@
               </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate>
-                  <controls:SurfaceCard Padding="0" Width="142" Height="88" Margin="{controls:Inset Xs}">
+                  <controls:SurfaceCard Padding="0" Width="{controls:TextScaled 142}" MinHeight="{controls:TextScaled 88}" Margin="{controls:Inset Xs}">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                      <icons:SymbolIcon Symbol="Folder" FontSize="20" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding IsDirectory}" />
-                      <icons:SymbolIcon Symbol="Code" FontSize="20" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding !IsDirectory}" />
-                      <TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Size}" />
+                      <Panel Classes="FileEntryIcon large" HorizontalAlignment="Left">
+                        <Image Source="{Binding Icon}" IsVisible="{Binding HasIcon}" />
+                        <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
+                        <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
+                      </Panel>
+                      <TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                     </StackPanel>
                   </controls:SurfaceCard>
                 </DataTemplate>
@@ -505,7 +547,7 @@
               Background="{DynamicResource ShellSurfaceBrush}"
               IsVisible="{Binding ShowLoadingState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer loading">
+              AutomationProperties.Name="Files loading">
             <controls:StateOverlay
                 Kind="Loading"
                 Heading="{Binding ContentPresentation.Title}"
@@ -519,8 +561,8 @@
               AutomationProperties.LiveSetting="Assertive"
               AutomationProperties.Name="{Binding ContentPresentation.AccessibleName}">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextWrapping="Wrap" />
-              <Button HorizontalAlignment="Left" Classes="SecondaryButton" Command="{Binding RetryCommand}" Content="Retry location" IsVisible="{Binding CanRetryContentState}" AutomationProperties.Name="Retry File Viewer location" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextWrapping="Wrap" />
+              <Button HorizontalAlignment="Left" Classes="SecondaryButton" Command="{Binding RetryCommand}" Content="Retry" IsVisible="{Binding CanRetryContentState}" AutomationProperties.Name="Retry reading this location" />
             </StackPanel>
           </controls:StateOverlay>
           <controls:StateOverlay
@@ -529,8 +571,8 @@
               Body="{Binding ContentPresentation.Message}"
               IsVisible="{Binding ShowEmptyLocationState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer empty location">
-            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
+              AutomationProperties.Name="Files empty location">
+            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
           <controls:StateOverlay
               Kind="NoResults"
@@ -538,8 +580,8 @@
               Body="{Binding ContentPresentation.Message}"
               IsVisible="{Binding ShowSearchNoResultsState}"
               AutomationProperties.LiveSetting="Polite"
-              AutomationProperties.Name="File Viewer search has no results">
-            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
+              AutomationProperties.Name="Files search has no results">
+            <TextBlock MaxWidth="360" HorizontalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ContentPresentation.SuggestedAction}" TextAlignment="Center" TextWrapping="Wrap" />
           </controls:StateOverlay>
 
           <ProgressBar Classes="WorkingStripe" IsVisible="{Binding ShowNavigationProgress}" />
@@ -566,43 +608,53 @@
         <Border
             Grid.Column="2"
             IsVisible="{Binding IsPreviewVisible}">
-          <Grid RowDefinitions="29,Auto,*">
-            <Border Background="{DynamicResource ShellSurfaceBrush}">
-              <Grid Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="{Binding PreviewTitle}" TextTrimming="CharacterEllipsis" />
-                <!-- Only providers that transfer preview bytes onto the host
-                     need this choice. -->
-                <StackPanel
-                    Grid.Column="1"
-                    Orientation="Horizontal"
-                    VerticalAlignment="Center"
-                    Spacing="{DynamicResource ShellSpaceSm}"
-                    IsVisible="{Binding RequiresHostTransferForPreview}">
-                  <TextBlock
-                      VerticalAlignment="Center"
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize9}"
-                      Text="{Binding AutoDownloadPreviewLabel}" />
-                  <ToggleSwitch
-                      VerticalAlignment="Center"
-                      IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
-                      AutomationProperties.Name="Automatically preview files under the size threshold" />
-                </StackPanel>
-              </Grid>
+          <Grid RowDefinitions="Auto,Auto,Auto,*">
+            <!-- The name has the header to itself, so a long one keeps both
+                 its ends rather than giving way to an option beside it. -->
+            <Border Background="{DynamicResource ShellSurfaceBrush}" MinHeight="{controls:TextScaled 29}">
+              <TextBlock
+                  Margin="{controls:Inset Horizontal=Md}"
+                  VerticalAlignment="Center"
+                  Classes="Headline MiddleTruncated"
+                  Text="{Binding PreviewTitle}"
+                  ToolTip.Tip="{Binding PreviewTitle}" />
             </Border>
-            <controls:SurfaceCard Padding="0" Grid.Row="1" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
+            <!-- Only providers that transfer preview bytes onto the host
+                 need this choice, so it sits under the name, not beside it. -->
+            <CheckBox
+                Grid.Row="1"
+                Margin="{controls:Inset Horizontal=Md, Vertical=Xs}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Content="{Binding AutoDownloadPreviewLabel}"
+                IsChecked="{Binding AutoDownloadPreviews, Mode=TwoWay}"
+                IsVisible="{Binding RequiresHostTransferForPreview}"
+                AutomationProperties.Name="Automatically preview files under the size threshold" />
+            <!-- The details card and the content under it share one inset:
+                 the card keeps it on all four sides and the content below
+                 takes none on top, so card-to-content is the same Sm as
+                 card-to-edge rather than two of them stacked. -->
+            <controls:SurfaceCard Name="PreviewDetails" Padding="0" Grid.Row="2" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
               <StackPanel>
-                <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource ShellSpaceXs}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Kind}" /></StackPanel>
-                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Size}" /></StackPanel>
-                <StackPanel Grid.Row="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize10}" Text="{Binding SelectedMetadata.Modified}" /></StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Version" /><TextBlock FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SelectedMetadata.Version}" TextTrimming="CharacterEllipsis" /></StackPanel>
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SelectedMetadata.Source}" />
+                <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
+                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
                 </Grid>
-                <!-- What this format can be shown as, along the bottom of its
-                     details: the same reading as the workspace status bar,
-                     which is where the shell puts the controls that say how
-                     something is being shown. -->
+                <!-- A provider's version tag is a hash to most people: kept
+                     behind a disclosure, and absent when there is none. -->
+                <Expander
+                    Margin="{controls:Inset Horizontal=Sm}"
+                    Header="Version"
+                    IsVisible="{Binding SelectedMetadata.HasVersion, FallbackValue=False}">
+                  <SelectableTextBlock
+                      FontFamily="{DynamicResource ShellDataFontFamily}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="{Binding SelectedMetadata.Version}"
+                      TextWrapping="Wrap" />
+                </Expander>
+                <!-- Preview or source, along the bottom of the details: the
+                     same two segments for every format, so the side that
+                     shows the file as written is always the same side. -->
                 <Border
                     Background="{DynamicResource ShellSurfaceBrush}"
                     BorderBrush="{DynamicResource ShellBorderBrush}"
@@ -614,39 +666,38 @@
                       <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
-                      <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                          <ToggleSwitch
-                              VerticalAlignment="Center"
-                              IsChecked="{Binding IsOn, Mode=TwoWay}"
-                              AutomationProperties.Name="{Binding Label}" />
-                          <TextBlock
-                              VerticalAlignment="Center"
-                              Classes="Muted"
-                              FontSize="{DynamicResource ShellFontSize9}"
-                              Text="{Binding Label}" />
-                        </StackPanel>
+                      <DataTemplate x:DataType="vm:PreviewToggleViewModel">
+                        <controls:SegmentedControl
+                            Classes="FilePreviewMode"
+                            SelectedIndex="{Binding SelectedSegment, Mode=TwoWay}"
+                            AutomationProperties.Name="{Binding AccessibleName}">
+                          <RadioButton Content="{x:Static vm:PreviewToggleViewModel.PreviewLabel}" />
+                          <RadioButton Content="{Binding Label}" />
+                        </controls:SegmentedControl>
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>
                 </Border>
               </StackPanel>
             </controls:SurfaceCard>
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="3">
+              <!-- Every preview follows the details card at the card's own
+                   bottom margin and lines up with its sides: a top margin of
+                   its own would double the gap under the card. -->
               <components:CodePreviewView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   IsVisible="{Binding HasSourcePreview}"
                   Text="{Binding PreviewText}"
                   WordWrap="{Binding WrapPreviewText}"
                   FileName="{Binding PreviewTitle}" />
               <!-- A file shown as its bytes, a screenful at a time. -->
               <components:HexPreviewView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewHex}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasHexPreview}" />
               <!-- A delimited file is shown as the table it describes. -->
               <components:PreviewTableView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewTable}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasTablePreview}" />
               <!-- A format the shell cannot show is named and given a symbol,
@@ -658,32 +709,27 @@
                   IsVisible="{Binding HasBinaryPreview}">
                 <icons:SymbolIcon
                     HorizontalAlignment="Center"
-                    FontSize="40"
+                    FontSize="{DynamicResource ShellIconSizeXl}"
                     Foreground="{DynamicResource ShellMutedBrush}"
                     Symbol="{Binding PreviewBinary.Symbol}" />
                 <TextBlock
                     HorizontalAlignment="Center"
-                    FontWeight="SemiBold"
+                    Classes="Headline"
                     Text="{Binding PreviewBinary.FormatName}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewBinary.Detail}" />
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
-                    Text="{Binding SelectedMetadata.Size}" />
               </StackPanel>
-              <!-- An archive is listed, never unpacked. -->
-              <Grid RowDefinitions="Auto,*" IsVisible="{Binding HasTreePreview}">
-                <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                  <Button Content="Previous archive page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
-                  <Button Content="Next archive page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
-                </StackPanel>
-                <components:PreviewTreeView Grid.Row="1" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
-              </Grid>
+              <!-- An archive is listed, never unpacked. A long one is paged
+                   from the listing's own footer, beside its summary, so the
+                   entries follow the details card directly. -->
+              <components:PreviewTreeView
+                  x:Name="ArchivePreview"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
+                  DataContext="{Binding PreviewTree}"
+                  IsVisible="{Binding $parent[UserControl].DataContext.HasTreePreview}" />
               <!-- Markdown is laid out as native controls, so its text stays
                    selectable and copyable like any other text in the shell. -->
               <ScrollViewer
@@ -692,7 +738,7 @@
                   IsVisible="{Binding HasMarkdownPreview}">
                 <components:MarkdownPreviewView
                     ContinuousSelection="True"
-                    Padding="{controls:Inset Lg}"
+                    Padding="{controls:Inset Horizontal=Lg, Bottom=Lg}"
                     Text="{Binding PreviewText}" />
               </ScrollViewer>
               <!-- A database file previews as the database viewer itself,
@@ -710,7 +756,7 @@
                    preview opens showing the whole picture, and detail is
                    reached without leaving the panel. PDF pages share it. -->
               <components:ZoomableImageView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   Source="{Binding PreviewImage}"
                   IsVisible="{Binding HasImagePreview}" />
 
@@ -736,12 +782,12 @@
                       IsEnabled="{Binding CanTurnPdfPageBack}"
                       ToolTip.Tip="Previous page"
                       AutomationProperties.Name="Previous PDF page">
-                    <icons:SymbolIcon Symbol="ChevronLeft" FontSize="12" />
+                    <icons:SymbolIcon Symbol="ChevronLeft" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                   <controls:LiveRegionTextBlock
                       VerticalAlignment="Center"
                       Classes="Muted"
-                      FontSize="{DynamicResource ShellFontSize10}"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding PdfPageStatus}"
                       AutomationProperties.LiveSetting="Polite" />
                   <Button
@@ -750,7 +796,7 @@
                       IsEnabled="{Binding CanTurnPdfPageForward}"
                       ToolTip.Tip="Next page"
                       AutomationProperties.Name="Next PDF page">
-                    <icons:SymbolIcon Symbol="ChevronRight" FontSize="12" />
+                    <icons:SymbolIcon Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Button>
                 </StackPanel>
               </Border>
@@ -796,19 +842,19 @@
                     Click="OnPreviewDownloadClick"
                     ToolTip.Tip="Download and preview (Space)"
                     AutomationProperties.Name="Download this file and preview it">
-                  <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Eye" FontSize="22" />
+                  <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Eye" FontSize="{DynamicResource ShellIconSizeLg}" />
                 </Button>
                 <TextBlock
                     MaxWidth="260"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewDownloadPromptDetail}"
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Classes="Muted"
-                    FontSize="{DynamicResource ShellFontSize9}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="Press Space to preview" />
               </StackPanel>
 
@@ -823,7 +869,7 @@
           Background="Transparent"
           IsVisible="{Binding ShowNavigationProgress}"
           AutomationProperties.LiveSetting="Polite"
-          AutomationProperties.Name="File Viewer loading folder" />
+          AutomationProperties.Name="Files loading folder" />
       <Rectangle
           x:Name="TransferDropOutline"
           Grid.RowSpan="2"

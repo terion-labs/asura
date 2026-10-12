@@ -1,5 +1,7 @@
+using System.Collections.Specialized;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 
 namespace Asura.App.Controls;
 
@@ -10,18 +12,57 @@ namespace Asura.App.Controls;
 /// so effects may render outside their layout bounds without being clipped by a
 /// <see cref="TextBlock"/>. Controls without a text baseline place their bottom
 /// edge on the line's baseline, matching inline icon behavior.
+///
+/// The line also owns its title's weight. A weight written in the panel
+/// template is a template value, and any route whose styles reached a text
+/// block by class outranked it, so the same header read semibold in one panel
+/// and regular in the next.
 /// </summary>
 public sealed class PanelTitleLine : Panel
 {
     public static readonly StyledProperty<double> SpacingProperty =
         AvaloniaProperty.Register<PanelTitleLine, double>(nameof(Spacing));
 
-    static PanelTitleLine() => AffectsMeasure<PanelTitleLine>(SpacingProperty);
+    public static readonly StyledProperty<FontWeight> TitleWeightProperty =
+        AvaloniaProperty.Register<PanelTitleLine, FontWeight>(
+            nameof(TitleWeight),
+            FontWeight.SemiBold);
+
+    static PanelTitleLine()
+    {
+        AffectsMeasure<PanelTitleLine>(SpacingProperty);
+        TitleWeightProperty.Changed.AddClassHandler<PanelTitleLine>(
+            (line, _) => line.ApplyTitleWeight());
+    }
 
     public double Spacing
     {
         get => GetValue(SpacingProperty);
         set => SetValue(SpacingProperty, value);
+    }
+
+    /// <summary>The weight the title is set in, whatever the route styles.</summary>
+    public FontWeight TitleWeight
+    {
+        get => GetValue(TitleWeightProperty);
+        set => SetValue(TitleWeightProperty, value);
+    }
+
+    protected override void ChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        base.ChildrenChanged(sender, e);
+        ApplyTitleWeight();
+    }
+
+    /// <summary>
+    /// Written as the title's own value, which no style outranks.
+    /// </summary>
+    private void ApplyTitleWeight()
+    {
+        if (Children.Count > 0 && Children[0] is TextBlock title)
+        {
+            title.FontWeight = TitleWeight;
+        }
     }
 
     protected override Size MeasureOverride(Size availableSize)

@@ -1,6 +1,5 @@
 using Asura.App.Controls;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace Asura.App.Views;
@@ -13,7 +12,7 @@ public sealed record GitRemoteEditorResult(string Name, string Url);
 /// The caller supplies the initial values for edit and reads back a result;
 /// the Git-side consequences (rename versus set-url) are the adapter's call.
 /// </summary>
-public sealed partial class GitRemoteEditorDialog : Window
+public sealed partial class GitRemoteEditorDialog : DialogWindow
 {
     public GitRemoteEditorDialog()
     {
@@ -29,7 +28,6 @@ public sealed partial class GitRemoteEditorDialog : Window
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
         ArgumentException.ThrowIfNullOrWhiteSpace(action);
-        Title = title;
         this.FindControl<DialogShell>("Shell")!.Title = title;
         this.FindControl<Button>("ConfirmButton")!.Content = action;
         this.FindControl<TextBox>("NameInput")!.Text = initialName ?? string.Empty;
@@ -53,33 +51,16 @@ public sealed partial class GitRemoteEditorDialog : Window
     {
         _ = sender;
         _ = e;
-        Confirm();
-    }
-
-    private void OnFieldKeyDown(object? sender, KeyEventArgs e)
-    {
-        _ = sender;
-        if (e.Key == Key.Enter)
-        {
-            Confirm();
-            e.Handled = true;
-        }
-        else if (e.Key == Key.Escape)
-        {
-            Close(null);
-            e.Handled = true;
-        }
-    }
-
-    private void Confirm()
-    {
         var name = this.FindControl<TextBox>("NameInput")?.Text?.Trim() ?? string.Empty;
         var url = this.FindControl<TextBox>("UrlInput")?.Text?.Trim() ?? string.Empty;
         if (name.Length == 0 || url.Length == 0)
         {
-            var message = this.FindControl<TextBlock>("ValidationMessage")!;
-            message.Text = name.Length == 0 ? "Enter a remote name." : "Enter a remote URL.";
-            message.IsVisible = true;
+            var shell = this.FindControl<DialogShell>("Shell")!;
+            FieldValidation.Clear(shell);
+            FieldValidation.Show(
+                shell,
+                name.Length == 0 ? "Name" : "Url",
+                name.Length == 0 ? "Enter a name for the remote." : "Enter the remote's URL.");
             return;
         }
 

@@ -83,7 +83,12 @@ internal static class Program
         "settings-networking-editor",
         "settings-workspace-editor-isolated",
         "settings-workspace-editor-networking",
+        "settings-workspace-editor-ai",
         "settings-terminal",
+        "settings-terminal-light",
+        "settings-terminal-high-contrast",
+        "settings-terminal-scale-200",
+        "settings-appearance-scale-250",
         "settings-quick-terminal",
         "settings-keybindings",
         "settings-files",
@@ -97,6 +102,7 @@ internal static class Program
         "overlay-new-panel",
         "overlay-layout-designer",
         "settings-appearance-focused",
+        "settings-appearance-override",
         "design-system",
         "design-system-light",
         "design-system-high-contrast",
@@ -311,6 +317,11 @@ internal sealed class QaApplication : Avalonia.Application
     private static readonly QaDockerEngineClient Docker = new();
     private static readonly QaGitRepositoryClient Git = new();
 
+    /// <summary>The Settings window's size when a route does not ask for more.</summary>
+    private const int SettingsCaptureWidth = 850;
+    private const int SettingsCaptureHeight = 800;
+    private const int DefaultCaptureHeight = 900;
+
     private static readonly RouteCapture[] Routes =
     [
         new("settings-security", vm => vm.ShowSettings(SettingsPage.Secrets)),
@@ -334,18 +345,61 @@ internal sealed class QaApplication : Avalonia.Application
             vm => vm.ShowSettings(SettingsPage.Mcp),
             PrepareCapture: ScrollSettingsToMcp),
         new("settings-secrets", vm => vm.ShowSettings(SettingsPage.Secrets)),
-        new("settings-diagnostics", vm => vm.ShowSettings(SettingsPage.Diagnostics)),
+        // With the page's own sections bound, as the product binds them: the
+        // cache and logs, the crash-recovery runs, and the bundle.
+        new(
+            "settings-diagnostics",
+            vm => vm.ShowSettings(SettingsPage.Diagnostics),
+            PrepareCapture: QaDiagnostics.BindSettingsPage),
+        new(
+            "settings-diagnostics-full",
+            vm => vm.ShowSettings(SettingsPage.Diagnostics),
+            Height: 1500,
+            PrepareCapture: QaDiagnostics.BindSettingsPage),
+        // The grouped form in the appearances it has to survive: light, the
+        // high-contrast plates that gain an edge, and the largest text sizes,
+        // where the sidebar widens and rows grow with their text.
+        new(
+            "settings-terminal-light",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            Theme: new ThemePreference(
+                ThemePreference.Default.Id,
+                ThemePreference.Default.Name,
+                AppearanceMode.Light,
+                PlatformProfile.Automatic,
+                AccentPreference.FollowHost)),
+        new(
+            "settings-terminal-high-contrast",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            HighContrast: true),
+        new(
+            "settings-terminal-scale-200",
+            vm => vm.ShowSettings(SettingsPage.Terminal),
+            Theme: AppearanceScale(2)),
+        new(
+            "settings-appearance-scale-250",
+            vm => vm.ShowSettings(SettingsPage.Appearance),
+            Theme: AppearanceScale(2.5)),
         new("settings-about", vm => vm.ShowSettings(SettingsPage.About)),
+        new("settings-notifications", vm => vm.ShowSettings(SettingsPage.Notifications)),
+        new("settings-git", vm => vm.ShowSettings(SettingsPage.Git)),
+        // About Asura is a small window of its own, opened from the
+        // application menu over the active main window's view model.
+        new(
+            "about-window",
+            vm => vm.ShowWorkspace(),
+            Dialog: static vm => new AboutWindow { DataContext = vm }),
         new("overlay-command-palette", vm =>
         {
             vm.ShowWorkspace();
             vm.ShowOverlay(ShellOverlay.CommandPalette);
         }),
-        new("overlay-new-panel", vm =>
-        {
-            vm.ShowWorkspace();
-            vm.ShowOverlay(ShellOverlay.NewPanel);
-        }),
+        // Add Panel is a popover on the title band's "+" now, opened the way
+        // the menu command opens it.
+        new(
+            "overlay-new-panel",
+            vm => vm.ShowWorkspace(),
+            PrepareCapture: OpenAddPanelPopover),
         // Opened on a real layout: an empty designer hides every defect the
         // populated one would show.
         new("overlay-layout-designer", vm =>
@@ -354,7 +408,9 @@ internal sealed class QaApplication : Avalonia.Application
             vm.BeginEditLayout(new LayoutId("grid-four"));
         }),
         new("workspace", vm => vm.ShowWorkspace()),
-        new("workspace-minimum", vm => vm.ShowWorkspace(), Width: 1080, Height: 680),
+        // The window's own minimum, 640 × 480: the size Split View and tiling
+        // can give it, and the one the layout has to hold together at.
+        new("workspace-minimum", vm => vm.ShowWorkspace(), Width: 640, Height: 480),
         // Every mark at once: a panel that asked, the tab and workspace that
         // inherit it, and the rail showing which workspaces are running.
         new(
@@ -386,7 +442,8 @@ internal sealed class QaApplication : Avalonia.Application
                 vm.ShowWorkspace();
                 Files.PublishSampleTransfer();
             },
-            ClickFirst: "Open transfer manager"),
+            ClickFirst: "Open transfer manager",
+            PrepareCapture: CloseTransferManagerAfterRoute),
         // The agent panel's conversation layout is otherwise unreviewable: the
         // harness has no provider and reaches no endpoint, so every other route
         // can only render the panel's empty state.
@@ -462,7 +519,7 @@ internal sealed class QaApplication : Avalonia.Application
         }, PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = true;
+            ApprovalDetails(approval).IsExpanded = true;
         }),
         new("workspace-agent-approval-light", vm =>
         {
@@ -479,7 +536,7 @@ internal sealed class QaApplication : Avalonia.Application
             PlatformProfile.Automatic, AccentPreference.FollowHost), PrepareCapture: window =>
         {
             var approval = window.GetVisualDescendants().OfType<AgentApprovalCardView>().Single();
-            approval.GetVisualDescendants().OfType<Expander>().Single().IsExpanded = false;
+            ApprovalDetails(approval).IsExpanded = false;
         }),
         new("workspace-agent-capability", vm =>
         {
@@ -535,7 +592,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "YAML / JSON")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Manifest")),
         new("workspace-kubernetes-namespaces", vm =>
         {
             vm.ShowWorkspace();
@@ -551,7 +608,7 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             var panel = AddSampleKubernetesPanel(vm, narrow: false, selected: true, nodes: true);
             panel.ReviewNodeDrainAsync().GetAwaiter().GetResult();
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Node")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Actions")),
         new("workspace-kubernetes-actions", vm =>
         {
             vm.ShowWorkspace();
@@ -570,7 +627,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false, selected: true);
-        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Shell")),
+        }, Width: 1840, Height: 1196, PrepareCapture: window => SelectKubernetesInspectorTab(window, "Actions")),
         new("workspace-kubernetes-logs", vm =>
         {
             vm.ShowWorkspace();
@@ -603,10 +660,14 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleDockerPanel(vm);
         }),
-        new("workspace-docker-stats", vm =>
+        // A volume's Info: its own fields, not a container's.
+        new("workspace-docker-volume-info", vm =>
         {
             vm.ShowWorkspace();
-            AddSampleDockerPanel(vm).SelectDetail(DockerPanelDetail.Stats);
+            var panel = AddSampleDockerPanel(vm);
+            panel.SelectSection(DockerPanelSection.Volumes);
+            panel.SelectedResource = panel.Resources[0];
+            panel.SelectDetail(DockerPanelDetail.Info);
         }),
         new("workspace-docker-logs", vm =>
         {
@@ -774,6 +835,19 @@ internal sealed class QaApplication : Avalonia.Application
             },
             Height: 1500,
             PrepareCapture: ScrollWorkspaceEditorToEnd),
+        // The workspace's own AI configuration with its override on, scrolled
+        // to the section: the rows the override shows, with the capabilities'
+        // Off, Ask, and Auto, are otherwise below every other capture's fold.
+        new(
+            "settings-workspace-editor-ai",
+            vm =>
+            {
+                vm.ShowSettings(SettingsPage.Workspaces);
+                vm.BeginEditWorkspace(new WorkspaceId("operations"));
+                vm.WorkspaceEditor!.AgentPolicy.IsEnabled = true;
+            },
+            Height: 1500,
+            PrepareCapture: ScrollWorkspaceEditorToAi),
         // The two interactions a still capture cannot otherwise reach. Both
         // drive the real controls — the flyout is opened as a click opens it,
         // and the reorder is a genuine press-move-release on the drag handle —
@@ -827,17 +901,25 @@ internal sealed class QaApplication : Avalonia.Application
             PrepareCapture: SelectDataInTheRail),
         // Keyboard focus has its own visuals; capturing it keeps the focus ring
         // reviewable instead of only reachable by hand.
-        new("settings-appearance-focused", vm => vm.ShowSettings(SettingsPage.Appearance), FocusFirst: "Leave settings"),
+        new("settings-appearance-focused", vm => vm.ShowSettings(SettingsPage.Appearance), FocusFirst: "Search settings"),
         // The whole settings-apply-immediately loop, end to end: the click
         // commits the theme, the catalog change re-publishes the resources, and
-        // the capture must visibly densify against plain settings-appearance.
+        // the capture must visibly loosen against plain settings-appearance.
+        // Spacious, because the macOS profile the harness runs under already
+        // arrives compact, and choosing the density on show changed nothing.
         new(
-            "settings-appearance-density-compact",
+            "settings-appearance-density-spacious",
             vm => vm.ShowSettings(SettingsPage.Appearance),
-            ClickFirst: "Compact density"),
+            ClickFirst: "Spacious density"),
         // Long settings pages are also captured whole, so a section below the
         // fold is reviewable without scrolling by hand.
         new("settings-appearance-full", vm => vm.ShowSettings(SettingsPage.Appearance), Height: 2100),
+        // The appearance override open, as a row of the Theme plate: what it
+        // opens on stands unframed under its header.
+        new(
+            "settings-appearance-override",
+            vm => vm.ShowSettings(SettingsPage.Appearance),
+            ClickFirst: "Override system appearance"),
         new("settings-terminal-full", vm => vm.ShowSettings(SettingsPage.Terminal), Height: 1500),
         // The corner and density settings are only worth having if they visibly
         // reshape the interface. Capturing both extremes makes a regression that
@@ -850,19 +932,14 @@ internal sealed class QaApplication : Avalonia.Application
             "appearance-corners-round",
             vm => vm.ShowWorkspace(),
             Theme: AppearanceExtreme(InterfaceDensity.Comfortable)),
-        // The side-docked strip is its own box model — margins, padding, row
-        // metrics all orientation-owned — and it shipped broken twice because
-        // nothing rendered it headlessly.
+        // The tab strip on the side, over the fixture's first tab. The side
+        // strip is a separate tree from the top strip — vertical orientation,
+        // its own icon-picker placement, its own concentric metrics — and
+        // the window reads the placement from the appearance it publishes,
+        // not from the route's resources, so the route publishes it there.
         new(
             "workspace-tabs-side",
-            vm => vm.ShowWorkspace(),
-            Theme: new ThemePreference(
-                ThemePreference.Default.Id,
-                ThemePreference.Default.Name,
-                AppearanceMode.Dark,
-                PlatformProfile.Automatic,
-                AccentPreference.FollowHost,
-                tabStripPlacement: TabStripPlacement.Left)),
+            ShowWorkspaceWithSideTabs),
         // The component gallery at every accessibility-relevant appearance
         // variant. These routes use the product appearance mapper rather than
         // maintaining a harness-only palette or font scale.
@@ -906,8 +983,77 @@ internal sealed class QaApplication : Avalonia.Application
             AccentPreference.FollowHost,
             textScaleOverride: scale);
 
+    /// <summary>
+    /// What a route changed outside the view model's own reset — the main
+    /// window's content, attention marks — is put back before the next
+    /// route, or every later route captures the leftover instead of its own
+    /// surface.
+    /// </summary>
+    private static readonly List<Action> s_undoAfterRoute = [];
+
+    /// <summary>The fixture catalog the window was built over.</summary>
+    private static QaDefinitionCatalog s_catalog = null!;
+
+    private static void ShowWorkspaceWithSideTabs(MainWindowViewModel viewModel)
+    {
+        viewModel.ShowWorkspace();
+        if (viewModel.RuntimeWorkspace is { Tabs: [var first, ..] } workspace)
+        {
+            ActivateTab(workspace, first);
+        }
+
+        // Published to the window's appearance only, never saved: a saved
+        // theme would be re-applied over every later route's own appearance.
+        var appearance = viewModel.AppearanceSettings;
+        var current = appearance.ActiveTheme;
+        var side = new ThemePreference(
+            current.Id,
+            current.Name,
+            current.Appearance,
+            current.PlatformProfile,
+            current.Accent,
+            current.TextScaleOverride,
+            current.Density,
+            current.ShowTabBar,
+            current.ShowWorkspacesPanel,
+            TabStripPlacement.Left,
+            current.WorkspacePanelPlacement,
+            current.IsTranslucent,
+            current.BackdropOpacityPercent,
+            current.HasGlassPanels,
+            current.OverridesBackdropOpacity,
+            current.HasTranslucentTerminal);
+        var snapshot = s_catalog.Snapshot;
+        appearance.ApplyCatalog(snapshot with
+        {
+            Themes =
+            [
+                .. snapshot.Themes.Where(item => item.Value.Id != side.Id),
+                new StoredDefinition<ThemePreference>(side, 1, QaData.Now, QaData.Now),
+            ],
+        });
+        s_undoAfterRoute.Add(() => appearance.ApplyCatalog(s_catalog.Snapshot));
+    }
+
+    private static void UndoRouteSideEffects()
+    {
+        for (var index = s_undoAfterRoute.Count - 1; index >= 0; index--)
+        {
+            s_undoAfterRoute[index]();
+        }
+
+        s_undoAfterRoute.Clear();
+        Dispatcher.UIThread.RunJobs();
+    }
+
     private static void PrepareBrowserHeader(Window window, double width, bool open)
     {
+        var content = window.Content;
+        s_undoAfterRoute.Add(() =>
+        {
+            window.Content = content;
+            window.UpdateLayout();
+        });
         // Exercise the real controls without starting a renderer or visiting a site.
         var browser = new Asura.App.Views.RuntimePanels.BrowserRuntimePanelView
         {
@@ -925,19 +1071,59 @@ internal sealed class QaApplication : Avalonia.Application
         }
     }
 
+    /// <summary>
+    /// The transfer manager is a card the button shows in the workspace, not
+    /// a flyout the route sweep closes, so the route that opened it closes it.
+    /// </summary>
+    private static void CloseTransferManagerAfterRoute(MainWindow window)
+    {
+        var manager = window.GetVisualDescendants()
+            .OfType<Control>()
+            .FirstOrDefault(control => string.Equals(control.Name, "FileTransferManager", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("The transfer manager is not in the workspace.");
+        if (!manager.IsVisible)
+        {
+            throw new InvalidOperationException("The transfer manager did not open.");
+        }
+
+        s_undoAfterRoute.Add(() => manager.IsVisible = false);
+    }
+
+    private static void OpenAddPanelPopover(MainWindow window)
+    {
+        _ = window.ShowNewPanelChooserAsync();
+        Dispatcher.UIThread.RunJobs();
+        if (!window.IsAddPanelChooserOpen)
+        {
+            throw new InvalidOperationException("The Add Panel popover did not open.");
+        }
+
+        s_undoAfterRoute.Add(() =>
+            (typeof(MainWindow)
+                .GetField("_addPanelFlyout", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(window) as Flyout)
+            ?.Hide());
+    }
+
     private static void ShowSampleDragGhost(MainWindow window)
     {
         var payloadType = typeof(MainWindow).Assembly.GetType(
             "Asura.App.Views.Components.DragGhostPayload",
             throwOnError: true)!;
         var constructor = AssertSingle(payloadType.GetConstructors());
-        var symbolType = constructor.GetParameters()[0].ParameterType;
-        var payload = constructor.Invoke(
+        var parameters = constructor.GetParameters();
+        var symbolType = parameters[0].ParameterType;
+        object?[] arguments =
         [
             Enum.Parse(symbolType, "Document"),
             "Archive.zip",
             "Copy from dev.terion.pro",
-        ]);
+        ];
+
+        // Reflection does not supply optional arguments, so trailing optional
+        // parameters (such as the system file icon) take their declared defaults.
+        var payload = constructor.Invoke(
+            [.. arguments, .. parameters.Skip(arguments.Length).Select(parameter => parameter.DefaultValue)]);
         var show = typeof(MainWindow).GetMethod(
             "ShowDragGhost",
             BindingFlags.Instance | BindingFlags.NonPublic)
@@ -962,21 +1148,43 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static void ScrollSettingsToMcp(MainWindow window)
     {
-        var section = window.GetVisualDescendants()
+        Window root = (Window?)SettingsWindow.Current ?? window;
+        var section = root.GetVisualDescendants()
             .OfType<Control>()
             .First(control => string.Equals(control.Name, "McpSettingsSection", StringComparison.Ordinal));
         var scroll = section.GetVisualAncestors().OfType<ScrollViewer>().First();
         scroll.Offset = new Vector(0, section.TranslatePoint(new Point(0, 0), scroll)!.Value.Y + scroll.Offset.Y);
     }
 
+    /// <summary>The workspace editor's own window, where its controls are.</summary>
+    private static Window WorkspaceEditorWindowOf(MainWindow window) =>
+        window.OpenWorkspaceEditorWindow
+        ?? throw new InvalidOperationException("The route wanted the workspace editor's window, which is not open.");
+
     private static void ScrollWorkspaceEditorToEnd(MainWindow window)
     {
-        var editor = window.GetVisualDescendants()
+        var editor = WorkspaceEditorWindowOf(window).GetVisualDescendants()
             .OfType<WorkspaceEditorView>()
             .First();
         // The detail column's own scroller, by name: the rail's list scrolls
         // too, and it comes first in the tree.
         editor.FindControl<ScrollViewer>("DetailScroll")!.ScrollToEnd();
+    }
+
+    private static void ScrollWorkspaceEditorToAi(MainWindow window)
+    {
+        var editor = WorkspaceEditorWindowOf(window).GetVisualDescendants()
+            .OfType<WorkspaceEditorView>()
+            .First();
+        var scroll = editor.FindControl<ScrollViewer>("DetailScroll")!;
+        var section = editor.GetVisualDescendants()
+            .OfType<SettingsGroup>()
+            .First(group => string.Equals(group.Heading, "AI configuration", StringComparison.Ordinal));
+        scroll.UpdateLayout();
+        if (section.TranslatePoint(default, scroll) is { } top)
+        {
+            scroll.Offset = new Vector(0, Math.Max(0, scroll.Offset.Y + top.Y - 24));
+        }
     }
 
     private static Window OpenNetworkConnectionEditor(MainWindowViewModel viewModel)
@@ -1006,8 +1214,9 @@ internal sealed class QaApplication : Avalonia.Application
     /// capture shows the result of the reorder rather than a list that merely
     /// draws a handle.
     /// </summary>
-    private static void DragLastTabToTop(MainWindow window)
+    private static void DragLastTabToTop(MainWindow mainWindow)
     {
+        var window = WorkspaceEditorWindowOf(mainWindow);
         var handles = window.GetVisualDescendants()
             .OfType<Control>()
             .Where(control => string.Equals(
@@ -1042,7 +1251,7 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static void SelectDataInTheRail(MainWindow window)
     {
-        var rail = window.GetVisualDescendants()
+        var rail = WorkspaceEditorWindowOf(window).GetVisualDescendants()
             .OfType<ListBox>()
             .FirstOrDefault(list => string.Equals(list.Name, "PeerList", StringComparison.Ordinal))
             ?? throw new InvalidOperationException("The workspace editor has no rail.");
@@ -1053,7 +1262,7 @@ internal sealed class QaApplication : Avalonia.Application
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static Point CenterInWindow(Control control, MainWindow window) =>
+    private static Point CenterInWindow(Control control, Window window) =>
         control.TranslatePoint(
             new Point(control.Bounds.Width / 2, control.Bounds.Height / 2),
             window)
@@ -1090,6 +1299,28 @@ internal sealed class QaApplication : Avalonia.Application
             .FirstOrDefault()
             ?? throw new InvalidOperationException(
                 "The attention route needs a panel to mark.");
+        var panelAttention = visiblePanel.HasAttention;
+        var tabAttention = workspace.Tabs.Select(tab => (tab, tab.HasAttention)).ToArray();
+        var workspaceAttention = workspace.HasAttention;
+        var railState = viewModel.Workspaces
+            .Select(item => (item, item.HasAttention, item.IsOpen, item.IsInFront))
+            .ToArray();
+        s_undoAfterRoute.Add(() =>
+        {
+            visiblePanel.HasAttention = panelAttention;
+            foreach (var (tab, attention) in tabAttention)
+            {
+                tab.HasAttention = attention;
+            }
+
+            workspace.HasAttention = workspaceAttention;
+            foreach (var (item, attention, isOpen, isInFront) in railState)
+            {
+                item.HasAttention = attention;
+                item.IsOpen = isOpen;
+                item.IsInFront = isInFront;
+            }
+        });
         visiblePanel.HasAttention = true;
         foreach (var candidate in workspace.Tabs)
         {
@@ -1102,9 +1333,19 @@ internal sealed class QaApplication : Avalonia.Application
         {
             item.HasAttention = true;
             item.IsOpen = true;
-            item.IsInFront = item == viewModel.Workspaces[0];
+            item.IsInFront = item.Id == QaRuntimeWorkspaceDefinition.Id;
         }
     }
+
+    /// <summary>
+    /// The approval card's Details disclosure. Technical Details is a second
+    /// disclosure inside it, so the card holds more than one once Details has
+    /// been opened.
+    /// </summary>
+    private static Expander ApprovalDetails(AgentApprovalCardView approval) =>
+        approval.GetVisualDescendants()
+            .OfType<Expander>()
+            .Single(expander => Equals(expander.Header, "Details"));
 
     /// <summary>
     /// Opens the close action on the first rail tile that offers one.
@@ -1193,12 +1434,12 @@ internal sealed class QaApplication : Avalonia.Application
             workspace.HasAttention = false;
         }
 
-        for (var index = 0; index < viewModel.Workspaces.Count; index++)
+        foreach (var item in viewModel.Workspaces)
         {
-            var item = viewModel.Workspaces[index];
+            var isRuntimeWorkspace = item.Id == QaRuntimeWorkspaceDefinition.Id;
             item.HasAttention = false;
-            item.IsOpen = index == 0;
-            item.IsInFront = index == 0;
+            item.IsOpen = isRuntimeWorkspace;
+            item.IsInFront = isRuntimeWorkspace;
         }
     }
 
@@ -1254,6 +1495,7 @@ internal sealed class QaApplication : Avalonia.Application
                 "Avalonia no longer exposes the protected pseudo-class collection used by QA.");
 
         pseudoClasses.Add(":pointerover");
+        s_undoAfterRoute.Add(() => pseudoClasses.Remove(":pointerover"));
     }
 
     private static T AssertSingle<T>(IReadOnlyList<T> values) =>
@@ -1375,8 +1617,10 @@ internal sealed class QaApplication : Avalonia.Application
     /// </summary>
     private static readonly (string Name, Func<Window> Create, ThemePreference? Theme)[] Dialogs =
     [
-        ("git-workflow", () => new GitWorkflowDialog("Push repository", "Review the source and destination branches.",
-            [new("remote", "Remote", "origin"), new("source", "Source branch", "feature/parity"), new("destination", "Destination branch", "feature/parity")]), null),
+        ("git-workflow", () => new GitWorkflowDialog(new GitWorkflowForm("Push Branch", "Review the source and destination branches.",
+            new GitWorkflowAction("Push"),
+            [new("remote", "Remote", "origin"), new("source", "Source branch", "feature/parity"), new("destination", "Destination branch", "feature/parity"),
+                GitWorkflowField.CheckBox("tags", "Push tags too", false)])), null),
         ("git-conflict", () => new GitConflictDialog(new Asura.Git.GitConflictContent("src/service.cs", "return original;\n", "return current;\n", "return incoming;\n", false)), null),
         ("git-rebase", () => new GitRebaseDialog("main", [new("1111111111111111111111111111111111111111", "Add workflow", Asura.Git.GitRebaseAction.Pick, "Add workflow\n\nRetain a detailed message."),
             new("2222222222222222222222222222222222222222", "Polish workflow", Asura.Git.GitRebaseAction.Fixup)]), null),
@@ -1392,33 +1636,30 @@ internal sealed class QaApplication : Avalonia.Application
         ("rail-tiles-2x", CreateRailTileProbe, null),
         // The lock screen as a person meets it: the veil, the PIN box, and a
         // refusal message, over a stub gate that is locked and metering.
-        ("shell-locked", () => new Window
+        // A wrong PIN is tried before the capture, so the refusal it promises
+        // is on screen; the window's tag is that attempt.
+        ("shell-locked", () =>
         {
-            Width = 900,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.Components.ShellLockView
+            var security = new Asura.App.ViewModels.ApplicationSecurityEditorViewModel(
+                encryption: null,
+                protection: new QaLockedProtection(),
+                biometrics: new QaBiometrics())
             {
-                DataContext = new Asura.App.ViewModels.ApplicationSecurityEditorViewModel(
-                    encryption: null,
-                    protection: new QaLockedProtection(),
-                    biometrics: new QaBiometrics()),
-            },
+                UnlockPin = "0000",
+            };
+            return new Window
+            {
+                Width = 900,
+                Height = 620,
+                CanResize = false,
+                ShowInTaskbar = false,
+                Content = new Asura.App.Views.Components.ShellLockView { DataContext = security },
+                Tag = security.TryUnlockAsync(),
+            };
         }, null),
         // The statistics panel at a split-panel width, so the stat-card wrap is
         // reviewable at the size that used to clip every value.
-        ("stats-narrow", () => new Window
-        {
-            Width = 330,
-            Height = 940,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView
-            {
-                DataContext = new QaStatisticsPreview(),
-            },
-        }, null),
+        ("stats-narrow", () => MonitorWindow(QaMonitorPanels.Statistics(), 330, 940), null),
         // Space must reach the panel even though a ListBox treats it as a
         // selection key. The route raises a real tunneled key event through a
         // real control tree and captures what the panel did with it.
@@ -1437,6 +1678,8 @@ internal sealed class QaApplication : Avalonia.Application
             Content = new Border
             {
                 Classes = { "FloatingSidebar" },
+                // The inset every other preview route gives its content.
+                Padding = new Thickness(12),
                 Child = new Asura.App.Views.Components.MarkdownPreviewView
                 {
                     Text = QaData.SampleMarkdown,
@@ -1546,11 +1789,15 @@ internal sealed class QaApplication : Avalonia.Application
                             {
                                 Text = $"{decoded.FormatName} · {decoded.Width}×{decoded.Height}",
                             },
+                            // Shrunk to fit, never enlarged: the preview shows
+                            // a small image at its own size, as the panel does.
                             new Image
                             {
                                 Source = new Avalonia.Media.Imaging.Bitmap(stream),
                                 Stretch = Stretch.Uniform,
-                                Height = 220,
+                                StretchDirection = StretchDirection.DownOnly,
+                                MaxHeight = 220,
+                                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
                             },
                         },
                     },
@@ -1559,68 +1806,23 @@ internal sealed class QaApplication : Avalonia.Application
         }, null),
         // The database viewer opened on a real SQLite file through the shared
         // workspace component — the same one the file preview embeds.
-        ("database-preview", () =>
-        {
-            var viewer = new DatabaseRuntimePanelViewModel(
-                PanelInstanceId.New(),
-                "probe.db",
-                new Asura.Databases.DatabasePanelClient(),
-                "sqlite",
-                Program.SqliteProbePath);
-            _ = viewer.ConnectAsync();
-            return new Window
-            {
-                Width = 820,
-                Height = 460,
-                CanResize = false,
-                ShowInTaskbar = false,
-                Content = new Border
-                {
-                    Classes = { "FloatingSidebar" },
-                    Child = new Asura.App.Views.Components.DatabaseWorkspaceView
-                    {
-                        DataContext = viewer,
-                    },
-                },
-            };
-        }, null),
+        ("database-preview", () => CreateSqliteProbeWindow(820, 460), null),
         // And narrow, where the objects list folds into a picker beside the
         // statement editor rather than squeezing the results.
-        ("database-preview-narrow", () =>
-        {
-            var viewer = new DatabaseRuntimePanelViewModel(
-                PanelInstanceId.New(),
-                "probe.db",
-                new Asura.Databases.DatabasePanelClient(),
-                "sqlite",
-                Program.SqliteProbePath);
-            _ = viewer.ConnectAsync();
-            return new Window
-            {
-                Width = 340,
-                Height = 460,
-                CanResize = false,
-                ShowInTaskbar = false,
-                Content = new Border
-                {
-                    Classes = { "FloatingSidebar" },
-                    Child = new Asura.App.Views.Components.DatabaseWorkspaceView
-                    {
-                        DataContext = viewer,
-                    },
-                },
-            };
-        }, null),
+        ("database-preview-narrow", () => CreateSqliteProbeWindow(340, 460), null),
         // The real database grid context menu, opened over a real SQLite value
         // and rendered at Retina density so its item rhythm and nested-menu
         // affordances can be compared to the supplied reference without a
         // desktop screenshot permission.
         ("database-context-menu-2x", CreateDatabaseContextMenuProbe, null),
         // The same real database grid in the three states fixed by the latest
-        // interaction pass: a compact Quick Look, an explicit descending
+        // interaction pass: a compact cell editor, an explicit descending
         // server sort, and a context menu opened after running an edited raw
         // query whose complete base-table provenance keeps mutations safe.
-        ("database-quick-look-compact-2x", CreateDatabaseQuickLookCompactProbe, null),
+        ("database-cell-editor-compact-2x", CreateDatabaseCellEditorCompactProbe, null),
+        // The narrowest editor the product allows: a 720-point panel beside
+        // the row inspector, where the actions stack at the editor's width.
+        ("database-cell-editor-stacked-2x", CreateDatabaseCellEditorStackedProbe, null),
         // Editing a prose-sized cell grows the expanded editor beside it; the
         // probe proves the popup opens on the real edit path and holds focus.
         ("database-cell-expand-editor-2x", CreateDatabaseCellExpandProbe, null),
@@ -1647,6 +1849,7 @@ internal sealed class QaApplication : Avalonia.Application
             var host = new Border
             {
                 Classes = { "FloatingSidebar" },
+                Padding = new Thickness(12),
                 Width = 700,
                 Child = view,
             };
@@ -1862,9 +2065,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 + $"({rows.Rows.Count} rows)");
 
             var listWatch = System.Diagnostics.Stopwatch.StartNew();
+            // The view binds to the panel's hex view model, not to the
+            // rendering: handed the rendering, every binding missed and the
+            // final capture was blank. Its rows arrive a batch at a time; the
+            // capture waits for the last of them.
+            var hex = new PreviewHexViewModel(rows);
+            window.Tag = hex.FillAsync(CancellationToken.None);
             var list = new Asura.App.Views.Components.HexPreviewView
             {
-                DataContext = rows,
+                DataContext = hex,
             };
             window.Content = list;
             window.UpdateLayout();
@@ -2065,66 +2274,48 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }, null),
         // A hex dump must not wrap: the rows are a fixed-width grid, and a
         // folded row stops lining up with the ones above it.
-        ("hex-preview", () => new Window
+        // The Files panel's own hex view, its rows filled before the capture.
+        ("hex-preview", () =>
         {
-            Width = 560,
-            Height = 260,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(12),
-                Child = new Asura.App.Views.Components.CodePreviewView
-                {
-                    FileName = "payload.bin",
-                    WordWrap = false,
-                    Text = Asura.Application.Previews.PreviewText.Hex(
-                        Enumerable.Range(0, 96).Select(value => (byte)value).ToArray(),
-                        providerTruncated: false),
-                },
-            },
+            var hex = new PreviewHexViewModel(
+                Asura.Application.Previews.PreviewText.HexRows(
+                    Enumerable.Range(0, 96).Select(value => (byte)value).ToArray(),
+                    providerTruncated: false));
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.HexPreviewView { DataContext = hex },
+                hex.FillAsync(CancellationToken.None),
+                560,
+                260,
+                padding: 12);
         }, null),
         // A delimited file as the table it describes.
-        ("csv-preview", () => new Window
+        ("csv-preview", () =>
         {
-            Width = 620,
-            Height = 320,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(8),
-                Child = new Asura.App.Views.Components.PreviewTableView
-                {
-                    DataContext = new PreviewTableViewModel(
-                        (TablePreviewRendering)new FilePreviewCatalog().Create(
-                            new FilePreviewSource(
-                                "deployments.csv",
-                                FilePanelPreviewKind.Text,
-                                "text/plain",
-                                System.Text.Encoding.UTF8.GetBytes(QaData.SampleCsv),
-                                IsTruncated: false)).Rendering),
-                },
-            },
+            var table = new PreviewTableViewModel(
+                (TablePreviewRendering)new FilePreviewCatalog().Create(
+                    new FilePreviewSource(
+                        "deployments.csv",
+                        FilePanelPreviewKind.Text,
+                        "text/plain",
+                        System.Text.Encoding.UTF8.GetBytes(QaData.SampleCsv),
+                        IsTruncated: false)).Rendering);
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.PreviewTableView { DataContext = table },
+                table.FillAsync(CancellationToken.None),
+                620,
+                320,
+                padding: 8);
         }, null),
         // An archive listed rather than unpacked.
-        ("archive-preview", () => new Window
+        ("archive-preview", () =>
         {
-            Width = 460,
-            Height = 380,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Border
-            {
-                Classes = { "FloatingSidebar" },
-                Padding = new Thickness(8),
-                Child = new Asura.App.Views.Components.PreviewTreeView
-                {
-                    DataContext = CreateArchiveListing(),
-                },
-            },
+            var listing = CreateArchiveListing();
+            return FilledPreviewWindow(
+                new Asura.App.Views.Components.PreviewTreeView { DataContext = listing },
+                listing.FillAsync(CancellationToken.None),
+                460,
+                380,
+                padding: 8);
         }, null),
         ("code-preview-wrap", () => new Window
         {
@@ -2154,6 +2345,8 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             Content = new Border
             {
                 Classes = { "FloatingSidebar" },
+                // The inset every other preview route gives its content.
+                Padding = new Thickness(12),
                 Child = new Asura.App.Views.Components.MarkdownPreviewView
                 {
                     Text = QaData.MarkdownWithLongFence,
@@ -2179,41 +2372,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }, null),
         // The process monitor at both widths: wide proves the name column trims
         // instead of overlapping CPU, narrow proves the Started column folds.
-        ("procs-wide", () => new Window
-        {
-            Width = 900,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView
-            {
-                DataContext = new QaProcessMonitorPreview(),
-            },
-        }, null),
-        ("procs-narrow", () => new Window
-        {
-            Width = 430,
-            Height = 620,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView
-            {
-                DataContext = new QaProcessMonitorPreview(),
-            },
-        }, null),
+        ("procs-wide", () => MonitorWindow(QaMonitorPanels.Processes(), 900, 620), null),
+        ("procs-narrow", () => MonitorWindow(QaMonitorPanels.Processes(), 430, 620), null),
         // And wide, where the two-column cap keeps the cards sharing the full
         // width instead of packing at minimum width in a corner.
-        ("stats-wide", () => new Window
-        {
-            Width = 1100,
-            Height = 720,
-            CanResize = false,
-            ShowInTaskbar = false,
-            Content = new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView
-            {
-                DataContext = new QaStatisticsPreview(),
-            },
-        }, null),
+        ("stats-wide", () => MonitorWindow(QaMonitorPanels.Statistics(), 1100, 720), null),
         // The same chooser the placeholder panel embeds, at a split-panel width,
         // so the adaptive tile grid is reviewable at the size that used to crush
         // its labels to one letter.
@@ -2237,10 +2400,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         {
             DataContext = CreateViewModel().Launcher,
         }, null),
-        ("dialog-connection-secret", () => new ConnectionSecretEditorDialog(
-            new ConnectionSecretEditorViewModel(new MemoryOnlySecretVault(),
-                new SecretScope(SecretScopeKind.Connection, "qa-connection"),
-                SecretKind.Password, "Production SSH password")), null),
         ("dialog-connection-password", () =>
         {
             var editor = CreateQaConnectionEditor();
@@ -2329,8 +2488,38 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             // The harness never persists; capture is presentation only.
             static (_, _) => throw new NotSupportedException(
                 "The design QA harness does not save definitions.")), null),
+        // The shortcut recorder as it opens, and after a chord macOS keeps for
+        // itself, so the reserved-shortcut warning is reviewable in place.
+        ("dialog-shortcut-recorder", QaReviewDialogs.ShortcutRecorderIdle, null),
+        ("dialog-shortcut-recorder-reserved", QaReviewDialogs.ShortcutRecorderReserved, null),
+        // A first-seen host key answers Return with Trust; a changed key is
+        // destructive and answers Return with nothing.
+        ("dialog-ssh-host-key-first-seen", QaReviewDialogs.SshHostKeyFirstSeen, null),
+        ("dialog-ssh-host-key-changed", QaReviewDialogs.SshHostKeyChanged, null),
+        ("dialog-secret-editor-new", QaReviewDialogs.SecretEditorNew, null),
+        ("dialog-secret-editor-existing", QaReviewDialogs.SecretEditorExisting, null),
         // The design system itself, so a changed radius, gap, or tone shows up as a
         // diff in one image rather than as drift discovered later in a screenshot.
+        // The terminal's find bar mid-search and its copy-mode hint, drawn by
+        // the real overlay over the real surface; only the session is absent.
+        ("terminal-find-bar", static () => QaTerminalProbe.Create(async (surface, overlay) =>
+        {
+            if (!await surface.BeginFindAsync())
+            {
+                throw new InvalidOperationException("The terminal find bar did not open.");
+            }
+
+            // Typed into the field, as a person types, so the query shows
+            // in it and the match count follows from the surface. Matches
+            // are not highlighted here: see QaTerminalInputSink for why.
+            overlay.FindField.Text = "error";
+            await Task.Delay(120);
+        }), null),
+        ("terminal-copy-mode", static () => QaTerminalProbe.Create((surface, _) =>
+        {
+            surface.IsCopyMode = true;
+            return Task.CompletedTask;
+        }), null),
         ("design-system", static () => new DesignSystemGalleryWindow(), null),
         ("dialog-definition-delete", () => Confirmations.DefinitionDelete(
             "connection",
@@ -2433,8 +2622,10 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         var mapper = appAssembly.GetType(
                 "Asura.App.EffectiveAppearanceResourceMapper",
                 throwOnError: true)!;
+        // Named by its parameter: the mapper also has an overload that takes
+        // the host's semantic colors, and a bare name is ambiguous.
         var mapped = mapper
-            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static)!
+            .GetMethod("Map", BindingFlags.Public | BindingFlags.Static, [effectiveTheme.GetType()])!
             .Invoke(null, [effectiveTheme]);
 
         typeof(Asura.App.App)
@@ -2469,12 +2660,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             WindowStartupLocation = WindowStartupLocation.Manual,
             Position = new PixelPoint(40, 40),
         };
-        window.DataTemplates.Add(
-            new FuncDataTemplate<WebsiteMonitoringRuntimePanelViewModel>(
-                static (panel, _) => new WebsiteMonitoringRuntimePanelView
-                {
-                    DataContext = panel,
-                }));
         if (Program.IsWebsiteExport)
         {
             WebsiteScreenshotExport.PrepareWindow(window);
@@ -2487,6 +2672,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>
+    /// The saved workspace the harness's one runtime workspace was opened
+    /// from: Operations, whose title and colour it carries.
+    /// </summary>
+    private static WorkspaceDefinition QaRuntimeWorkspaceDefinition =>
+        QaData.Workspaces
+            .Select(stored => stored.Value)
+            .Single(workspace => string.Equals(workspace.Id.Value, "operations", StringComparison.Ordinal));
+
     private static MainWindowViewModel CreateViewModel()
     {
         var catalog = Program.IsWebsiteExport
@@ -2494,6 +2688,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 WebsiteScreenshotExport.NormalizeSnapshot(QaData.Snapshot),
                 WebsiteScreenshotExport.NormalizeTheme)
             : new QaDefinitionCatalog(QaData.Snapshot);
+        s_catalog = catalog;
         // The product republishes the appearance whenever the catalog changes;
         // mirroring that here makes "settings apply immediately" capturable.
         catalog.Changed += (_, _) =>
@@ -2592,6 +2787,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         _ = workspace.Tabs[0].ActivatePanel(panels[0].Id);
         workspace.Tabs[0].NotifyPanelLayoutChanged();
+        // A tab always holds a panel in the product, and the host graph a
+        // focus change sends refuses one that does not; the background tabs
+        // hold the empty panel a new tab starts with.
+        foreach (var background in workspace.Tabs.Skip(1))
+        {
+            background.AddPanel(new PanelPlaceholderViewModel(
+                new PanelInstanceId($"{background.Id.Value}-placeholder")));
+        }
+
         workspace.Tabs[0].IsActive = true;
         // The active tab is what the canvas presents, and its setter is internal.
         typeof(RuntimeWorkspaceViewModel)
@@ -2608,6 +2812,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 .GetField("_openWorkspaces", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(viewModel)!;
         openWorkspaces.Add(workspace);
+        // And the definition it was opened from, as the product records when
+        // it opens one: the rail decides which tile is open and in front from
+        // that record every time it refreshes, so without it the tile set by
+        // hand went back to idle on the first refresh and no capture showed a
+        // current workspace.
+        var runtimeSources = (System.Collections.IDictionary)typeof(MainWindowViewModel)
+            .GetField("_runtimeSources", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(viewModel)!;
+        runtimeSources[workspace.Id] = new RuntimeHistorySource(
+            QaRuntimeWorkspaceDefinition.Key,
+            QaRuntimeWorkspaceDefinition.Name);
         workspace.GetType()
             .GetProperty("IsCanvasShown")!
             .GetSetMethod(nonPublic: true)!
@@ -2746,12 +2961,12 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         if (viewModel.RuntimeWorkspace is not { } workspace)
         {
             throw new InvalidOperationException(
-                "The File Viewer route needs a runtime workspace.");
+                "The Files route needs a runtime workspace.");
         }
 
         var tab = new RuntimeTabViewModel(
             new TabInstanceId("qa-tab-file-viewer"),
-            "File Viewer",
+            "Files",
             "Local");
         var panel = CreateSampleFilePanel();
         tab.AddPanel(panel);
@@ -2806,11 +3021,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             new TabInstanceId("qa-tab-statistics"),
             "Statistics",
             "Local");
-        var panel = new WebsiteMonitoringRuntimePanelViewModel(
-            new PanelInstanceId("qa-panel-statistics"),
-            PanelKind.Statistics,
-            "Statistics",
-            "Statistics");
+        var (panel, _) = QaMonitorPanels.Statistics(new PanelInstanceId("qa-panel-statistics"));
         tab.AddPanel(panel);
         _ = tab.ActivatePanel(panel.Id);
         tab.NotifyPanelLayoutChanged();
@@ -2823,18 +3034,14 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         if (viewModel.RuntimeWorkspace is not { } workspace)
         {
             throw new InvalidOperationException(
-                "The Process Monitor route needs a runtime workspace.");
+                "The Processes route needs a runtime workspace.");
         }
 
         var tab = new RuntimeTabViewModel(
             new TabInstanceId("qa-tab-process-monitor"),
-            "Process Monitor",
+            "Processes",
             "Local");
-        var panel = new WebsiteMonitoringRuntimePanelViewModel(
-            new PanelInstanceId("qa-panel-process-monitor"),
-            PanelKind.ProcessMonitor,
-            "Process Monitor",
-            "Process monitor");
+        var (panel, _) = QaMonitorPanels.Processes(new PanelInstanceId("qa-panel-process-monitor"));
         tab.AddPanel(panel);
         _ = tab.ActivatePanel(panel.Id);
         tab.NotifyPanelLayoutChanged();
@@ -2942,9 +3149,16 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             .GetSetMethod(nonPublic: true)!
             .Invoke(workspace, [tab]);
 
-        return tab.ActivePanel as DockerRuntimePanelViewModel
+        var docker = tab.ActivePanel as DockerRuntimePanelViewModel
             ?? throw new InvalidOperationException(
                 "The Docker route did not activate its Docker panel.");
+
+        // Routes share one panel, so each starts from the same place: the
+        // first container's Info, whatever section the previous route left.
+        docker.SelectSection(DockerPanelSection.Containers);
+        docker.SelectedResource = docker.Resources.FirstOrDefault();
+        docker.SelectDetail(DockerPanelDetail.Info);
+        return docker;
     }
 
     private static GitRuntimePanelViewModel AddSampleGitPanel(
@@ -3013,26 +3227,38 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
     }
 
-    private static void SelectKubernetesInspectorTab(MainWindow window, string header)
+    // The inspector's views are a segmented control over a headless tab
+    // host, so a capture chooses the segment, as a person would.
+    private static void SelectKubernetesInspectorTab(MainWindow window, string view) =>
+        SelectSegment(window, "InspectorSegments", view);
+
+    private static void SelectSegment(MainWindow window, string controlName, string segment)
     {
-        var inspector = window.GetVisualDescendants().OfType<TabControl>()
-            .Single(control => string.Equals(control.Name, "InspectorTabs", StringComparison.Ordinal));
-        inspector.SelectedItem = inspector.Items.OfType<TabItem>()
-            .Single(tab => string.Equals(tab.Header as string, header, StringComparison.Ordinal));
+        var segments = window.GetVisualDescendants().OfType<SegmentedControl>()
+            .SingleOrDefault(control => string.Equals(control.Name, controlName, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException(
+                $"The route wanted the '{controlName}' segmented control, which is not in the tree.");
+        var index = segments.Items.OfType<RadioButton>().ToList()
+            .FindIndex(item => string.Equals(AutomationProperties.GetName(item), segment, StringComparison.Ordinal));
+        if (index < 0)
+        {
+            throw new InvalidOperationException(
+                $"The '{controlName}' segmented control has no '{segment}' segment.");
+        }
+
+        segments.SelectedIndex = index;
     }
 
     private static void ShowKubernetesHelm(MainWindow window) =>
         window.GetVisualDescendants().OfType<Button>()
-            .Single(button => string.Equals(AutomationProperties.GetName(button), "Helm releases", StringComparison.Ordinal))
+            .Single(button => string.Equals(AutomationProperties.GetName(button), "Helm Releases", StringComparison.Ordinal))
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
     private static void ShowKubernetesHelmChange(MainWindow window)
     {
         ShowKubernetesHelm(window);
         Dispatcher.UIThread.RunJobs();
-        var change = window.GetVisualDescendants().OfType<TabItem>()
-            .Single(tab => string.Equals(tab.Header as string, "Change release", StringComparison.Ordinal));
-        change.IsSelected = true;
+        SelectSegment(window, "HelmViewSegments", "Change Release");
     }
 
     private static void OpenKubernetesNamespaceSelector(MainWindow window)
@@ -3074,7 +3300,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 StringComparison.Ordinal)) is not { } notes)
         {
             throw new InvalidOperationException(
-                "The File Viewer route could not select its sample document.");
+                "The Files route could not select its sample document.");
         }
 
         panel.SelectedEntry = notes;
@@ -3225,15 +3451,40 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 viewer.SelectRow(viewer.ResultRows[0]);
                 var field = viewer.SelectedRowFields.Single(candidate =>
                     string.Equals(candidate.Name, "service", StringComparison.Ordinal));
-                field.BeginEdit();
-                field.Draft = "checkout-web-eu — renamed through the inspector "
-                    + "draft, applied with Cmd+Enter.";
                 Dispatcher.UIThread.RunJobs();
                 window.UpdateLayout();
-                if (!field.IsEditing)
+                // Through the field's own Edit button, as a person starts it:
+                // that is what hands the draft focus, and with it the ring
+                // this capture is here to show.
+                var edit = window.GetVisualDescendants()
+                    .OfType<Button>()
+                    .Single(candidate => string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        "Edit service",
+                        StringComparison.Ordinal));
+                edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                for (var attempt = 0; attempt < 50 && !field.IsEditing; attempt++)
+                {
+                    await Task.Delay(20);
+                    Dispatcher.UIThread.RunJobs();
+                }
+
+                field.Draft = "checkout-web-eu — renamed through the inspector "
+                    + "draft, applied with Cmd+Enter.";
+                await Task.Delay(40);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                var draft = window.GetVisualDescendants()
+                    .OfType<Panel>()
+                    .SingleOrDefault(candidate => candidate.Classes.Contains("InspectorDraft")
+                        && candidate.IsEffectivelyVisible);
+                if (!field.IsEditing
+                    || draft is null
+                    || TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Visual focused
+                    || !focused.GetVisualAncestors().Contains(draft))
                 {
                     throw new InvalidOperationException(
-                        "The inspector field did not enter its editing state.");
+                        "The inspector field did not enter its editing state with its draft focused.");
                 }
             });
 
@@ -3269,9 +3520,22 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 window.UpdateLayout();
             });
 
-    private static Window CreateDatabaseQuickLookCompactProbe() =>
+    // The editor is as wide as the grid it edits, up to its designed width.
+    // At 920 points the grid beside the row inspector gives it the compact
+    // width a narrow panel really has, under the designed width, with Cancel
+    // and Apply on one line.
+    private static Window CreateDatabaseCellEditorCompactProbe() =>
+        CreateDatabaseCellEditorProbe(width: 920, stacked: false);
+
+    // At 720 points, a window the product allows, the grid beside the row
+    // inspector is about 160 points wide. The editor follows it, and its
+    // actions stack at its full width, Apply first, as a narrow alert does.
+    private static Window CreateDatabaseCellEditorStackedProbe() =>
+        CreateDatabaseCellEditorProbe(width: 720, stacked: true);
+
+    private static Window CreateDatabaseCellEditorProbe(double width, bool stacked) =>
         CreatePreparedDatabaseProbe(
-            width: 720,
+            width: width,
             height: 560,
             async (window, viewer, _) =>
             {
@@ -3285,15 +3549,15 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     "How automakers are responding to the 25% car tariffs so far — "
                     + "a deliberately long value that wraps inside the compact editor.");
                 OpenDatabaseProbeContextMenu(window, grid);
-                var quickLook = grid.ContextMenu!.Items
+                var openCellEditor = grid.ContextMenu!.Items
                     .OfType<MenuItem>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Open the active database cell in Quick Look",
+                        "Open the active database cell in the cell editor",
                         StringComparison.Ordinal));
                 grid.ContextMenu.Close();
                 window.UpdateLayout();
-                quickLook.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                openCellEditor.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 Dispatcher.UIThread.RunJobs();
                 await Task.Delay(80);
                 Dispatcher.UIThread.RunJobs();
@@ -3301,11 +3565,11 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 if (TopLevel.GetTopLevel(grid)?.FocusManager?.GetFocusedElement() is not TextBox editor
                     || !string.Equals(
                         AutomationProperties.GetName(editor),
-                        "Quick Look value for service",
+                        "Cell editor value for service",
                         StringComparison.Ordinal))
                 {
                     throw new InvalidOperationException(
-                        "The compact database probe did not open the real Quick Look editor.");
+                        "The compact database probe did not open the real cell editor.");
                 }
 
                 var popupHost = editor.GetVisualAncestors().Last();
@@ -3316,19 +3580,19 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     .OfType<Grid>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Database cell Quick Look dialog",
+                        "Database cell editor dialog",
                         StringComparison.Ordinal));
                 var apply = presenter.GetVisualDescendants()
                     .OfType<Button>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Apply the Quick Look database cell value",
+                        "Apply the database cell editor value",
                         StringComparison.Ordinal));
                 var cancel = presenter.GetVisualDescendants()
                     .OfType<Button>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Close the database cell Quick Look",
+                        "Close the database cell editor",
                         StringComparison.Ordinal));
                 if (!apply.IsEffectivelyVisible
                     || !cancel.IsEffectivelyVisible
@@ -3336,7 +3600,35 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     || dialog.Bounds.Height > grid.Bounds.Height)
                 {
                     throw new InvalidOperationException(
-                        "The compact Quick Look escaped the grid viewport or hid an action.");
+                        "The compact cell editor escaped the grid viewport or hid an action.");
+                }
+
+                // Centres, not tops: the default button's outset ring makes it
+                // a point taller than Cancel beside it.
+                var applyOrigin = apply.TranslatePoint(new Point(0, apply.Bounds.Height / 2), dialog);
+                var cancelOrigin = cancel.TranslatePoint(new Point(0, cancel.Bounds.Height / 2), dialog);
+                if (dialog.Bounds.Width >= 620
+                    || applyOrigin is not { } applyAt
+                    || cancelOrigin is not { } cancelAt)
+                {
+                    throw new InvalidOperationException(
+                        "The compact cell editor is no longer compact "
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid).");
+                }
+
+                var laidOutAsDesigned = stacked
+                    ? applyAt.Y < cancelAt.Y - 1
+                        && Math.Abs(apply.Bounds.Width - cancel.Bounds.Width) <= 1
+                    : Math.Abs(applyAt.Y - cancelAt.Y) <= 1;
+                if (!laidOutAsDesigned)
+                {
+                    throw new InvalidOperationException(
+                        (stacked
+                            ? "The narrow cell editor's actions did not stack at one width, Apply first "
+                            : "The compact cell editor's actions left their one line ")
+                        + $"(editor {dialog.Bounds.Width:0} wide in a {grid.Bounds.Width:0}-point grid; "
+                        + $"Apply {apply.Bounds.Width:0} wide at {applyAt}, "
+                        + $"Cancel {cancel.Bounds.Width:0} wide at {cancelAt}).");
                 }
             });
 
@@ -3504,6 +3796,51 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             {
                 await viewer.ConnectAsync();
                 await prepare(window, viewer, view);
+                window.UpdateLayout();
+                prepared.SetResult();
+            }
+            catch (Exception exception)
+            {
+                prepared.SetException(exception);
+            }
+        };
+        window.Closed += (_, _) => viewer.Dispose();
+        return window;
+    }
+
+    /// <summary>
+    /// The database workspace over the real SQLite probe, with its first
+    /// table opened as a person opens one, so the sidebar shows which object
+    /// the rows belong to. The window's tag is that opening.
+    /// </summary>
+    private static Window CreateSqliteProbeWindow(double width, double height)
+    {
+        var viewer = new DatabaseRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "probe.db",
+            new Asura.Databases.DatabasePanelClient(),
+            "sqlite",
+            Program.SqliteProbePath);
+        var prepared = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var window = new Window
+        {
+            Width = width,
+            Height = height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            Content = new Border
+            {
+                Classes = { "FloatingSidebar" },
+                Child = new Asura.App.Views.Components.DatabaseWorkspaceView { DataContext = viewer },
+            },
+            Tag = prepared.Task,
+        };
+        window.Opened += async (_, _) =>
+        {
+            try
+            {
+                await viewer.ConnectAsync();
+                await viewer.PreviewTableAsync(viewer.Tables[0]);
                 window.UpdateLayout();
                 prepared.SetResult();
             }
@@ -3751,7 +4088,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         var panel = new FileRuntimePanelViewModel(
             PanelInstanceId.New(),
-            "File Viewer",
+            "Files",
             client,
             archiveReader: new Asura.Previews.ArchiveTableOfContents());
         // Pumped rather than blocked on: the panel finishes its work on this
@@ -3858,13 +4195,69 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
     /// it. If the shortcut regresses to bubbling, the ListBox consumes the key
     /// and the capture still shows the waiting state.
     /// </summary>
+    /// <summary>
+    /// A monitor panel in a window of its own, with its real view model. The
+    /// window's tag is the panel's start, which the capture waits for, so the
+    /// charts and rows are on screen before the picture is taken.
+    /// </summary>
+    private static Window MonitorWindow<TPanel>((TPanel Panel, Task Started) monitor, double width, double height)
+        where TPanel : RuntimePanelViewModel
+    {
+        Control view = monitor.Panel switch
+        {
+            StatisticsRuntimePanelViewModel => new Asura.App.Views.RuntimePanels.StatisticsRuntimePanelView(),
+            ProcessMonitorRuntimePanelViewModel => new Asura.App.Views.RuntimePanels.ProcessMonitorRuntimePanelView(),
+            _ => throw new ArgumentOutOfRangeException(nameof(monitor)),
+        };
+        view.DataContext = monitor.Panel;
+        var window = new Window
+        {
+            Width = width,
+            Height = height,
+            CanResize = false,
+            ShowInTaskbar = false,
+            Content = view,
+            Tag = monitor.Started,
+        };
+        window.Closed += (_, _) => monitor.Panel.Dispose();
+        return window;
+    }
+
+    /// <summary>
+    /// A preview in a window of its own. Its rows arrive a batch at a time,
+    /// as they do in the panel; the window's tag is that fill, which the
+    /// capture waits for, so the picture shows rows rather than an empty list.
+    /// </summary>
+    private static Window FilledPreviewWindow(Control preview, Task fill, double width, double height, double padding) => new()
+    {
+        Width = width,
+        Height = height,
+        CanResize = false,
+        ShowInTaskbar = false,
+        Tag = fill,
+        Content = new Border
+        {
+            Classes = { "FloatingSidebar" },
+            Padding = new Thickness(padding),
+            Child = preview,
+        },
+    };
+
     private static Window CreateSpaceShortcutProbe()
     {
+        // A row padded as the Files panel pads its rows, so the selection
+        // plate the capture shows is the one a person sees.
         var list = new ListBox
         {
             ItemsSource = new[] { "payload.bin" },
             SelectedIndex = 0,
             Height = 90,
+            Focusable = true,
+            ItemTemplate = new FuncDataTemplate<string>(static (name, _) => new TextBlock
+            {
+                Margin = new Thickness(12, 6),
+                Text = name,
+            }),
         };
         var status = new TextBlock
         {
@@ -3898,11 +4291,20 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         };
         window.Opened += (_, _) =>
         {
-            list.Focus();
+            // The list has keyboard focus, as it does when a person presses
+            // Space in it; a key raised at an unfocused list proves nothing.
+            window.UpdateLayout();
+            if (!list.Focus(NavigationMethod.Tab))
+            {
+                status.Text = "the list could not take focus";
+                return;
+            }
+
             list.RaiseEvent(new KeyEventArgs
             {
                 RoutedEvent = InputElement.KeyDownEvent,
                 Key = Key.Space,
+                Source = list,
             });
         };
         return window;
@@ -4054,6 +4456,35 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         image.Write(Program.JpegProbePath);
     }
 
+    /// <summary>
+    /// Renders a window's content at its whole height. At 200% and 250% text
+    /// the gallery is taller than any screen, and the system holds a window
+    /// to the screen, so a capture of the window was the top of the page
+    /// only. The content is laid out at the window's width and its own
+    /// height, over the window's background, and rendered whole.
+    /// </summary>
+    private static void RenderWholeHeight(Window window, string path)
+    {
+        if (window.Content is not Control content)
+        {
+            throw new InvalidOperationException("The window has no content to render.");
+        }
+
+        var width = window.Bounds.Width;
+        window.Content = null;
+        var page = new Border { Background = window.Background, Child = content };
+        window.Content = page;
+        window.UpdateLayout();
+        page.Measure(new Size(width, double.PositiveInfinity));
+        var height = Math.Ceiling(page.DesiredSize.Height);
+        page.Arrange(new Rect(0, 0, width, height));
+        using var bitmap = new RenderTargetBitmap(
+            new PixelSize((int)Math.Ceiling(width), (int)height),
+            new Vector(96, 96));
+        bitmap.Render(page);
+        bitmap.Save(path);
+    }
+
     private static async Task CaptureDialogAsync(string name, Window dialog)
     {
         dialog.WindowStartupLocation = WindowStartupLocation.Manual;
@@ -4155,222 +4586,18 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     $"No route matched. Known routes: {string.Join(", ", known)}");
             }
 
+            var failures = new List<(string Name, Exception Error)>();
             foreach (var route in selected)
             {
-                var routeTheme = route.Theme ?? ThemePreference.Default;
-                ApplyTheme(
-                    Program.IsWebsiteExport
-                        ? WebsiteScreenshotExport.NormalizeTheme(routeTheme)
-                        : routeTheme,
-                    route.HighContrast);
-                if (Program.IsWebsiteExport)
+                try
                 {
-                    await ResetWebsiteRouteStateAsync(viewModel, window);
+                    await CaptureRouteAsync(route, window, viewModel);
                 }
-                ClearWorkspaceAgentActivity(viewModel);
-                // The sample agent conversation belongs to the one route that asks
-                // for it. Resetting first keeps that route from leaking a connected
-                // agent into whatever is captured after it, whatever the order.
-                AgentProfiles.Reset();
-                AgentRuntime.Reset();
-                Files.Reset();
-                // The sample drag ghost belongs to the one route that shows it;
-                // without this it floats over every capture that follows.
-                window.HideDragGhost();
-                // Likewise flyouts a route clicked open — the transfer manager
-                // otherwise floats over every capture after its own.
-                foreach (var popup in window.GetVisualDescendants()
-                             .OfType<Avalonia.Controls.Primitives.Popup>()
-                             .Where(popup => popup.IsOpen))
+                catch (Exception ex)
                 {
-                    popup.Close();
-                }
-
-                // A button's flyout hosts outside the window's visual tree, so
-                // the sweep above never sees it. Left open, it light-dismisses
-                // the next route's first click and that route silently captures
-                // a screen nothing was done to.
-                foreach (var button in window.GetVisualDescendants().OfType<Button>())
-                {
-                    button.Flyout?.Hide();
-                }
-
-                // And an editor a route left with unsaved changes, which refuses
-                // to be navigated away from — correctly, in the product, and
-                // ruinously here: every later route would capture the one before
-                // it and report nothing wrong.
-                viewModel.DismissWorkspaceEditor();
-                viewModel.DismissLayoutDesigner();
-                viewModel.CloseOverlay();
-                if (viewModel.IsAgentPanelVisible)
-                {
-                    viewModel.ToggleAgentPanel();
-                }
-
-                route.Apply(viewModel);
-                MaterializeCurrentPresentation(window, viewModel);
-                if (Program.IsWebsiteExport
-                    && route.Name.StartsWith("workspace-agent", StringComparison.Ordinal)
-                    && viewModel.IsAgentPanelVisible
-                    && !viewModel.IsAgentPanelDocked)
-                {
-                    // Floating panels use a separate platform surface, which a
-                    // window-only bitmap cannot capture. Dock the same live
-                    // panel for website artwork so its actual state is visible.
-                    await viewModel.ToggleAgentPanelPinAsync(CancellationToken.None);
-                }
-                await Task.Delay(220);
-                Dispatcher.UIThread.RunJobs();
-                window.UpdateLayout();
-                await Task.Delay(120);
-
-                if (route.FocusFirst is { } focusTarget)
-                {
-                    var control = window.GetVisualDescendants()
-                        .OfType<Control>()
-                        .FirstOrDefault(candidate =>
-                            string.Equals(candidate.Name, focusTarget, StringComparison.Ordinal)
-                            || string.Equals(
-                                AutomationProperties.GetName(candidate),
-                                focusTarget,
-                                StringComparison.Ordinal))
-                        ?? throw new InvalidOperationException(
-                            $"The route wanted to focus '{focusTarget}', which is not in the tree.");
-                    if (!control.Focus(NavigationMethod.Tab))
-                    {
-                        throw new InvalidOperationException(
-                            $"The route could not focus '{focusTarget}', so its focus "
-                            + "indicator cannot be accepted.");
-                    }
-
-                    await Task.Delay(140);
-                    Dispatcher.UIThread.RunJobs();
-                    if (!control.IsFocused)
-                    {
-                        throw new InvalidOperationException(
-                            $"The route lost focus from '{focusTarget}' before capture.");
-                    }
-                }
-
-                if (route.ClickFirst is { } clickTarget)
-                {
-                    var button = window.GetVisualDescendants()
-                        .OfType<Button>()
-                        .FirstOrDefault(candidate =>
-                            string.Equals(
-                                AutomationProperties.GetName(candidate),
-                                clickTarget,
-                                StringComparison.Ordinal))
-                        ?? throw new InvalidOperationException(
-                            $"The route wanted to click '{clickTarget}', which is not in the tree.");
-                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    // Long enough for debounced effects of the click — the
-                    // appearance page coalesces edits for 220 ms before the
-                    // theme commit re-publishes the resources.
-                    await Task.Delay(500);
-                    Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
-                }
-
-                var captureWidth = Program.IsWebsiteExport
-                    ? WebsiteScreenshotExport.LogicalWidth
-                    : route.Width;
-                var captureHeight = Program.IsWebsiteExport
-                    ? WebsiteScreenshotExport.LogicalHeight
-                    : route.Height;
-                if (window.Width != captureWidth || window.Height != captureHeight)
-                {
-                    window.Width = captureWidth;
-                    window.Height = captureHeight;
-                    await Task.Delay(200);
-                    Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
-                    await Task.Delay(120);
-                }
-
-                if (route.PrepareCapture is { } prepareCapture)
-                {
-                    prepareCapture(window);
-                    await Task.Delay(140);
-                    Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
-                }
-
-                await SettleDeferredPresentationAsync(window);
-                FreezeNondeterministicPresentation(window);
-
-                var path = Path.Combine(Program.OutputDirectory, $"{route.Name}.png");
-
-                // A dialog is a window of its own, so it is rendered as one. It
-                // is shown rather than shown modally: ShowDialog does not return
-                // until the dialog closes, and nothing here would close it.
-                if (route.Dialog is { } openDialog)
-                {
-                    var dialog = openDialog(viewModel);
-                    if (route.HighContrast)
-                    {
-                        dialog.Classes.Add("high-contrast");
-                    }
-
-                    dialog.Show(window);
-                    await Task.Delay(220);
-                    Dispatcher.UIThread.RunJobs();
-                    dialog.UpdateLayout();
-                    await Task.Delay(120);
-                    FreezeNondeterministicPresentation(dialog);
-                    if (Program.IsWebsiteExport)
-                    {
-                        WebsiteScreenshotExport.WriteDialogFrame(
-                            window,
-                            dialog,
-                            new PixelSize((int)dialog.Width, (int)dialog.Height),
-                            path);
-                    }
-                    else
-                    {
-                        using var dialogBitmap = new RenderTargetBitmap(
-                            new PixelSize((int)dialog.Width, (int)dialog.Height),
-                            new Vector(96, 96));
-                        dialogBitmap.Render(dialog);
-                        dialogBitmap.Save(path);
-                    }
-
-                    dialog.Close();
-                    Dispatcher.UIThread.RunJobs();
-                    Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-                    continue;
-                }
-
-                if (Program.IsWebsiteExport)
-                {
-                    WebsiteScreenshotExport.WriteFrame(window, path);
-                    Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-                    continue;
-                }
-
-                var bitmapSize = new PixelSize(captureWidth, captureHeight);
-                var bitmapDpi = new Vector(96, 96);
-                using (var bitmap = new RenderTargetBitmap(bitmapSize, bitmapDpi))
-                {
-                    bitmap.Render(window);
-                    bitmap.Save(path);
-                }
-
-                Console.WriteLine($"CAPTURE {route.Name} -> {path}");
-
-                // The workspace route again at Retina density: the rail and panel
-                // chrome are the surfaces users judge at 2x, so pixel snapping
-                // there must be reviewable at the density they actually see.
-                if (!Program.IsWebsiteExport
-                    && string.Equals(route.Name, "workspace", StringComparison.Ordinal))
-                {
-                    var retinaPath = Path.Combine(Program.OutputDirectory, "workspace-2x.png");
-                    using var retina = new RenderTargetBitmap(
-                        new PixelSize(route.Width * 2, route.Height * 2),
-                        new Vector(192, 192));
-                    retina.Render(window);
-                    retina.Save(retinaPath);
-                    Console.WriteLine($"CAPTURE workspace-2x -> {retinaPath}");
+                    failures.Add((route.Name, ex));
+                    Console.Error.WriteLine($"FAILED {route.Name}: {ex}");
+                    CloseWindowsLeftOpen(desktop, window, viewModel);
                 }
             }
 
@@ -4380,11 +4607,34 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 ApplyTheme(Program.IsWebsiteExport
                     ? WebsiteScreenshotExport.NormalizeTheme(dialogTheme)
                     : dialogTheme);
-                await CaptureDialogAsync(dialog.Name, dialog.Create());
+                try
+                {
+                    await CaptureDialogAsync(dialog.Name, dialog.Create());
+                }
+                catch (Exception ex)
+                {
+                    failures.Add((dialog.Name, ex));
+                    Console.Error.WriteLine($"FAILED {dialog.Name}: {ex}");
+                    CloseWindowsLeftOpen(desktop, window, viewModel);
+                }
             }
 
             ApplyTheme(ThemePreference.Default);
-            if (Program.BaselineMode != DesignQaBaselineMode.None)
+
+            // One broken route is reported with the rest captured, rather than
+            // costing every route after it. The run still fails, and a baseline
+            // is neither verified nor approved over a matrix with holes in it.
+            if (failures.Count > 0)
+            {
+                exitCode = 1;
+                Console.Error.WriteLine(
+                    $"FAILED {failures.Count} of {selected.Length + selectedDialogs.Length} routes:");
+                foreach (var (name, error) in failures)
+                {
+                    Console.Error.WriteLine($"  {name}: {error.GetType().Name}: {error.Message}");
+                }
+            }
+            else if (Program.BaselineMode != DesignQaBaselineMode.None)
             {
                 DesignQaBaseline.Process(
                     Program.BaselineMode,
@@ -4405,6 +4655,369 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
     }
 
+    /// <summary>
+    /// After a route failed partway: anything it opened beside the main window
+    /// — a dialog, Settings, an editor window — goes, so the next route starts
+    /// from the main window alone.
+    /// </summary>
+    private static void CloseWindowsLeftOpen(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        MainWindow window,
+        MainWindowViewModel viewModel)
+    {
+        try
+        {
+            UndoRouteSideEffects();
+            viewModel.DismissWorkspaceEditor();
+            viewModel.DismissLayoutDesigner();
+            viewModel.CloseOverlay();
+            SettingsWindow.Current?.CloseForHost();
+            foreach (var open in desktop.Windows.Where(candidate => !ReferenceEquals(candidate, window)).ToArray())
+            {
+                open.Close();
+            }
+
+            Dispatcher.UIThread.RunJobs();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"WARNING could not tidy up after a failed route: {ex.Message}");
+        }
+    }
+
+    private static async Task CaptureRouteAsync(
+        RouteCapture route,
+        MainWindow window,
+        MainWindowViewModel viewModel)
+    {
+        var routeTheme = route.Theme ?? ThemePreference.Default;
+        ApplyTheme(
+            Program.IsWebsiteExport
+                ? WebsiteScreenshotExport.NormalizeTheme(routeTheme)
+                : routeTheme,
+            route.HighContrast);
+        if (Program.IsWebsiteExport)
+        {
+            await ResetWebsiteRouteStateAsync(viewModel, window);
+        }
+        UndoRouteSideEffects();
+        ClearWorkspaceAgentActivity(viewModel);
+        // The sample agent conversation belongs to the one route that asks
+        // for it. Resetting first keeps that route from leaking a connected
+        // agent into whatever is captured after it, whatever the order.
+        AgentProfiles.Reset();
+        AgentRuntime.Reset();
+        Files.Reset();
+        // The sample drag ghost belongs to the one route that shows it;
+        // without this it floats over every capture that follows.
+        window.HideDragGhost();
+        // Likewise flyouts a route clicked open — the transfer manager
+        // otherwise floats over every capture after its own.
+        foreach (var popup in window.GetVisualDescendants()
+                     .OfType<Avalonia.Controls.Primitives.Popup>()
+                     .Where(popup => popup.IsOpen))
+        {
+            popup.Close();
+        }
+
+        // A button's flyout hosts outside the window's visual tree, so
+        // the sweep above never sees it. Left open, it light-dismisses
+        // the next route's first click and that route silently captures
+        // a screen nothing was done to.
+        foreach (var button in window.GetVisualDescendants().OfType<Button>())
+        {
+            button.Flyout?.Hide();
+        }
+
+        // And an editor a route left with unsaved changes, which refuses
+        // to be navigated away from — correctly, in the product, and
+        // ruinously here: every later route would capture the one before
+        // it and report nothing wrong.
+        viewModel.DismissWorkspaceEditor();
+        viewModel.DismissLayoutDesigner();
+        viewModel.CloseOverlay();
+        // Settings is a window of its own; one a route opened closes
+        // before the next route, or every later capture would wear it.
+        SettingsWindow.Current?.CloseForHost();
+        Dispatcher.UIThread.RunJobs();
+        if (viewModel.IsAgentPanelVisible)
+        {
+            viewModel.ToggleAgentPanel();
+        }
+
+        route.Apply(viewModel);
+        MaterializeCurrentPresentation(window, viewModel);
+        if (Program.IsWebsiteExport
+            && route.Name.StartsWith("workspace-agent", StringComparison.Ordinal)
+            && viewModel.IsAgentPanelVisible
+            && !viewModel.IsAgentPanelDocked)
+        {
+            // Floating panels use a separate platform surface, which a
+            // window-only bitmap cannot capture. Dock the same live
+            // panel for website artwork so its actual state is visible.
+            await viewModel.ToggleAgentPanelPinAsync(CancellationToken.None);
+        }
+        await Task.Delay(220);
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        await Task.Delay(120);
+
+        // A route captures the window its surface is shown in: an editor's
+        // own window when one is open, else the Settings window for a
+        // settings route, else the main window.
+        Window? SecondaryWindow() => route.Dialog is not null
+            ? null
+            : (Window?)window.OpenWorkspaceEditorWindow
+                ?? window.OpenLayoutDesignerWindow
+                ?? (viewModel.IsSettingsVisible ? (Window?)SettingsWindow.Current : null);
+        var secondaryWindow = SecondaryWindow();
+        Window captureRoot = secondaryWindow ?? window;
+        // The product's App.ApplyToWindow marks every window it reaches with
+        // the high-contrast class; republishing the resources here does not,
+        // so a window of its own is marked as a dialog is below.
+        void MarkHighContrast(Window? target)
+        {
+            if (route.HighContrast && target is not null && !target.Classes.Contains("high-contrast"))
+            {
+                target.Classes.Add("high-contrast");
+            }
+        }
+
+        MarkHighContrast(secondaryWindow);
+
+        if (route.FocusFirst is { } focusTarget)
+        {
+            var control = captureRoot.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(candidate =>
+                    string.Equals(candidate.Name, focusTarget, StringComparison.Ordinal)
+                    || string.Equals(
+                        AutomationProperties.GetName(candidate),
+                        focusTarget,
+                        StringComparison.Ordinal))
+                ?? throw new InvalidOperationException(
+                    $"The route wanted to focus '{focusTarget}', which is not in the tree.");
+            if (!control.Focus(NavigationMethod.Tab))
+            {
+                throw new InvalidOperationException(
+                    $"The route could not focus '{focusTarget}', so its focus "
+                    + "indicator cannot be accepted.");
+            }
+
+            await Task.Delay(140);
+            Dispatcher.UIThread.RunJobs();
+            if (!control.IsFocused)
+            {
+                throw new InvalidOperationException(
+                    $"The route lost focus from '{focusTarget}' before capture.");
+            }
+        }
+
+        if (route.ClickFirst is { } clickTarget)
+        {
+            bool Named(Control candidate) =>
+                string.Equals(AutomationProperties.GetName(candidate), clickTarget, StringComparison.Ordinal);
+
+            // A disclosure is opened the way its header's click opens it.
+            if (captureRoot.GetVisualDescendants().OfType<Expander>().FirstOrDefault(Named) is { } disclosure)
+            {
+                disclosure.IsExpanded = true;
+            }
+            else
+            {
+                var button = captureRoot.GetVisualDescendants().OfType<Button>().FirstOrDefault(Named)
+                    ?? throw new InvalidOperationException(
+                        $"The route wanted to click '{clickTarget}', which is not in the tree.");
+                // A segment or a radio button is chosen by checking it: a raised
+                // Click event alone never toggles one, which left a route that
+                // "clicked" Compact density capturing the page unchanged.
+                if (button is Avalonia.Controls.Primitives.ToggleButton toggle)
+                {
+                    toggle.IsChecked = toggle is RadioButton || toggle.IsChecked != true;
+                }
+                else
+                {
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                }
+            }
+
+            // Long enough for debounced effects of the click — the
+            // appearance page coalesces edits for 220 ms before the
+            // theme commit re-publishes the resources.
+            await Task.Delay(500);
+            Dispatcher.UIThread.RunJobs();
+            captureRoot.UpdateLayout();
+        }
+
+        // A secondary window is captured at its own size; a route that asks
+        // for more height gets it, so a long page or editor is reviewable
+        // whole.
+        int CaptureWidth() => Program.IsWebsiteExport
+            ? WebsiteScreenshotExport.LogicalWidth
+            : secondaryWindow is SettingsWindow
+                ? SettingsCaptureWidth
+                : secondaryWindow is not null
+                    ? (int)secondaryWindow.Width
+                    : route.Width;
+        int CaptureHeight() => Program.IsWebsiteExport
+            ? WebsiteScreenshotExport.LogicalHeight
+            : secondaryWindow is not null && route.Height == DefaultCaptureHeight
+                ? secondaryWindow is SettingsWindow
+                    ? SettingsCaptureHeight
+                    : (int)secondaryWindow.Height
+                : route.Height;
+        var captureWidth = CaptureWidth();
+        var captureHeight = CaptureHeight();
+        async Task SizeCaptureRootAsync()
+        {
+            if (captureRoot is SettingsWindow settings)
+            {
+                // Settings keeps one frame, at most nine tenths of the screen.
+                // A capture takes the frame the route asks for, so a long page
+                // can be reviewed whole rather than cut at the headless
+                // screen's edge.
+                settings.SizeToContent = SizeToContent.Manual;
+                settings.MaxHeight = double.PositiveInfinity;
+            }
+
+            if (captureRoot.Width != captureWidth || captureRoot.Height != captureHeight)
+            {
+                captureRoot.Width = captureWidth;
+                captureRoot.Height = captureHeight;
+                await Task.Delay(200);
+                Dispatcher.UIThread.RunJobs();
+                captureRoot.UpdateLayout();
+                await Task.Delay(120);
+            }
+        }
+
+        await SizeCaptureRootAsync();
+
+        if (route.PrepareCapture is { } prepareCapture)
+        {
+            prepareCapture(window);
+            // Long enough for what the preparation set moving to settle: the
+            // rail tile's close action opens over 0.15 s and its hover wash
+            // fades in over 0.12 s, and a 140 ms wait caught both mid-way.
+            await Task.Delay(320);
+            Dispatcher.UIThread.RunJobs();
+
+            // What the route did may have replaced the window its surface is
+            // in — switching the workspace being edited reopens the editor.
+            if (SecondaryWindow() is { } replacement && !ReferenceEquals(replacement, secondaryWindow))
+            {
+                secondaryWindow = replacement;
+                captureRoot = replacement;
+                MarkHighContrast(replacement);
+                captureWidth = CaptureWidth();
+                captureHeight = CaptureHeight();
+                await SizeCaptureRootAsync();
+            }
+
+            captureRoot.UpdateLayout();
+        }
+
+        // The main window always settles, since a dialog route's previews
+        // live there; a surface in a window of its own settles as well.
+        await SettleDeferredPresentationAsync(window);
+        if (!ReferenceEquals(captureRoot, window))
+        {
+            await SettleDeferredPresentationAsync(captureRoot);
+        }
+
+        FreezeNondeterministicPresentation(captureRoot);
+
+        var path = Path.Combine(Program.OutputDirectory, $"{route.Name}.png");
+
+        // A dialog is a window of its own, so it is rendered as one. It
+        // is shown rather than shown modally: ShowDialog does not return
+        // until the dialog closes, and nothing here would close it.
+        if (route.Dialog is { } openDialog)
+        {
+            var dialog = openDialog(viewModel);
+            if (route.HighContrast)
+            {
+                dialog.Classes.Add("high-contrast");
+            }
+
+            dialog.Show(window);
+            await Task.Delay(220);
+            Dispatcher.UIThread.RunJobs();
+            dialog.UpdateLayout();
+            await Task.Delay(120);
+            FreezeNondeterministicPresentation(dialog);
+            if (Program.IsWebsiteExport)
+            {
+                WebsiteScreenshotExport.WriteDialogFrame(
+                    window,
+                    dialog,
+                    new PixelSize((int)dialog.Width, (int)dialog.Height),
+                    path);
+            }
+            else if (route.Name.StartsWith("design-system-scale", StringComparison.Ordinal))
+            {
+                RenderWholeHeight(dialog, path);
+            }
+            else
+            {
+                using var dialogBitmap = new RenderTargetBitmap(
+                    new PixelSize((int)dialog.Width, (int)dialog.Height),
+                    new Vector(96, 96));
+                dialogBitmap.Render(dialog);
+                dialogBitmap.Save(path);
+            }
+
+            dialog.Close();
+            Dispatcher.UIThread.RunJobs();
+            Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+            return;
+        }
+
+        if (Program.IsWebsiteExport)
+        {
+            if (secondaryWindow is not null)
+            {
+                WebsiteScreenshotExport.WriteDialogFrame(
+                    window,
+                    secondaryWindow,
+                    new PixelSize((int)secondaryWindow.Width, (int)secondaryWindow.Height),
+                    path);
+            }
+            else
+            {
+                WebsiteScreenshotExport.WriteFrame(window, path);
+            }
+
+            Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+            return;
+        }
+
+        var bitmapSize = new PixelSize(captureWidth, captureHeight);
+        var bitmapDpi = new Vector(96, 96);
+        using (var bitmap = new RenderTargetBitmap(bitmapSize, bitmapDpi))
+        {
+            bitmap.Render(captureRoot);
+            bitmap.Save(path);
+        }
+
+        Console.WriteLine($"CAPTURE {route.Name} -> {path}");
+
+        // The workspace route again at Retina density: the rail and panel
+        // chrome are the surfaces users judge at 2x, so pixel snapping
+        // there must be reviewable at the density they actually see.
+        if (!Program.IsWebsiteExport
+            && string.Equals(route.Name, "workspace", StringComparison.Ordinal))
+        {
+            var retinaPath = Path.Combine(Program.OutputDirectory, "workspace-2x.png");
+            using var retina = new RenderTargetBitmap(
+                new PixelSize(route.Width * 2, route.Height * 2),
+                new Vector(192, 192));
+            retina.Render(window);
+            retina.Save(retinaPath);
+            Console.WriteLine($"CAPTURE workspace-2x -> {retinaPath}");
+        }
+    }
+
     private static void MaterializeCurrentPresentation(
         MainWindow window,
         MainWindowViewModel viewModel)
@@ -4414,17 +5027,22 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             InvokeMaterializer(window, "EnsureSettingsRoute");
         }
 
-        var method = viewModel.Overlay switch
+        // The command palette is the one overlay left in the main window; the
+        // workspace editor and the Layout Designer open windows of their own,
+        // as they do when a person opens them.
+        if (viewModel.Overlay == ShellOverlay.CommandPalette)
         {
-            ShellOverlay.CommandPalette => "EnsureCommandPaletteOverlay",
-            ShellOverlay.NewPanel => "EnsureNewPanelChooserOverlay",
-            ShellOverlay.LayoutDesigner => "EnsureLayoutDesignerOverlay",
-            ShellOverlay.DefinitionEditor => "EnsureDefinitionEditorOverlay",
-            _ => null,
-        };
-        if (method is not null)
+            InvokeMaterializer(window, "EnsureCommandPaletteOverlay");
+        }
+
+        if (viewModel.IsDefinitionEditorVisible)
         {
-            InvokeMaterializer(window, method);
+            InvokeMaterializer(window, "PresentWorkspaceEditor");
+        }
+
+        if (viewModel.IsLayoutDesignerVisible)
+        {
+            InvokeMaterializer(window, "PresentLayoutDesigner");
         }
     }
 
@@ -4438,7 +5056,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         _ = method.Invoke(window, null);
     }
 
-    private static async Task SettleDeferredPresentationAsync(MainWindow window)
+    private static async Task SettleDeferredPresentationAsync(Window window)
     {
         const int maximumAttempts = 400;
         const int requiredStablePasses = 4;

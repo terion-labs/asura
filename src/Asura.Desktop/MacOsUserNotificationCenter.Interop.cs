@@ -9,7 +9,14 @@ internal sealed partial class MacOsUserNotificationCenter
     private const string UserNotificationsFramework =
         "/System/Library/Frameworks/UserNotifications.framework/UserNotifications";
     private const string DelegateClassName = "AsuraUserNotificationCenterDelegate";
-    private const nuint ForegroundPresentationOptions = 2 | 4 | 8 | 16;
+
+    /// <summary>
+    /// What to show for a notification that arrives while Asura is the active
+    /// app: nothing. macOS asks only then, and Asura is already showing the
+    /// same news as attention marks on the panel, tab and workspace, so a
+    /// banner on top of the app would say it twice.
+    /// </summary>
+    internal const nuint ForegroundPresentationOptions = 0;
 
     private static readonly object NativeClassGate = new();
     private static readonly ConcurrentDictionary<nint, WeakReference<MacOsUserNotificationCenter>>

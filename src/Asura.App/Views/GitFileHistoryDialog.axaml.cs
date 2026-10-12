@@ -1,4 +1,5 @@
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Git;
 using Avalonia.Controls;
@@ -8,7 +9,7 @@ using Avalonia.Platform.Storage;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitFileHistoryDialog : Window
+public sealed partial class GitFileHistoryDialog : DialogWindow
 {
     private GitFileInvestigationViewModel? ViewModel => DataContext as GitFileInvestigationViewModel;
     public GitFileHistoryDialog() => InitializeComponent();
@@ -19,8 +20,19 @@ public sealed partial class GitFileHistoryDialog : Window
         Closed += (_, _) => viewModel.Dispose();
     }
 
-    private void OnClose(object? sender, RoutedEventArgs e) => Close(null);
-    private void OnOpenCommit(object? sender, RoutedEventArgs e) => Close(ViewModel?.SelectedCommit?.Sha);
+    /// <summary>
+    /// The panel shows the chosen commit. The window stays open: it is a tool
+    /// consulted alongside the panel, not a question that ends with an answer.
+    /// </summary>
+    public event EventHandler<string>? CommitRequested;
+
+    private void OnOpenCommit(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.SelectedCommit?.Sha is { } sha)
+        {
+            CommitRequested?.Invoke(this, sha);
+        }
+    }
     private async void OnRefresh(object? sender, RoutedEventArgs e)
     {
         if (ViewModel is { } viewModel)
@@ -61,18 +73,21 @@ public sealed partial class GitFileHistoryDialog : Window
         }
 
         var range = FileContent.SelectedLineRange;
-        var values = await new GitWorkflowDialog("Line history", $"Trace these lines in {viewModel.Path} from the selected revision.",
+        var values = await new GitWorkflowDialog(new GitWorkflowForm(
+            "Line History",
+            $"Trace these lines in {viewModel.Path} from the selected revision.",
+            new GitWorkflowAction("Show History"),
             [new("start", "First line", range.Start.ToString(CultureInfo.InvariantCulture)), new("end", "Last line", range.End.ToString(CultureInfo.InvariantCulture))])
-            .ShowDialog<Dictionary<string, string>?>(this);
-        if (values is null)
         {
-            return;
-        }
-
-        if (!int.TryParse(values["start"], NumberStyles.None, CultureInfo.InvariantCulture, out var start)
-            || !int.TryParse(values["end"], NumberStyles.None, CultureInfo.InvariantCulture, out var end) || start < 1 || end < start)
+            // Checked in the form, beside the number that is wrong.
+            Validate = current => GitRuntimePanelViewModel.ValidateLineRange(current["start"], current["end"]) is { } error
+                ? new GitWorkflowFieldError(error.Field, error.Message)
+                : null,
+        }).ShowDialog<Dictionary<string, string>?>(this);
+        if (values is null
+            || GitRuntimePanelViewModel.ParseLineNumber(values["start"]) is not { } start
+            || GitRuntimePanelViewModel.ParseLineNumber(values["end"]) is not { } end)
         {
-            await new GitOutputDialog("Invalid line range", "Choose positive line numbers, with the last line at or after the first.").ShowDialog(this);
             return;
         }
 
@@ -98,7 +113,7 @@ public sealed partial class GitFileHistoryDialog : Window
         {
             var destination = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = "Save recorded file",
+                Title = "Save Revision",
                 SuggestedFileName = System.IO.Path.GetFileName(viewModel.Path),
             });
             if (destination is null || await viewModel.ReadSelectedBytesAsync() is not { } bytes)
@@ -112,7 +127,7 @@ public sealed partial class GitFileHistoryDialog : Window
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            await new GitOutputDialog("Could not save revision", exception.Message).ShowDialog(this);
+            await Confirmations.Problem("Couldn’t Save the Revision", SaveFailure.Describe(exception)).ShowDialog(this);
         }
     }
 }

@@ -1914,7 +1914,7 @@ public sealed partial class InMemorySessionHostClient :
                     .Select(target => new SessionCloseResult(
                         target.Id,
                         SessionCloseOutcome.Cancelled,
-                        "Close cancelled by the user."))
+                        "Close canceled by the user."))
                     .ToArray();
                 var cancelled = HostResult<CloseScopeResult>.Succeed(
                     new CloseScopeResult.Completed(request.Scope, request.TargetId, cancelledSessions),
@@ -1973,7 +1973,7 @@ public sealed partial class InMemorySessionHostClient :
                     }
 
                     outcome = PanelCloseOutcome.Cancelled;
-                    detail = "Close cancelled.";
+                    detail = "Close canceled.";
                 }
                 catch (Exception exception)
                 {
@@ -1983,8 +1983,9 @@ public sealed partial class InMemorySessionHostClient :
                             targetSnapshot.Descriptor.Revision);
                     }
 
+                    SecretSafeDiagnosticProjection.WriteTrace("session-host.close.failed", exception);
                     outcome = PanelCloseOutcome.EngineFailed;
-                    detail = exception.Message;
+                    detail = "The panel didn't close cleanly.";
                 }
 
                 target.ApplyCloseOutcome(outcome, detail);
@@ -2031,6 +2032,84 @@ public sealed partial class InMemorySessionHostClient :
             RemoveWorkspaceGraphAfterSuccessfulClose(request, closeResults);
             CompleteReplay(context, fingerprint, completed);
             return completed;
+        }
+        finally
+        {
+            _sessionGraphGate.Release();
+        }
+    }
+
+    public async ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> InspectCloseAsync(
+        CloseScopeKind scope,
+        string targetId,
+        OperationContext context,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetId);
+        ArgumentNullException.ThrowIfNull(context);
+        var invalid = ValidateContext<IReadOnlyList<ActiveSessionSummary>>(
+            context,
+            cancellationToken,
+            0);
+        if (invalid is not null)
+        {
+            return invalid;
+        }
+
+        try
+        {
+            await _sessionGraphGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return Cancelled<IReadOnlyList<ActiveSessionSummary>>(0);
+        }
+
+        try
+        {
+            ThrowIfDisposed();
+            // The same sessions a close of this scope would act on, refreshed
+            // from their engines the same way, so the answer here is the one
+            // the close itself would reach. Nothing is marked or reserved.
+            var targets = SessionsForScope(
+                new CloseScopeRequest(scope, targetId, CloseDecision.Request));
+            var active = new List<ActiveSessionSummary>();
+            long revision = 0;
+            foreach (var target in targets)
+            {
+                var currentRevision = target.Snapshot().Descriptor.Revision;
+                try
+                {
+                    var engineSnapshot = await target.Engine
+                        .SnapshotAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    target.ApplyEngineSnapshot(engineSnapshot);
+                }
+                catch (OperationCanceledException)
+                {
+                    return Cancelled<IReadOnlyList<ActiveSessionSummary>>(currentRevision);
+                }
+                catch (Exception exception)
+                {
+                    return EngineFailure<IReadOnlyList<ActiveSessionSummary>>(
+                        exception,
+                        currentRevision);
+                }
+
+                var snapshot = target.Snapshot();
+                revision = Math.Max(revision, snapshot.Descriptor.Revision);
+                if (snapshot.Descriptor.HasActiveWork)
+                {
+                    active.Add(new ActiveSessionSummary(
+                        target.Id,
+                        target.Owner.PanelId,
+                        target.Title,
+                        snapshot.Descriptor.StatusDetail,
+                        snapshot.Descriptor.Revision));
+                }
+            }
+
+            return HostResult<IReadOnlyList<ActiveSessionSummary>>.Succeed(active, revision);
         }
         finally
         {
@@ -2431,7 +2510,7 @@ public sealed partial class InMemorySessionHostClient :
 
     private static HostResult<T> Cancelled<T>(long revision) =>
         HostResult<T>.Fail(
-            HostError.Create(HostErrorCode.Cancelled, "The operation was cancelled."),
+            HostError.Create(HostErrorCode.Cancelled, "The operation was canceled."),
             revision);
 
     private static HostResult<T> OutcomeUncertain<T>(long revision) =>
@@ -2489,7 +2568,7 @@ public sealed partial class InMemorySessionHostClient :
     {
         PanelCloseOutcome.GracefullyClosed => "Session closed gracefully.",
         PanelCloseOutcome.ConfirmationRequired => "The session still has active work.",
-        PanelCloseOutcome.Cancelled => "Close cancelled.",
+        PanelCloseOutcome.Cancelled => "Close canceled.",
         PanelCloseOutcome.ForceTerminated => "Session force-terminated after confirmation.",
         PanelCloseOutcome.EngineFailed => "The terminal engine failed while closing.",
         PanelCloseOutcome.AlreadyClosed => "Session was already closed.",

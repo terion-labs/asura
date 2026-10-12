@@ -22,6 +22,17 @@ public sealed partial class ZoomableImageView : UserControl
     private const double MaximumScale = 8d;
     private const double ZoomStep = 1.25;
 
+    /// <summary>
+    /// An open hand over something that can be dragged, as in Preview: on
+    /// macOS that is the drag-move cursor. Elsewhere a hand means a link, so
+    /// the move cursor stands in.
+    /// </summary>
+    private static readonly Lazy<Cursor> RestingCursor = new(() => new Cursor(
+        OperatingSystem.IsMacOS() ? StandardCursorType.DragMove : StandardCursorType.SizeAll));
+
+    /// <summary>A closed hand while the picture is held; the open one where there is none.</summary>
+    private static readonly Lazy<Cursor> GrabbingCursor = new(CreateGrabbingCursor);
+
     private double _scale = 1d;
     private double _fitScale = 1d;
     private int _angle;
@@ -35,6 +46,7 @@ public sealed partial class ZoomableImageView : UserControl
     public ZoomableImageView()
     {
         InitializeComponent();
+        Viewport.Cursor = RestingCursor.Value;
 
         Viewport.PointerWheelChanged += OnPointerWheelChanged;
         Viewport.PointerPressed += OnPointerPressed;
@@ -48,6 +60,29 @@ public sealed partial class ZoomableImageView : UserControl
                 Refit(keepUserScale: true);
             }
         };
+    }
+
+    private static Cursor CreateGrabbingCursor()
+    {
+        if (OperatingSystem.IsMacOS() && MacOsFileTypeIcons.ClosedHandCursor() is { } closed)
+        {
+            try
+            {
+                using var stream = new MemoryStream(closed.Png, writable: false);
+                // Kept for the life of the process, like the cursor made from it.
+                var bitmap = new Bitmap(stream);
+                return new Cursor(bitmap, new PixelPoint(closed.HotX, closed.HotY));
+            }
+            catch (Exception exception) when (exception is ArgumentException
+                or InvalidOperationException
+                or NotSupportedException)
+            {
+                // A picture the decoder or the platform will not take leaves
+                // the open hand in place.
+            }
+        }
+
+        return RestingCursor.Value;
     }
 
     public Bitmap? Source
@@ -163,7 +198,7 @@ public sealed partial class ZoomableImageView : UserControl
         _dragging = true;
         _dragOrigin = e.GetPosition(Viewport);
         _dragOffset = _offset;
-        Viewport.Cursor = new Cursor(StandardCursorType.SizeAll);
+        Viewport.Cursor = GrabbingCursor.Value;
         e.Pointer.Capture(Viewport);
     }
 
@@ -186,7 +221,7 @@ public sealed partial class ZoomableImageView : UserControl
         }
 
         _dragging = false;
-        Viewport.Cursor = new Cursor(StandardCursorType.Hand);
+        Viewport.Cursor = RestingCursor.Value;
         e.Pointer.Capture(null);
     }
 

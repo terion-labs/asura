@@ -31,7 +31,7 @@ public sealed class AgentApprovalCardViewContractTests
             element => string.Equals(element.Name.LocalName, "Button"
 , StringComparison.Ordinal) && string.Equals(
                     AttributeValue(element, "Content"),
-                    "Approve once",
+                    "Approve Once",
                     StringComparison.Ordinal));
     }
 
@@ -48,16 +48,19 @@ public sealed class AgentApprovalCardViewContractTests
         Assert.Equal("True", AttributeValue(card, "Focusable"));
         Assert.Equal("Local", AttributeValue(card, "KeyboardNavigation.TabNavigation"));
         Assert.Null(AttributeValue(card, "AutomationProperties.LiveSetting"));
+        // Focus moves to the card when it appears, so its name is what a
+        // screen reader says first: the action, where, and its consequence.
         Assert.Equal(
-            "AI agent action approval request",
+            "{Binding AgentChat.PendingApproval.AccessibleName, FallbackValue='AI agent action approval request'}",
             AttributeValue(card, "AutomationProperties.Name"));
+        Assert.Equal("AgentApprovalRequest", AttributeValue(card, "Name"));
         Assert.Contains(
             "Approval applies once",
             AttributeValue(card, "AutomationProperties.HelpText"),
             StringComparison.Ordinal);
 
         var deny = FindButton(document, "Deny");
-        var approve = FindButton(document, "Approve once");
+        var approve = FindButton(document, "Approve Once");
         Assert.Equal("0", AttributeValue(deny, "KeyboardNavigation.TabIndex"));
         Assert.Equal("1", AttributeValue(approve, "KeyboardNavigation.TabIndex"));
         Assert.Equal("OnDenyClick", AttributeValue(deny, "Click"));
@@ -89,9 +92,49 @@ public sealed class AgentApprovalCardViewContractTests
     {
         var document = LoadComponent();
         var target = Assert.Single(document.Descendants(), element =>
-            AttributeValue(element, "Text") == "{Binding AgentChat.PendingApproval.TargetTitle}");
+            AttributeValue(element, "Text") == "{Binding AgentChat.PendingApproval.TargetDisplayTitle, StringFormat={}In {0}}");
         Assert.DoesNotContain(target.Ancestors(), element => element.Name.LocalName == "Expander");
     }
+
+    [Fact]
+    public void Approval_identifiers_stay_available_in_technical_details_only()
+    {
+        var document = LoadComponent();
+        foreach (var identifier in new[]
+                 {
+                     "{Binding AgentChat.PendingApproval.TargetTitle}",
+                     "{Binding AgentChat.PendingApproval.ExactTarget}",
+                     "{Binding AgentChat.PendingApproval.ToolName}",
+                 })
+        {
+            var element = Assert.Single(document.Descendants(), element =>
+                AttributeValue(element, "Text") == identifier);
+            Assert.Contains(element.Ancestors(), IsTechnicalDetails);
+        }
+
+        var routing = Assert.Single(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.RoutingArguments}");
+        Assert.Contains(routing.Ancestors(), IsTechnicalDetails);
+        // The full argument list, routing identifiers and all, is not repeated
+        // anywhere a person reads before opening Technical Details.
+        Assert.DoesNotContain(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.Arguments}");
+    }
+
+    [Fact]
+    public void Approval_details_name_the_target_by_title_outside_technical_details()
+    {
+        var document = LoadComponent();
+        var place = Assert.Single(document.Descendants(), element =>
+            AttributeValue(element, "ItemsSource") == "{Binding AgentChat.PendingApproval.TargetFacts}");
+        Assert.Contains(place.Ancestors(), ancestor =>
+            ancestor.Name.LocalName == "Expander" && AttributeValue(ancestor, "Header") == "Details");
+        Assert.DoesNotContain(place.Ancestors(), IsTechnicalDetails);
+    }
+
+    private static bool IsTechnicalDetails(XElement element) =>
+        element.Name.LocalName == "Expander"
+        && AttributeValue(element, "Header") == "Technical Details";
 
     private static XElement FindButton(XDocument document, string content) =>
         Assert.Single(

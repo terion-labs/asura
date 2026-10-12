@@ -124,7 +124,7 @@ internal sealed class RuntimePanelDragController
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException)
         {
-            viewModel.SetError($"The panel could not move: {exception.Message}");
+            viewModel.SetError("The panel couldn’t be moved to that tab. Try again.");
         }
     }
 

@@ -81,6 +81,45 @@ public sealed class MainWindowSettingsSaveFacadeTests
         Assert.Null(viewModel.OperationError);
     }
 
+    /// <summary>
+    /// The terminal palette and font apply as they change, as every other
+    /// setting does: no Apply, and so no draft to lose on leaving the page.
+    /// Revert puts back what the page opened with and saves that too.
+    /// </summary>
+    [Fact]
+    public async Task Terminal_appearance_saves_as_it_changes_and_revert_restores_what_the_page_opened_with()
+    {
+        var catalog = new RecordingDefinitionCatalog(SettingsSnapshot());
+        using var viewModel = CreateViewModel(catalog);
+        viewModel.ShowSettings(SettingsPage.Appearance);
+        viewModel.BeginTerminalAppearanceSession();
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        var openedWith = editor.FontSize;
+        Assert.False(viewModel.CanRevertTerminalAppearance);
+
+        editor.FontSize = openedWith + 3;
+        Assert.True(viewModel.PreviewTerminalAppearance(editor.CreateSaveRequest().Profile));
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        var save = Assert.IsType<RecordedSave<TerminalProfile>>(catalog.TerminalSave);
+        Assert.Equal(openedWith + 3, save.Definition.FontSize);
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+        Assert.True(viewModel.CanRevertTerminalAppearance);
+
+        Assert.True(viewModel.RevertTerminalAppearance());
+        var reverted = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        Assert.Equal(openedWith, reverted.FontSize);
+        Assert.True(viewModel.PreviewTerminalAppearance(reverted.CreateSaveRequest().Profile));
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        save = Assert.IsType<RecordedSave<TerminalProfile>>(catalog.TerminalSave);
+        Assert.Equal(openedWith, save.Definition.FontSize);
+        Assert.False(viewModel.CanRevertTerminalAppearance);
+        Assert.False(viewModel.RevertTerminalAppearance());
+    }
+
     [Fact]
     public async Task Quick_terminal_save_forwards_the_live_draft_and_editor_revision()
     {
@@ -279,6 +318,47 @@ public sealed class MainWindowSettingsSaveFacadeTests
         }
     }
 
+    /// <summary>
+    /// A palette change that couldn't be saved stays on show, offers Try
+    /// Again, and is a draft: leaving the page asks before discarding it.
+    /// </summary>
+    [Fact]
+    public async Task A_terminal_appearance_change_that_fails_to_save_is_kept_until_discarded()
+    {
+        var error = new DefinitionStoreError(
+            DefinitionStoreErrorCode.StorageUnavailable,
+            "The settings store is unavailable.");
+        var catalog = new RecordingDefinitionCatalog(SettingsSnapshot())
+        {
+            SaveError = error,
+        };
+        using var viewModel = CreateViewModel(catalog);
+        viewModel.ShowSettings(SettingsPage.Appearance);
+        viewModel.BeginTerminalAppearanceSession();
+        var editor = Assert.IsType<TerminalProfileEditorViewModel>(
+            viewModel.TerminalSettingsEditor);
+        var saved = editor.FontSize;
+        editor.FontSize = saved + 3;
+        Assert.True(viewModel.PreviewTerminalAppearance(editor.CreateSaveRequest().Profile));
+
+        await viewModel.ApplyTerminalAppearanceChangeAsync(CancellationToken.None);
+
+        Assert.True(viewModel.HasTerminalAppearanceDraft);
+        Assert.True(viewModel.CanRetryTerminalAppearanceSave);
+        Assert.True(viewModel.CanRetryAppearanceSave);
+        Assert.Equal(error.Message, viewModel.OperationError);
+        var draft = Assert.IsType<SettingsDraft>(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+
+        viewModel.DiscardSettingsDraft(draft.Page);
+
+        Assert.False(viewModel.HasTerminalAppearanceDraft);
+        Assert.False(viewModel.CanRetryAppearanceSave);
+        Assert.Null(viewModel.PendingSettingsDraft(SettingsPage.Appearance));
+        Assert.Equal(
+            saved,
+            Assert.IsType<TerminalProfileEditorViewModel>(viewModel.TerminalSettingsEditor).FontSize);
+    }
+
     [Fact]
     public async Task Failed_terminal_save_preserves_the_live_draft_and_error()
     {
@@ -354,6 +434,9 @@ public sealed class MainWindowSettingsSaveFacadeTests
             agentChatRuntime: agentChatRuntime,
             uiThreadDispatcher: new SettingsSaveImmediateDispatcher());
     }
+
+    internal static MainWindowViewModel CreateSettingsViewModel(IDefinitionCatalog catalog) =>
+        CreateViewModel(catalog);
 
     internal static MainWindowViewModel CreateAgentHistorySettings(
         IGovernedAgentRuntime? agentChatRuntime, IAiProviderProfileRuntime profiles) =>

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -133,7 +134,10 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail<StoredDefinition<LayoutDefinition>>(exception.Message);
+            return Fail<StoredDefinition<LayoutDefinition>>(FailureReason.Refusal(
+                "layout.save.refused",
+                exception,
+                "Asura can’t save the layout yet. Check that every slot has a place in the grid, then save again."));
         }
 
         return await _catalog.SaveLayoutAsync(
@@ -208,7 +212,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         var stored = _catalog.Snapshot.Keymaps.SingleOrDefault(item => item.Value.Id == profile.Id);
         if (stored is null)
         {
-            error = "That keybinding profile no longer exists.";
+            error = "That shortcut profile no longer exists.";
             return false;
         }
 
@@ -223,7 +227,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         ThrowIfDisposed();
         if (SelectedKeybindingProfile is not { IsBuiltIn: true } selected)
         {
-            error = "Select a built-in keybinding preset to clone.";
+            error = "Select a built-in shortcut preset to clone.";
             return false;
         }
 
@@ -232,7 +236,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             .SingleOrDefault(item => item.Id == selected.Id);
         if (source is null)
         {
-            error = "That built-in keybinding preset no longer exists.";
+            error = "That built-in shortcut preset no longer exists.";
             return false;
         }
 
@@ -266,7 +270,7 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         if (KeybindingEditorSession is null)
         {
             return Fail<StoredDefinition<KeymapProfile>>(
-                "Select a keybinding profile before saving.");
+                "Select a shortcut profile before saving.");
         }
 
         KeybindingSettingsSaveRequest request;
@@ -276,7 +280,10 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
         }
         catch (InvalidOperationException exception)
         {
-            return Fail<StoredDefinition<KeymapProfile>>(exception.Message);
+            return Fail<StoredDefinition<KeymapProfile>>(FailureReason.Refusal(
+                "keyboard-shortcuts.save.refused",
+                exception,
+                "Asura can’t save the shortcuts yet. Resolve any conflicts, then save again."));
         }
 
         var result = await _catalog.SaveKeymapAsync(
@@ -337,11 +344,34 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
 
         var selected = KeybindingProfiles
             .FirstOrDefault(item => item.Id == ActiveApplicationKeymap.Id)
-            ?? KeybindingProfiles.FirstOrDefault(item => item.Id == BuiltInKeymaps.TmuxApplicationId)
+            ?? KeybindingProfiles.FirstOrDefault(item =>
+                item.Id == BuiltInKeymaps.ApplicationFor(HostPlatform.Current).Id)
             ?? KeybindingProfiles.FirstOrDefault();
         if (selected is not null)
         {
             _ = TrySelectKeybindingProfile(selected, out _);
+        }
+    }
+
+    /// <summary>
+    /// Throws away unsaved shortcut edits, including a cloned preset that was
+    /// never saved, and reopens the active profile as stored.
+    /// </summary>
+    public void DiscardKeybindingEditor()
+    {
+        ThrowIfDisposed();
+        foreach (var unsaved in KeybindingProfiles.Where(item => item.IsUnsaved).ToArray())
+        {
+            KeybindingProfiles.Remove(unsaved);
+        }
+
+        var selected = SelectedKeybindingProfile is { IsUnsaved: false } current
+            ? current
+            : null;
+        KeybindingEditorSession = null;
+        if (selected is null || !TrySelectKeybindingProfile(selected, out _))
+        {
+            EnsureKeybindingEditor();
         }
     }
 
@@ -449,11 +479,12 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
                 var binding = profile.Bindings[bindingIndex];
                 _ = BuiltInCommands.Registry.TryGet(binding.CommandId, out var command);
                 var hasConflict = issues.Any(issue =>
-                    issue.BindingIndex == bindingIndex
-                    || issue.OtherBindingIndex == bindingIndex);
+                    issue.Severity == KeymapIssueSeverity.Error
+                    && (issue.BindingIndex == bindingIndex
+                        || issue.OtherBindingIndex == bindingIndex));
                 rows.Add(new(
                     command?.Category ?? "Unknown",
-                    command?.Title ?? binding.CommandId.Value,
+                    command?.TitleFor(binding.Arguments) ?? binding.CommandId.Value,
                     KeySequenceDisplay.Format(binding.Sequence),
                     profile.Name,
                     hasConflict ? "Conflict" : "Active",
@@ -494,6 +525,11 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             ?? profile;
     }
 
+    /// <summary>
+    /// The newest custom application profile is the active one; without one,
+    /// the host's built-in default is. Choosing the tmux-like prefix on a Mac is
+    /// therefore an explicit act: clone its preset.
+    /// </summary>
     private static StoredDefinition<KeymapProfile> ResolveActiveApplicationKeymap(
         DefinitionCatalogSnapshot snapshot)
     {
@@ -509,10 +545,11 @@ public sealed class DefinitionSettingsViewModel : ObservableObject, IDisposable
             return custom;
         }
 
+        var builtIn = BuiltInKeymaps.ApplicationFor(HostPlatform.Current);
         return snapshot.Keymaps
-            .FirstOrDefault(item => item.Value.Id == BuiltInKeymaps.TmuxApplicationId)
+            .FirstOrDefault(item => item.Value.Id == builtIn.Id)
             ?? new StoredDefinition<KeymapProfile>(
-                BuiltInKeymaps.TmuxApplication,
+                builtIn,
                 0,
                 DateTimeOffset.UnixEpoch,
                 DateTimeOffset.UnixEpoch);

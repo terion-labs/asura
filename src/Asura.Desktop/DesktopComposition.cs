@@ -39,8 +39,14 @@ public static class DesktopComposition
             InstalledApplicationUpdates.Create(
                 provider.GetRequiredService<DesktopUpdateShutdown>().RequestAsync));
         services.AddSingleton(_ => ThemePreference.DefaultFor(CurrentOperatingSystem()));
-        services.AddSingleton<INativeNotificationService>(_ =>
-            NativeNotificationServiceSelector.CreateForCurrentPlatform());
+        // Settings › Notifications decides which sources reach the system;
+        // the choice is kept beside the profile, like the window frames.
+        services.AddSingleton<INativeNotificationService>(provider =>
+            new PreferenceFilteredNotificationService(
+                NativeNotificationServiceSelector.CreateForCurrentPlatform(),
+                new FileNotificationPreferencesStore(Path.Combine(
+                    provider.GetRequiredService<AsuraDataPaths>().DataDirectory,
+                    "notification-preferences.json"))));
         services.AddSingleton<IHostAccessibilityPreferencesSource>(_ =>
             HostAccessibilityPreferencesSourceSelector.CreateForCurrentPlatform());
         services.AddSingleton<IActiveWindowBoundsSource>(_ =>
@@ -436,6 +442,18 @@ public static class DesktopComposition
                 provider,
                 MainWindowRole.Additional));
         services.AddSingleton<Asura.App.QuickTerminalController>();
+        // Window frames per recovery slot, beside the profile rather than in
+        // it: the first window is placed before a startup PIN opens the
+        // database. Each window's workspace snapshot is keyed by the same slot.
+        services.AddSingleton<Asura.App.IWindowPlacementStore>(provider =>
+            new FileWindowPlacementStore(Path.Combine(
+                provider.GetRequiredService<AsuraDataPaths>().DataDirectory,
+                "window-placement.json")));
+        // The one Settings window's page and frame, kept the same way.
+        services.AddSingleton<Asura.App.ISettingsWindowStateStore>(provider =>
+            new FileSettingsWindowStateStore(Path.Combine(
+                provider.GetRequiredService<AsuraDataPaths>().DataDirectory,
+                "settings-window.json")));
         services.AddSingleton<Asura.App.App>();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

@@ -80,9 +80,17 @@ public sealed class NetworkCredentialDraftViewModel : ObservableObject
     public bool IsDocument =>
         SelectedTarget?.Kind is SecretKind.Other or SecretKind.Certificate;
 
-    public string Title => SelectedTarget is { } target
-        ? $"Add {target.DisplayName.ToLowerInvariant()}"
-        : "Add credential";
+    public string Title => SelectedTarget?.Target switch
+    {
+        NetworkCredentialTarget.ProxyPassword => "Add Proxy Password",
+        NetworkCredentialTarget.WireGuardConfiguration => "Add WireGuard Configuration",
+        NetworkCredentialTarget.OpenVpnConfiguration => "Add OpenVPN Profile",
+        NetworkCredentialTarget.OpenVpnPassword => "Add OpenVPN Password",
+        NetworkCredentialTarget.AnyConnectPassword => "Add AnyConnect Password",
+        NetworkCredentialTarget.AnyConnectClientCertificate => "Add Client Certificate",
+        NetworkCredentialTarget.TailscaleAuthKey => "Add Tailscale Auth Key",
+        _ => "Add Credential",
+    };
 
     public string ValueLabel => SelectedTarget is { } target
         ? target.DisplayName

@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
 using Avalonia.Controls;
@@ -9,7 +10,7 @@ namespace Asura.App.Views;
 /// Who can read or change one item. Closes with the change to send, or with
 /// nothing — closing without changing anything is not a write.
 /// </summary>
-public sealed partial class FileAccessControlDialog : Window
+public sealed partial class FileAccessControlDialog : DialogWindow
 {
     public FileAccessControlDialog()
     {
@@ -21,7 +22,9 @@ public sealed partial class FileAccessControlDialog : Window
     {
         ArgumentNullException.ThrowIfNull(editor);
         DataContext = editor;
-        Title = $"Permissions — {editor.ItemName}";
+        // The header names what is being changed; the window is titled with
+        // the same words.
+        this.FindControl<DialogShell>("Shell")!.Title = $"Permissions for “{editor.ItemName}”";
     }
 
     private void OnCancelClick(object? sender, RoutedEventArgs e)

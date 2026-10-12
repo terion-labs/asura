@@ -43,30 +43,22 @@ public sealed class WindowsGlobalHotkeyServiceTests
     }
 
     [Fact]
-    public void Primary_and_escape_registrations_route_events_and_release_transient_capture()
+    public void Primary_registration_routes_events_and_ignores_unowned_ids()
     {
         var loop = new FakeWindowsHotkeyLoop();
         using var service = new WindowsGlobalHotkeyService(loop);
         var primaryPresses = 0;
-        var escapePresses = 0;
         service.Pressed += (_, _) => primaryPresses++;
-        service.EscapePressed += (_, _) => escapePresses++;
 
         Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.Register(PrimaryGesture));
         Assert.Equal(PrimaryGesture, service.RegisteredGesture);
         loop.Emit(1);
         Assert.True(SpinWait.SpinUntil(() => primaryPresses == 1, TimeSpan.FromSeconds(1)));
 
-        Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.BeginEscapeCapture());
+        // Escape is the terminal's. The service registers only the hotkey and
+        // never answers another hot-key id.
         loop.Emit(2);
-        Assert.True(SpinWait.SpinUntil(() => escapePresses == 1, TimeSpan.FromSeconds(1)));
-
-        Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.BeginEscapeCapture());
-        Assert.Equal(1, loop.Unregistrations.Count(id => id == 2));
-        service.EndEscapeCapture();
-        loop.Emit(2);
-        Assert.Equal(1, escapePresses);
-        Assert.Equal(2, loop.Unregistrations.Count(id => id == 2));
+        Assert.Equal(1, primaryPresses);
     }
 
     [Theory]
@@ -91,33 +83,10 @@ public sealed class WindowsGlobalHotkeyServiceTests
         Assert.Equal(expectedStableCode, failure.Error.StableCode);
         if (nativeError == 5)
         {
-            Assert.Contains("Win32 error 5", failure.Error.Message, StringComparison.Ordinal);
-        }
-    }
-
-    [Theory]
-    [InlineData(1409, GlobalHotkeyRegistrationErrorCode.Conflict, "escape_capture_conflict")]
-    [InlineData(1422, GlobalHotkeyRegistrationErrorCode.InvalidGesture, "escape_capture_invalid")]
-    [InlineData(87, GlobalHotkeyRegistrationErrorCode.NativeFailure, "escape_capture_native_failure")]
-    public void Native_escape_errors_are_mapped_exactly(
-        int nativeError,
-        GlobalHotkeyRegistrationErrorCode expectedCode,
-        string expectedStableCode)
-    {
-        var loop = new FakeWindowsHotkeyLoop
-        {
-            NextResult = WindowsHotkeyNativeResult.Failure(nativeError),
-        };
-        using var service = new WindowsGlobalHotkeyService(loop);
-
-        var failure = Assert.IsType<GlobalHotkeyRegistrationResult.Failure>(
-            service.BeginEscapeCapture());
-
-        Assert.Equal(expectedCode, failure.Error.Code);
-        Assert.Equal(expectedStableCode, failure.Error.StableCode);
-        if (nativeError == 87)
-        {
-            Assert.Contains("Win32 error 87", failure.Error.Message, StringComparison.Ordinal);
+            // The native code goes to diagnostics, not the message people read.
+            Assert.Equal(
+                "Windows didn't accept this shortcut. Try again, or choose another one.",
+                failure.Error.Message);
         }
     }
 
@@ -127,13 +96,11 @@ public sealed class WindowsGlobalHotkeyServiceTests
         var loop = new FakeWindowsHotkeyLoop();
         var service = new WindowsGlobalHotkeyService(loop);
         Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.Register(PrimaryGesture));
-        Assert.IsType<GlobalHotkeyRegistrationResult.Success>(service.BeginEscapeCapture());
 
         service.Dispose();
         service.Dispose();
 
-        Assert.Contains(1, loop.Unregistrations);
-        Assert.Contains(2, loop.Unregistrations);
+        Assert.Equal([1], loop.Unregistrations);
         Assert.Equal(1, loop.DisposeCount);
         Assert.Throws<ObjectDisposedException>(() => service.Register(PrimaryGesture));
     }

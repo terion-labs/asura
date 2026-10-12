@@ -17,7 +17,7 @@ public sealed class GitImageDiffViewHeadlessTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
-        await session.Dispatch(async () =>
+        Assert.True(await session.Dispatch(async () =>
         {
             var before = ImageVersion(SKColors.Black, "Before");
             var view = new GitImageDiffView { ImagePair = new(before, ImageVersion(SKColors.Red, "After")) };
@@ -27,7 +27,7 @@ public sealed class GitImageDiffViewHeadlessTests
                 window.Show();
                 var mode = view.FindControl<ComboBox>("Mode")!;
                 var image = view.FindControl<Image>("After")!;
-                mode.SelectedItem = "Pixel difference";
+                mode.SelectedItem = "Pixel Difference";
                 var first = await WaitForBitmapAsync(image, timeout.Token);
                 var firstPixel = FirstPixel(first);
                 Assert.Equal(SKColors.Red, firstPixel);
@@ -35,7 +35,7 @@ public sealed class GitImageDiffViewHeadlessTests
                 // A new selection changes the image pair without another mode
                 // gesture. The displayed difference must belong to that pair.
                 view.ImagePair = new(before, ImageVersion(SKColors.Blue, "After"));
-                Assert.Equal("Pixel difference", mode.SelectedItem);
+                Assert.Equal("Pixel Difference", mode.SelectedItem);
                 var second = await WaitForBitmapAsync(image, timeout.Token);
 
                 Assert.NotSame(first, second);
@@ -48,7 +48,9 @@ public sealed class GitImageDiffViewHeadlessTests
             {
                 window.Close();
             }
-        }, timeout.Token);
+
+            return true;
+        }, timeout.Token));
     }
 
     private static async Task<Bitmap> WaitForBitmapAsync(Image image, CancellationToken cancellationToken)
@@ -58,7 +60,7 @@ public sealed class GitImageDiffViewHeadlessTests
             await Task.Delay(10, cancellationToken);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background, cancellationToken);
         }
-        return Assert.IsType<Bitmap>(image.Source);
+        return Assert.IsAssignableFrom<Bitmap>(image.Source);
     }
 
     private static GitImageVersion ImageVersion(SKColor color, string label)

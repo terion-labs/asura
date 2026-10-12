@@ -133,8 +133,11 @@ public partial class AgentWorkspaceView
         RequestAgentChatScrollToEnd(force: true);
     }
 
-    private void BindAgentChatMessageSource() =>
+    private void BindAgentChatMessageSource()
+    {
         SetAgentChatMessageSource(_agentChatHost?.AgentChat?.Messages);
+        SetAgentDecisionSource(_agentChatHost?.AgentChat);
+    }
 
     private void SetAgentChatMessageSource(
         ObservableCollection<AgentChatMessageViewModel>? source)

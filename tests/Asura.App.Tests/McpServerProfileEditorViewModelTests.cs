@@ -442,7 +442,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.Contains(
             request.TrustReview.Changes,
             change => change.Contains(
-                "Trust this imported server definition",
+                "Trust this imported server",
                 StringComparison.Ordinal));
         Assert.True(request.Profile.IsTrusted);
         Assert.True(request.ConfirmTrust().IsAuthorizedForSave);
@@ -491,9 +491,9 @@ public sealed class McpServerProfileEditorViewModelTests
             "Choose at least one tool before enabling this server.",
             item.StatusDetail);
         Assert.True(item.HasWarning);
-        Assert.Equal("1 ordered arg", item.ArgumentSummary);
-        Assert.Equal("1 vault binding", item.EnvironmentBindingSummary);
-        Assert.Equal("0 enabled tools", item.EnabledToolSummary);
+        Assert.Equal("1 argument", item.ArgumentSummary);
+        Assert.Equal("1 stored credential", item.EnvironmentBindingSummary);
+        Assert.Equal("No enabled tools", item.EnabledToolSummary);
     }
 
     [Fact]
@@ -562,7 +562,7 @@ public sealed class McpServerProfileEditorViewModelTests
             "https://mcp.example.test/rpc",
             missing.Address);
         Assert.Equal("Streamable HTTP", missing.TransportSummary);
-        Assert.Equal("1 vault binding", missing.CredentialBindingSummary);
+        Assert.Equal("1 stored credential", missing.CredentialBindingSummary);
         Assert.Equal("Credential missing", missing.Status);
         Assert.Equal("Enabled for new runs", matching.Status);
         Assert.False(matching.HasWarning);
@@ -730,7 +730,7 @@ public sealed class McpServerProfileEditorViewModelTests
         Assert.Equal("True", editorCancel.Attribute("IsCancel")?.Value);
         var editorSave = Assert.Single(
             editor.Descendants(view + "Button"),
-            button => string.Equals(button.Attribute("Content")?.Value, "Review and save", StringComparison.Ordinal));
+            button => string.Equals(button.Attribute("Content")?.Value, "Review and Save…", StringComparison.Ordinal));
         Assert.Equal("True", editorSave.Attribute("IsDefault")?.Value);
 
         Assert.Equal("OnOpened", confirmation.Root?.Attribute("Opened")?.Value);
@@ -745,7 +745,9 @@ public sealed class McpServerProfileEditorViewModelTests
             confirmation.Descendants(view + "Button"),
             button => string.Equals(button.Attribute(x + "Name")?.Value, "ConfirmButton", StringComparison.Ordinal));
         Assert.Equal("False", confirm.Attribute("IsEnabled")?.Value);
-        Assert.Equal("True", confirm.Attribute("IsDefault")?.Value);
+        // Trusting a server is read, ticked, and pressed on purpose: Return
+        // never answers it.
+        Assert.Null(confirm.Attribute("IsDefault"));
         Assert.Contains(
             confirmation.Descendants(view + "TextBlock"),
             element => element.Attribute("Text")?.Value?.Contains(
@@ -882,6 +884,13 @@ public sealed class McpServerProfileEditorViewModelTests
             "Found 2 tools",
             tested.StatusDetail,
             StringComparison.Ordinal);
+        // The completion time reads in the reader's own date style, not as
+        // an ISO stamp in UTC.
+        Assert.Contains(
+            $"Tested {DisplayDates.Format(DateTimeOffset.UnixEpoch)}.",
+            tested.StatusDetail,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("UTC", tested.StatusDetail, StringComparison.Ordinal);
         Assert.True(tested.CanTest);
         Assert.False(tested.IsTesting);
         Assert.Equal(1, diagnosticsProxy.CallCount);
@@ -953,8 +962,63 @@ public sealed class McpServerProfileEditorViewModelTests
 
         var item = Assert.Single(viewModel.McpServerDefinitions);
         Assert.Equal("Starting", item.Status);
-        Assert.Contains("01234567", item.StatusDetail, StringComparison.Ordinal);
+        // The stable code in the reader's words; neither the session ID nor
+        // the host's protocol sentence reaches the row.
+        Assert.Equal("Starting the server for an agent run…", item.StatusDetail);
+        Assert.DoesNotContain("01234567", item.StatusDetail, StringComparison.Ordinal);
+        Assert.DoesNotContain("negotiating", item.StatusDetail, StringComparison.Ordinal);
         Assert.True(viewModel.HasMcpDiagnosticHistory);
+    }
+
+    [Theory]
+    [InlineData(McpServerSessionKind.Test, McpServerLifecycleState.Healthy, "mcp_healthy", 0, "Connected and loaded its tools.")]
+    [InlineData(McpServerSessionKind.AgentRun, McpServerLifecycleState.Healthy, "mcp_healthy", 0, "Running for an agent run.")]
+    [InlineData(McpServerSessionKind.AgentRun, McpServerLifecycleState.Stopped, "mcp_stopped", 0, "The server stopped.")]
+    [InlineData(McpServerSessionKind.AgentRun, McpServerLifecycleState.Stopped, "mcp_stopped", 42, "The server stopped after writing to its error output.")]
+    [InlineData(McpServerSessionKind.AgentRun, McpServerLifecycleState.Degraded, "mcp_remote_error", 0, "The server reported an error. The server is still running.")]
+    [InlineData(McpServerSessionKind.Test, McpServerLifecycleState.Failed, "mcp_server_launch_failed", 0, "The server couldn't start. Check its command and arguments.")]
+    [InlineData(McpServerSessionKind.AgentRun, McpServerLifecycleState.Failed, "mcp_unheard_of", 0, "The server stopped working. Test it again.")]
+    public void Live_diagnostics_read_as_a_curated_sentence(
+        McpServerSessionKind kind,
+        McpServerLifecycleState state,
+        string code,
+        int stderrBytes,
+        string expected)
+    {
+        var summary = new McpServerDiagnosticSummary(
+            new McpServerProfileId("mcp.local"),
+            3,
+            "0123456789abcdef",
+            kind,
+            state,
+            DateTimeOffset.UnixEpoch,
+            DateTimeOffset.UnixEpoch,
+            [
+                new McpServerDiagnosticEvent(
+                    DateTimeOffset.UnixEpoch,
+                    state,
+                    code,
+                    "The live MCP session reported a bounded tool failure.",
+                    stderrBytes,
+                    stderrBytes == 0 ? 0 : 1),
+            ]);
+
+        var sentence = McpDiagnosticText.Describe(summary);
+
+        Assert.Equal(expected, sentence);
+        Assert.DoesNotContain("MCP", sentence, StringComparison.Ordinal);
+        Assert.DoesNotContain("bounded", sentence, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void A_failed_test_reads_as_a_curated_sentence_not_the_hosts()
+    {
+        Assert.Equal(
+            "The server didn't finish loading its tools in time.",
+            McpDiagnosticText.DescribeTestFailure("mcp_test_timed_out"));
+        Assert.Equal(
+            "The test didn't finish. Try again.",
+            McpDiagnosticText.DescribeTestFailure("mcp_test_failed"));
     }
 
     [Fact]

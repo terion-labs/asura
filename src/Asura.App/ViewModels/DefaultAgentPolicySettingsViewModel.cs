@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -19,6 +20,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     private bool _saveRunning;
     private bool _sealed;
     private bool _disposed;
+    private bool _hasEdits;
 
     public DefaultAgentPolicySettingsViewModel(
         AgentPolicyCoordinator? coordinator,
@@ -38,7 +40,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
             activeCoordinator.Changed += OnCoordinatorChanged;
             if (activeCoordinator.InitializationError is { } error)
             {
-                _setError($"{error.Message} Agent capabilities are disabled until you review and save the default AI configuration.");
+                _setError(LoadFailureText(error));
             }
         }
     }
@@ -50,6 +52,13 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     public AgentPolicy? Policy => _coordinator?.Policy;
 
     public bool CanSave => _coordinator is not null && Editor.IsValid;
+
+    /// <summary>
+    /// True once someone has changed the default and left it incomplete. A
+    /// page nobody has touched shows only the notice that says what to do
+    /// first, never an error that blames the person for it.
+    /// </summary>
+    public bool ShowsIncompleteDefault => _hasEdits && !Editor.IsValid;
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
@@ -67,20 +76,23 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
         }
         catch (ArgumentException exception)
         {
-            _setError(exception.Message);
+            _setError(FailureReason.Refusal(
+                "agent.default-policy.save.refused",
+                exception,
+                "Choose an available AI provider and enter a model, then save again."));
             return;
         }
 
         if (policy is null)
         {
-            _setError("The default AI configuration cannot be disabled.");
+            _setError("The default AI settings can't be turned off. Choose another default first.");
             return;
         }
 
         var result = await _coordinator.SaveAsync(policy, cancellationToken);
         if (!result.IsSuccess)
         {
-            _setError(result.Error!.Message);
+            _setError(SaveFailureText(result.Error!));
             return;
         }
 
@@ -103,6 +115,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
         Editor.Changed += OnEditorChanged;
         OnPropertyChanged(nameof(Editor));
         OnPropertyChanged(nameof(CanSave));
+        OnPropertyChanged(nameof(ShowsIncompleteDefault));
         QueuePersistence(onlyWhenMissing: true);
     }
 
@@ -204,7 +217,7 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
             if (!result.IsSuccess && !_disposed)
             {
                 await _dispatcher.InvokeAsync(
-                        () => _setError(result.Error!.Message),
+                        () => _setError(SaveFailureText(result.Error!)),
                         CancellationToken.None)
                     .ConfigureAwait(false);
             }
@@ -237,7 +250,9 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
     {
         _ = sender;
         _ = eventArgs;
+        _hasEdits = true;
         OnPropertyChanged(nameof(CanSave));
+        OnPropertyChanged(nameof(ShowsIncompleteDefault));
         QueuePersistence(onlyWhenMissing: false);
     }
 
@@ -250,4 +265,33 @@ public sealed class DefaultAgentPolicySettingsViewModel : ObservableObject, IDis
         };
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
+
+    /// <summary>
+    /// Why the saved default couldn't be read. The store's message names its
+    /// own row and format ("The stored default agent policy is unreadable."),
+    /// so the code chooses the sentence.
+    /// </summary>
+    internal static string LoadFailureText(ApplicationRunError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return error.Code == ApplicationRunErrorCode.StorageUnavailable
+            ? "Asura couldn’t read the default AI settings because its settings storage is busy, so agent capabilities are off. "
+                + "Restart Asura, or review the settings and save them to turn agent capabilities back on."
+            : "Asura couldn’t read the saved default AI settings, so agent capabilities are off. "
+                + "Review the settings and save them to turn agent capabilities back on.";
+    }
+
+    /// <summary>Why the default couldn't be saved, chosen by the store's code.</summary>
+    internal static string SaveFailureText(ApplicationRunError error)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        return error.Code switch
+        {
+            ApplicationRunErrorCode.Cancelled =>
+                "Saving the default AI settings was canceled. Your changes are still here; save again to keep them.",
+            ApplicationRunErrorCode.StorageUnavailable =>
+                "Asura couldn’t save the default AI settings because its settings storage is busy. Try again in a moment.",
+            _ => "Asura couldn’t save the default AI settings. Try again.",
+        };
+    }
 }

@@ -17,6 +17,10 @@ internal sealed partial class PanelChrome
     public static readonly DirectProperty<PanelChrome, string> ExpansionLabelProperty =
         AvaloniaProperty.RegisterDirect<PanelChrome, string>(nameof(ExpansionLabel), chrome => chrome.ExpansionLabel);
 
+    /// <summary>The expand action's name as an item of the "…" menu.</summary>
+    public static readonly DirectProperty<PanelChrome, string> ExpansionMenuHeaderProperty =
+        AvaloniaProperty.RegisterDirect<PanelChrome, string>(nameof(ExpansionMenuHeader), chrome => chrome.ExpansionMenuHeader);
+
     public static readonly DirectProperty<PanelChrome, Symbol> ExpansionIconProperty =
         AvaloniaProperty.RegisterDirect<PanelChrome, Symbol>(nameof(ExpansionIcon), chrome => chrome.ExpansionIcon);
 
@@ -24,6 +28,8 @@ internal sealed partial class PanelChrome
     private Button? _expand;
 
     public string ExpansionLabel => IsZoomed ? "Restore all panels" : "Expand this panel";
+
+    public string ExpansionMenuHeader => IsZoomed ? "Restore All Panels" : "Expand Panel";
 
     public Symbol ExpansionIcon => IsZoomed ? Symbol.ArrowMinimize : Symbol.ArrowExpand;
 
@@ -34,6 +40,8 @@ internal sealed partial class PanelChrome
         {
             RaisePropertyChanged(ExpansionLabelProperty,
                 change.GetOldValue<bool>() ? "Restore all panels" : "Expand this panel", ExpansionLabel);
+            RaisePropertyChanged(ExpansionMenuHeaderProperty,
+                change.GetOldValue<bool>() ? "Restore All Panels" : "Expand Panel", ExpansionMenuHeader);
             RaisePropertyChanged(ExpansionIconProperty,
                 change.GetOldValue<bool>() ? Symbol.ArrowMinimize : Symbol.ArrowExpand, ExpansionIcon);
         }

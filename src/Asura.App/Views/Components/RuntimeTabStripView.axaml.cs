@@ -17,8 +17,19 @@ namespace Asura.App.Views.Components;
 /// </summary>
 public sealed partial class RuntimeTabStripView : UserControl
 {
+    /// <summary>The width a tab takes while the strip has room for it.</summary>
+    public const double MaximumTabWidth = 158;
+
+    /// <summary>
+    /// The narrowest a tab gets before the strip scrolls instead: still wide
+    /// enough for the icon and a few letters of the name beside the close
+    /// button the active tab always shows.
+    /// </summary>
+    public const double MinimumTabWidth = 100;
+
     private Control? _reorderPointerSource;
     private IPointer? _reorderPointer;
+    private Control? _middlePressSource;
 
     public static readonly StyledProperty<IEnumerable?> TabsProperty =
         AvaloniaProperty.Register<RuntimeTabStripView, IEnumerable?>(nameof(Tabs));
@@ -41,10 +52,28 @@ public sealed partial class RuntimeTabStripView : UserControl
     public static readonly StyledProperty<bool> ShowsOverflowSeparatorProperty =
         AvaloniaProperty.Register<RuntimeTabStripView, bool>(nameof(ShowsOverflowSeparator));
 
+    public static readonly DirectProperty<RuntimeTabStripView, double> TabWidthProperty =
+        AvaloniaProperty.RegisterDirect<RuntimeTabStripView, double>(
+            nameof(TabWidth),
+            strip => strip.TabWidth);
+
+    private double _tabWidth = MaximumTabWidth;
+
     public bool ShowsOverflowSeparator
     {
         get => GetValue(ShowsOverflowSeparatorProperty);
         set => SetValue(ShowsOverflowSeparatorProperty, value);
+    }
+
+    /// <summary>
+    /// How wide each tab is drawn across a horizontal strip: the room the
+    /// strip has, shared between its tabs, between
+    /// <see cref="MinimumTabWidth"/> and <see cref="MaximumTabWidth"/>.
+    /// </summary>
+    public double TabWidth
+    {
+        get => _tabWidth;
+        private set => SetAndRaise(TabWidthProperty, ref _tabWidth, value);
     }
 
     public RuntimeTabStripView()
@@ -104,12 +133,12 @@ public sealed partial class RuntimeTabStripView : UserControl
     }
 
     /// <summary>
-    /// Hidden along the strip's axis (overflow shows as an edge fade, not a
-    /// bar), Disabled across it. Assigned directly rather than bound: the
-    /// consumer sets Orientation after this view's own bindings have read
-    /// their value, and the refresh never reached them — which left a
-    /// side-docked strip free to grow 13px wider than its viewport and clip
-    /// its own close buttons.
+    /// Hidden along the strip's axis (overflow shows as an edge fade and the
+    /// all-tabs pull-down, not a bar), Disabled across it. Assigned directly
+    /// rather than bound: the consumer sets Orientation after this view's own
+    /// bindings have read their value, and the refresh never reached them —
+    /// which left a side-docked strip free to grow 13px wider than its
+    /// viewport and clip its own close buttons.
     /// </summary>
     private void SyncScrollBars()
     {
@@ -157,10 +186,12 @@ public sealed partial class RuntimeTabStripView : UserControl
         {
             SyncScrollBars();
             SyncAddButtonDock();
+            InvalidateMeasure();
             UpdateOverflowPresentation();
         }
         else if (change.Property == ShowsOverflowSeparatorProperty)
         {
+            InvalidateMeasure();
             UpdateOverflowPresentation();
         }
         else if (change.Property == TabsProperty)
@@ -169,13 +200,122 @@ public sealed partial class RuntimeTabStripView : UserControl
         }
     }
 
+    /// <summary>
+    /// Tabs share a horizontal strip before any of them goes out of sight.
+    /// The width is settled here, before the tabs are measured, because only
+    /// the strip knows how much room it was offered; a tab measured on its
+    /// own inside the scroller is offered infinite room and would always
+    /// take the most.
+    ///
+    /// The pull-down and its hairline do not take their room in one step.
+    /// They did, and the moment the strip ran out of room the tabs lost
+    /// those points all at once: everything, the pinned active tab with it,
+    /// jumped sideways just as the pull-down appeared. Their slots open
+    /// instead with the room the tabs give up, so every width here follows
+    /// the window's continuously.
+    /// </summary>
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (Orientation == Orientation.Horizontal)
+        {
+            var count = CountTabs();
+            var spacing = TabSpacing();
+            var room = availableSize.Width - ChromeWidth(AddTabButton);
+            var menu = ChromeWidth(OverflowMenuButton);
+            var separator = ShowsOverflowSeparator ? ChromeWidth(OverflowSeparator) : 0;
+            var reveal = OverflowReveal(room, count, spacing, menu + separator);
+            Reveal(OverflowMenuSlot, OverflowMenuButton, menu, reveal);
+            Reveal(OverflowSeparatorSlot, OverflowSeparator, separator, reveal);
+            TabWidth = FitTabWidth(room - (reveal * (menu + separator)), count, spacing);
+        }
+
+        return base.MeasureOverride(availableSize);
+    }
+
+    /// <summary>
+    /// The share of <paramref name="room"/> each of <paramref name="count"/>
+    /// tabs gets, between the minimum and the maximum tab width. Not rounded:
+    /// layout rounding snaps each tab to the pixel grid, and a whole-point
+    /// share left the add button stepping by a point per tab while the
+    /// window moved smoothly.
+    /// </summary>
+    internal static double FitTabWidth(double room, int count, double spacing)
+    {
+        if (count <= 0 || double.IsInfinity(room) || double.IsNaN(room))
+        {
+            return MaximumTabWidth;
+        }
+
+        var share = (room - (spacing * (count - 1))) / count;
+        return Math.Clamp(share, MinimumTabWidth, MaximumTabWidth);
+    }
+
+    /// <summary>
+    /// How far the overflow chrome, <paramref name="chrome"/> points wide, is
+    /// open: 0 while the tabs have that much to spare beyond their minimum,
+    /// rising to 1 as the spare room runs out. The tabs reach the minimum and
+    /// start to scroll halfway, so by the time a tab goes out of sight the
+    /// pull-down that lists it is already there.
+    /// </summary>
+    internal static double OverflowReveal(double room, int count, double spacing, double chrome)
+    {
+        if (count <= 0 || chrome <= 0 || double.IsInfinity(room) || double.IsNaN(room))
+        {
+            return 0;
+        }
+
+        var minimum = (count * MinimumTabWidth) + (spacing * (count - 1));
+        return Math.Clamp((minimum + chrome - room) / chrome, 0, 1);
+    }
+
+    /// <summary>
+    /// Opens a slot to <paramref name="amount"/> of its content's room and
+    /// fades the content in with it. Writing an unchanged value is a no-op,
+    /// so a measure that changes nothing does not invalidate itself.
+    /// </summary>
+    private static void Reveal(Panel slot, Control content, double width, double amount)
+    {
+        var shown = amount > 0 && width > 0;
+        slot.IsVisible = shown;
+        content.IsVisible = shown;
+        slot.Width = shown ? width * amount : 0;
+        slot.Opacity = shown ? amount : 0;
+    }
+
+    private static double ChromeWidth(Control control) =>
+        (double.IsNaN(control.Width) ? 0 : control.Width)
+        + control.Margin.Left
+        + control.Margin.Right;
+
+    private double TabSpacing() =>
+        this.TryFindResource("ShellSpaceXs", ActualThemeVariant, out var value)
+            && value is double spacing
+                ? spacing
+                : 4;
+
+    private int CountTabs()
+    {
+        var count = 0;
+        if (Tabs is { } tabs)
+        {
+            foreach (var _ in tabs)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>The add button sits past the strip's growing end, outside the scroll.</summary>
-    private void SyncAddButtonDock() =>
-        DockPanel.SetDock(
-            AddTabButton,
-            Orientation == Orientation.Horizontal
-                ? Avalonia.Controls.Dock.Right
-                : Avalonia.Controls.Dock.Bottom);
+    private void SyncAddButtonDock()
+    {
+        var dock = Orientation == Orientation.Horizontal
+            ? Avalonia.Controls.Dock.Right
+            : Avalonia.Controls.Dock.Bottom;
+        DockPanel.SetDock(AddTabButton, dock);
+        DockPanel.SetDock(OverflowMenuSlot, dock);
+    }
 
     private void RaisePropertyChanged(params string[] names)
     {
@@ -211,7 +351,22 @@ public sealed partial class RuntimeTabStripView : UserControl
     private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         _ = sender;
-        if (!e.Pointer.IsPrimary || FindTabActivator(e.Source) is not { } source)
+        if (FindTabActivator(e.Source) is not { } source)
+        {
+            return;
+        }
+
+        // The middle button closes a tab, as it does in every tabbed browser
+        // and terminal. Taken on the way down so the tab is not activated or
+        // dragged first.
+        if (e.GetCurrentPoint(source).Properties.IsMiddleButtonPressed)
+        {
+            _middlePressSource = source;
+            e.Handled = true;
+            return;
+        }
+
+        if (!e.Pointer.IsPrimary)
         {
             return;
         }
@@ -234,6 +389,21 @@ public sealed partial class RuntimeTabStripView : UserControl
     private void OnTabPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _ = sender;
+        if (e.InitialPressMouseButton == MouseButton.Middle)
+        {
+            var pressed = _middlePressSource;
+            _middlePressSource = null;
+            if (pressed is not null
+                && ReferenceEquals(FindTabActivator(e.Source), pressed)
+                && pressed.DataContext is ViewModels.IRuntimeTabStripItem { CanClose: true })
+            {
+                e.Handled = true;
+                CloseRequested?.Invoke(pressed, e);
+            }
+
+            return;
+        }
+
         if (_reorderPointerSource is not { } source
             || !ReferenceEquals(e.Pointer, _reorderPointer))
         {

@@ -362,7 +362,7 @@ internal sealed partial class DockerPanelSession : IDockerPanelSession
     private static DockerResult<T> Cancelled<T>() =>
         new DockerResult<T>.Failure(new DockerError(
             DockerErrorCode.Cancelled,
-            "The Docker observation was cancelled.",
+            "The Docker observation was canceled.",
             false));
 
     private static DockerResult<T> InvalidResponse<T>() =>
@@ -380,9 +380,9 @@ internal sealed partial class DockerPanelSession : IDockerPanelSession
                 DockerErrorCode.ConnectionFailed => "The Docker connection failed.",
                 DockerErrorCode.CommandFailed => "Docker could not complete the read operation.",
                 DockerErrorCode.TimedOut => "The Docker observation timed out.",
-                DockerErrorCode.Cancelled => "The Docker observation was cancelled.",
+                DockerErrorCode.Cancelled => "The Docker observation was canceled.",
                 DockerErrorCode.FileNotFound => "The Docker file was not found.",
-                DockerErrorCode.NotDirectory => "The Docker path is not a directory.",
+                DockerErrorCode.NotDirectory => "The Docker path is not a folder.",
                 DockerErrorCode.FileProtocolUnavailable =>
                     "The Docker resource cannot be browsed safely.",
                 _ => "The Docker engine returned an invalid response.",

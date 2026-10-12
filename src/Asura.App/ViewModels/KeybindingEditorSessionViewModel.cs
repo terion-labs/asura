@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -49,15 +50,25 @@ public sealed record KeybindingEditorRowItemViewModel(
 
     public bool CanResetShortcut => CanEdit && CanReset;
 
+    /// <summary>
+    /// A read-only preset has nothing to record, unbind, or reset, so its rows
+    /// show no actions at all rather than three disabled buttons each.
+    /// </summary>
+    public bool ShowsActions => CanEdit;
+
     public bool HasIssue => Row.Issues.Count > 0;
 
     public string Status => Row.HasBlockingConflict
         ? "Conflict"
         : Row.IsUnknownCommand
             ? "Unknown"
-            : Row.IsBound
-                ? "Active"
-                : "Unbound";
+            : Row.Issues.Any(issue => issue.Kind
+                is KeymapIssueKind.SystemShortcut
+                or KeymapIssueKind.MenuShortcut)
+                ? "Never fires"
+                : Row.IsBound
+                    ? "Active"
+                    : "Unbound";
 
     public string IssueSummary => string.Join(' ', Row.Issues.Select(issue => issue.Message));
 }
@@ -148,12 +159,14 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
     public string StateSummary => IsReadOnly
         ? "Built-in presets are read-only. Clone this preset to customize it."
         : HasConflicts
-            ? $"Resolve {ConflictCount} blocking conflict(s) before saving."
+            ? ConflictCount == 1
+                ? "Resolve 1 conflict before saving."
+                : $"Resolve {ConflictCount:N0} conflicts before saving."
             : IsDirty
-                ? "Unsaved keybinding changes."
+                ? "Unsaved shortcut changes."
                 : IsNew
-                    ? "New keybinding profile has not been saved."
-                : "Saved keybinding profile.";
+                    ? "The new shortcut profile hasn't been saved."
+                : "Saved shortcut profile.";
 
     public void RecordShortcut(
         KeybindingEditorRowId rowId,
@@ -218,7 +231,18 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
     public KeybindingSettingsSaveRequest CreateSaveRequest()
     {
         EnsureWritable();
-        return _editor.CreateSaveRequest();
+        try
+        {
+            return _editor.CreateSaveRequest();
+        }
+        catch (InvalidOperationException exception) when (!_editor.CanSave)
+        {
+            // Only the conflict refusal is written for people: it names the
+            // conflicts to resolve. Any other failure is an internal check
+            // ("Keybinding row '…' has no command metadata.") and is left
+            // unmarked, so the caller shows its own sentence instead.
+            throw FailureReason.Readable(exception);
+        }
     }
 
     public void Dispose()
@@ -273,7 +297,8 @@ public sealed class KeybindingEditorSessionViewModel : ObservableObject, IDispos
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (IsReadOnly)
         {
-            throw new InvalidOperationException("Clone the built-in preset before editing it.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "Choose Clone Preset to edit a copy of the built-in shortcuts."));
         }
     }
 

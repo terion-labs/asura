@@ -153,9 +153,19 @@ public sealed partial class QuickTerminalWindow
         await RunAgentActionFromDataContextAsync(
             (agent, token) => agent.CancelActiveActionAsync(token));
 
-    private async void OnClearAgentChatClick(object? sender, RoutedEventArgs e) =>
+    private async void OnClearAgentChatClick(object? sender, RoutedEventArgs e)
+    {
+        // Clearing deletes the saved conversation, so it is confirmed exactly
+        // like deleting that conversation from the history list.
+        if (DataContext is QuickTerminalViewModel { AgentChat.ConversationDeletedByClear: { } saved }
+            && !await Confirmations.AgentConversationDelete(saved.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
         await RunAgentActionFromDataContextAsync(
             (agent, token) => agent.ClearAsync(token));
+    }
 
     private async void OnStartNewAgentConversationClick(object? sender, RoutedEventArgs e) =>
         await RunQuickAgentConversationActionAsync(
@@ -174,16 +184,41 @@ public sealed partial class QuickTerminalWindow
 
     private async void OnDeleteAgentConversationClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AgentRunId runId }
-            && DataContext is QuickTerminalViewModel { AgentChat: { } agent }
-            && agent.Conversations.FirstOrDefault(item => item.RunId == runId) is { } item
-            && await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
+        _ = e;
+
+        // From the row's context menu or Delete on the focused row.
+        if (sender is Control { Tag: AgentRunId runId })
         {
-            await RunQuickAgentConversationActionAsync(
-                sender,
-                (agent, token) => agent.DeleteConversationAsync(runId, token),
-                hideHistoryFlyout: false);
+            await DeleteAgentConversationAsync(runId);
         }
+    }
+
+    /// <summary>
+    /// The File menu's Delete Conversation… while Quick Terminal is the key
+    /// window: asks, then deletes the conversation its agent panel shows.
+    /// </summary>
+    internal Task DeleteCurrentAgentConversationAsync() =>
+        DataContext is QuickTerminalViewModel { CurrentAgentConversation: { } conversation }
+            ? DeleteAgentConversationAsync(conversation.RunId)
+            : Task.CompletedTask;
+
+    /// <summary>
+    /// Asks, then deletes one saved conversation: the row's, or from the File
+    /// menu the one the agent panel shows.
+    /// </summary>
+    private async Task DeleteAgentConversationAsync(AgentRunId runId)
+    {
+        if (DataContext is not QuickTerminalViewModel { AgentChat: { } agent }
+            || agent.Conversations.FirstOrDefault(item => item.RunId == runId) is not { } item
+            || !await Confirmations.AgentConversationDelete(item.Title).ShowDialog<bool>(this))
+        {
+            return;
+        }
+
+        await RunQuickAgentConversationActionAsync(
+            sender: null,
+            (agent, token) => agent.DeleteConversationAsync(runId, token),
+            hideHistoryFlyout: false);
     }
 
     private async void OnCopyAgentMessageClick(object? sender, RoutedEventArgs e)
@@ -221,7 +256,7 @@ public sealed partial class QuickTerminalWindow
 
     private async void OnSelectAgentModelClick(object? sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: AiProviderModelDescriptor model })
+        if (sender is Control { Tag: AiProviderModelDescriptor model })
         {
             await RunQuickAgentConversationActionAsync(
                 sender,

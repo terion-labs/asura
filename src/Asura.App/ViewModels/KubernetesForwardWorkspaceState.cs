@@ -125,7 +125,7 @@ public sealed class KubernetesForwardViewModel : ObservableObject
     {
         try { await _handle.Completion.WaitAsync(_endpoint?.Lifetime ?? CancellationToken.None); if (IsActive) { Status = "Connection closed"; } }
         catch (OperationCanceledException) { await StopAsync(); }
-        catch (KubernetesRequestException exception) { Status = exception.Message; }
+        catch (KubernetesRequestException exception) { Status = KubernetesErrorText.Describe(exception, KubernetesActivity.PortForward); }
         catch (IOException) { Status = "Forward connection ended."; }
         finally { IsActive = false; if (_endpoint is not null) { await _endpoint.DisposeAsync(); } }
     }
@@ -138,7 +138,7 @@ public sealed class KubernetesForwardViewModel : ObservableObject
     {
         IsActive = false;
         try { if (_endpoint is not null) { await _endpoint.DisposeAsync(); } await _handle.DisposeAsync(); Status = "Stopped"; }
-        catch (KubernetesRequestException exception) { Status = exception.Message; }
+        catch (KubernetesRequestException exception) { Status = KubernetesErrorText.Describe(exception, KubernetesActivity.PortForward); }
         catch (IOException) { Status = "Forward connection ended."; }
         finally { _stopped.TrySetResult(); }
     }

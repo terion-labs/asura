@@ -288,7 +288,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(panel.IsConnected);
         Assert.Equal("Host=third;Password=fixture", panel.ConnectionString);
         Assert.Equal(target, panel.RecoveryTarget);
-        Assert.Contains("could not be saved", panel.ErrorMessage!, StringComparison.Ordinal);
+        Assert.Contains("couldn't save the connection", panel.ErrorMessage!, StringComparison.Ordinal);
         Assert.Equal("Host=second;Password=fixture", (await state.RestoreAsync(CancellationToken.None))!.ConnectionString);
     }
 
@@ -575,7 +575,11 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.False(panel.IsConnected);
         Assert.True(panel.HasError);
-        Assert.Equal("no such table: missing", panel.ErrorMessage);
+        // The client's own text goes to diagnostics; the panel says what
+        // didn't happen and what to do next.
+        Assert.Equal(
+            "Asura couldn’t connect to the database. Check the connection’s settings, then connect again.",
+            panel.ErrorMessage);
 
         client.FailWith = null;
         await panel.ConnectAsync();
@@ -812,10 +816,10 @@ public sealed class DatabaseRuntimePanelViewModelTests
                     profile.ConnectionString,
                     secret));
             },
-            passwordStoreLabel: "Save in macOS Keychain");
+            passwordStoreLabel: "Save in Keychain");
 
         Assert.True(panel.CanStorePassword);
-        Assert.Equal("Save in macOS Keychain", panel.PasswordStoreLabel);
+        Assert.Equal("Save in Keychain", panel.PasswordStoreLabel);
 
         var stored = await panel.StoreSessionPasswordAsync("typed");
 
@@ -998,7 +1002,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         using var jsonWriter = new System.Text.Json.Utf8JsonWriter(content);
         var utf8Error = Assert.Throws<InvalidDataException>(() =>
             DatabaseGridExport.WriteJsonRow(jsonWriter, columns, row));
-        Assert.Contains("use CSV", utf8Error.Message, StringComparison.Ordinal);
+        Assert.Contains("Export as CSV instead", utf8Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1273,10 +1277,14 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(destination.Length > 0);
     }
 
+    private const string RowsNotLoaded =
+        "Asura couldn’t load the rows. Try again; if it keeps failing, reconnect.";
+
     private static void AssertClipboardLimit(Func<string> build)
     {
         var exception = Assert.Throws<InvalidDataException>(() => build());
-        Assert.Contains("16 MiB UTF-8", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("larger than the clipboard can hold", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(exception.Message, Asura.App.Controls.FailureReason.Describe(exception));
     }
 
     [Fact]
@@ -1376,7 +1384,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.False(panel.ImportCsv("Name\nwrong case\n"));
         Assert.Equal(beforeFailure, panel.ResultRows.Count);
-        Assert.Contains("does not exist", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("isn't in this table", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1396,7 +1404,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.ImportCsv("id,name\n3,Grace\n"));
 
         Assert.Equal(before, panel.ResultRows.Count);
-        Assert.Contains("owned by the database", panel.ErrorMessage, StringComparison.Ordinal);
+        Assert.Contains("filled in by the database", panel.ErrorMessage, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1489,7 +1497,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.PreviewTableAsync(panel.Tables[0]);
 
         Assert.False(panel.CanEditRows);
-        Assert.Equal("This primary-key value cannot be edited safely.", panel.ReadOnlyReason);
+        Assert.Equal("This primary-key value can't be edited safely here. Edit it with SQL instead.", panel.ReadOnlyReason);
         Assert.Equal(DatabaseValueKind.Other, panel.ResultColumns[0].ValueKind);
         Assert.False(panel.ResultRows[0].Cells[0].IsEditable);
     }
@@ -1675,15 +1683,27 @@ public sealed class DatabaseRuntimePanelViewModelTests
         panel.ShowDatabaseOverview();
 
         Assert.Null(panel.SelectedObject);
+        // SQLite has no schemas: no column of NULLs for them.
         Assert.Equal(
-            ["Schema", "Name", "Kind"],
+            ["Name", "Kind"],
             [.. panel.ResultColumns.Select(column => column.Name)]);
         Assert.Equal(panel.Tables.Count, panel.ResultRows.Count);
         Assert.Contains("objects", panel.ResultSummary, StringComparison.Ordinal);
+        // The pager counts the rows the catalog shows.
+        Assert.Equal(panel.Tables.Count, panel.TotalRows);
+        Assert.Equal("Page 1 of 1", panel.PagePositionText);
         // A catalog is a fact sheet: no editing, no paging, no filtering.
         Assert.False(panel.CanMutateRows);
         Assert.False(panel.CanFilterTable);
     }
+
+    [Theory]
+    [InlineData(0, 200, 0, "Page 1")]
+    [InlineData(0, 200, 6, "Page 1 of 1")]
+    [InlineData(200, 200, 401, "Page 2 of 3")]
+    [InlineData(400, 200, 401, "Page 3 of 3")]
+    public void The_pager_says_which_page_of_how_many(int offset, int limit, long total, string expected) =>
+        Assert.Equal(expected, DatabaseRuntimePanelViewModel.PagePosition(offset, limit, total));
 
     [Fact]
     public async Task Successful_initial_connection_selects_the_database_overview()
@@ -1702,7 +1722,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.True(panel.IsDatabaseObjectsOverview);
         Assert.Null(panel.SelectedObject);
         Assert.Equal(panel.Tables.Count, panel.ResultRows.Count);
-        Assert.Equal(["Schema", "Name", "Kind"], panel.ResultColumns.Select(column => column.Name), StringComparer.Ordinal);
+        Assert.Equal(["Name", "Kind"], panel.ResultColumns.Select(column => column.Name), StringComparer.Ordinal);
     }
 
     [Fact]
@@ -1896,7 +1916,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.PreviewTableAsync(panel.Tables[0]);
         Assert.Equal("200", panel.PageLimitText);
         Assert.Equal(987, panel.TotalRows);
-        Assert.Equal("987", panel.TotalRowsText);
+        Assert.Equal("987 rows", panel.TotalRowsText);
 
         panel.FilterColumn = panel.FilterColumns.Single(column => string.Equals(column.Name, "name", StringComparison.Ordinal));
         panel.FilterOperator = panel.FilterOperators.Single(option =>
@@ -1927,7 +1947,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         client.ReadTableFailure = "page failed";
         await panel.ApplyPageLimitAsync();
         Assert.Equal("75", panel.PageLimitText);
-        Assert.Equal("page failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
     }
 
     [Fact]
@@ -1950,7 +1970,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         await panel.ToggleTableSortAsync("id");
 
-        Assert.Equal("sort failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
         Assert.Equal(successfulQuery, client.LastTableQuery);
         Assert.Same(successfulRows, panel.ResultRows);
         Assert.Same(successfulColumns, panel.ResultColumns);
@@ -2264,7 +2284,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         Assert.False(panel.CanEditRows);
         Assert.False(panel.CanMutateRows);
         Assert.Equal(
-            "This query result does not map exactly to one editable table.",
+            "This query result doesn't map exactly to one editable table.",
             panel.ReadOnlyReason);
         Assert.All(panel.ResultRows.SelectMany(row => row.Cells), cell => Assert.False(cell.IsEditable));
         Assert.True(panel.CanFilterTable);
@@ -2412,14 +2432,14 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal("Ada", name.RawValue);
         Assert.False(name.IsDirty);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         var rowCount = panel.ResultRows.Count;
         Assert.False(panel.ImportCsv("name\n\"\"\n"));
         Assert.Equal(rowCount, panel.ResultRows.Count);
         Assert.False(panel.HasPendingChanges);
         Assert.Contains("CSV row 2", panel.ErrorMessage);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         name.EditText = string.Empty;
         Assert.True(panel.CanSaveChanges);
@@ -2428,7 +2448,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         Assert.Equal(0, client.ApplyChangesCallCount);
         Assert.True(panel.HasPendingChanges);
-        Assert.Contains("Oracle stores empty text as SQL NULL", panel.ErrorMessage);
+        Assert.Contains("Oracle stores empty text as NULL", panel.ErrorMessage);
 
         await panel.RevertChangesAsync();
         panel.SelectRow(panel.ResultRows[0]);
@@ -2627,7 +2647,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         client.ReadTableFailure = "page load failed";
         await panel.NextPageAsync();
 
-        Assert.Equal("page load failed", panel.ErrorMessage);
+        Assert.Equal(RowsNotLoaded, panel.ErrorMessage);
         Assert.Equal(0, client.LastTableQuery?.Offset);
         Assert.True(panel.HasNextPage);
 
@@ -2714,7 +2734,7 @@ public sealed class DatabaseRuntimePanelViewModelTests
         var payload = Assert.Single(row.Cells, cell => string.Equals(cell.Column.Name, "payload", StringComparison.Ordinal));
         Assert.False(payload.IsEditable);
         Assert.False(payload.IsValid);
-        Assert.Contains("requires a value this viewer cannot edit safely", payload.ValidationError);
+        Assert.Contains("needs a value that can't be edited safely here", payload.ValidationError);
         Assert.False(panel.CanSaveChanges);
 
         await panel.SaveChangesAsync();
@@ -2781,7 +2801,9 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.SaveChangesAsync();
 
         Assert.Equal(1, client.ApplyChangesCallCount);
-        Assert.Equal("saved, but refresh failed", panel.ErrorMessage);
+        Assert.Equal(
+            "The changes were saved, but Asura couldn’t reload the rows. Reload the table to see them.",
+            panel.ErrorMessage);
         Assert.False(panel.HasPendingChanges);
         Assert.False(panel.CanSaveChanges);
         Assert.True(panel.CanChangeSelectedObject);
@@ -2840,7 +2862,9 @@ public sealed class DatabaseRuntimePanelViewModelTests
         await panel.SaveChangesAsync();
         await panel.PreviewTableAsync(panel.Tables[1]);
 
-        Assert.Equal("update failed", panel.ErrorMessage);
+        Assert.Equal(
+            "Asura couldn’t save the changes. Your edits are kept. Save again; if it keeps failing, reconnect.",
+            panel.ErrorMessage);
         Assert.Equal(selectedObject, panel.SelectedObject);
         Assert.True(panel.HasPendingChanges);
         Assert.True(panel.CanSaveChanges);
@@ -3164,7 +3188,10 @@ public sealed class DatabaseRuntimePanelViewModelTests
 
         public string? LastConnectionString { get; private set; }
 
-        public Task<IReadOnlyList<DatabaseTableDescriptor>> ListTablesAsync(
+        /// <summary>When set, listing tables (the connect probe) waits for it.</summary>
+        public TaskCompletionSource? ListTablesRelease { get; set; }
+
+        public async Task<IReadOnlyList<DatabaseTableDescriptor>> ListTablesAsync(
             string driverId,
             string connectionString,
             ConnectionProfile? tunnel,
@@ -3172,12 +3199,17 @@ public sealed class DatabaseRuntimePanelViewModelTests
         {
             LastTunnel = tunnel;
             LastConnectionString = connectionString;
+            if (ListTablesRelease is { } release)
+            {
+                await release.Task.WaitAsync(cancellationToken);
+            }
+
             ThrowIfConfigured();
-            return Task.FromResult<IReadOnlyList<DatabaseTableDescriptor>>(
+            return
             [
                 new("people", DatabaseTableKind.Table),
                 new("names", DatabaseTableKind.View),
-            ]);
+            ];
         }
 
         public Task<DatabaseQueryPage> QueryAsync(

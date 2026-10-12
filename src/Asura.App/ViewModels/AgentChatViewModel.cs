@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -132,6 +133,11 @@ public sealed record AgentChatMessageViewModel(
 
     public bool CanFork => IsAssistant && HasMessageText && ForkPoint is not null;
 
+    // Every count on a message's usage line, total included, in the
+    // reader's own digit grouping: "1,204" or "1 204", never a mix.
+    private static string Tokens(long count) =>
+        count.ToString("N0", CultureInfo.CurrentCulture);
+
     public bool HasReasoningRequest =>
         IsAssistant
         && (RequestedReasoningEffort is not null and not AgentReasoningEffort.Automatic
@@ -145,14 +151,14 @@ public sealed record AgentChatMessageViewModel(
 
     public string UsageLabel => Usage is not { } usage
         ? string.Empty
-        : $"{usage.TotalTokens.ToString(CultureInfo.InvariantCulture)} tokens · "
-            + $"{usage.InputTokens.ToString(CultureInfo.InvariantCulture)} in / "
-            + $"{usage.OutputTokens.ToString(CultureInfo.InvariantCulture)} out"
+        : $"{CountText.Of(usage.TotalTokens, "token", "tokens")} · "
+            + $"{Tokens(usage.InputTokens)} in / "
+            + $"{Tokens(usage.OutputTokens)} out"
             + (usage.CachedInputTokens > 0
-                ? $" · {usage.CachedInputTokens.ToString(CultureInfo.InvariantCulture)} cached"
+                ? $" · {Tokens(usage.CachedInputTokens)} cached"
                 : string.Empty)
             + (usage.ReasoningTokens > 0
-                ? $" · {usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning"
+                ? $" · {Tokens(usage.ReasoningTokens)} reasoning"
                 : string.Empty);
 
     public string ReasoningRequestLabel
@@ -182,12 +188,12 @@ public sealed record AgentChatMessageViewModel(
             }
 
             return $"{label} reasoning requested · provider reported "
-                + $"{usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} reasoning tokens";
+                + $"{Tokens(usage.ReasoningTokens)} reasoning tokens";
         }
     }
 
     public string ReasoningTitle => Usage?.ReasoningTokens > 0
-        ? $"Reasoned · {Usage.ReasoningTokens.ToString(CultureInfo.InvariantCulture)} tokens"
+        ? $"Reasoned · {Tokens(Usage.ReasoningTokens)} tokens"
         : RequestedReasoningEffort is { } effort
             && effort is not AgentReasoningEffort.Automatic
             ? $"Reasoned · {ReasoningEffortLabel(effort)}"
@@ -215,14 +221,30 @@ public sealed record AgentServiceTierOption(
     AgentServiceTier Value,
     string Label);
 
+/// <summary>
+/// One row of the model menu. <see cref="IsCurrent"/> is the model the agent
+/// uses now, the row the menu checks; the list's own selection is only where
+/// the keyboard is until Return or a click chooses it.
+/// </summary>
 public sealed record AgentModelPickerItemViewModel(
     AiProviderModelDescriptor Model,
     string ProviderName,
-    bool IsFavorite)
+    bool IsFavorite,
+    bool IsCurrent = false)
 {
     public string Id => Model.Id;
 
     public string DisplayName => Model.DisplayName;
+
+    /// <summary>
+    /// What VoiceOver reads for the row. The check mark is only drawn, so the
+    /// name and the item status both say which model is in use.
+    /// </summary>
+    public string AccessibleName => IsCurrent
+        ? $"{DisplayName}, {ProviderName}, current model"
+        : $"{DisplayName}, {ProviderName}";
+
+    public string AccessibleStatus => IsCurrent ? "Current model" : string.Empty;
 
     public string FavoriteAccessibleName => IsFavorite
         ? $"Remove {DisplayName} from favorite models"
@@ -247,11 +269,19 @@ public sealed record AgentConversationItemViewModel(
         GovernedAgentConversationAvailability.Partial =>
             $"Partial metadata · {UpdatedAt}",
         GovernedAgentConversationAvailability.Corrupt =>
-            $"Corrupt — cannot open or export · {UpdatedAt}",
+            $"Damaged — can't open or export · {UpdatedAt}",
         GovernedAgentConversationAvailability.Unavailable =>
             $"Temporarily unavailable · {UpdatedAt}",
         _ => $"Unavailable · {UpdatedAt}",
     };
+
+    /// <summary>
+    /// What the row does when pressed. A row that can't be opened is named
+    /// with its state; it is in the list only to be deleted.
+    /// </summary>
+    public string AccessibleName => IsAvailable
+        ? $"Open conversation {Title}"
+        : $"{Title}, {Details}";
 }
 
 public sealed record AgentHistoryRetentionOption(
@@ -271,23 +301,70 @@ public sealed record AgentApprovalArgumentViewModel(
     public string DisplayName => Name switch
     {
         "address" => "Destination",
-        "text" => "Text",
-        "command" => "Command",
-        "path" => "Path",
+        "session_id" => "Session",
+        "window_id" => "Window",
+        "workspace_id" => "Workspace",
         "tab_id" => "Tab",
         "panel_id" => "Panel",
-        _ => Name,
+        "kind" => "Type",
+        "operation_detail" => "Description",
+        "orientation" => "Split",
+        "offset" => "Starting at",
+        "reviewed_json" => "Reviewed change (JSON)",
+        "url_pattern" => "URL pattern",
+        _ => Humanize(Name),
     };
 
-    public bool IsRoutingIdentifier => Name is
-        "session_id" or "window_id" or "workspace_id";
+    /// <summary>
+    /// Values that identify or bind an action rather than describe it: the
+    /// panel, tab, and session it routes to, the tool that runs it, opaque
+    /// references, and revision stamps. The card's heading already says what
+    /// runs and where, so these stay in Details.
+    /// </summary>
+    public bool IsRoutingIdentifier =>
+        Name is "session_id" or "window_id" or "workspace_id" or "tab_id"
+            or "panel_id" or "operation" or "reference" or "uid"
+            or "resource_version"
+        || Name.EndsWith("_ref", StringComparison.Ordinal)
+        || Name.EndsWith("_id", StringComparison.Ordinal)
+        || Name.EndsWith("_identity", StringComparison.Ordinal)
+        || Name.EndsWith("_revision", StringComparison.Ordinal)
+        || Name.EndsWith("_epoch", StringComparison.Ordinal);
+
+    // "maximum_matches" → "Maximum matches", "timeout_ms" → "Timeout (ms)".
+    private static string Humanize(string name)
+    {
+        var words = name.Split('_', StringSplitOptions.RemoveEmptyEntries)
+            .Select(word => word switch
+            {
+                "url" => "URL",
+                "uid" => "UID",
+                "id" => "ID",
+                "json" => "JSON",
+                "http" => "HTTP",
+                "ms" => "(ms)",
+                { Length: 1 } => word.ToUpperInvariant(),
+                _ => word,
+            })
+            .ToArray();
+        if (words.Length == 0)
+        {
+            return name;
+        }
+
+        words[0] = char.ToUpperInvariant(words[0][0]) + words[0][1..];
+        return string.Join(' ', words);
+    }
 }
+
+/// <summary>One labelled fact in an approval's Details: a label over its value.</summary>
+public sealed record AgentApprovalFactViewModel(string Label, string Value);
 
 public sealed record AgentApprovalCardViewModel(
     AgentApprovalId Id,
     string ToolName,
     string ToolTitle,
-    string Risk,
+    AgentActionRisk RiskLevel,
     string Permission,
     string TargetTitle,
     string ExactTarget,
@@ -299,8 +376,35 @@ public sealed record AgentApprovalCardViewModel(
 {
     public bool HasArguments => Arguments.Count > 0;
 
+    public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
+
+    /// <summary>The place the action runs, without identifiers or jargon.</summary>
+    public string TargetDisplayTitle { get; init; } = AgentTargetPresentation.HumanTitle(TargetTitle);
+
+    /// <summary>
+    /// Where the action runs, level by level and by title, for Details. Set
+    /// from the exact target and the run's context; on its own it is the one
+    /// human title.
+    /// </summary>
+    public IReadOnlyList<AgentApprovalFactViewModel> TargetPlace { get; init; } = [];
+
+    public IReadOnlyList<AgentApprovalFactViewModel> TargetFacts =>
+        TargetPlace.Count > 0 ? TargetPlace : [new("Target", TargetDisplayTitle)];
+
+    public string AccessibleName =>
+        $"Approval required · {ToolTitle} · in {TargetDisplayTitle} · {Risk}";
+
     public IReadOnlyList<AgentApprovalArgumentViewModel> ActionArguments =>
         [.. Arguments.Where(argument => !argument.IsRoutingIdentifier)];
+
+    /// <summary>
+    /// The identifiers that bind the decision — panel, session, revision —
+    /// kept for Technical Details, never for the card itself.
+    /// </summary>
+    public IReadOnlyList<AgentApprovalArgumentViewModel> RoutingArguments =>
+        [.. Arguments.Where(argument => argument.IsRoutingIdentifier)];
+
+    public bool HasRoutingArguments => Arguments.Any(argument => argument.IsRoutingIdentifier);
 
     public bool HasActionArguments => Arguments.Any(argument => !argument.IsRoutingIdentifier);
 
@@ -308,7 +412,7 @@ public sealed record AgentApprovalCardViewModel(
 
     public bool HasWorkingDirectory => !string.Equals(WorkingDirectory, "Not reported", StringComparison.Ordinal);
 
-    public bool IsHighRisk => Risk is "Destructive" or "Privileged";
+    public bool IsHighRisk => RiskLevel is AgentActionRisk.Destructive or AgentActionRisk.Privileged;
 
     public string InputYieldWarning =>
         "Approving temporarily yields terminal input to the agent for this one action. "
@@ -318,10 +422,16 @@ public sealed record AgentApprovalCardViewModel(
 public sealed record AgentToolActivityViewModel(
     string ToolName,
     string ToolTitle,
-    string Risk,
+    AgentActionRisk RiskLevel,
     string TargetTitle,
     bool CancellationRequested,
-    PanelInstanceId? PanelId);
+    PanelInstanceId? PanelId)
+{
+    public string Risk => AgentPolicyPresentation.RiskName(RiskLevel);
+
+    /// <summary>The place the action runs, without identifiers or jargon.</summary>
+    public string TargetDisplayTitle { get; init; } = AgentTargetPresentation.HumanTitle(TargetTitle);
+}
 
 /// <summary>
 /// Immutable presentation copy of one bounded, run-local progress report.
@@ -371,7 +481,7 @@ public sealed record AgentQuestionCardViewModel
         ArgumentNullException.ThrowIfNull(question);
         Id = question.Id;
         Question = string.Concat(question.Question);
-        ExpiresAt = AgentPresentationTime.Friendly(question.ExpiresAtUtc);
+        ExpiresAt = DisplayDates.Format(question.ExpiresAtUtc);
         ContentOrigin = question.ContentOrigin;
     }
 
@@ -410,21 +520,33 @@ public sealed record AgentCapabilityRequestCardViewModel(
         + $"target {TargetTitle} · expires {ExpiresAt}";
 }
 
+/// <summary>
+/// One recorded action or permission change. Every visible value is in words;
+/// <see cref="Details"/> holds the identifiers that bind the record to one
+/// exact action, shown only when asked for.
+/// </summary>
 public sealed record AgentAuditEntryViewModel(
     string Kind,
     string Title,
-    string ToolName,
     string Outcome,
-    string Evidence,
+    string Summary,
     string Timeline,
     string Result,
-    string TargetBinding,
     string OccurredAt,
-    string AccessibleName)
+    IReadOnlyList<AgentApprovalFactViewModel> Details)
 {
-    public bool HasToolName => ToolName.Length > 0;
+    public bool HasSummary => Summary.Length > 0;
+
+    public bool HasTimeline => Timeline.Length > 0;
 
     public bool HasResult => Result.Length > 0;
+
+    public bool HasDetails => Details.Count > 0;
+
+    public string AccessibleName => string.Join(
+        "; ",
+        new[] { Title, Outcome, Summary, Timeline, Result, OccurredAt }
+            .Where(part => part.Length > 0));
 }
 
 public sealed record AgentContextItemViewModel(
@@ -470,6 +592,8 @@ public sealed record AgentYoloAuthorityViewModel(
 
 public sealed class AgentChatViewModel : ObservableObject, IDisposable
 {
+    internal const string AskForApprovalModeTitle = "Ask for Approval";
+    internal const string FullAccessModeTitle = "Full Access";
     private static readonly TimeSpan MinimumStreamingRefreshInterval =
         TimeSpan.FromMilliseconds(33);
     private const string PendingCapabilityNotice =
@@ -529,6 +653,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     private AgentServiceTierOption _selectedServiceTier = AllServiceTierOptions[0];
     private string _prompt = string.Empty;
     private string _status = string.Empty;
+    private string _announcement = string.Empty;
     private string _provisionalAssistantText = string.Empty;
     private string _provisionalReasoningSummary = string.Empty;
     private string _questionResponseDraft = string.Empty;
@@ -646,11 +771,26 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool SendRawSecrets
     {
         get => _sendRawSecrets;
-        set => SetProperty(ref _sendRawSecrets, value);
+        set
+        {
+            if (SetProperty(ref _sendRawSecrets, value))
+            {
+                OnPropertyChanged(nameof(SendRawSecretsHelp));
+            }
+        }
     }
 
     public string SendRawSecretsExplanation =>
         $"Send secrets in this new message to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}. Turns off after sending. Use a message's lock button to send its secrets on the next request. Revealing a secret only shows it locally.";
+
+    /// <summary>
+    /// The one line under the checkbox: what happens to secrets in the next
+    /// message with the box as it is now. The full rules stay in the
+    /// checkbox's help text for assistive technology.
+    /// </summary>
+    public string SendRawSecretsHelp => SendRawSecrets
+        ? $"Secrets in this message go to {SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}. Turns off after sending."
+        : "Secrets in this message stay hidden from the model.";
 
     private string? DisclosureDestinationLabel(string? destination)
     {
@@ -671,6 +811,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             message.NextDisclosureDestination = $"{SelectedProvider?.Name ?? "the selected provider"} / {SelectedModelName}";
         }
         OnPropertyChanged(nameof(SendRawSecretsExplanation));
+        OnPropertyChanged(nameof(SendRawSecretsHelp));
     }
 
     private System.Collections.Immutable.ImmutableArray<ChatHiddenReference> RawSecretReferences(string prompt)
@@ -735,7 +876,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     {
         if (!CanAttachFiles || _runtime is not IAgentAttachmentRuntime { SupportsFileAttachments: true } attachments)
         {
-            throw new InvalidOperationException("File attachments are unavailable in this workspace.");
+            throw FailureReason.Readable(new InvalidOperationException("File attachments are unavailable in this workspace."));
         }
         return attachments.ImportAttachmentAsync(name, bytes, token);
     }
@@ -745,7 +886,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         var batch = AgentFileAttachment.CopyBatch(PendingFiles.Concat(files));
         if (batch.Length + PendingImages.Count > AgentFileAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most eight attachments can be added to one prompt."));
         }
         PendingFiles.Clear();
         foreach (var file in batch)
@@ -882,6 +1023,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(SelectedModelName));
                 NotifyContextWindowChanged();
                 UpdateModelCapabilities(value);
+                RefreshFilteredModels();
             }
         }
     }
@@ -896,7 +1038,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool IsCompacting => _compactInFlight;
 
-    public string CompactLabel => IsCompacting ? "Compacting…" : "Compact now";
+    public string CompactLabel => IsCompacting ? "Compacting…" : "Compact Now";
 
     public string CompactionStatus
     {
@@ -932,11 +1074,11 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            CompactionStatus = "Compaction cancelled.";
+            CompactionStatus = "Compaction canceled.";
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            CompactionStatus = "The conversation could not be compacted. Try again.";
+            CompactionStatus = "Asura couldn't shorten the conversation. Try again.";
         }
         finally
         {
@@ -962,6 +1104,25 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ContextUsedTokens * 100d / ContextEffectiveLimit,
             0,
             100);
+
+    public string ContextWindowPercentLabel =>
+        $"{ContextWindowPercent.ToString("0", CultureInfo.CurrentCulture)}%";
+
+    /// <summary>The context ring's name: "Context: 12% used".</summary>
+    public string ContextWindowAccessibleName => $"Context: {ContextWindowPercentLabel} used";
+
+    /// <summary>
+    /// Why Compact Now is dimmed, when it is: a disabled button that does not
+    /// say why reads as broken.
+    /// </summary>
+    public string CompactUnavailableReason =>
+        CanCompact || IsCompacting
+            ? string.Empty
+            : IsBusy
+                ? "You can compact once the agent finishes this run."
+                : "There isn't enough conversation to compact yet.";
+
+    public bool HasCompactUnavailableReason => CompactUnavailableReason.Length > 0;
 
     public string ContextWindowUsageLabel => HasContextWindow
         ? $"{FormatTokenCount(ContextUsedTokens)} / {FormatTokenCount(ContextEffectiveLimit)} tokens used"
@@ -1094,21 +1255,19 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         ArgumentNullException.ThrowIfNull(images);
         if (PendingImages.Count + images.Count > AgentImageAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException(
-                "At most four images can be attached to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most four images can be attached to one prompt."));
         }
 
         if (PendingFiles.Count + PendingImages.Count + images.Count > AgentFileAttachment.MaximumPerMessage)
         {
-            throw new InvalidOperationException("At most eight attachments can be added to one prompt.");
+            throw FailureReason.Readable(new InvalidOperationException("At most eight attachments can be added to one prompt."));
         }
 
         var totalBytes = PendingImages.Sum(item => (long)item.Content.Length)
             + images.Sum(image => (long)image.Content.Length);
         if (totalBytes > AgentImageAttachment.MaximumTotalBytesPerMessage)
         {
-            throw new InvalidOperationException(
-                "The images attached to one prompt exceed the 8 MiB limit.");
+            throw FailureReason.Readable(new InvalidOperationException("The images attached to one prompt exceed the 8 MiB limit."));
         }
 
         foreach (var image in images)
@@ -1211,6 +1370,18 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(ShowFooterStatus));
             }
         }
+    }
+
+    /// <summary>
+    /// The latest discrete event a screen reader should hear: a decision the
+    /// agent is waiting for, or how a run ended. Never the response stream,
+    /// which would talk over the person reading it. Empty while a run is
+    /// starting, so the same outcome twice in a row is still announced.
+    /// </summary>
+    public string Announcement
+    {
+        get => _announcement;
+        private set => SetProperty(ref _announcement, value);
     }
 
     public string ProvisionalAssistantText
@@ -1376,58 +1547,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool HasContextItems => ContextItems.Count > 0;
 
-    public string ContextInspectorSummary
-    {
-        get
-        {
-            var terminalCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Terminal);
-            var browserCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Browser);
-            var fileCount =
-                ContextItems.Count(item => item.Kind == PanelKind.FileViewer);
-            var statisticsCount =
-                ContextItems.Count(item => item.Kind == PanelKind.Statistics);
-            var processMonitorCount =
-                ContextItems.Count(item => item.Kind == PanelKind.ProcessMonitor);
-            if (terminalCount == ContextItems.Count)
-            {
-                return terminalCount == 1
-                    ? "1 terminal"
-                    : $"{terminalCount.ToString(CultureInfo.InvariantCulture)} terminals";
-            }
-
-            if (browserCount == ContextItems.Count)
-            {
-                return browserCount == 1
-                    ? "1 browser"
-                    : $"{browserCount.ToString(CultureInfo.InvariantCulture)} browsers";
-            }
-
-            if (fileCount == ContextItems.Count)
-            {
-                return fileCount == 1
-                    ? "1 File Viewer"
-                    : $"{fileCount.ToString(CultureInfo.InvariantCulture)} File Viewers";
-            }
-
-            if (statisticsCount == ContextItems.Count)
-            {
-                return statisticsCount == 1
-                    ? "1 Statistics panel"
-                    : $"{statisticsCount.ToString(CultureInfo.InvariantCulture)} Statistics panels";
-            }
-
-            if (processMonitorCount == ContextItems.Count)
-            {
-                return processMonitorCount == 1
-                    ? "1 Process Monitor"
-                    : $"{processMonitorCount.ToString(CultureInfo.InvariantCulture)} Process Monitors";
-            }
-
-            return $"{ContextItems.Count.ToString(CultureInfo.InvariantCulture)} panels";
-        }
-    }
+    /// <summary>
+    /// The run's panels counted by the noun every screen uses for their type:
+    /// "2 Terminal panels" when they are all one type, "3 panels" otherwise.
+    /// </summary>
+    public string ContextInspectorSummary =>
+        PanelTypeNames.Count([.. ContextItems.Select(item => item.Kind)]);
 
     public string ContextInspectorAccessibleName =>
         $"Inspect agent context · {ContextInspectorSummary}";
@@ -1587,9 +1712,6 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string PolicyComparisonSummary =>
         $"Baseline → run → effective · generation {PolicyGeneration}";
 
-    public string RendererModeDescription =>
-        "AI agent for this workspace";
-
     public AgentApprovalCardViewModel? PendingApproval
     {
         get => _pendingApproval;
@@ -1667,6 +1789,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool HasPendingCapabilityRequest =>
         PendingCapabilityRequest is not null;
 
+    /// <summary>
+    /// The request the run is waiting on, in the order the panel shows them.
+    /// Identity is the request's own id, so the same request republished by a
+    /// later refresh is not treated as new.
+    /// </summary>
+    public object? PendingDecisionId =>
+        (object?)PendingApproval?.Id
+        ?? (object?)PendingQuestion?.Id
+        ?? PendingCapabilityRequest?.Id;
+
     public bool CanDecideCapabilityRequest =>
         PendingCapabilityRequest is not null
         && State == GovernedAgentState.AwaitingCapabilityDecision
@@ -1723,8 +1855,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ActiveActionCancellationLabel =>
         _actionCancellationInFlight
         || ActiveTool is { CancellationRequested: true }
-            ? "Cancelling action…"
-            : "Cancel action";
+            ? "Canceling Action…"
+            : "Cancel Action";
 
     public AgentYoloAuthorityViewModel? YoloAuthority
     {
@@ -1738,6 +1870,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(CanEnableYolo));
                 OnPropertyChanged(nameof(CanDisableYolo));
                 OnPropertyChanged(nameof(PolicyModeLabel));
+                OnPropertyChanged(nameof(AccessModeLabel));
+                OnPropertyChanged(nameof(IsFullAccessSelected));
+                OnPropertyChanged(nameof(IsAskForApprovalSelected));
                 NotifyContentChanged();
             }
         }
@@ -1753,11 +1888,19 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public string PolicyModeLabel => _fullAccessSelected
         ? "Full access"
-        : FormatEnum(_terminalMutationPermission);
+        : AgentPolicyPresentation.PermissionName(_terminalMutationPermission);
 
+    /// <summary>
+    /// The approval pop-up's title, which is always the title of the mode
+    /// checked in its menu.
+    /// </summary>
     public string AccessModeLabel => _fullAccessSelected
-        ? "Full access"
-        : "Ask approval";
+        ? FullAccessModeTitle
+        : AskForApprovalModeTitle;
+
+    public bool IsFullAccessSelected => _fullAccessSelected;
+
+    public bool IsAskForApprovalSelected => !_fullAccessSelected;
 
     public bool HasProvider => Providers.Count > 0;
 
@@ -1832,7 +1975,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool ShowStopAction => CanStop;
 
     public string PrimaryActionLabel => CanOfferFollowUpQueue
-        ? "Queue message"
+        ? "Queue Message"
         : "Send";
 
     public string PrimaryActionAccessibleName =>
@@ -1840,7 +1983,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ? "Queue a message for the AI agent"
             : "Send AI agent prompt";
 
-    public string PromptPlaceholder => "Ask Asura…";
+    /// <summary>
+    /// After a failed first turn the field stays in place, dimmed, and says
+    /// what unlocks it, rather than leaving an empty frame under the error.
+    /// </summary>
+    public string PromptPlaceholder => HasFailedTurn
+        ? "Clear the failed run to write a new message"
+        : "Ask Asura…";
 
     // Preserved as an alias for callers that still use the old chat naming.
     public bool CanCancel => CanStop;
@@ -1849,6 +1998,30 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool CanRequestStop =>
         CanStop && !_stopInFlight && State != GovernedAgentState.Cancelling;
+
+    /// <summary>
+    /// The saved conversation that <see cref="ClearAsync"/> would delete, or
+    /// null when clearing discards only an unsaved run. Hosts confirm before
+    /// a clear that deletes a transcript someone could still open.
+    /// </summary>
+    public AgentConversationItemViewModel? ConversationDeletedByClear =>
+        Conversations.FirstOrDefault(item => item.IsCurrent);
+
+    /// <summary>
+    /// What the failed-run recovery button removes, in its own label: only
+    /// the failed run, or the whole saved conversation it belongs to. The
+    /// ellipsis marks the confirmation that a deletion asks for first.
+    /// </summary>
+    /// <summary>
+    /// Whether clearing the failed run also deletes a saved conversation. The
+    /// failed-run state then offers a destructive Delete Conversation… in
+    /// place of the routine Clear Failed Run.
+    /// </summary>
+    public bool ClearDeletesConversation => ConversationDeletedByClear is not null;
+
+    public string ClearFailedRunAccessibleName => ConversationDeletedByClear is { } saved
+        ? $"Delete the conversation “{saved.Title}” with its failed run"
+        : "Clear the failed AI agent run";
 
     public bool CanClear =>
         !IsBusy
@@ -1869,6 +2042,20 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         && !_clearInFlight;
 
     public bool CanChangeModel => HasMultipleModels && CanBrowseModels;
+
+    /// <summary>
+    /// Whether the composer's options (the approval mode, the model, and
+    /// Send raw secrets with its explanation) can be used. They dim together
+    /// with the composer when a run failed or is being cleared, instead of
+    /// some going gray while the rest stay bright beside a dimmed prompt.
+    /// </summary>
+    public bool CanUseComposerOptions =>
+        SelectedProvider is not null
+        && !_clearInFlight
+        && State is not (GovernedAgentState.Failed or GovernedAgentState.Cancelling);
+
+    /// <summary>The model picker: a composer option that also waits for a run to end.</summary>
+    public bool CanUseModelPicker => CanBrowseModels && CanUseComposerOptions;
 
     public bool CanSelectReasoningEffort =>
         ReasoningEfforts.Count > 1
@@ -2054,7 +2241,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (provider is null)
         {
             ReportTargetUnavailable(
-                "The agent policy references an unavailable AI-provider profile.");
+                "The AI provider in the agent's policy isn't set up anymore. Choose another provider in AI Settings, then send again.");
             return Task.CompletedTask;
         }
 
@@ -2070,7 +2257,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (HasPendingImages && !provider.SupportsImageInput)
         {
             ReportTargetUnavailable(
-                "The selected AI provider does not support image input.");
+                "The selected AI provider doesn't support image input.");
             return Task.CompletedTask;
         }
 
@@ -2352,7 +2539,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.ClearAsync(cancellationToken))
             {
-                Status = "The agent run could not be cleared while work is still active.";
+                Status = "The agent run can't be cleared while the agent is working. Stop it first.";
             }
         }
         finally
@@ -2375,7 +2562,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.StartNewConversationAsync(cancellationToken))
             {
-                Status = "A new conversation cannot be started while work is active.";
+                Status = "A new conversation can't start while the agent is working. Stop it first.";
             }
         }
         finally
@@ -2436,7 +2623,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         SetFavorite(favorite, !shouldFavorite);
         RefreshFilteredModels();
         ModelDiscoveryStatus = result.Error?.Message
-            ?? "The favorite model could not be saved.";
+            ?? "Asura couldn't save the favorite model. Try again.";
     }
 
     public async Task OpenConversationAsync(
@@ -2454,7 +2641,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.OpenConversationAsync(runId, cancellationToken))
             {
-                Status = "The saved conversation could not be opened.";
+                Status = "Asura couldn't open the saved conversation. Try again.";
             }
         }
         finally
@@ -2479,7 +2666,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.ForkConversationAsync(forkPoint, cancellationToken))
             {
-                Status = "The conversation could not be forked.";
+                Status = "Asura couldn't copy the conversation. Try again.";
             }
         }
         finally
@@ -2504,7 +2691,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             if (!await _runtime.DeleteConversationAsync(runId, cancellationToken))
             {
-                Status = "The saved conversation could not be deleted.";
+                Status = "Asura couldn't delete the saved conversation. Try again.";
             }
             else
             {
@@ -2580,8 +2767,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     AgentSessionCheckpointStoreErrorCode.RevisionConflict =>
                         "Agent history retention changed elsewhere. Reload and try again.",
                     AgentSessionCheckpointStoreErrorCode.CorruptData =>
-                        "Agent history retention is corrupt and was not changed.",
-                    _ => "Agent history retention could not be changed.",
+                        "Agent history retention is corrupt and wasn't changed.",
+                    _ => "Asura couldn't change how long agent history is kept. Try again.",
                 };
                 return;
             }
@@ -2627,7 +2814,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public void ReportHistoryExportPublicationFailure(bool cleanupUncertain = false)
     {
         AgentHistoryStatus = cleanupUncertain
-            ? "Agent history export failed before publication, and its temporary file could not be removed."
+            ? "Asura couldn't export the agent history, and couldn't remove its temporary file. Try again."
             : "Agent history export failed; the existing destination was preserved.";
     }
 
@@ -2894,6 +3081,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         var snapshot = _runtime.Snapshot;
         var previousState = State;
         var previousQuestionId = PendingQuestion?.Id;
+        var previousApprovalId = PendingApproval?.Id;
+        var previousCapabilityRequestId = PendingCapabilityRequest?.Id;
         if (_auditRunId != (snapshot.SelectedConversationRunId ?? snapshot.RunId))
         {
             _modelSelectionExplicit = false;
@@ -2979,13 +3168,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     item.RunId,
                     item.Title,
                     item.Model ?? "Model unavailable",
-                    AgentPresentationTime.Friendly(item.UpdatedAt),
+                    DisplayDates.Format(item.UpdatedAt),
                     item.RunId == (snapshot.SelectedConversationRunId
                         ?? snapshot.RunId)
                         || item.RunId == _runId && snapshot.HasMessages,
                     item.Availability)));
         RefreshFilteredConversations();
         OnPropertyChanged(nameof(HasConversationHistory));
+        OnPropertyChanged(nameof(ConversationDeletedByClear));
+        OnPropertyChanged(nameof(ClearDeletesConversation));
+        OnPropertyChanged(nameof(ClearFailedRunAccessibleName));
         Replace(
             ContextItems,
             snapshot.ContextItems.Select(CreateContextItem));
@@ -3057,13 +3249,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         _runHasTerminal = snapshot.ContextItems.Length == 0
             || snapshot.ContextItems.Any(item => item.Kind == PanelKind.Terminal);
         CapabilityNotice = ResolveCapabilityNotice(snapshot);
-        PendingApproval = CreateApproval(snapshot.PendingApproval);
+        PendingApproval = CreateApproval(snapshot.PendingApproval, snapshot.ContextItems);
         ActiveTool = snapshot.ActiveTool is null
             ? null
-            : CreateToolActivity(snapshot.ActiveTool);
+            : CreateToolActivity(snapshot.ActiveTool, snapshot.ContextItems);
         PanelActivity = IsActiveRunState(snapshot.State)
             && snapshot.PanelActivity is not null
-                ? CreateToolActivity(snapshot.PanelActivity)
+                ? CreateToolActivity(snapshot.PanelActivity, snapshot.ContextItems)
                 : null;
         _terminalMutationPermission = snapshot.TerminalMutationPermission;
         if (!_approvalModeInitialized)
@@ -3104,6 +3296,11 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             ? "Hidden content not saved" : "Conversation not saved");
         NotifyAvailabilityChanged();
         NotifyContentChanged();
+        Announce(
+            previousState,
+            previousApprovalId,
+            previousQuestionId,
+            previousCapabilityRequestId);
         if (_approvalModeChangePending
             && _isRunBound)
         {
@@ -3130,6 +3327,89 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         {
             RunFinished?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private void Announce(
+        GovernedAgentState previousState,
+        AgentApprovalId? previousApprovalId,
+        AgentQuestionId? previousQuestionId,
+        AgentCapabilityRequestId? previousCapabilityRequestId)
+    {
+        if (PendingApproval is { } approval && approval.Id != previousApprovalId)
+        {
+            AnnounceDecision(
+                $"Approval required: {approval.ToolTitle} in {approval.TargetDisplayTitle}");
+        }
+        else if (PendingQuestion is { } question && question.Id != previousQuestionId)
+        {
+            AnnounceDecision($"The agent asks: {question.Question}");
+        }
+        else if (PendingCapabilityRequest is { } request
+            && request.Id != previousCapabilityRequestId)
+        {
+            AnnounceDecision($"Permission requested: {request.DisplayTitle}");
+        }
+        else if (_compactInFlight)
+        {
+            // Compacting streams from the provider too, but it is not a run:
+            // its start and finish are not announced as one. The compaction
+            // status says how it went.
+        }
+        else if (State != previousState
+            && IsActiveRunState(previousState)
+            && State is GovernedAgentState.Ready
+                or GovernedAgentState.Failed
+                or GovernedAgentState.Cancelled)
+        {
+            Announcement = State switch
+            {
+                GovernedAgentState.Ready => "Response complete",
+                GovernedAgentState.Failed => Status.Length > 0
+                    ? $"{FailureHeading}. {Status}"
+                    : FailureHeading,
+                _ => "Run stopped",
+            };
+        }
+        else if (State != previousState
+            && IsActiveRunState(State)
+            && !IsActiveRunState(previousState)
+            && _hasAnnouncedState)
+        {
+            // A run that starts out of sight, from a queued follow-up or with
+            // the panel hidden, is heard; so is the next outcome, because the
+            // region's text changes in between.
+            AnnounceDecision(RunStartedAnnouncement);
+        }
+        else if ((previousApprovalId is not null && PendingApproval is null)
+            || (previousQuestionId is not null && PendingQuestion is null)
+            || (previousCapabilityRequestId is not null && PendingCapabilityRequest is null))
+        {
+            // An answered decision is no longer news: clearing it means the
+            // next request, even a word-for-word repeat such as a second
+            // command in the same terminal, is a change the live region
+            // announces.
+            Announcement = string.Empty;
+        }
+
+        // A run already under way when the panel first binds did not just
+        // start; only later starts are news.
+        _hasAnnouncedState = true;
+    }
+
+    internal const string RunStartedAnnouncement = "Agent run started";
+
+    private bool _hasAnnouncedState;
+
+    // A live region speaks only when its text changes, so a request that
+    // repeats the previous one word for word is first cleared.
+    private void AnnounceDecision(string text)
+    {
+        if (string.Equals(Announcement, text, StringComparison.Ordinal))
+        {
+            Announcement = string.Empty;
+        }
+
+        Announcement = text;
     }
 
     private static bool IsActiveRunState(GovernedAgentState state) => state is
@@ -3264,7 +3544,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 "The agent audit entry kind is unsupported."),
         };
 
-    private static AgentAuditEntryViewModel CreateActionAuditEntry(
+    /// <summary>
+    /// A recorded action as a person reads it: what ran, how it ended, and
+    /// who let it run, in words. The identifiers that bind the record to one
+    /// exact action (the tool ID, the policy generation, the target digest,
+    /// and the result or error code) are for checking, not reading, so they
+    /// sit in Details.
+    /// </summary>
+    internal static AgentAuditEntryViewModel CreateActionAuditEntry(
         AgentRunAuditActionEntry action)
     {
         var title = BuiltInAgentTools.Catalog.TryGet(
@@ -3272,111 +3559,127 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 out var descriptor)
             ? descriptor!.Title
             : action.ToolName;
-        var outcome = FormatEnum(action.LatestOutcome);
-        var authorization = action.AuthorizationSource is { } source
-            ? $" · {FormatEnum(source)}"
-            : string.Empty;
-        var evidence =
-            $"{FormatEnum(action.Capability)} · {FormatEnum(action.Permission)}"
-            + $" · {FormatEnum(action.Risk)}{authorization}";
-        var timeline = string.Join(
-            " → ",
-            action.Phases.Select(phase => FormatEnum(phase.Outcome)));
-        var result = AuditActionResult(action);
-        var target = $"Verified target · {ShortDigest(action.TargetIdentity)}";
-        var occurred = LocalAuditTime(action.OccurredAtUtc);
+        var summary = new List<string>(3)
+        {
+            AgentPolicyPresentation.CapabilityName(action.Capability),
+            AgentPolicyPresentation.RiskName(action.Risk),
+        };
+        if (action.AuthorizationSource is { } source)
+        {
+            summary.Add(AgentPolicyPresentation.AuthorizationSourceName(source));
+        }
+
+        var details = new List<AgentApprovalFactViewModel>(6)
+        {
+            new("Tool ID", action.ToolName),
+            new("Permission", AgentPolicyPresentation.PermissionName(action.Permission)),
+        };
+        if (action.PolicyGeneration is { } generation)
+        {
+            details.Add(new(
+                "Policy generation",
+                generation.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        details.Add(new("Verified target", ShortDigest(action.TargetIdentity)));
+        if (action.ResultCode is { } resultCode)
+        {
+            details.Add(new("Result code", resultCode));
+        }
+
+        if (action.ErrorCode is { } errorCode)
+        {
+            details.Add(new("Error code", errorCode.ToString()));
+        }
+
         return new AgentAuditEntryViewModel(
             "Action",
             title,
-            action.ToolName,
-            outcome,
-            evidence,
-            timeline,
-            result,
-            target,
-            occurred,
-            $"{title}; {outcome}; {evidence}; phases {timeline}; "
-            + $"{result}; {target}; {occurred}");
+            AgentPolicyPresentation.OutcomeName(action.LatestOutcome),
+            string.Join(" · ", summary),
+            string.Join(
+                " → ",
+                action.Phases.Select(phase => AgentPolicyPresentation.OutcomeName(phase.Outcome))),
+            AuditActionResult(action),
+            DisplayDates.FormatWithSeconds(action.OccurredAtUtc),
+            details);
     }
 
-    private static AgentAuditEntryViewModel CreatePolicyAuditEntry(
+    internal static AgentAuditEntryViewModel CreatePolicyAuditEntry(
         AgentRunAuditPolicyEntry policy)
     {
-        var transition = policy.Transition switch
-        {
-            AgentRunPolicyTransition.YoloEnabled => "Full access enabled",
-            AgentRunPolicyTransition.YoloDisabled => "Full access disabled",
-            AgentRunPolicyTransition.YoloExpired => "Full access expired",
-            AgentRunPolicyTransition.Updated => "Run policy updated",
-            _ => throw new ArgumentOutOfRangeException(
-                nameof(policy),
-                policy.Transition,
-                "The policy transition is unsupported."),
-        };
-        var evidence =
-            $"Policy generation {policy.PolicyGeneration.ToString(CultureInfo.InvariantCulture)}";
         var result = policy.YoloExpiresAtUtc is { } expiry
-            ? $"Access ends {LocalAuditTime(expiry)}"
+            ? $"Access ends {DisplayDates.Format(expiry)}"
             : string.Empty;
-        var target = $"Verified target · {ShortDigest(policy.TargetIdentity)}";
-        var occurred = LocalAuditTime(policy.OccurredAtUtc);
         return new AgentAuditEntryViewModel(
-            "Policy",
-            transition,
+            "Permissions",
+            AgentPolicyPresentation.PolicyTransitionName(policy.Transition),
+            AgentPolicyPresentation.OutcomeName(AuditOutcome.Succeeded),
             string.Empty,
-            "Succeeded",
-            evidence,
-            "Succeeded",
+            string.Empty,
             result,
-            target,
-            occurred,
-            $"{transition}; {evidence}; {result}; {target}; {occurred}");
+            DisplayDates.FormatWithSeconds(policy.OccurredAtUtc),
+            [
+                new(
+                    "Policy generation",
+                    policy.PolicyGeneration.ToString(CultureInfo.InvariantCulture)),
+                new("Verified target", ShortDigest(policy.TargetIdentity)),
+            ]);
     }
 
+    // "Took 25 ms · 1 result", or why it didn't run: "Not run · You denied it".
     private static string AuditActionResult(AgentRunAuditActionEntry action)
     {
-        var values = new List<string>(3);
-        if (action.ResultCode is { } resultCode)
+        // The broker records an error code only for an action that never
+        // dispatched: denied, expired, or revoked after its start was
+        // recorded but before the tool ran (that case also carries a result
+        // code and a zero duration, which would read as "Took 0 ms").
+        if (action.ErrorCode is { } errorCode)
         {
-            values.Add($"Result · {resultCode}");
-        }
-        else if (action.ErrorCode is { } errorCode)
-        {
-            values.Add($"Error · {FormatEnum(errorCode)}");
+            return $"Not run · {AgentPolicyPresentation.ErrorName(errorCode)}";
         }
 
+        // Recovery closes an action left open when Asura stopped; its
+        // duration spans the restart, so it says nothing about the action.
+        if (string.Equals(
+                action.ResultCode,
+                AgentAuditRecovery.RecoveryResultCode,
+                StringComparison.Ordinal))
+        {
+            return "Result unknown · Asura quit before the action finished";
+        }
+
+        var values = new List<string>(2);
         if (action.ExecutionDurationMilliseconds is { } duration)
         {
-            values.Add(
-                $"Duration · {duration.ToString(CultureInfo.InvariantCulture)} ms");
+            values.Add($"Took {FormatDuration(duration)}");
         }
 
         if (action.ResultCount is { } count)
         {
-            values.Add(
-                $"Count · {count.ToString(CultureInfo.InvariantCulture)}");
+            values.Add(CountText.Of(count, "result", "results"));
         }
 
         return string.Join(" · ", values);
     }
 
+    private static string FormatDuration(long milliseconds) =>
+        milliseconds < 1_000
+            ? $"{milliseconds.ToString("N0", CultureInfo.CurrentCulture)} ms"
+            : $"{(milliseconds / 1_000d).ToString("0.#", CultureInfo.CurrentCulture)} s";
+
     private static string ShortDigest(AgentActionDigest digest) =>
         $"{digest.Value[..12]}…";
-
-    private static string LocalAuditTime(DateTimeOffset value) =>
-        value.ToLocalTime().ToString(
-            "yyyy-MM-dd HH:mm:ss zzz",
-            CultureInfo.InvariantCulture);
 
     private static string AuditFailureStatus(AuditStoreErrorCode code) =>
         code switch
         {
             AuditStoreErrorCode.Cancelled =>
-                "Loading recorded actions was cancelled.",
+                "Loading recorded actions was canceled.",
             AuditStoreErrorCode.InvalidQuery =>
-                "The audit position changed. Refresh the selected run.",
+                "Recorded actions changed. Refresh to see the latest.",
             AuditStoreErrorCode.StorageFailure =>
-                "The recorded audit chain is incomplete or corrupt and was hidden.",
+                "Asura couldn't read this run's recorded actions, so they're hidden.",
             _ => "Recorded actions are temporarily unavailable.",
         };
 
@@ -3425,17 +3728,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         GovernedAgentContextItem item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        var panelKind = item.Kind switch
-        {
-            PanelKind.Terminal => "terminal",
-            PanelKind.Browser => "browser",
-            PanelKind.FileViewer => "File Viewer",
-            PanelKind.Statistics => "Statistics",
-            PanelKind.ProcessMonitor => "Process Monitor",
-            _ => "panel",
-        };
-        var title = item.PanelTitle ?? $"Unnamed {panelKind}";
-        var tabTitle = item.TabTitle ?? "Unnamed tab";
+        var panelKind = PanelTypeNames.Name(item.Kind);
+        var title = item.PanelTitle ?? $"Untitled {panelKind} Panel";
+        var tabTitle = item.TabTitle ?? "Untitled Tab";
         var exactIdentity =
             $"{panelKind} · window/{item.WindowId.Value} · "
             + $"workspace/{item.WorkspaceId.Value} · "
@@ -3450,7 +3745,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                      && item.FileRootDisplay is { } trustedRoot =>
                 $"{providerProfile} · trusted root {trustedRoot}",
             PanelKind.FileViewer =>
-                "No File Viewer is available",
+                "No Files panel is available",
             PanelKind.Statistics =>
                 "Local resource statistics are available",
             PanelKind.ProcessMonitor =>
@@ -3471,10 +3766,10 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 : "Background";
         var activeWork = item.HasActiveWork ? " · active work" : string.Empty;
         var state =
-            $"{presence} · {FormatEnum(item.Lifecycle)} · "
-            + $"{FormatEnum(item.Health)}{activeWork}";
+            $"{presence} · {SessionLifecycleName(item.Lifecycle)} · "
+            + $"{SessionHealthName(item.Health)}{activeWork}";
         var operations = item.SupportedOperations.Length == 0
-            ? $"No {panelKind} operations"
+            ? $"No {panelKind} panel operations"
             : string.Join(" · ", item.SupportedOperations);
 
         return new AgentContextItemViewModel(
@@ -3522,7 +3817,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     : hasBrowser
                         ? "Browser tools are available."
                         : hasFiles
-                            ? "File tools are limited to the selected File Viewer location."
+                            ? "File tools can reach only the folder open in the selected Files panel."
                             : hasStatistics
                                 ? statisticsNotice
                                 : hasProcesses
@@ -3536,7 +3831,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (hasFiles && (hasTerminal || hasBrowser))
         {
             capabilityNotice +=
-                " File tools are limited to the selected File Viewer location.";
+                " File tools can reach only the folder open in the selected Files panel.";
         }
 
         if (hasStatistics && (hasTerminal || hasBrowser || hasFiles))
@@ -3554,19 +3849,24 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     private static AgentApprovalCardViewModel? CreateApproval(
-        GovernedAgentApproval? approval)
+        GovernedAgentApproval? approval,
+        IReadOnlyCollection<GovernedAgentContextItem> context)
     {
         if (approval is null)
         {
             return null;
         }
 
+        var displayTitle = AgentTargetPresentation.HumanTitle(
+            approval.Presentation.TargetTitle,
+            approval.Target,
+            context: context);
         return new AgentApprovalCardViewModel(
             approval.Id,
             approval.ToolName,
             approval.ToolTitle,
-            FormatEnum(approval.Risk),
-            FormatEnum(approval.Permission),
+            approval.Risk,
+            AgentPolicyPresentation.PermissionName(approval.Permission),
             approval.Presentation.TargetTitle,
             FormatTarget(approval.Target),
             approval.Presentation.Host ?? "Not reported",
@@ -3576,8 +3876,12 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     argument.Name,
                     argument.DisplayValue,
                     argument.IsSensitive))],
-            AgentPresentationTime.Friendly(approval.ExpiresAtUtc),
-            approval.TemporarilyYieldsTerminalInput);
+            DisplayDates.Format(approval.ExpiresAtUtc),
+            approval.TemporarilyYieldsTerminalInput)
+        {
+            TargetDisplayTitle = displayTitle,
+            TargetPlace = AgentTargetPresentation.Place(displayTitle, approval.Target, context),
+        };
     }
 
     private static AgentCapabilityRequestCardViewModel? CreateCapabilityRequest(
@@ -3595,7 +3899,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             request.TargetTitle,
             FormatTarget(request.Target),
             [.. request.AffectedToolTitles],
-            AgentPresentationTime.Friendly(request.ExpiresAtUtc));
+            DisplayDates.Format(request.ExpiresAtUtc));
     }
 
     private static AgentYoloAuthorityViewModel? CreateYoloAuthority(
@@ -3618,7 +3922,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         return new AgentYoloAuthorityViewModel(
             FormatTarget(authority.Target),
             $"{duration.TotalMinutes:0} min window",
-            AgentPresentationTime.Friendly(authority.ExpiresAtUtc));
+            DisplayDates.Format(authority.ExpiresAtUtc));
     }
 
     private static string FormatTarget(AgentTarget? target) =>
@@ -3646,25 +3950,44 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             _ => throw new ArgumentOutOfRangeException(
                 nameof(target),
                 target.GetType(),
-                "The agent target kind is not supported."),
+                "The agent target kind isn't supported."),
         };
 
-    private static string FormatEnum<T>(T value)
-        where T : struct, Enum =>
-        value.ToString();
+    private static string SessionLifecycleName(SessionLifecycle lifecycle) =>
+        lifecycle switch
+        {
+            SessionLifecycle.Starting => "Starting",
+            SessionLifecycle.Active => "Running",
+            SessionLifecycle.Closing => "Closing",
+            SessionLifecycle.Closed => "Closed",
+            SessionLifecycle.Failed => "Failed",
+            _ => throw new ArgumentOutOfRangeException(nameof(lifecycle)),
+        };
+
+    private static string SessionHealthName(SessionHealth health) =>
+        health switch
+        {
+            SessionHealth.Starting => "Connecting",
+            SessionHealth.Healthy => "Healthy",
+            SessionHealth.Degraded => "Degraded",
+            SessionHealth.Unavailable => "Unavailable",
+            SessionHealth.Failed => "Not responding",
+            SessionHealth.Ended => "Ended",
+            _ => throw new ArgumentOutOfRangeException(nameof(health)),
+        };
 
     private static string FormatTokenCount(long value)
     {
         if (value < 1_000)
         {
-            return value.ToString(CultureInfo.InvariantCulture);
+            return value.ToString("N0", CultureInfo.CurrentCulture);
         }
 
         var divisor = value >= 1_000_000 ? 1_000_000d : 1_000d;
         var suffix = value >= 1_000_000 ? "m" : "k";
         var scaled = value / divisor;
         var format = scaled >= 100 ? "0" : "0.#";
-        return scaled.ToString(format, CultureInfo.InvariantCulture) + suffix;
+        return scaled.ToString(format, CultureInfo.CurrentCulture) + suffix;
     }
 
     private void NotifyContextWindowChanged()
@@ -3673,12 +3996,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ContextUsedTokens));
         OnPropertyChanged(nameof(ContextEffectiveLimit));
         OnPropertyChanged(nameof(ContextWindowPercent));
+        OnPropertyChanged(nameof(ContextWindowPercentLabel));
+        OnPropertyChanged(nameof(ContextWindowAccessibleName));
         OnPropertyChanged(nameof(ContextWindowUsageLabel));
     }
 
     private void NotifyAvailabilityChanged()
     {
         OnPropertyChanged(nameof(CanCompact));
+        OnPropertyChanged(nameof(CompactUnavailableReason));
+        OnPropertyChanged(nameof(HasCompactUnavailableReason));
         CompactCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(CanSend));
         OnPropertyChanged(nameof(CanOfferFollowUpQueue));
@@ -3703,6 +4030,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanAttachImages));
         OnPropertyChanged(nameof(CanAttachFiles));
         OnPropertyChanged(nameof(CanEnterPrompt));
+        OnPropertyChanged(nameof(CanUseComposerOptions));
+        OnPropertyChanged(nameof(CanUseModelPicker));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(ConnectionStatus));
         OnPropertyChanged(nameof(NeedsProviderAttention));
@@ -3720,14 +4049,21 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     }
 
     private static AgentToolActivityViewModel CreateToolActivity(
-        GovernedAgentToolActivity activity) =>
+        GovernedAgentToolActivity activity,
+        IReadOnlyCollection<GovernedAgentContextItem> context) =>
         new(
             activity.ToolName,
             activity.ToolTitle,
-            FormatEnum(activity.Risk),
+            activity.Risk,
             activity.TargetTitle,
             activity.CancellationRequested,
-            activity.PanelId);
+            activity.PanelId)
+        {
+            TargetDisplayTitle = AgentTargetPresentation.HumanTitle(
+                activity.TargetTitle,
+                panelId: activity.PanelId,
+                context: context),
+        };
 
     private void SynchronizeQueuedFollowUps(
         IReadOnlyList<GovernedAgentQueuedFollowUp> queued)
@@ -3872,7 +4208,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                     model,
                     providerName,
                     provider is not null && _favoriteModels.Contains(
-                        new AgentModelFavorite(provider.Id, model.Id))))
+                        new AgentModelFavorite(provider.Id, model.Id)),
+                    IsCurrent: string.Equals(model.Id, SelectedModel?.Id, StringComparison.Ordinal)))
                 .Where(item => query.Length == 0
                     || item.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase)
                     || item.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
@@ -3961,6 +4298,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanDisableYolo));
         OnPropertyChanged(nameof(PolicyModeLabel));
         OnPropertyChanged(nameof(AccessModeLabel));
+        OnPropertyChanged(nameof(IsFullAccessSelected));
+        OnPropertyChanged(nameof(IsAskForApprovalSelected));
     }
 
     private void NotifyQuestionAvailabilityChanged()
@@ -3982,6 +4321,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasNoConversation));
         OnPropertyChanged(nameof(CanStartConversation));
         OnPropertyChanged(nameof(HasFailedTurn));
+        OnPropertyChanged(nameof(PromptPlaceholder));
         OnPropertyChanged(nameof(ShowPrimaryAction));
         OnPropertyChanged(nameof(ShowFooterStatus));
         OnPropertyChanged(nameof(FailureHeading));
@@ -4137,7 +4477,7 @@ public sealed class AgentQueuedFollowUpViewModel : ObservableObject
         if (item.Id != Id)
         {
             throw new ArgumentException(
-                "A queued-message presentation cannot change identity.",
+                "A queued-message presentation can't change identity.",
                 nameof(item));
         }
 
@@ -4177,17 +4517,4 @@ public sealed class AgentQueuedFollowUpViewModel : ObservableObject
         IsEditing = false;
         return Task.CompletedTask;
     }
-}
-
-/// <summary>
-/// User-facing time formatting for run-local authority: a person deciding a
-/// permission reads "2 Jan 2026, 14:34", not a zoned ISO timestamp. Audit
-/// evidence keeps its precise form — that surface is a record, not a prompt.
-/// </summary>
-internal static class AgentPresentationTime
-{
-    public static string Friendly(DateTimeOffset value) =>
-        value.ToLocalTime().ToString(
-            "d MMM yyyy, HH:mm",
-            CultureInfo.InvariantCulture);
 }

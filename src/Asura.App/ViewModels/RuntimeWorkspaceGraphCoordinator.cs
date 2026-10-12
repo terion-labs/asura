@@ -120,7 +120,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || _workspaceRemoved is null)
         {
             throw new InvalidOperationException(
-                "Workspace graph watching was not configured for this coordinator.");
+                "Workspace graph watching wasn't configured for this coordinator.");
         }
         var cancellation = CancellationTokenSource.CreateLinkedTokenSource(
             _lifetime.Token);
@@ -220,15 +220,14 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            _setError("The runtime workspace graph could not be registered.");
+            _setError("Asura couldn't open the workspace. Try again.");
             return false;
         }
 
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                "The session host rejected workspace registration "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't open the workspace. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -239,7 +238,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 runtime.HostRevision,
                 runtime.HostSequence))
         {
-            _setError("The session host returned an invalid workspace registration receipt.");
+            _setError("Asura couldn't confirm that the workspace opened. Try again.");
             return false;
         }
 
@@ -362,6 +361,51 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         ArgumentNullException.ThrowIfNull(commit);
         return await TransferUnderGateAsync(
             source,
+            this,
+            destination,
+            request.Source,
+            request.Destination,
+            request.TabId,
+            null,
+            () => RequireSessionClient().TransferWorkspaceTabAsync(
+                request,
+                OperationContext.ForHuman(
+                    _clientId,
+                    idempotencyKey: IdempotencyKey.New()),
+                cancellationToken),
+            commit,
+            "tab transfer");
+    }
+
+    /// <summary>
+    /// Moves a tab into a workspace that another window shows. The host
+    /// re-owns the tab's sessions under the destination window, so a running
+    /// terminal keeps its process and scrollback. The caller holds both
+    /// windows' serialization gates, which also keeps the destination's graph
+    /// watch from applying the new revision before the tab has arrived.
+    /// </summary>
+    public async Task<bool> TransferTabToWindowUnderGateAsync(
+        RuntimeWorkspaceViewModel source,
+        RuntimeWorkspaceGraphCoordinator destinationGraph,
+        RuntimeWorkspaceViewModel destination,
+        TransferWorkspaceTabRequest request,
+        Action commit,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destinationGraph);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(commit);
+        if (request.SourceWindowId != _windowId
+            || request.DestinationWindowId != destinationGraph._windowId)
+        {
+            return false;
+        }
+
+        return await TransferUnderGateAsync(
+            source,
+            destinationGraph,
             destination,
             request.Source,
             request.Destination,
@@ -390,6 +434,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         ArgumentNullException.ThrowIfNull(commit);
         return await TransferUnderGateAsync(
             source,
+            this,
             destination,
             request.Source,
             request.Destination,
@@ -407,6 +452,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
 
     private async Task<bool> TransferUnderGateAsync(
         RuntimeWorkspaceViewModel source,
+        RuntimeWorkspaceGraphCoordinator destinationGraph,
         RuntimeWorkspaceViewModel destination,
         WorkspaceInstance sourceProposal,
         WorkspaceInstance destinationProposal,
@@ -416,7 +462,10 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         Action commit,
         string operation)
     {
+        var crossesWindows = !ReferenceEquals(destinationGraph, this);
         if (!ReferenceEquals(_currentWorkspace(), source)
+            || (crossesWindows
+                && !ReferenceEquals(destinationGraph._currentWorkspace(), destination))
             || source.Id != sourceProposal.Id
             || destination.Id != destinationProposal.Id)
         {
@@ -431,15 +480,14 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            _setError($"The runtime workspace could not apply {operation}.");
+            _setError($"Asura couldn't finish the {operation}. Try again.");
             return false;
         }
 
         if (result is HostResult<WorkspaceGraphTransferReceipt>.Failure failure)
         {
             _setError(
-                $"The session host rejected {operation} "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -449,7 +497,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || receipt.TabId != tabId
             || receipt.PanelId != panelId
             || receipt.Source.WindowId != _windowId
-            || receipt.Destination.WindowId != _windowId
+            || receipt.Destination.WindowId != destinationGraph._windowId
             || receipt.Source.Workspace.Id != source.Id
             || receipt.Destination.Workspace.Id != destination.Id
             || receipt.Source.Revision <= source.HostRevision
@@ -473,11 +521,12 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             || !OwnershipReceiptsMatch(
                 receipt.Sessions,
                 sourceProposal,
+                destinationGraph._windowId,
                 destinationProposal,
                 tabId,
                 panelId))
         {
-            _setError($"The session host returned an invalid {operation} receipt.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
 
@@ -485,7 +534,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         _workspaceCommitted(source);
         if (!ReferenceEquals(source, destination))
         {
-            _workspaceCommitted(destination);
+            destinationGraph._workspaceCommitted(destination);
         }
         try
         {
@@ -504,17 +553,23 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         catch (InvalidOperationException exception)
         {
             throw new InvalidOperationException(
-                $"The host-approved {operation} could not be applied to the runtime views.",
+                $"Asura finished the {operation} but couldn't show the result. Close the workspace and open it again.",
                 exception);
         }
 
         _projectionApplied();
+        if (crossesWindows)
+        {
+            destinationGraph._projectionApplied();
+        }
+
         return true;
     }
 
     private bool OwnershipReceiptsMatch(
         IReadOnlyList<SessionOwnershipTransferReceipt> sessions,
         WorkspaceInstance source,
+        WindowInstanceId destinationWindowId,
         WorkspaceInstance destination,
         TabInstanceId sourceTabId,
         PanelInstanceId? panelId)
@@ -532,7 +587,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             item.Source.WindowId == _windowId
             && item.Source.WorkspaceId == source.Id
             && item.Source.TabId == sourceTabId
-            && item.Destination.WindowId == _windowId
+            && item.Destination.WindowId == destinationWindowId
             && item.Destination.WorkspaceId == destination.Id
             && item.Destination.TabId == destinationTabId
             && item.Source.PanelId == item.Destination.PanelId
@@ -547,6 +602,17 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         return RequireSessionClient().CloseAsync(
             request,
+            OperationContext.ForHuman(_clientId),
+            cancellationToken);
+    }
+
+    public ValueTask<HostResult<IReadOnlyList<ActiveSessionSummary>>> InspectWindowCloseAsync(
+        CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return RequireSessionClient().InspectCloseAsync(
+            CloseScopeKind.Window,
+            _windowId.Value,
             OperationContext.ForHuman(_clientId),
             cancellationToken);
     }
@@ -675,13 +741,13 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         catch (Exception exception) when (
             exception is ArgumentException or InvalidOperationException)
         {
-            _setError($"The runtime workspace changed before {operation} could start.");
+            _setError($"The workspace changed before the {operation} could start. Try again.");
             return false;
         }
 
         if (proposal is null)
         {
-            _setError($"The runtime workspace changed before {operation} could start.");
+            _setError($"The workspace changed before the {operation} could start. Try again.");
             return false;
         }
 
@@ -744,7 +810,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                     if (rebuildProposal?.Invoke(runtime) is not { } rebuiltProposal)
                     {
                         _setError(
-                            $"The runtime workspace changed before {operation} could retry.");
+                            $"The workspace changed before the {operation} could be retried. Try again.");
                         return false;
                     }
 
@@ -769,7 +835,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             catch (Exception exception) when (
                 exception is ArgumentException or InvalidOperationException)
             {
-                _setError($"The runtime workspace could not apply {operation}.");
+                _setError($"Asura couldn't finish the {operation}. Try again.");
                 return false;
             }
 
@@ -784,8 +850,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"The session host rejected {operation} "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -803,7 +868,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 runtime.HostSequence);
         if (!receiptIsExpected)
         {
-            _setError($"The session host returned an invalid {operation} receipt.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
 
@@ -821,7 +886,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (!applied)
         {
             throw new InvalidOperationException(
-                $"The host-approved {operation} could not be applied to the runtime view.");
+                $"Asura finished the {operation} but couldn't show the result. Close the workspace and open it again.");
         }
 
         if (!reconciledAfterAmbiguousReceipt)
@@ -889,7 +954,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
             catch (Exception exception) when (
                 exception is ArgumentException or InvalidOperationException)
             {
-                _setError($"The runtime workspace could not apply {operation}.");
+                _setError($"Asura couldn't finish the {operation}. Try again.");
                 return false;
             }
 
@@ -910,15 +975,14 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<Unit>.Failure failure)
         {
             _setError(
-                $"The session host rejected {operation} "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
         var success = (HostResult<Unit>.Success)result;
         if (success.ResultingRevision <= runtime.HostRevision)
         {
-            _setError($"The session host returned an invalid {operation} receipt.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
 
@@ -996,14 +1060,14 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 return true;
             }
 
-            _setError($"The runtime workspace changed while applying {operation}.");
+            _setError($"The workspace changed during the {operation}. Try again.");
             return false;
         }
 
         if (receipt.Revision <= runtime.HostRevision
             || receipt.LastSequence <= runtime.HostSequence)
         {
-            _setError($"The session host returned an invalid {operation} cursor.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
 
@@ -1017,7 +1081,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         }
         catch (InvalidOperationException)
         {
-            _setError($"The session host returned a different {operation} graph.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
     }
@@ -1039,8 +1103,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                $"The session host rejected {operation} "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't finish the {operation}. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
@@ -1062,7 +1125,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 currentProjection,
                 success.Value.Workspace))
         {
-            _setError($"The session host returned an invalid {operation} receipt.");
+            _setError($"Asura couldn't confirm the {operation}. Try again.");
             return false;
         }
 
@@ -1075,7 +1138,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         }
         catch (InvalidOperationException)
         {
-            _setError("The session host returned a different runtime workspace graph.");
+            _setError("Asura lost track of the panels in this workspace. Close the workspace and open it again.");
             return false;
         }
 
@@ -1107,7 +1170,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 RuntimeWorkspaceGraphProjection.Capture(runtime),
                 projection))
         {
-            _setError($"The session host returned an invalid {source}.");
+            _setError($"Asura couldn't confirm the {source}. Try again.");
             return false;
         }
 
@@ -1117,7 +1180,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
         }
         catch (InvalidOperationException)
         {
-            _setError($"The session host returned a different {source} graph.");
+            _setError($"Asura couldn't confirm the {source}. Try again.");
             return false;
         }
 
@@ -1188,22 +1251,21 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 or IOException
                 or NotSupportedException)
         {
-            _setError("The runtime workspace could not be refreshed.");
+            _setError("Asura couldn't refresh the workspace. Try again.");
             return false;
         }
 
         if (result is HostResult<WorkspaceGraphSnapshot>.Failure failure)
         {
             _setError(
-                "The session host could not refresh the workspace "
-                + $"({failure.Error.StableCode}): {failure.Error.Message}");
+                $"Asura couldn't refresh the workspace. {ShellFailureText.HostReason(failure.Error)}");
             return false;
         }
 
         var success = (HostResult<WorkspaceGraphSnapshot>.Success)result;
         if (success.ResultingRevision != success.Value.Revision)
         {
-            _setError("The session host returned an invalid workspace refresh receipt.");
+            _setError("Asura couldn't confirm the workspace refresh. Try again.");
             return false;
         }
 
@@ -1219,7 +1281,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
     private ISessionHostClient RequireSessionClient() =>
         _sessionClient
         ?? throw new InvalidOperationException(
-            "Session-host graph operations were not configured for this coordinator.");
+            "Session-host graph operations weren't configured for this coordinator.");
 
     private static bool IsAmbiguousReceiptFailure(Exception exception) =>
         exception is OperationCanceledException or IOException or TimeoutException;
@@ -1336,7 +1398,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                     || workspaceEvent.WorkspaceId != runtime.Id
                     || workspaceEvent.Revision < runtime.HostRevision)
                 {
-                    _setError("The session host returned an invalid workspace removal event.");
+                    _setError("Asura couldn't update the window after a workspace closed. Close the window and open it again.");
                     return false;
                 }
 
@@ -1360,7 +1422,7 @@ public sealed class RuntimeWorkspaceGraphCoordinator : IDisposable
                 if (resumeAfterSequence != snapshot.LastSequence)
                 {
                     _setError(
-                        "The session host returned an invalid workspace resynchronization cursor.");
+                        "Asura couldn't catch up with changes to the workspace. Close the window and open it again.");
                     return false;
                 }
 

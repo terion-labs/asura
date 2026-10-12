@@ -38,13 +38,14 @@ public sealed class RedisRuntimePanelViewHeadlessTests
             try
             {
                 window.Show();
-                var connect = view.FindControl<Button>("ConnectButton")!;
-                var disconnect = view.FindControl<Button>("DisconnectButton")!;
-                disconnect.IsVisible = true;
+                var connection = view.FindControl<Button>("ConnectionButton")!;
                 window.UpdateLayout();
+                AssertButtonContentFits(connection);
 
-                AssertButtonContentFits(connect);
-                AssertButtonContentFits(disconnect);
+                // The longer of its two labels fits as well.
+                connection.Content = "Disconnect";
+                window.UpdateLayout();
+                AssertButtonContentFits(connection);
             }
             finally
             {
@@ -88,7 +89,7 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     Assert.Contains("DatabaseGrid", grid.Classes, StringComparer.Ordinal);
                     Assert.Equal(28, grid.ColumnHeaderHeight);
                     Assert.Equal(30, grid.RowHeight);
-                    Assert.Equal(DataGridGridLinesVisibility.All, grid.GridLinesVisibility);
+                    Assert.Equal(DataGridGridLinesVisibility.None, grid.GridLinesVisibility);
                 }
             }
             finally
@@ -180,11 +181,23 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     Assert.True(
                         field.Bounds.Width > 0 && field.Bounds.Height > 0,
                         $"The {field.Label} field was not laid out: {field.Bounds}.");
+
+                    // Every input is named for a screen reader: asked of the
+                    // control's own peer, not inferred from where it sits in
+                    // the markup. The field's label is the name unless the
+                    // view gave the control a fuller one of its own.
+                    var input = Assert.IsAssignableFrom<Control>(field.LabelledControl);
+                    var name = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(input).GetName();
+                    Assert.False(string.IsNullOrWhiteSpace(name), $"The {field.Label} input has no accessible name.");
+                    if (string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(input)))
+                    {
+                        Assert.Equal(field.Label, name);
+                    }
                 }
 
                 var create = Assert.Single(
                     sheet.GetVisualDescendants().OfType<Button>(),
-                    button => Equals(button.Content, "Create key"));
+                    button => Equals(button.Content, "Create Key"));
                 Assert.True(create.Bounds.Width > 0);
 
                 // The sheet is inside the panel: a popup could be drawn outside
@@ -304,9 +317,9 @@ public sealed class RedisRuntimePanelViewHeadlessTests
                     // The panel is a card holding everything, including these.
                     .Where(card => !card.GetVisualDescendants().OfType<DataGrid>().Any())
                     .Where(card => card.GetVisualDescendants().OfType<Button>().Any(
-                        button => Equals(button.Content, "Set value")
-                            || Equals(button.Content, "Save field")
-                            || Equals(button.Content, "Add fields")))
+                        button => Equals(button.Content, "Set Value")
+                            || Equals(button.Content, "Save Field")
+                            || Equals(button.Content, "Add Fields")))
                     .ToArray();
 
                 // Whatever the type, the forms span the same width the table
@@ -344,6 +357,48 @@ public sealed class RedisRuntimePanelViewHeadlessTests
             0,
             button.Bounds.Height);
     }
+
+    /// <summary>
+    /// The value grid's Remove item is in the menu bar as Panel ▸ Redis ▸
+    /// Remove Entry, available exactly when the grid's copy is.
+    /// </summary>
+    [Fact]
+    public Task TheMenuBarRemovesTheSelectedEntry() =>
+        RunHeadlessAsync(async () =>
+        {
+            var session = new RedisPanelFixtures.StubSession(null, type: "hash");
+            using var panel = RedisPanelFixtures.Panel(session);
+            await panel.Initialization;
+            panel.SelectedKey = panel.Keys[0];
+            var view = new RedisRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+                var target = (IPanelCommandTarget)view;
+                var grid = view.FindControl<DataGrid>("ValueEntriesGrid")!;
+                Assert.True(grid.IsEffectivelyVisible);
+                var menu = Assert.IsType<ContextMenu>(grid.ContextMenu);
+                menu.Open(grid);
+                window.UpdateLayout();
+                var item = Assert.Single(menu.Items.OfType<MenuItem>());
+                Assert.Equal("Remove Field", item.Header);
+                PanelContextMenuAssert.ItemsAreInTheMenuBar([item], "Remove Field", "Remove Member", "Remove Value");
+                menu.Close();
+
+                Assert.False(target.CanExecute(BuiltInCommands.RedisRemoveEntry));
+                panel.SelectedValueEntry = panel.ValueEntries[0];
+                Assert.True(target.CanExecute(BuiltInCommands.RedisRemoveEntry));
+                Assert.False(target.CanExecute(BuiltInCommands.DatabaseReconnect));
+                await target.ExecuteAsync(BuiltInCommands.RedisRemoveEntry);
+                Assert.Equal("hash email", Assert.Single(session.Removals));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
 
     private static async Task RunHeadlessAsync(Func<Task> assertion)
     {

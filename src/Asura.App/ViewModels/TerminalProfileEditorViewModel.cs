@@ -64,6 +64,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
     private int _scrollbackLines;
     private TerminalCursorStyle _cursorStyle;
     private bool _cursorBlink;
+    private bool _askBeforeClosing;
     private string _foreground;
     private string _background;
     private string _cursor;
@@ -94,6 +95,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
         _scrollbackLines = profile.ScrollbackLines;
         _cursorStyle = profile.CursorStyle;
         _cursorBlink = profile.CursorBlink;
+        _askBeforeClosing = profile.AskBeforeClosing;
         _foreground = profile.Palette.Foreground.ToString();
         _background = profile.Palette.Background.ToString();
         _cursor = profile.Palette.Cursor.ToString();
@@ -383,13 +385,37 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
 
     public double FontSize { get => _fontSize; set => SetProperty(ref _fontSize, value); }
 
-    public double LineHeight { get => _lineHeight; set => SetProperty(ref _lineHeight, value); }
+    public double LineHeight
+    {
+        get => _lineHeight;
+        set
+        {
+            if (SetProperty(ref _lineHeight, value))
+            {
+                OnPropertyChanged(nameof(LineHeightText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The line height as the page shows it: "1.40" whatever the region's
+    /// number format, as the interface around it is written, and not "1,40"
+    /// beside English labels.
+    /// </summary>
+    public string LineHeightText =>
+        _lineHeight.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 
     public int ScrollbackLines { get => _scrollbackLines; set => SetProperty(ref _scrollbackLines, value); }
 
     public TerminalCursorStyle CursorStyle { get => _cursorStyle; set => SetProperty(ref _cursorStyle, value); }
 
     public bool CursorBlink { get => _cursorBlink; set => SetProperty(ref _cursorBlink, value); }
+
+    /// <summary>
+    /// Whether closing or quitting with sessions running asks first. The
+    /// alerts' "Don't ask again" turns it off; this turns it back on.
+    /// </summary>
+    public bool AskBeforeClosing { get => _askBeforeClosing; set => SetProperty(ref _askBeforeClosing, value); }
 
     public string Foreground
     {
@@ -469,6 +495,7 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
 
     public TerminalProfileEditorSaveRequest CreateSaveRequest()
     {
+        ValidateForSave();
         var palette = new TerminalPalette(
             _paletteName,
             RgbColor.Parse(Foreground),
@@ -493,8 +520,58 @@ public sealed class TerminalProfileEditorViewModel : ObservableObject
                 ImeEnabled,
                 ShellIntegration,
                 BellMode,
-                Compatibility),
+                Compatibility,
+                AskBeforeClosing),
             ExpectedRevision);
+    }
+
+    /// <summary>
+    /// Checks the values the profile's own rules would refuse, so a refusal
+    /// names the field and says what it accepts instead of carrying the
+    /// profile's argument text ("Font size must be between 6 and 96 points.
+    /// (Parameter 'fontSize')").
+    /// </summary>
+    private void ValidateForSave()
+    {
+        if (string.IsNullOrWhiteSpace(FontFamily))
+        {
+            throw InvalidField.Exception(nameof(FontFamily), "Choose a font.");
+        }
+
+        if (FontFamily.AsSpan().IndexOfAny('\r', '\n', '\0') >= 0)
+        {
+            throw InvalidField.Exception(nameof(FontFamily), "A font name must fit on one line. Choose the font again.");
+        }
+
+        if (!double.IsFinite(FontSize) || FontSize is < 6 or > 96)
+        {
+            throw InvalidField.Exception(nameof(FontSize), "Choose a font size from 6 to 96 points.");
+        }
+
+        if (!double.IsFinite(LineHeight) || LineHeight is < 0.8 or > 3)
+        {
+            throw InvalidField.Exception(nameof(LineHeight), "Choose a line height from 0.8 to 3.");
+        }
+
+        if (ScrollbackLines is < 0 or > 10_000_000)
+        {
+            throw InvalidField.Exception(nameof(ScrollbackLines), "Choose a scrollback length from 0 to 10,000,000 lines.");
+        }
+
+        RequireColor(Foreground, nameof(Foreground), "text");
+        RequireColor(Background, nameof(Background), "background");
+        RequireColor(Cursor, nameof(Cursor), "cursor");
+        RequireColor(Selection, nameof(Selection), "selection");
+    }
+
+    private static void RequireColor(string value, string field, string name)
+    {
+        if (!RgbColor.TryParse(value, out _))
+        {
+            throw InvalidField.Exception(
+                field,
+                $"Enter the {name} color as six hexadecimal digits, such as #1E1E2E.");
+        }
     }
 
     private static IReadOnlyList<TerminalKeymapOption> CreateTerminalKeymapOptions(

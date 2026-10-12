@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.SavedScreenEditorDialog"
     x:DataType="vm:SavedScreenEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -6,21 +6,18 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls"
-    Title="{Binding EditorTitle}"
+    xmlns:views="using:Asura.App.Views"
+    xmlns:icons="using:FluentIcons.Avalonia"
     Width="900"
     Height="820"
     MinWidth="720"
     MinHeight="640"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    CanResize="True">
   <controls:DialogShell
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       Title="{Binding EditorTitle}"
-      Subtitle="Choose a layout, then configure the panel assigned to each slot."
-      FooterHint="Saving changes only future opens; running instances stay independent.">
+      Subtitle="Choose a layout, then set up each of its panels."
+      FooterHint="Changes apply the next time the screen opens. Tabs already open don’t change.">
     <controls:DialogShell.HeaderContent>
       <controls:StatusChip
           Content="{Binding DirtyStatus}"
@@ -29,10 +26,13 @@
     </controls:DialogShell.HeaderContent>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsEnabled="{Binding CanEdit}">
+      <!-- A failure about one field is shown under that field; what is left
+           is read here, at the top, where the dialog scrolls to it. -->
+      <components:ErrorNoticesView x:Name="FormErrors" DataContext="{Binding ErrorNotices}" />
       <TextBlock Classes="SectionHeading" Text="Details" />
       <controls:SurfaceCard>
         <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <controls:LabeledField Label="Name">
+          <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
             <TextBox Text="{Binding Name}" AutomationProperties.Name="Saved screen name" />
           </controls:LabeledField>
           <controls:LabeledField Grid.Column="1" Label="Description">
@@ -45,7 +45,7 @@
       <controls:SurfaceCard>
         <Grid ColumnDefinitions="*,260" ColumnSpacing="{DynamicResource ShellSpaceLg}">
           <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-            <controls:LabeledField Label="Saved layout">
+            <controls:LabeledField Label="Saved layout" controls:FieldValidation.For="SelectedLayout">
               <ComboBox
                   ItemsSource="{Binding LayoutOptions}"
                   SelectedItem="{Binding SelectedLayout}"
@@ -99,29 +99,29 @@
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasMissingDefinitions}"
-          Text="{Binding MissingDefinitionCount, StringFormat={}{0} panel definition(s) must be repaired before saving.}"
+          Text="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Before saving, choose a replacement for what’s missing in {0}.'}"
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="{Binding MissingDefinitionCount, StringFormat={}{0} saved screen panel definition(s) require repair}" />
+          AutomationProperties.Name="{Binding MissingDefinitionCount, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel, StringFormat='Choose a replacement for what’s missing in {0}'}" />
 
       <controls:Callout
           Tone="Warning"
           Glyph="Warning"
           IsVisible="{Binding HasInvalidBrowserAddresses}"
-          Text="{Binding InvalidBrowserAddressCount, StringFormat={}{0} browser startup address(es) must be a complete HTTP or HTTPS URL.}"
+          Text="Enter each browser startup address as a complete HTTP or HTTPS URL, like https://example.com."
           AutomationProperties.LiveSetting="Assertive"
-          AutomationProperties.Name="One or more browser panel startup addresses are invalid" />
+          AutomationProperties.Name="Enter each browser startup address as a complete HTTP or HTTPS URL" />
 
       <TextBlock Classes="SectionHeading" Text="Agent policy" />
       <controls:SurfaceCard>
         <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-          <controls:ToggleField
-              x:Name="ScreenAgentPolicyOverrideSwitch"
-              Label="Override the agent policy for this saved screen"
+          <CheckBox
+              x:Name="ScreenAgentPolicyOverrideCheckBox"
+              Content="Override the agent policy for this saved screen"
               IsChecked="{Binding AgentPolicy.IsEnabled, Mode=TwoWay}"
               AutomationProperties.Name="Override the AI agent policy for this saved screen" />
           <TextBlock
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               Text="Off, Ask, and Auto are saved with this screen. Full access can be changed from the agent."
               TextWrapping="Wrap" />
           <Grid
@@ -195,12 +195,12 @@
           </Grid>
           <controls:LiveRegionTextBlock
               Foreground="{DynamicResource ShellDangerBrush}"
-              FontSize="{DynamicResource ShellFontSize9}"
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
               IsVisible="{Binding !AgentPolicy.IsValid}"
-              Text="Choose an available, enabled provider profile and enter a valid model identifier."
+              Text="Choose an AI provider that’s available and turned on, and enter a model name."
               TextWrapping="Wrap"
               AutomationProperties.LiveSetting="Assertive"
-              AutomationProperties.Name="The saved screen agent policy provider profile or model is invalid" />
+              AutomationProperties.Name="Choose an AI provider that’s available and turned on, and enter a model name" />
           <ItemsControl
               ItemsSource="{Binding AgentPolicy.Capabilities}"
               IsVisible="{Binding AgentPolicy.IsEnabled}">
@@ -209,15 +209,17 @@
                 <Grid Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
                   <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
                     <TextBlock FontWeight="SemiBold" Text="{Binding DisplayName}" TextWrapping="Wrap" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding Description}" TextWrapping="Wrap" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
                   </StackPanel>
-                  <Border Grid.Column="1" VerticalAlignment="Center" Classes="Segmented">
-                    <Grid ColumnDefinitions="60,60,60">
-                      <ToggleButton Classes="Segment" IsChecked="{Binding IsOff, Mode=TwoWay}" Content="Off" />
-                      <ToggleButton Grid.Column="1" Classes="Segment" IsChecked="{Binding IsAsk, Mode=TwoWay}" Content="Ask" />
-                      <ToggleButton Grid.Column="2" Classes="Segment" IsChecked="{Binding IsAuto, Mode=TwoWay}" Content="Auto" />
-                    </Grid>
-                  </Border>
+                  <controls:SegmentedControl
+                      Grid.Column="1"
+                      MinWidth="{controls:TextScaled 180}"
+                      SelectedIndex="{Binding SelectedOptionIndex, Mode=TwoWay}"
+                      AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
+                    <RadioButton Content="Off" />
+                    <RadioButton Content="Ask" />
+                    <RadioButton Content="Auto" />
+                  </controls:SegmentedControl>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -226,8 +228,8 @@
       </controls:SurfaceCard>
 
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Classes="SectionHeading" Text="PANELS &amp; CONNECTIONS" />
-        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellFontSize10}" Text="{Binding Panels.Count, StringFormat={}{0} slots}" />
+        <TextBlock Classes="SectionHeading" Text="Panels &amp; connections" />
+        <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Panels.Count, Converter={x:Static views:CountLabel.Converter}, ConverterParameter=panel}" />
       </Grid>
 
       <ItemsControl ItemsSource="{Binding Panels}">
@@ -235,14 +237,13 @@
           <DataTemplate>
             <controls:SurfaceCard Margin="{controls:Inset Bottom=Sm}">
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+                <!-- Each panel is headed by its type's own icon and where it
+                     sits in the layout: "Terminal · Top left". -->
                 <Grid ColumnDefinitions="Auto,*,220" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                  <Border Width="28" Height="28" Classes="IconTile">
-                    <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="#" />
+                  <Border Width="28" Height="28" VerticalAlignment="Center" Classes="IconTile">
+                    <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="{Binding Icon}" FontSize="{DynamicResource ShellIconSizeSm}" />
                   </Border>
-                  <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}">
-                    <TextBlock Classes="Eyebrow" Text="{Binding PanelLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="Panel identity follows this layout slot." />
-                  </StackPanel>
+                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="Headline" Text="{Binding PanelLabel}" TextWrapping="Wrap" />
                   <controls:LabeledField Grid.Column="2" Label="Panel type">
                     <ComboBox
                         ItemsSource="{Binding KindOptions}"
@@ -298,15 +299,18 @@
                         AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup location for {0}}" />
                     <controls:LiveRegionTextBlock
                         Foreground="{DynamicResource ShellDangerBrush}"
-                        FontSize="{DynamicResource ShellFontSize9}"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
                         IsVisible="{Binding HasInvalidBrowserAddress}"
                         Text="Enter a complete HTTP or HTTPS URL, or leave this empty for about:blank."
                         TextWrapping="Wrap"
                         AutomationProperties.LiveSetting="Assertive" />
                   </StackPanel>
                 </controls:LabeledField>
+                <!-- Two equal columns: the policy's hint wraps in its own half
+                     instead of being measured unwrapped and squeezing the
+                     commands box. -->
                 <Grid
-                    ColumnDefinitions="*,Auto"
+                    ColumnDefinitions="*,*"
                     ColumnSpacing="{DynamicResource ShellSpaceMd}"
                     IsVisible="{Binding IsTerminal}">
                   <controls:LabeledField Label="Startup commands">
@@ -320,15 +324,14 @@
                   </controls:LabeledField>
                   <controls:LabeledField
                       Grid.Column="1"
-                      MinWidth="260"
                       Label="On delivery failure"
-                      Hint="This governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                      Hint="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                     <ComboBox
-                        MinWidth="260"
+                        HorizontalAlignment="Stretch"
                         ItemsSource="{Binding DeliveryFailurePolicyOptions}"
                         SelectedItem="{Binding SelectedDeliveryFailurePolicy, Mode=TwoWay}"
-                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=Startup command delivery failure policy for {0}}"
-                        AutomationProperties.HelpText="Governs delivery or acknowledgement failures while the terminal is live, not a shell command's exit status.">
+                        AutomationProperties.Name="{Binding PanelLabel, StringFormat=On delivery failure for {0}}"
+                        AutomationProperties.HelpText="What happens when a startup command can’t be delivered to the running terminal, or its delivery isn’t confirmed. A command’s own exit status doesn’t count.">
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <TextBlock Text="{Binding DisplayName}" />
@@ -343,22 +346,26 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     </StackPanel>
 
+    <!-- Duplicate is an auxiliary action: on the leading edge, the same
+         width as Cancel and Save, and away from them. -->
+    <controls:DialogShell.FooterLeading>
+      <Button
+          x:Name="DuplicateButton"
+          MinWidth="88"
+          Classes="SecondaryButton"
+          Click="OnDuplicateClick"
+          Content="Duplicate"
+          IsEnabled="{Binding CanSave}"
+          IsVisible="{Binding CanDuplicate}"
+          AutomationProperties.Name="Duplicate saved screen" />
+    </controls:DialogShell.FooterLeading>
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button MinWidth="88" Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
         <Button
-            MinWidth="96"
-            Classes="SecondaryButton"
-            Click="OnDuplicateClick"
-            Content="Duplicate"
-            IsEnabled="{Binding CanSave}"
-            IsVisible="{Binding CanDuplicate}"
-            AutomationProperties.Name="Duplicate saved screen" />
-        <Button MinWidth="92" Click="OnCancelClick" Content="Cancel" IsCancel="True" IsEnabled="{Binding CanEdit}" AutomationProperties.Name="Cancel saved screen editing" />
-        <Button
-            MinWidth="120"
+            MinWidth="88"
             Classes="PrimaryButton"
             Click="OnSaveClick"
             Content="{Binding PrimaryActionLabel}"
@@ -368,4 +375,4 @@
       </StackPanel>
     </controls:DialogShell.Footer>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

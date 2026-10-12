@@ -141,6 +141,31 @@ internal sealed class RuntimeTabDragController(
         _candidate = null;
     }
 
+    /// <summary>
+    /// Escape puts a dragged tab back where it was, as it does for a dragged
+    /// workspace tile or panel. Attached to the window's tunnelling key route,
+    /// so it answers before the focused terminal would take the key.
+    /// </summary>
+    public void KeyDown(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Key != Key.Escape
+            || e.KeyModifiers != Avalonia.Input.KeyModifiers.None
+            || (_activeDrag is null && _candidate is null))
+        {
+            return;
+        }
+
+        if (_activeDrag is { } active)
+        {
+            Cancel(active.Pointer);
+            e.Handled = true;
+            return;
+        }
+
+        _candidate = null;
+    }
+
     public void PointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
         _ = sender;
@@ -261,7 +286,7 @@ internal sealed class RuntimeTabDragController(
         catch (Exception exception) when (
             exception is InvalidOperationException or IOException)
         {
-            viewModel.SetError(exception.Message);
+            viewModel.SetError("The tab couldn’t be moved there. Try again.");
         }
     }
 

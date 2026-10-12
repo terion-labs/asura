@@ -36,8 +36,61 @@ public sealed class FilePreviewCatalogTests
         // A wall of hex tells almost nobody anything; the format and a symbol
         // for it do, and the bytes are one switch away.
         var binary = Assert.IsType<BinaryPreviewRendering>(outcome.Rendering);
-        Assert.Equal("BIN binary", binary.FormatName);
-        Assert.Equal("Show hex", Assert.Single(outcome.Toggles).Label);
+        Assert.Equal("Binary data", binary.FormatName);
+        Assert.Equal(FileKinds.DocumentSymbol, binary.Symbol);
+        Assert.Equal("Hex", Assert.Single(outcome.Toggles).Label);
+    }
+
+    [Theory]
+    [InlineData("libfoo.dylib", "Dynamic library")]
+    [InlineData("archive.zip", "ZIP archive")]
+    [InlineData("table.csv", "CSV document")]
+    [InlineData("notes.md", "Markdown document")]
+    [InlineData("bundle.tar.gz", "Gzipped tar archive")]
+    [InlineData("payload.xyz", "XYZ file")]
+    [InlineData("Makefile", "Document")]
+    public void A_file_kind_is_named_in_finder_words(string fileName, string expected) =>
+        Assert.Equal(expected, FileKinds.Describe(fileName));
+
+    [Fact]
+    public void A_library_is_named_without_a_size_or_an_extension_in_capitals()
+    {
+        var binary = Assert.IsType<BinaryPreviewRendering>(Catalog.Create(Binary("libssl.dylib")).Rendering);
+
+        Assert.Equal("Dynamic library", binary.FormatName);
+        Assert.DoesNotContain("DYLIB", binary.FormatName, StringComparison.Ordinal);
+        Assert.DoesNotContain("KB", binary.Detail, StringComparison.Ordinal);
+        Assert.NotEqual("Code", binary.Symbol, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Every switch is drawn as "Preview | Source", so whichever way a
+    /// previewer stores its value, the source side must mean the source.
+    /// </summary>
+    [Fact]
+    public void Every_preview_switch_says_which_side_shows_the_source()
+    {
+        var markdown = Assert.Single(Catalog.Create(Source("notes.md", "# Title")).Toggles);
+        var csv = Assert.Single(Catalog.Create(Source("table.csv", "a,b\n1,2")).Toggles);
+        var json = Assert.Single(Catalog.Create(Source("data.json", "{\"a\":1}")).Toggles);
+
+        Assert.False(markdown.ShowsSource);
+        Assert.False(csv.ShowsSource);
+        Assert.False(json.ShowsSource);
+        Assert.All([markdown, csv, json], toggle => Assert.Equal("Source", toggle.Label));
+    }
+
+    /// <summary>
+    /// A dump ends with its last row: a trailing line break gave the editor an
+    /// empty, numbered row below it.
+    /// </summary>
+    [Fact]
+    public void A_hex_dump_has_no_empty_last_line()
+    {
+        var dump = PreviewText.Hex(new byte[20], providerTruncated: false);
+
+        Assert.False(dump.EndsWith('\n'));
+        Assert.Equal(2, dump.Split('\n').Length);
     }
 
     [Fact]
@@ -90,6 +143,26 @@ public sealed class FilePreviewCatalogTests
         Assert.True(Assert.IsType<SourcePreviewRendering>(outcome.Rendering).Wrap);
     }
 
+    /// <summary>
+    /// A wrapped line of code would start again at the margin and read as a
+    /// new line, so code keeps its lines whole and scrolls sideways.
+    /// </summary>
+    [Theory]
+    [InlineData("Program.cs")]
+    [InlineData("settings.json")]
+    [InlineData("page.html")]
+    [InlineData("table.csv")]
+    public void Code_and_data_keep_their_lines_whole(string fileName)
+    {
+        var source = Source(fileName, "a,b");
+        var raw = new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            [DelimitedTextPreviewer.TableToggle] = false,
+        };
+
+        Assert.False(Assert.IsType<SourcePreviewRendering>(Catalog.Create(source, raw).Rendering).Wrap);
+    }
+
     [Fact]
     public void Markdown_can_be_shown_as_its_source()
     {
@@ -99,7 +172,8 @@ public sealed class FilePreviewCatalogTests
 
         Assert.IsType<SourcePreviewRendering>(raw.Rendering);
         var toggle = Assert.Single(raw.Toggles);
-        Assert.Equal("Show raw", toggle.Label);
+        Assert.Equal("Source", toggle.Label);
+        Assert.True(toggle.ShowsSource);
         Assert.True(toggle.IsOn);
     }
 
@@ -113,7 +187,8 @@ public sealed class FilePreviewCatalogTests
             source,
             new Dictionary<string, bool>(StringComparer.Ordinal) { [WebPagePreviewer.RawToggle] = false }).Rendering);
         var toggle = Assert.Single(Catalog.Create(source).Toggles);
-        Assert.Equal("Show source", toggle.Label);
+        Assert.Equal("Source", toggle.Label);
+        Assert.True(toggle.ShowsSource);
         Assert.True(toggle.IsOn);
     }
 

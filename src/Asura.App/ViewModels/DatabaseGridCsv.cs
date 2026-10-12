@@ -1,12 +1,15 @@
 using System.Globalization;
 using System.Text;
+using Asura.App.Controls;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
 /// <summary>
 /// The bounded CSV interchange used by the database grid. Parsing is kept
 /// separate from row staging so malformed input cannot leave half an import in
-/// the editor.
+/// the editor. Every refusal is written for the person importing the file
+/// and is marked readable, so the panel shows it as written.
 /// </summary>
 internal static class DatabaseGridCsv
 {
@@ -22,9 +25,9 @@ internal static class DatabaseGridCsv
         ArgumentOutOfRangeException.ThrowIfLessThan(tableColumnCount, 1);
         if ((long)rowCount * tableColumnCount > MaximumStagedCells)
         {
-            throw new InvalidDataException(
-                $"CSV imports are limited to {MaximumStagedCells.ToString("N0", CultureInfo.InvariantCulture)} staged cells. "
-                + "Import fewer rows or use a narrower table projection.");
+            throw Refused(
+                $"The import would change more than {MaximumStagedCells.ToString("N0", CultureInfo.InvariantCulture)} cells. "
+                + "Import fewer rows at a time.");
         }
     }
 
@@ -42,24 +45,24 @@ internal static class DatabaseGridCsv
 
         if (text.Length > MaximumCharacters)
         {
-            throw new InvalidDataException("CSV imports are limited to 16 MiB of text.");
+            throw Refused("The CSV file is too large to import. Import a file of up to 16 MB, or split it into smaller files.");
         }
 
         var rows = ParseRows(text.TrimStart('\uFEFF'), maximumColumns);
         if (rows.Count == 0)
         {
-            throw new InvalidDataException("The CSV file has no header row.");
+            throw Refused("The CSV file is empty. Choose a file whose first row names the columns.");
         }
 
         if (rows.Count > MaximumRows + 1)
         {
-            throw new InvalidDataException($"CSV imports are limited to {MaximumRows} data rows.");
+            throw TooManyRows();
         }
 
         var headers = rows[0].ToArray();
         if (headers.Length == 0 || headers.Any(header => header.Length == 0))
         {
-            throw new InvalidDataException("Every CSV column must have a header.");
+            throw Refused("Every column needs a name in the first row of the CSV file. Add the missing names, then import again.");
         }
 
         var duplicates = headers
@@ -71,12 +74,14 @@ internal static class DatabaseGridCsv
         {
             var shown = string.Join(
                 ", ",
-                duplicates.Take(5).Select(DescribeHeader));
+                duplicates.Take(5).Select(header => $"“{DescribeHeader(header)}”"));
             var remainder = duplicates.Length > 5
-                ? $" (+{duplicates.Length - 5} more)"
+                ? $" and {CountText.Of(duplicates.Length - 5, "other", "others")}"
                 : string.Empty;
-            throw new InvalidDataException(
-                $"CSV headers must be unique. Repeated: {shown}{remainder}.");
+            throw Refused(
+                $"Column names in a CSV file must be unique, but {shown}{remainder} "
+                + (duplicates.Length == 1 ? "appears" : "appear")
+                + " more than once. Rename the repeated columns, then import again.");
         }
 
         var data = new List<IReadOnlyList<string>>(Math.Max(0, rows.Count - 1));
@@ -85,8 +90,8 @@ internal static class DatabaseGridCsv
             var row = rows[rowIndex];
             if (row.Count != headers.Length)
             {
-                throw new InvalidDataException(
-                    $"CSV row {rowIndex + 1} has {row.Count} values; expected {headers.Length}.");
+                throw Refused(
+                    $"Row {rowIndex + 1:N0} of the CSV file has {CountText.Of(row.Count, "value", "values")}, but the header has {CountText.Of(headers.Length, "column", "columns")}. Fix that row, then import again.");
             }
 
             data.Add(row);
@@ -123,14 +128,14 @@ internal static class DatabaseGridCsv
         {
             if (fields.Count >= maximumColumns)
             {
-                throw new InvalidDataException(
-                    $"CSV rows are limited to {maximumColumns} columns.");
+                throw Refused(
+                    $"A row of the CSV file has more than {CountText.Of(maximumColumns, "column", "columns")}. Remove the extra columns, then import again.");
             }
 
             if (rows.Count == 0 && field.Length > MaximumHeaderCharacters)
             {
-                throw new InvalidDataException(
-                    $"CSV headers are limited to {MaximumHeaderCharacters} characters each.");
+                throw Refused(
+                    $"A column name in the first row of the CSV file is longer than {MaximumHeaderCharacters.ToString("N0", CultureInfo.InvariantCulture)} characters. Shorten it, then import again.");
             }
 
             fields.Add(field.ToString());
@@ -147,8 +152,7 @@ internal static class DatabaseGridCsv
             rowStarted = false;
             if (rows.Count > MaximumRows + 1)
             {
-                throw new InvalidDataException(
-                    $"CSV imports are limited to {MaximumRows} data rows.");
+                throw TooManyRows();
             }
         }
 
@@ -177,8 +181,8 @@ internal static class DatabaseGridCsv
 
             if (afterQuote && character is not (',' or '\r' or '\n'))
             {
-                throw new InvalidDataException(
-                    $"CSV contains unexpected text after a closing quote at character {index + 1}.");
+                throw Refused(
+                    $"The CSV file has text after a closing quotation mark, at character {index + 1:N0}. Fix the quoting, then import again.");
             }
 
             switch (character)
@@ -189,8 +193,8 @@ internal static class DatabaseGridCsv
                     rowStarted = true;
                     break;
                 case '"':
-                    throw new InvalidDataException(
-                        $"CSV contains a quote inside an unquoted field at character {index + 1}.");
+                    throw Refused(
+                        $"The CSV file has a quotation mark inside an unquoted value, at character {index + 1:N0}. Put the value in quotation marks and double the one inside it, then import again.");
                 case ',':
                     EndField();
                     rowStarted = true;
@@ -216,7 +220,7 @@ internal static class DatabaseGridCsv
 
         if (inQuotes)
         {
-            throw new InvalidDataException("CSV ends inside a quoted field.");
+            throw Refused("The CSV file ends inside a quoted value. Add the missing closing quotation mark, then import again.");
         }
 
         if (rowStarted || fieldStarted || afterQuote || fields.Count > 0)
@@ -226,6 +230,13 @@ internal static class DatabaseGridCsv
 
         return rows;
     }
+
+    private static InvalidDataException TooManyRows() => Refused(
+        $"The CSV file has more than {MaximumRows.ToString("N0", CultureInfo.InvariantCulture)} rows. "
+        + "Split it into files of up to that many rows, then import each one.");
+
+    private static InvalidDataException Refused(string message) =>
+        FailureReason.Readable(new InvalidDataException(message));
 
     public static string Format(
         IReadOnlyList<string> headers,

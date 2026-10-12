@@ -4338,7 +4338,7 @@ public sealed partial class GovernedAgentRuntimeTests
                         new HostError(
                             HostErrorCode.Cancelled,
                             stableCode,
-                            "The governed terminal action was cancelled."),
+                            "The governed terminal action was canceled."),
                         1);
                 }
             }

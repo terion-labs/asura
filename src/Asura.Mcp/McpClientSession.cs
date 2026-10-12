@@ -150,7 +150,7 @@ internal sealed class McpClientSession : IAsyncDisposable
 
             return Failure<McpClientSession>(
                 McpErrorCode.Cancelled,
-                "The MCP connection was cancelled and its transport was closed.",
+                "The MCP connection was canceled and its transport was closed.",
                 cleanupUncertain: transport.CleanupUncertain);
         }
         catch (Exception exception)
@@ -263,7 +263,7 @@ internal sealed class McpClientSession : IAsyncDisposable
             await DisposeAsync().ConfigureAwait(false);
             return Failure<IReadOnlyList<McpTool>>(
                 McpErrorCode.Cancelled,
-                "MCP tool discovery was cancelled and the transport was closed.",
+                "MCP tool discovery was canceled and the transport was closed.",
                 cleanupUncertain: _transport.CleanupUncertain);
         }
         catch (Exception exception)
@@ -381,8 +381,8 @@ internal sealed class McpClientSession : IAsyncDisposable
             return Failure<McpToolCallResult>(
                 McpErrorCode.Cancelled,
                 dispatched
-                    ? "The MCP tool call was cancelled; its remote outcome is unknown and the transport was closed."
-                    : "The MCP tool call was cancelled before dispatch.",
+                    ? "The MCP tool call was canceled; its remote outcome is unknown and the transport was closed."
+                    : "The MCP tool call was canceled before dispatch.",
                 cleanupUncertain: dispatched && _transport.CleanupUncertain,
                 outcomeUncertain: dispatched);
         }

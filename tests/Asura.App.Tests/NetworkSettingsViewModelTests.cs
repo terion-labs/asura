@@ -173,8 +173,9 @@ public sealed class NetworkSettingsViewModelTests
         Assert.Equal(11, fixture.Proxy.LastProfileRevision);
         Assert.Equal("Office proxy updated", fixture.Proxy.LastProfile?.Name);
 
+        // The route is saved as it changes, against the stored revision.
         viewModel.Policy.IsEnabled = true;
-        Assert.True(await viewModel.SavePolicyAsync(CancellationToken.None));
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.IsEnabled == true);
         Assert.Equal(12, fixture.Proxy.LastSettingsRevision);
         Assert.True(fixture.Proxy.LastSettings?.Policy.IsEnabled);
         Assert.True(fixture.Proxy.LastSettings?.Policy.KillSwitchEnabled);
@@ -183,6 +184,54 @@ public sealed class NetworkSettingsViewModelTests
         Assert.True(reloaded.Policy.IsEnabled);
         Assert.True(reloaded.Policy.KillSwitchEnabled);
         Assert.Equal(ProxyId, reloaded.Policy.SelectedConnection?.Id);
+    }
+
+    /// <summary>
+    /// The application route applies as it changes, like every other
+    /// setting: the switch and the kill switch are saved without Save Route,
+    /// and nothing is left as a draft.
+    /// </summary>
+    [Fact]
+    public async Task Application_route_is_saved_as_it_changes()
+    {
+        var storedProfile = Store(Profile(new NetworkConnectionConfiguration.Proxy(
+            NetworkProxyProtocol.Socks5,
+            "proxy.example.test",
+            1080)), 11);
+        var storedSettings = Store(new ApplicationNetworkSettings(
+            ApplicationNetworkSettings.DefaultId,
+            ApplicationNetworkSettings.CurrentSchemaVersion,
+            "Application networking",
+            new NetworkPolicy([ProxyId], ProxyId, false, false)), 12);
+        var fixture = Catalog(DefinitionCatalogSnapshot.Empty with
+        {
+            NetworkConnections = [storedProfile],
+            ApplicationNetworkSettings = [storedSettings],
+        });
+        var vault = Vault();
+        using var viewModel = new NetworkSettingsViewModel(fixture.Catalog, vault.Vault);
+        Assert.False(viewModel.HasPolicyValidationMessage);
+
+        viewModel.Policy.IsEnabled = true;
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.IsEnabled == true);
+
+        viewModel.Policy.KillSwitchEnabled = true;
+        await WaitUntilAsync(() => fixture.Proxy.LastSettings?.Policy.KillSwitchEnabled == true);
+        await WaitUntilAsync(() => !viewModel.Policy.IsDirty);
+
+        using var reloaded = new NetworkSettingsViewModel(fixture.Catalog, vault.Vault);
+        Assert.True(reloaded.Policy.IsEnabled);
+        Assert.True(reloaded.Policy.KillSwitchEnabled);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The route was not saved in time.");
+            await Task.Delay(10);
+        }
     }
 
     [Fact]
@@ -400,7 +449,7 @@ public sealed class NetworkSettingsViewModelTests
             editor.SelectedConfigurationCredential);
         Assert.Equal(bound, selected.Reference);
         Assert.Equal("Office WireGuard · Configuration", selected.DisplayName);
-        Assert.Contains("OS vault", selected.Detail, StringComparison.Ordinal);
+        Assert.Contains(PlatformTerms.SecretStore, selected.Detail, StringComparison.Ordinal);
         Assert.Contains("Updated", selected.Detail, StringComparison.Ordinal);
 
         editor.SelectedConfigurationCredential = editor.ConfigurationCredentialOptions
@@ -431,7 +480,10 @@ public sealed class NetworkSettingsViewModelTests
             viewModel.ProfileEditor?.SelectedConfigurationCredential);
         Assert.Equal(NetworkCredentialOptionState.Unavailable, selected.State);
         Assert.Equal("Credential unavailable", selected.DisplayName);
-        Assert.Contains("not found", selected.Detail, StringComparison.OrdinalIgnoreCase);
+        // The pop-up item stays one short line; what to do about it is said
+        // under the field.
+        Assert.Equal("Missing", selected.Detail);
+        Assert.Contains("no longer in", selected.Problem, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -553,8 +605,88 @@ public sealed class NetworkSettingsViewModelTests
         Assert.False(await viewModel.TestProfileAsync(CancellationToken.None));
 
         Assert.Empty(runtime.Requests);
-        Assert.Equal("Validation failed", viewModel.ProfileTestStatus);
+        Assert.Equal("Settings need attention", viewModel.ProfileTestStatus);
         Assert.True(viewModel.ProfileTestHasError);
+    }
+
+    [Fact]
+    public async Task A_gateway_Uri_cant_parse_is_named_in_words_not_the_parser_text()
+    {
+        var fixture = Catalog(DefinitionCatalogSnapshot.Empty);
+        var vault = Vault();
+        var runtime = new RecordingNetworkRuntime(WorkspaceNetworkSnapshot.Direct);
+        using var viewModel = new NetworkSettingsViewModel(
+            fixture.Catalog,
+            vault.Vault,
+            runtime);
+        viewModel.BeginCreateProfile();
+        var editor = Assert.IsType<NetworkConnectionProfileEditorViewModel>(viewModel.ProfileEditor);
+        editor.SelectedKind = editor.KindOptions.Single(option =>
+            option.Kind == NetworkConnectionKind.AnyConnect);
+        editor.Name = "Office VPN";
+        editor.Gateway = "https://";
+
+        Assert.Equal(nameof(editor.Gateway), editor.InvalidFieldName);
+        Assert.Equal(
+            "Enter the gateway as a complete HTTPS address, such as https://vpn.example.com.",
+            editor.ValidationMessage);
+        Assert.False(await viewModel.TestProfileAsync(CancellationToken.None));
+        Assert.Equal(editor.ValidationMessage, viewModel.ProfileTestDetail);
+        Assert.False(await viewModel.SaveProfileAsync(CancellationToken.None));
+        Assert.Equal(editor.ValidationMessage, viewModel.OperationStatus);
+        Assert.DoesNotContain("Invalid URI", viewModel.OperationStatus, StringComparison.Ordinal);
+        Assert.Empty(runtime.Requests);
+    }
+
+    [Theory]
+    [InlineData("http://vpn.example.test")]
+    [InlineData("vpn.example.test")]
+    public void A_core_argument_refusal_never_shows_its_parameter_suffix(string gateway)
+    {
+        var editor = new NetworkConnectionProfileEditorViewModel
+        {
+            Name = "Office VPN",
+            Gateway = gateway,
+        };
+        editor.SelectedKind = editor.KindOptions.Single(option =>
+            option.Kind == NetworkConnectionKind.AnyConnect);
+
+        Assert.Equal(nameof(editor.Gateway), editor.InvalidFieldName);
+        Assert.DoesNotContain("Parameter", editor.ValidationMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("absolute HTTPS URL", editor.ValidationMessage, StringComparison.Ordinal);
+        var refusal = Assert.Throws<InvalidOperationException>(() => editor.CreateSaveRequest());
+        Assert.Equal(editor.ValidationMessage, refusal.Message);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("proxy.example.test/path")]
+    public void A_proxy_host_core_refuses_is_named_under_the_host_field(string host)
+    {
+        var editor = new NetworkConnectionProfileEditorViewModel
+        {
+            Name = "Office proxy",
+            Host = host,
+            Port = "1080",
+        };
+
+        Assert.Equal(nameof(editor.Host), editor.InvalidFieldName);
+        Assert.StartsWith("Enter the proxy’s host name or IP address", editor.ValidationMessage, StringComparison.Ordinal);
+        Assert.DoesNotContain("Parameter", editor.ValidationMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_empty_connection_name_says_to_enter_one()
+    {
+        var editor = new NetworkConnectionProfileEditorViewModel
+        {
+            Name = " ",
+            Host = "proxy.example.test",
+            Port = "1080",
+        };
+
+        Assert.Equal(nameof(editor.Name), editor.InvalidFieldName);
+        Assert.Equal("Enter a name for this connection.", editor.ValidationMessage);
     }
 
     [Fact]

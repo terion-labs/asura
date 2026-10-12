@@ -10,13 +10,17 @@ namespace Asura.App.Views.Components;
 /// Paints language-worker diagnostics without changing AvaloniaEdit's TextMate
 /// visual-line transformers. Offsets are UTF-16 document offsets on both sides
 /// of this boundary, so no character-index translation occurs in the editor.
+///
+/// The squiggle colours are the danger, warning, and info tokens the editor
+/// hands over, so they follow the theme; nothing is drawn in a colour of the
+/// renderer's own.
 /// </summary>
 internal sealed class SqlDiagnosticBackgroundRenderer : IBackgroundRenderer
 {
     private IReadOnlyList<SqlDiagnostic> _diagnostics = [];
-    private IBrush _errorBrush = new SolidColorBrush(Color.Parse("#FF5C33"));
-    private IBrush _warningBrush = new SolidColorBrush(Color.Parse("#E1A45F"));
-    private IBrush _informationBrush = new SolidColorBrush(Color.Parse("#5C9DFF"));
+    private IBrush? _errorBrush;
+    private IBrush? _warningBrush;
+    private IBrush? _informationBrush;
 
     public KnownLayer Layer => KnownLayer.Text;
 
@@ -49,7 +53,12 @@ internal sealed class SqlDiagnosticBackgroundRenderer : IBackgroundRenderer
                 continue;
             }
 
-            var pen = new Pen(BrushFor(diagnostic.Severity), 1.25);
+            if (BrushFor(diagnostic.Severity) is not { } brush)
+            {
+                continue;
+            }
+
+            var pen = new Pen(brush, 1.25);
             foreach (var rectangle in BackgroundGeometryBuilder.GetRectsForSegment(
                          textView,
                          segment))
@@ -83,7 +92,7 @@ internal sealed class SqlDiagnosticBackgroundRenderer : IBackgroundRenderer
         };
     }
 
-    private IBrush BrushFor(SqlDiagnosticSeverity severity) => severity switch
+    private IBrush? BrushFor(SqlDiagnosticSeverity severity) => severity switch
     {
         SqlDiagnosticSeverity.Error => _errorBrush,
         SqlDiagnosticSeverity.Warning => _warningBrush,

@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
+    xmlns:converters="using:Asura.App.Converters"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:vm="using:Asura.App.ViewModels"
     Focusable="False"
@@ -18,48 +19,121 @@
       <Setter Property="BorderThickness" Value="2" />
     </Style>
     <!-- The tab's size belongs to the strip's axis, not to the tab. A strip
-         running across the chrome deals in fixed-width chips at the chrome's
-         height; docked at the side it deals in rows — full width, control
-         height — and a chip-sized tab there sat squeezed in the middle of
-         its own column. -->
+         running across the chrome deals in chips at the chrome's height, as
+         wide as the strip can afford: they share the room down to a minimum
+         and only then scroll, so a full strip compresses before anything
+         goes out of sight. Docked at the side it deals in rows — full width,
+         control height — and a chip-sized tab there sat squeezed in the
+         middle of its own column. The chip is at least the chrome's height
+         at the text size it was drawn for, and grows with larger text rather
+         than clipping its title. -->
     <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Grid.RuntimeTabDropTarget">
-      <Setter Property="Width" Value="158" />
-      <Setter Property="Height" Value="22" />
+      <Setter Property="Width" Value="{Binding $parent[components:RuntimeTabStripView].TabWidth}" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 22}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
+    <!-- The trailing inset keeps the label clear of the close button, which
+         sits over the chip's end: a label that ran under it could not be
+         read on the one tab that always shows it. -->
     <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Button.RuntimeTabActivator">
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Lg}" />
+      <Setter Property="Padding" Value="{controls:Inset Left=Lg, Right=Xl}" />
+    </Style>
+    <!-- Across the chrome the pull-down slides out from beside the add
+         button, so its slot clips it from the tabs' side. -->
+    <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Button#OverflowMenuButton">
+      <Setter Property="HorizontalAlignment" Value="Right" />
     </Style>
     <Style Selector="components|RuntimeTabStripView[Orientation=Vertical] Grid.RuntimeTabDropTarget">
       <Setter Property="Height" Value="{DynamicResource ShellControlMinHeight}" />
     </Style>
-    <!-- A row's label starts where a row's label starts, not where a 158px
-         chip's did: the horizontal chip spends Lg because its label floats in
-         a fixed box, and that inset carried over as dead air. -->
+    <!-- A row's label starts where a row's label starts, not where a chip's
+         did: the horizontal chip spends Lg because its label floats in a
+         box, and that inset carried over as dead air. -->
     <Style Selector="components|RuntimeTabStripView[Orientation=Vertical] Button.RuntimeTabActivator">
-      <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
+      <Setter Property="Padding" Value="{controls:Inset Left=Sm, Right=Xxl}" />
     </Style>
     <Style Selector="components|RuntimeTabStripView[Orientation=Vertical] Button#AddTabButton">
       <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
       <Setter Property="HorizontalAlignment" Value="Left" />
     </Style>
+    <!-- Close is offered where the HIG offers it: on the tab you are in, and
+         on the one under the pointer. Twenty points at the least in the
+         chrome's chip, the full twenty-four in a row with the height for it.
+         It is not a Tab stop: Command-W and the tab's context menu close
+         from the keyboard, and a hidden stop between every pair of tabs
+         would only be in the way. -->
+    <!-- Shown and hidden by opacity, never by IsVisible: the button keeps its
+         place in every closable tab, so hovering a tab, or a tab sliding under
+         the pointer while the strip scrolls, never re-measures the strip. -->
+    <Style Selector="Button.RuntimeTabClose">
+      <Setter Property="IsVisible" Value="False" />
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="IsTabStop" Value="False" />
+      <Setter Property="Width" Value="20" />
+      <Setter Property="Height" Value="20" />
+    </Style>
+    <Style Selector="components|RuntimeTabStripView[Orientation=Vertical] Button.RuntimeTabClose">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+    </Style>
+    <Style Selector="Button.RuntimeTabClose.closable">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="Grid.RuntimeTabDropTarget.active Button.RuntimeTabClose.closable, Grid.RuntimeTabDropTarget:pointerover Button.RuntimeTabClose.closable">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+    <!-- A tab's title reads at body size, as Safari's and Terminal's do:
+         the title and its editor take the text style the window gives
+         them, and the strip grows with larger text instead of shrinking
+         the one label that says which tab is which. -->
+    <Style Selector="TextBlock.RuntimeTabTitle">
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+    </Style>
+    <Style Selector="TextBox.RuntimeTabTitleEditor">
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+    </Style>
+    <!-- The agent mark draws in the tab's own ink: on the active tab that is
+         the measured black or white for the accent fill, so it shows on
+         every accent rather than fading into it. -->
+    <Style Selector="icons|SymbolIcon.RuntimeTabAgentActivity">
+      <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    </Style>
+    <Style Selector="Grid.RuntimeTabDropTarget.active icons|SymbolIcon.RuntimeTabAgentActivity">
+      <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+    </Style>
   </UserControl.Styles>
   <!-- The add button lives outside the scroll: it is always reachable, no
        matter how many tabs overflowed. The scrollbar is hidden — overflow
-       announces itself as a fade at the strip's edge instead of a bar.
+       announces itself as a fade at the strip's edge, and as the pull-down
+       beside the add button that lists every tab, so a tab out of sight is
+       one click away rather than a scroll away.
 
        The strip shrinks to its tabs, so while they fit the button rides the
        last tab's edge; only an overflowing strip pins it to the far end,
-       where this hairline steps it off from whatever sits beyond. -->
+       where this hairline steps it off from whatever sits beyond.
+
+       The pull-down and the hairline sit in clipping slots the strip opens as
+       the room runs out (see MeasureOverride): they slide in with the room
+       the tabs give up instead of taking all of it in one frame, which
+       jolted every tab sideways just as they appeared. -->
   <DockPanel>
-    <Border
-        x:Name="OverflowSeparator"
+    <Panel
+        x:Name="OverflowSeparatorSlot"
         DockPanel.Dock="Right"
-        Width="1"
-        Height="14"
-        Margin="{controls:Inset Left=Sm}"
-        VerticalAlignment="Center"
-        Background="{DynamicResource ShellBorderBrush}"
-        IsVisible="False" />
+        ClipToBounds="True"
+        IsVisible="False">
+      <Border
+          x:Name="OverflowSeparator"
+          Width="1"
+          Height="14"
+          Margin="{controls:Inset Left=Sm}"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center"
+          Background="{DynamicResource ShellBorderBrush}"
+          IsVisible="False" />
+    </Panel>
     <Button
         x:Name="AddTabButton"
         DockPanel.Dock="Right"
@@ -70,21 +144,50 @@
         VerticalAlignment="Center"
         Classes="IconButton"
         Click="OnAddTab"
-        ToolTip.Tip="New tab"
-        AutomationProperties.Name="Open a new tab">
-      <icons:SymbolIcon Symbol="Add" FontSize="12" />
+        ToolTip.Tip="{Binding NewTab, Source={x:Static vm:ShortcutTips.Current}}"
+        AutomationProperties.Name="New Tab">
+      <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
+    <Panel
+        x:Name="OverflowMenuSlot"
+        DockPanel.Dock="Right"
+        ClipToBounds="True"
+        IsVisible="False">
+      <Button
+          x:Name="OverflowMenuButton"
+          Width="22"
+          Height="22"
+          Padding="0"
+          Margin="{controls:Inset Left=Xs}"
+          VerticalAlignment="Center"
+          Classes="IconButton"
+          IsVisible="False"
+          ToolTip.Tip="Show all tabs"
+          AutomationProperties.Name="Show all tabs">
+        <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+        <Button.Flyout>
+          <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
+        </Button.Flyout>
+      </Button>
+    </Panel>
     <ScrollViewer
         x:Name="TabScrollViewer"
         HorizontalScrollBarVisibility="Hidden"
         VerticalScrollBarVisibility="Disabled"
         ScrollChanged="OnTabScrollChanged"
-        AutomationProperties.Name="Open runtime tabs">
+        AutomationProperties.Name="Open tabs">
       <!-- The container theme stretches every generated presenter, or a
            side-docked tab is only as wide as its title and the close button
            trails the text instead of holding the row's edge. Stated as a
-           theme because no style selector reliably reaches these presenters. -->
-      <ItemsControl ItemsSource="{Binding Tabs, ElementName=Root}">
+           theme because no style selector reliably reaches these presenters.
+
+           The list is a tab group to assistive technology: each tab inside
+           it says it is a tab, whether it is the selected one, and where it
+           stands among the others. -->
+      <controls:RuntimeTabList
+          x:Name="TabItems"
+          ItemsSource="{Binding Tabs, ElementName=Root}"
+          AutomationProperties.Name="Tabs">
       <ItemsControl.ItemContainerTheme>
         <ControlTheme TargetType="ContentPresenter">
           <Setter Property="HorizontalAlignment" Value="Stretch" />
@@ -98,18 +201,38 @@
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="vm:IRuntimeTabStripItem">
-          <!-- Compact, because the active tab is now a filled accent block: at
-               the old height it was the heaviest thing in the chrome and read
+          <!-- Compact, because the active tab is a filled accent block: at a
+               taller height it was the heaviest thing in the chrome and read
                as a banner rather than as one tab among several. -->
           <Grid
               Classes="RuntimeTabDropTarget"
               Classes.active="{Binding IsActive}"
-              ColumnDefinitions="*,Auto,20"
+              ColumnDefinitions="*,Auto"
               DragDrop.AllowDrop="True"
               DragDrop.DragEnter="OnDragEnter"
               DragDrop.DragLeave="OnDragLeave"
               DragDrop.DragOver="OnDragOver"
               DragDrop.Drop="OnDrop">
+            <!-- What a tab offers, in the order it is reached for: name it,
+                 mark it, send it somewhere, end it. Closing comes last, behind
+                 a separator. The items that need the shell's help only appear
+                 where a shell has offered it. -->
+            <Grid.ContextMenu>
+              <ContextMenu Opening="OnTabContextMenuOpening" Opened="OnTabContextMenuOpened">
+                <MenuItem Classes="RenameTab" Header="Rename Tab…" Click="OnRenameTabMenuClick" />
+                <MenuItem Classes="ChangeTabIcon" Header="Change Icon…" Click="OnChangeTabIconMenuClick" />
+                <Separator Classes="MoveTabSeparator" />
+                <MenuItem Classes="MoveTabToWorkspace" Header="Move to Workspace" />
+                <MenuItem
+                    Classes="MoveTabToNewWindow"
+                    Header="Move to New Window"
+                    Click="OnMoveTabToNewWindowMenuClick"
+                    ToolTip.ShowOnDisabled="True" />
+                <Separator />
+                <MenuItem Classes="CloseTab" Header="Close Tab" Click="OnClose" />
+                <MenuItem Classes="CloseOtherTabs" Header="Close Other Tabs" Click="OnCloseOtherTabsMenuClick" />
+              </ContextMenu>
+            </Grid.ContextMenu>
             <!-- Stretched, or the chip shrinks to its label and the close button
                  that belongs to this tab renders outside it. Avalonia buttons do
                  not stretch by default. -->
@@ -119,32 +242,42 @@
                  rather than from the view model: a tab that carried its own hex
                  answered no appearance setting. -->
             <!-- No inline Padding: the orientation styles above own it, and an
-                 inline value would silently beat them both. -->
-            <Button
-                Grid.ColumnSpan="3"
+                 inline value would silently beat them both. The tooltip is the
+                 whole title, because a compressed tab trims it. -->
+            <controls:RuntimeTabButton
+                Grid.ColumnSpan="2"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch"
                 Classes="RuntimeTabActivator"
                 Classes.active="{Binding IsActive}"
+                IsSelected="{Binding IsActive}"
                 Click="OnActivate"
                 HorizontalContentAlignment="Left"
                 VerticalContentAlignment="Center"
-                AutomationProperties.Name="{Binding Title, StringFormat={}Activate tab {0}}"
-                AutomationProperties.HelpText="Drag the tab to reorder it. Double-click the title to rename it, or the icon to choose another icon. Move tab left and Move tab right are also available from the command palette.">
+                ToolTip.Tip="{Binding DisplayTitle}"
+                AutomationProperties.HelpText="Drag to reorder. Middle-click closes. The context menu renames, changes the icon, moves, or closes the tab.">
+              <AutomationProperties.Name>
+                <MultiBinding Converter="{x:Static converters:AttentionLabelConverter.Instance}">
+                  <Binding Path="DisplayTitle" />
+                  <Binding Path="HasAttention" />
+                  <Binding Path="AgentActivity" />
+                </MultiBinding>
+              </AutomationProperties.Name>
               <!-- A grid, not a stack: a stacked label takes whatever width it
                    wants, so a long tab name ran under its own attention dot and
                    out through the close button instead of trimming. The label is
                    the only part that gives. -->
-              <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceXs}">
+              <Grid VerticalAlignment="Center" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceXs}">
                 <Border
+                    Classes="RuntimeTabIcon"
                     Tag="{Binding Icon}"
                     Background="Transparent"
                     DoubleTapped="OnIconDoubleTapped"
                     ToolTip.Tip="Double-click to change icon"
-                    AutomationProperties.Name="{Binding Title, StringFormat={}Change icon for tab {0}}">
+                    AutomationProperties.AccessibilityView="Raw">
                   <!-- Fluent's visible glyph sits one DIP below Inter's optical
                        centre even though both controls are geometrically centred. -->
-                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="11">
+                  <icons:SymbolIcon VerticalAlignment="Center" Symbol="{Binding IconSymbol}" FontSize="{DynamicResource ShellIconSizeXs}">
                     <icons:SymbolIcon.RenderTransform>
                       <TranslateTransform Y="-1" />
                     </icons:SymbolIcon.RenderTransform>
@@ -167,27 +300,43 @@
                   <TextBlock
                       Classes="RuntimeTabTitle"
                       VerticalAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize10}"
-                      Text="{Binding Title}"
+                      Text="{Binding DisplayTitle}"
                       TextTrimming="CharacterEllipsis"
-                      DoubleTapped="OnTitleDoubleTapped"
-                      ToolTip.Tip="Double-click to rename" />
+                      DoubleTapped="OnTitleDoubleTapped" />
                   <TextBox
                       Classes="Dense RuntimeTabTitleEditor"
-                      MinHeight="0"
-                      Height="20"
+                      MinHeight="{controls:TextScaled 20}"
                       Padding="2,0"
                       VerticalContentAlignment="Center"
-                      FontSize="{DynamicResource ShellFontSize10}"
                       IsVisible="False"
                       KeyDown="OnTitleEditorKeyDown"
                       LostFocus="OnTitleEditorLostFocus"
-                      AutomationProperties.Name="Edit tab title" />
+                      AutomationProperties.Name="Tab name" />
                 </Grid>
+                <!-- Inside the tab, so the label trims before it rather than
+                     running under it, and the tab's own name already says what
+                     these marks draw. -->
+                <StackPanel
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False"
+                    Orientation="Horizontal"
+                    Spacing="{DynamicResource ShellSpaceXs}">
+                  <icons:SymbolIcon
+                      AutomationProperties.AccessibilityView="Raw"
+                      Classes="PanelAgentActivity RuntimeTabAgentActivity"
+                      FontSize="{DynamicResource ShellIconSizeXs}"
+                      IsVisible="{Binding HasAgentActivity}"
+                      Symbol="Bot"
+                      ToolTip.Tip="{Binding AgentActivity}" />
+                  <controls:SignalDot
+                      AutomationProperties.AccessibilityView="Raw"
+                      IsVisible="{Binding HasAttention}" />
+                </StackPanel>
               </Grid>
-            </Button>
+            </controls:RuntimeTabButton>
             <Border
-                Grid.ColumnSpan="3"
+                Grid.ColumnSpan="2"
                 Width="3"
                 Margin="{controls:Inset Vertical=Xs}"
                 HorizontalAlignment="Left"
@@ -196,7 +345,7 @@
                 IsHitTestVisible="False"
                 IsVisible="False" />
             <Border
-                Grid.ColumnSpan="3"
+                Grid.ColumnSpan="2"
                 Width="3"
                 Margin="{controls:Inset Vertical=Xs}"
                 HorizontalAlignment="Right"
@@ -204,38 +353,22 @@
                 Classes="RuntimeTabDropIndicator After"
                 IsHitTestVisible="False"
                 IsVisible="False" />
-            <StackPanel
-                Grid.Column="1"
-                Margin="{controls:Inset Right=Xs}"
-                VerticalAlignment="Center"
-                IsHitTestVisible="False"
-                Orientation="Horizontal"
-                Spacing="{DynamicResource ShellSpaceXs}">
-              <icons:SymbolIcon
-                  AutomationProperties.Name="{Binding AgentActivity}"
-                  Classes="PanelAgentActivity"
-                  FontSize="{DynamicResource ShellFontSize10}"
-                  IsVisible="{Binding HasAgentActivity}"
-                  Symbol="Bot"
-                  ToolTip.Tip="{Binding AgentActivity}" />
-              <controls:SignalDot IsVisible="{Binding HasAttention}" />
-            </StackPanel>
             <Button
-                Grid.Column="2"
-                Width="18"
-                Height="18"
-                Classes="IconButton"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Classes="IconButton RuntimeTabClose"
+                Classes.closable="{Binding CanClose}"
                 Click="OnClose"
-                IsVisible="{Binding CanClose}"
-                ToolTip.Tip="Close tab"
-                AutomationProperties.Name="{Binding Title, StringFormat={}Close tab {0}}"
-                AutomationProperties.HelpText="Close this runtime tab using the normal session close policy.">
-              <icons:SymbolIcon Symbol="Dismiss" FontSize="9" />
+                ToolTip.Tip="{Binding CloseTab, Source={x:Static vm:ShortcutTips.Current}}"
+                AutomationProperties.Name="{Binding DisplayTitle, StringFormat={}Close {0}}"
+                AutomationProperties.HelpText="Closes this tab. A tab with running sessions asks first.">
+
+              <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
             </Button>
           </Grid>
         </DataTemplate>
       </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      </controls:RuntimeTabList>
     </ScrollViewer>
   </DockPanel>
 </UserControl>

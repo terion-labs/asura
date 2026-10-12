@@ -1,19 +1,17 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.NetworkConnectionEditorDialog"
     x:DataType="vm:NetworkSettingsViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:core="using:Asura.Core"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
-    Title="Network connection"
-    Width="720"
-    Height="720"
+    Width="680"
     MinWidth="620"
-    MinHeight="520"
-    CanResize="True"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner">
+    MaxHeight="860"
+    SizeToContent="Height"
+    CanResize="True">
   <!--
     The editor for one proxy or VPN definition. It is a dialog like every other
     definition editor, rather than a card appended to the bottom of the
@@ -22,10 +20,8 @@
   -->
   <controls:DialogShell
       Title="{Binding ProfileEditor.EditorTitle}"
-      Subtitle="The connection stores references to credentials; the values stay in the operating-system vault."
+      Subtitle="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat={}The connection stores references to credentials; the values stay in {0}.}"
       Chrome="Editor"
-      ShowsClose="True"
-      CloseRequested="OnCancelClick"
       FooterHint="{Binding ProfileEditor.FooterHint}">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -35,25 +31,32 @@
             Content="{Binding ProfileTestActionLabel}"
             IsEnabled="{Binding CanTestProfile}"
             AutomationProperties.Name="Test the network connection" />
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
         <Button
             Classes="PrimaryButton"
             Click="OnSaveProfileClick"
-            Content="Save connection"
-            IsEnabled="{Binding ProfileEditor.CanSave}" />
+            Content="Save Connection"
+            IsDefault="True"
+            IsEnabled="{Binding ProfileEditor.IsDirty}" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
     <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
-      <Border IsVisible="{Binding !HasError}">
+      <!-- The status line shows only while there is one and no error
+           notice stands in for it. An empty wrapper would still take a
+           slot in the stack and double the gap above the next card. -->
       <controls:Callout
           Tone="Notice"
           ShowsGlyph="False"
-          Text="{Binding OperationStatus}"
-          Classes.Warning="{Binding HasError}"
-          IsVisible="{Binding HasOperationStatus}" />
-      </Border>
+          Text="{Binding OperationStatus}">
+        <controls:Callout.IsVisible>
+          <MultiBinding Converter="{x:Static BoolConverters.And}">
+            <Binding Path="!HasError" FallbackValue="False" />
+            <Binding Path="HasOperationStatus" FallbackValue="False" />
+          </MultiBinding>
+        </controls:Callout.IsVisible>
+      </controls:Callout>
 
       <StackPanel
           x:DataType="vm:NetworkConnectionProfileEditorViewModel"
@@ -62,7 +65,7 @@
         <!-- Every kind starts the same way: a name and a type. -->
         <controls:SurfaceCard>
           <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-            <controls:LabeledField Label="Name">
+            <controls:LabeledField Label="Name" controls:FieldValidation.For="Name">
               <TextBox
                   Text="{Binding Name, Mode=TwoWay}"
                   PlaceholderText="Office VPN"
@@ -101,13 +104,13 @@
                   </ComboBox.ItemTemplate>
                 </ComboBox>
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="1" Label="Host">
+              <controls:LabeledField Grid.Column="1" Label="Host" controls:FieldValidation.For="Host">
                 <TextBox
                     Text="{Binding Host, Mode=TwoWay}"
                     PlaceholderText="proxy.example.com"
                     AutomationProperties.Name="Proxy host" />
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="2" Label="Port">
+              <controls:LabeledField Grid.Column="2" Label="Port" controls:FieldValidation.For="Port">
                 <TextBox
                     Text="{Binding Port, Mode=TwoWay}"
                     PlaceholderText="1080"
@@ -115,7 +118,7 @@
               </controls:LabeledField>
             </Grid>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Username" Hint="Optional. Required when a password is used.">
+              <controls:LabeledField Label="Username" Hint="Required when you use a password.">
                 <TextBox Text="{Binding Username, Mode=TwoWay}" AutomationProperties.Name="Proxy username" />
               </controls:LabeledField>
               <components:NetworkCredentialPicker
@@ -124,6 +127,7 @@
                   Hint="A stored password, or a prompt each time the connection starts."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -136,9 +140,10 @@
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <components:NetworkCredentialPicker
                 Label="{Binding ConfigurationSecretLabel}"
-                Hint="The client configuration file, stored in the vault."
+                Hint="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='The client configuration file, stored in {0}.'}"
                 ItemsSource="{Binding ConfigurationCredentialOptions}"
                 SelectedItem="{Binding SelectedConfigurationCredential, Mode=TwoWay}"
+                Error="{Binding SelectedConfigurationCredential.Problem, FallbackValue={x:Null}}"
                 Target="{Binding ConfigurationCredentialTarget}"
                 AddRequested="OnAddCredentialRequested" />
             <Grid
@@ -154,6 +159,7 @@
                   Hint="Optional. Without a stored password you are prompted on each connection."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -164,7 +170,7 @@
         <controls:SurfaceCard IsVisible="{Binding IsAnyConnect}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Gateway" Hint="Absolute HTTPS URL.">
+              <controls:LabeledField Label="Gateway" Hint="Absolute HTTPS URL." controls:FieldValidation.For="Gateway">
                 <TextBox
                     Text="{Binding Gateway, Mode=TwoWay}"
                     PlaceholderText="https://vpn.example.com"
@@ -184,6 +190,7 @@
                   Hint="A stored password, or a prompt each time the connection starts."
                   ItemsSource="{Binding PasswordCredentialOptions}"
                   SelectedItem="{Binding SelectedPasswordCredential, Mode=TwoWay}"
+                  Error="{Binding SelectedPasswordCredential.Problem, FallbackValue={x:Null}}"
                   Target="{Binding PasswordCredentialTarget}"
                   AddRequested="OnAddCredentialRequested" />
             </Grid>
@@ -192,6 +199,7 @@
                 Hint="Optional."
                 ItemsSource="{Binding ClientCertificateCredentialOptions}"
                 SelectedItem="{Binding SelectedClientCertificateCredential, Mode=TwoWay}"
+                Error="{Binding SelectedClientCertificateCredential.Problem, FallbackValue={x:Null}}"
                 Target="AnyConnectClientCertificate"
                 AddRequested="OnAddCredentialRequested" />
           </StackPanel>
@@ -201,13 +209,13 @@
         <controls:SurfaceCard IsVisible="{Binding IsTailscale}">
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-              <controls:LabeledField Label="Exit node">
+              <controls:LabeledField Label="Exit node" controls:FieldValidation.For="ExitNode">
                 <TextBox
                     Text="{Binding ExitNode, Mode=TwoWay}"
                     PlaceholderText="exit-node-name"
                     AutomationProperties.Name="Tailscale exit node" />
               </controls:LabeledField>
-              <controls:LabeledField Grid.Column="1" Label="Control server" Hint="Optional HTTPS URL for Headscale or another control server.">
+              <controls:LabeledField Grid.Column="1" Label="Control server" Hint="Optional HTTPS URL for Headscale or another control server." controls:FieldValidation.For="ControlServer">
                 <TextBox
                     Text="{Binding ControlServer, Mode=TwoWay}"
                     PlaceholderText="https://headscale.example.com"
@@ -219,6 +227,7 @@
                 Hint="Optional. Without a stored key, sign in using your default browser when connecting."
                 ItemsSource="{Binding AuthKeyCredentialOptions}"
                 SelectedItem="{Binding SelectedAuthKeyCredential, Mode=TwoWay}"
+                Error="{Binding SelectedAuthKeyCredential.Problem, FallbackValue={x:Null}}"
                 Target="TailscaleAuthKey"
                 AddRequested="OnAddCredentialRequested" />
           </StackPanel>
@@ -233,8 +242,8 @@
               Spacing="{DynamicResource ShellSpaceMd}">
             <components:SectionHeader
                 Heading="{Binding Title}"
-                Description="The value is held in memory until the connection is saved, then stored in the operating-system vault and cleared from this form." />
-            <controls:LabeledField Label="Label" Hint="How this credential is listed here and in Security &amp; secrets.">
+                Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='The value stays in memory until you save the connection, then moves to {0} and is cleared from this form.'}" />
+            <controls:LabeledField Label="Label" Hint="How this credential is listed here and in Settings › Security &amp; Secrets.">
               <TextBox
                   Text="{Binding Label, Mode=TwoWay}"
                   PlaceholderText="Office VPN password"
@@ -252,7 +261,7 @@
                     MinHeight="120"
                     MaxHeight="240"
                     FontFamily="{DynamicResource ShellDataFontFamily}"
-                    FontSize="{DynamicResource ShellFontSize10}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding Value, Mode=TwoWay}"
                     TextWrapping="NoWrap"
                     PlaceholderText="Paste the file contents"
@@ -264,7 +273,7 @@
               <Button
                   Classes="PrimaryButton"
                   Click="OnStoreCredentialClick"
-                  Content="Add to connection"
+                  Content="Add to Connection"
                   IsEnabled="{Binding CanStore}"
                   AutomationProperties.Name="Add the credential to the connection" />
               <Button
@@ -288,4 +297,4 @@
       </Border>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

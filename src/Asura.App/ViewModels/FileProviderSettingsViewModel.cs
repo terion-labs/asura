@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -52,7 +53,8 @@ public sealed class FileProviderSettingsViewModel : ObservableObject, IDisposabl
     {
         ThrowIfDisposed();
         var runtime = _runtime
-            ?? throw new InvalidOperationException("The file-provider runtime is unavailable.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "File connections aren’t available in this version of Asura."));
         var connections = _catalog.Snapshot.Connections
             .Select(item => item.Value)
             .ToArray();
@@ -64,8 +66,8 @@ public sealed class FileProviderSettingsViewModel : ObservableObject, IDisposabl
 
         var stored = _catalog.Snapshot.FileProviderProfiles
             .SingleOrDefault(item => item.Value.Id == profileId.Value)
-            ?? throw new InvalidOperationException(
-                "That file-provider profile no longer exists.");
+            ?? throw FailureReason.Readable(new InvalidOperationException(
+                "That file connection no longer exists."));
         return new FileProviderProfileEditorViewModel(
             runtime,
             connections,
@@ -162,7 +164,7 @@ public sealed class FileProviderSettingsViewModel : ObservableObject, IDisposabl
                 ?? warning?.Message
                 ?? (isLive
                     ? "Adapter loaded; credentials resolve only when the provider is used."
-                    : "Materializing the saved adapter…"),
+                    : "Opening the saved connection…"),
             error is not null,
             warning is not null);
     }

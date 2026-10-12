@@ -3,45 +3,33 @@ using System.Xml.Linq;
 namespace Asura.Architecture.Tests;
 
 /// <summary>
-/// The design language uses a switch for a setting you turn on or off, and keeps
-/// a checkbox for a choice you are asked to acknowledge or select. Mixing them
-/// makes a behaviour setting read as a consent prompt and vice versa.
+/// Settings draws a boolean as macOS System Settings does: a switch at the
+/// trailing edge of its row. A checkbox stays only where several options in
+/// one list are checked together, the way a list of choices in a dialog is.
 /// </summary>
 public sealed class ToggleAffordanceContractTests
 {
     private static readonly string RepositoryRoot = FindRepositoryRoot();
 
     /// <summary>
-    /// Checkboxes that are deliberate: a consent acknowledgement the user is meant
-    /// to read and tick, or one entry in a multi-selection list. Neither is a
-    /// setting being switched on.
+    /// The checkboxes Settings keeps, by accessible name: each marks one item
+    /// of a list in which any number may be checked at once.
     /// </summary>
-    private static readonly string[] AllowedCheckBoxOwners =
+    private static readonly string[] ListOptionCheckBoxes =
     [
-        // Consent acknowledgements for insecure transports and untrusted servers.
-        "McpServerTrustConfirmationDialog.axaml",
-        // A mutually exclusive authentication mode, not an on/off setting.
-        "AiProviderProfileEditorDialog.axaml",
-        // One-off persistence and consent choices: save-on-connect, keychain
-        // storage, and the insecure-transport acknowledgements of the file
-        // family, which this unified editor absorbed.
-        "ConnectionEditorDialog.axaml",
+        "{Binding Name, StringFormat=Offer {0} in this workspace}",
     ];
 
-    /// <summary>
-    /// The rule covers settings surfaces and definition editors. A toolbar filter
-    /// or a multi-selection list is a different affordance and is not in scope.
-    /// </summary>
-    private static bool IsSettingsSurface(string file)
-    {
-        var name = Path.GetFileName(file);
-        return file.Contains(Path.Combine("Views", "SettingsPages"), StringComparison.Ordinal)
-            || name.EndsWith("EditorDialog.axaml", StringComparison.Ordinal)
-            || name is "SettingsView.axaml";
-    }
+    private static bool IsSettingsSurface(string file) =>
+        file.Contains(Path.Combine("Views", "SettingsPages"), StringComparison.Ordinal)
+        || Path.GetFileName(file) is "SettingsView.axaml"
+            or "WorkspaceEditorView.axaml"
+            or "LocalArtifactControlView.axaml"
+            or "RecoveryDataControlView.axaml"
+            or "DiagnosticsExportView.axaml";
 
     [Fact]
-    public void Behaviour_settings_use_switches_rather_than_checkboxes()
+    public void Settings_draw_booleans_as_switches_and_keep_checkboxes_for_option_lists()
     {
         var offenders = Directory
             .EnumerateFiles(
@@ -49,19 +37,22 @@ public sealed class ToggleAffordanceContractTests
                 "*.axaml",
                 SearchOption.AllDirectories)
             .Where(IsSettingsSurface)
-            .Where(file => !AllowedCheckBoxOwners.Contains(
-                Path.GetFileName(file),
-                StringComparer.Ordinal))
-            .Where(file => XDocument.Load(file)
+            .SelectMany(file => XDocument.Load(file)
                 .Descendants()
-                .Any(element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal)))
-            .Select(file => Path.GetRelativePath(RepositoryRoot, file))
+                .Where(element => string.Equals(element.Name.LocalName, "CheckBox", StringComparison.Ordinal))
+                .Select(element => (
+                    File: Path.GetRelativePath(RepositoryRoot, file),
+                    Name: element.Attribute("AutomationProperties.Name")?.Value)))
+            .Where(item => item.Name is null
+                || !ListOptionCheckBoxes.Contains(item.Name, StringComparer.Ordinal))
+            .Select(item => $"{item.File}: {item.Name ?? "<unnamed checkbox>"}")
             .ToArray();
 
         Assert.True(
             offenders.Length == 0,
-            "These views use a CheckBox for what reads as a behaviour setting. Use a "
-            + "ToggleSwitch, or add the file to the allow-list with the reason:"
+            "These Settings controls are checkboxes. A setting that is on or off is a "
+            + "ToggleSwitch at its row's trailing edge; a checkbox is only for one item "
+            + "of a list whose items are checked together:"
             + Environment.NewLine
             + string.Join(Environment.NewLine, offenders));
     }

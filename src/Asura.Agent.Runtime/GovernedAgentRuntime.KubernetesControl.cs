@@ -138,7 +138,7 @@ public sealed partial class GovernedAgentRuntime
                     new HostError(
                         HostErrorCode.Cancelled,
                         "caller_cancelled",
-                        "The Kubernetes action was cancelled."),
+                        "The Kubernetes action was canceled."),
                     context.Revision);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)

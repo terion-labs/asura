@@ -1049,7 +1049,7 @@ public sealed partial class DatabaseViewerConformanceTests
         fixture.AssertContextMenuCapabilities(environment.Provider.Expectations.CanEdit);
 
         await fixture.SetClipboardTextAsync("clipboard sentinel");
-        fixture.InvokeContextMenuItem("Copy the selected database row as INSERT");
+        fixture.InvokeContextMenuItem("Copy the selected database row as an SQL INSERT statement");
         await WaitForClipboardContainingAsync(
             fixture,
             "INSERT INTO",
@@ -1080,7 +1080,7 @@ public sealed partial class DatabaseViewerConformanceTests
         await WaitOnDispatcherAsync(
             () => !panel.IsBusy && panel.ResultRows.Count == 200,
             cancellationToken);
-        await fixture.AssertQuickLookOpenCloseAsync(
+        await fixture.AssertCellEditorOpenCloseAsync(
             FindRow(panel, "alpha"),
             "title",
             isReadOnly: !environment.Provider.Expectations.CanEdit,
@@ -1292,7 +1292,7 @@ public sealed partial class DatabaseViewerConformanceTests
 
         Assert.Null(panel.SelectedObject);
         Assert.False(panel.CanEditRows);
-        Assert.Contains("does not map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
+        Assert.Contains("doesn't map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
         fixture.AssertRawResultControlsVisibleAndReadOnly();
         await AssertHeadlessRawBrowseJourneyAsync(
             panel,
@@ -1458,7 +1458,7 @@ public sealed partial class DatabaseViewerConformanceTests
     {
         Assert.Null(panel.SelectedObject);
         Assert.False(panel.CanEditRows);
-        Assert.Contains("does not map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
+        Assert.Contains("doesn't map exactly", panel.ReadOnlyReason, StringComparison.Ordinal);
         fixture.AssertRawResultControlsVisibleAndReadOnly();
         Assert.True(fixture.RowsGrid.IsReadOnly);
     }
@@ -1584,7 +1584,7 @@ public sealed partial class DatabaseViewerConformanceTests
         CancellationToken cancellationToken)
     {
         Assert.Equal("200", fixture.PageLimitBox.Text);
-        Assert.Equal("205", fixture.TotalRowsText.Text);
+        Assert.Equal("205 rows", fixture.TotalRowsText.Text);
         fixture.EnterPageLimit("75");
         await WaitOnDispatcherAsync(
             () => !panel.IsBusy
@@ -1592,7 +1592,7 @@ public sealed partial class DatabaseViewerConformanceTests
                 && string.Equals(panel.PageLimitText, "75", StringComparison.Ordinal),
             cancellationToken);
         Assert.Equal(205, panel.TotalRows);
-        Assert.Equal("205", fixture.TotalRowsText.Text);
+        Assert.Equal("205 rows", fixture.TotalRowsText.Text);
         fixture.EnterPageLimit("200");
         await WaitOnDispatcherAsync(
             () => !panel.IsBusy
@@ -2075,7 +2075,7 @@ public sealed partial class DatabaseViewerConformanceTests
         public Button AddRowButton => NamedControl<Button>("Add a database row");
 
         public Button DeleteRowButton =>
-            NamedControl<Button>("Delete the selected database row");
+            NamedControl<Button>("Delete the selected database rows");
 
         public Button RevertButton =>
             NamedControl<Button>("Revert unsaved database changes");
@@ -2111,8 +2111,12 @@ public sealed partial class DatabaseViewerConformanceTests
         public ItemsControl ObjectsList =>
             RowsObjectButton.GetVisualAncestors().OfType<ItemsControl>().First();
 
+        // The one connection button is named by what it would do, Connect or
+        // Disconnect, so it is found by its control name.
         public Button ConnectButton =>
-            NamedControl<Button>("Connect to the database");
+            View.FindControl<Button>("ConnectionButton")
+            ?? throw new InvalidOperationException(
+                "The real database viewer did not render its connection button.");
 
         public static HeadlessViewFixture Create(
             DatabaseRuntimePanelViewModel panel,
@@ -2142,7 +2146,7 @@ public sealed partial class DatabaseViewerConformanceTests
         {
             var structureButton = NamedControl<ToggleButton>("Show table structure");
             var structureGrid = NamedControl<DataGrid>("Database object structure");
-            InvokeClickHandler(structureButton);
+            Click(structureButton);
             Assert.Equal(DatabaseWorkspaceMode.Structure, Panel.SelectedMode);
             Assert.True(structureButton.IsChecked);
             Assert.True(structureGrid.IsEffectivelyVisible);
@@ -2151,7 +2155,7 @@ public sealed partial class DatabaseViewerConformanceTests
 
             var indexesButton = NamedControl<ToggleButton>("Show table indexes");
             var indexesGrid = NamedControl<DataGrid>("Database object indexes");
-            InvokeClickHandler(indexesButton);
+            Click(indexesButton);
             Assert.Equal(DatabaseWorkspaceMode.Indexes, Panel.SelectedMode);
             Assert.True(indexesButton.IsChecked);
             Assert.True(indexesGrid.IsEffectivelyVisible);
@@ -2159,7 +2163,7 @@ public sealed partial class DatabaseViewerConformanceTests
             Assert.Equal(hasIndexes, Panel.Indexes.Count > 0);
 
             var dataButton = NamedControl<ToggleButton>("Show table data");
-            InvokeClickHandler(dataButton);
+            Click(dataButton);
             Assert.Equal(DatabaseWorkspaceMode.Data, Panel.SelectedMode);
             Assert.True(dataButton.IsChecked);
             Assert.True(RowsGrid.IsEffectivelyVisible);
@@ -2462,7 +2466,7 @@ public sealed partial class DatabaseViewerConformanceTests
             AssertMenuItemAvailable("Copy the selected database row");
             AssertMenuItemAvailable("Copy the active database cell value");
             AssertMenuItemAvailable("Copy all values in the active database column");
-            var copyInsert = ContextMenuItem("Copy the selected database row as INSERT");
+            var copyInsert = ContextMenuItem("Copy the selected database row as an SQL INSERT statement");
             Assert.True(copyInsert.IsVisible);
             Assert.Equal(
                 Panel.CanCopySelectedRowAsInsert,
@@ -2475,7 +2479,7 @@ public sealed partial class DatabaseViewerConformanceTests
                 "Paste a database cell value from the clipboard",
                 "Add a database row from the context menu",
                 "Duplicate the selected database row",
-                "Import database rows",
+                "Import database rows from CSV",
                 "Delete the selected database row from the context menu",
             };
             foreach (var automationName in mutations)
@@ -2484,7 +2488,7 @@ public sealed partial class DatabaseViewerConformanceTests
                 var expectedEnabled = canEdit
                     && (!string.Equals(
                             automationName,
-                            "Import database rows",
+                            "Import database rows from CSV",
                             StringComparison.Ordinal)
                         || TopLevel.GetTopLevel(View)?.StorageProvider?.CanOpen == true);
                 if (expectedEnabled)
@@ -2550,9 +2554,11 @@ public sealed partial class DatabaseViewerConformanceTests
 
         public void AssertInsertInspectorActionAvailable()
         {
-            var button = NamedControl<Button>("Copy the row as INSERT");
+            // SQL INSERT is one choice of the inspector's Copy As pull-down.
+            var button = NamedControl<Button>("Copy the row in another format");
             Assert.True(button.IsEffectivelyVisible);
             Assert.True(button.IsEffectivelyEnabled);
+            Assert.True(Panel.CanCopySelectedRowAsInsert);
         }
 
         public void AssertReadOnlyContextMenu(DatabaseResultRowViewModel row)
@@ -2564,7 +2570,7 @@ public sealed partial class DatabaseViewerConformanceTests
             UpdateLayout();
         }
 
-        public async Task AssertQuickLookOpenCloseAsync(
+        public async Task AssertCellEditorOpenCloseAsync(
             DatabaseResultRowViewModel row,
             string columnName,
             bool isReadOnly,
@@ -2575,17 +2581,17 @@ public sealed partial class DatabaseViewerConformanceTests
             Dispatcher.UIThread.RunJobs();
             UpdateLayout();
 
-            (TextBox Editor, Visual Host, FlyoutPresenter Popup, Grid Dialog) OpenQuickLook()
+            (TextBox Editor, Visual Host, FlyoutPresenter Popup, Grid Dialog) OpenCellEditor()
             {
                 OpenCellContextMenu(row, columnName);
-                InvokeContextMenuItem("Open the active database cell in Quick Look");
+                InvokeContextMenuItem("Open the active database cell in the cell editor");
                 Dispatcher.UIThread.RunJobs();
 
-                var quickLookEditor = Assert.IsType<TextBox>(FocusedControl);
+                var cellEditor = Assert.IsType<TextBox>(FocusedControl);
                 Assert.Equal(
-                    $"Quick Look value for {columnName}",
-                    AutomationProperties.GetName(quickLookEditor));
-                var host = quickLookEditor.GetVisualAncestors().Last();
+                    $"Cell editor value for {columnName}",
+                    AutomationProperties.GetName(cellEditor));
+                var host = cellEditor.GetVisualAncestors().Last();
                 var presenter = host.GetVisualDescendants()
                     .OfType<FlyoutPresenter>()
                     .Single();
@@ -2593,13 +2599,13 @@ public sealed partial class DatabaseViewerConformanceTests
                     .OfType<Grid>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Database cell Quick Look dialog",
+                        "Database cell editor dialog",
                         StringComparison.Ordinal));
-                return (quickLookEditor, host, presenter, dialog);
+                return (cellEditor, host, presenter, dialog);
             }
 
             var originalText = Cell(row, columnName).EditText;
-            var first = OpenQuickLook();
+            var first = OpenCellEditor();
             Assert.Equal(originalText, first.Editor.Text);
             Assert.Equal(isReadOnly, first.Editor.IsReadOnly);
             Assert.Equal(Avalonia.Media.TextWrapping.Wrap, first.Editor.TextWrapping);
@@ -2609,29 +2615,29 @@ public sealed partial class DatabaseViewerConformanceTests
             // overflow that motivated this regression journey.
             first.Editor.Text = string.Join(
                 ' ',
-                Enumerable.Repeat("quick-look-overflow-probe", 400));
+                Enumerable.Repeat("cell-editor-overflow-probe", 400));
             Dispatcher.UIThread.RunJobs();
             UpdateLayout();
             Assert.True(
                 first.Dialog.Bounds.Width <= RowsGrid.Bounds.Width,
-                $"Quick Look content width {first.Dialog.Bounds.Width} exceeded grid width {RowsGrid.Bounds.Width}.");
+                $"Cell editor content width {first.Dialog.Bounds.Width} exceeded grid width {RowsGrid.Bounds.Width}.");
             Assert.True(
                 first.Dialog.Bounds.Height <= RowsGrid.Bounds.Height,
-                $"Quick Look content height {first.Dialog.Bounds.Height} exceeded grid height {RowsGrid.Bounds.Height}.");
+                $"Cell editor content height {first.Dialog.Bounds.Height} exceeded grid height {RowsGrid.Bounds.Height}.");
             Assert.True(
                 first.Popup.Bounds.Width <= RowsGrid.Bounds.Width,
-                $"Quick Look popup width {first.Popup.Bounds.Width} exceeded grid width {RowsGrid.Bounds.Width}.");
+                $"Cell editor popup width {first.Popup.Bounds.Width} exceeded grid width {RowsGrid.Bounds.Width}.");
             Assert.True(
                 first.Popup.Bounds.Height <= RowsGrid.Bounds.Height,
-                $"Quick Look popup height {first.Popup.Bounds.Height} exceeded grid height {RowsGrid.Bounds.Height}.");
-            AssertContained(first.Popup, first.Host, "Quick Look popup");
-            AssertContained(first.Dialog, first.Host, "Quick Look dialog");
+                $"Cell editor popup height {first.Popup.Bounds.Height} exceeded grid height {RowsGrid.Bounds.Height}.");
+            AssertContained(first.Popup, first.Host, "Cell editor popup");
+            AssertContained(first.Dialog, first.Host, "Cell editor dialog");
 
             var close = first.Popup.GetVisualDescendants()
                 .OfType<Button>()
                 .Single(candidate => string.Equals(
                     AutomationProperties.GetName(candidate),
-                    "Close the database cell Quick Look",
+                    "Close the database cell editor",
                     StringComparison.Ordinal));
             first.Editor.Text = originalText + " cancelled";
             var closeRaised = false;
@@ -2644,12 +2650,12 @@ public sealed partial class DatabaseViewerConformanceTests
                 cancellationToken);
             Assert.Equal(originalText, Cell(row, columnName).EditText);
 
-            var second = OpenQuickLook();
+            var second = OpenCellEditor();
             if (isReadOnly)
             {
-                var quickLookTopLevel = TopLevel.GetTopLevel(second.Editor)
-                    ?? throw new InvalidOperationException("Quick Look has no input root.");
-                quickLookTopLevel.KeyPress(
+                var cellEditorTopLevel = TopLevel.GetTopLevel(second.Editor)
+                    ?? throw new InvalidOperationException("Cell editor has no input root.");
+                cellEditorTopLevel.KeyPress(
                     Key.Escape,
                     RawInputModifiers.None,
                     PhysicalKey.Escape,
@@ -2665,7 +2671,7 @@ public sealed partial class DatabaseViewerConformanceTests
                     .OfType<Button>()
                     .Single(candidate => string.Equals(
                         AutomationProperties.GetName(candidate),
-                        "Apply the Quick Look database cell value",
+                        "Apply the database cell editor value",
                         StringComparison.Ordinal));
                 Assert.True(apply.IsEffectivelyVisible);
                 var applyBottomRight = apply.TranslatePoint(
@@ -2677,12 +2683,12 @@ public sealed partial class DatabaseViewerConformanceTests
 
                 var appliedText = originalText + " applied";
                 second.Editor.Text = appliedText;
-                var quickLookTopLevel = TopLevel.GetTopLevel(second.Editor)
-                    ?? throw new InvalidOperationException("Quick Look has no input root.");
+                var cellEditorTopLevel = TopLevel.GetTopLevel(second.Editor)
+                    ?? throw new InvalidOperationException("Cell editor has no input root.");
                 var accelerator = OperatingSystem.IsMacOS()
                     ? RawInputModifiers.Meta
                     : RawInputModifiers.Control;
-                quickLookTopLevel.KeyPress(
+                cellEditorTopLevel.KeyPress(
                     Key.Enter,
                     accelerator,
                     PhysicalKey.Enter,

@@ -79,7 +79,8 @@ public sealed partial class KubernetesRuntimePanelViewModel
 
     private void PublishMutationState()
     {
-        OnPropertyChanged(nameof(HasNodeMaintenance)); OnPropertyChanged(nameof(CanConfirmNode)); OnPropertyChanged(nameof(CanConfirmHelm));
+        OnPropertyChanged(nameof(HasNodeMaintenance)); OnPropertyChanged(nameof(CanConfirmHelm));
+        PublishNodeState();
         PublishOperationState();
         OnPropertyChanged(nameof(HasMutationPreview));
         OnPropertyChanged(nameof(FormattedManifest)); OnPropertyChanged(nameof(ManifestGrammarExtension));
@@ -110,7 +111,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 KubernetesMutationOutcome.DryRun => "Server dry run succeeded. Apply sends these exact edits to this context.",
                 KubernetesMutationOutcome.Applied => "Changes applied.",
                 KubernetesMutationOutcome.OutcomeUnknown => "The connection ended after dispatch. Check the resource before making another change.",
-                _ => "The change was not dispatched. Review the error and retry.",
+                _ => "The change wasn't dispatched. Review the error and retry.",
             };
             if (dryRun && result.Outcome == KubernetesMutationOutcome.DryRun)
             {
@@ -133,12 +134,12 @@ public sealed partial class KubernetesRuntimePanelViewModel
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (NotSupportedException) { Issue = "This execution backend does not support manifest editing."; }
+        catch (NotSupportedException) { Issue = "Editing manifests isn't available for this connection."; }
         catch (KubernetesRequestException exception)
         {
             _reviewedManifest = null;
             _reviewedResource = null;
-            PresentError(exception);
+            PresentError(exception, KubernetesActivity.ManifestEdit);
         }
         finally { if (!_disposed) { IsBusy = false; } }
     }

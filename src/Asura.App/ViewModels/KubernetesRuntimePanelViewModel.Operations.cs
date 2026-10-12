@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.App.ViewModels;
 
@@ -9,11 +10,38 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private KubernetesMutationRequest? _reviewedOperation;
     private string _replicas = "1";
     private string _operationDescription = string.Empty;
+    private string _confirmOperationLabel = "Confirm";
+    private bool _isDeleteReview;
     public string Replicas { get => _replicas; set { if (SetProperty(ref _replicas, value)) { ClearOperationReview(); } } }
     public string OperationDescription { get => _operationDescription; private set => SetProperty(ref _operationDescription, value); }
+
+    /// <summary>
+    /// The confirm button names the reviewed operation — "Scale to 5
+    /// Replicas", "Restart Rollout", "Delete" — so it says what pressing it
+    /// does rather than "Confirm Operation".
+    /// </summary>
+    public string ConfirmOperationLabel { get => _confirmOperationLabel; private set => SetProperty(ref _confirmOperationLabel, value); }
+
+    /// <summary>The reviewed operation deletes the resource; its confirm button is destructive.</summary>
+    public bool IsDeleteReview { get => _isDeleteReview; private set => SetProperty(ref _isDeleteReview, value); }
     public bool HasResourceActions => _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations) == true && _inspection is not null
         && (SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true || SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true);
     public bool CanDelete => CanMutateSelection && SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true;
+
+    /// <summary>
+    /// Whether a delete can be asked for at all — the kind allows it and the
+    /// session can mutate — before the selection's inspection has arrived.
+    /// The review itself still waits for the inspection and the dry run.
+    /// </summary>
+    public bool CanRequestDelete => HasSelection && !HasUnsavedChanges
+        && _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations) == true
+        && SelectedKind?.Verbs.Contains("delete", StringComparer.Ordinal) == true;
+
+    /// <summary>
+    /// Whether the inspector's Actions view has anything to offer: a pod's
+    /// terminal, a node's maintenance, or reviewed operations.
+    /// </summary>
+    public bool HasInspectorActions => HasResourceActions || HasNodeMaintenance || CanOpenShell;
     public bool CanScale => CanMutateSelection && SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true
         && SelectedResource?.Kind is "Deployment" or "StatefulSet" or "ReplicaSet" or "ReplicationController";
     public bool CanRestart => CanMutateSelection && SelectedKind?.Verbs.Contains("patch", StringComparer.Ordinal) == true
@@ -23,14 +51,18 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private bool CanMutateSelection => !IsBusy && !HasUnsavedChanges && _inspection is not null
         && _session?.Features.HasFlag(KubernetesSessionFeatures.Mutations) == true;
 
-    public Task ReviewDeleteAsync() => CanDelete ? ReviewOperationAsync(KubernetesMutationKind.Delete, null, "Delete") : Task.CompletedTask;
+    public Task ReviewDeleteAsync() => CanDelete ? ReviewOperationAsync(KubernetesMutationKind.Delete, null, "Delete", "Delete") : Task.CompletedTask;
     public Task ReviewScaleAsync()
     {
         if (!CanScale) { return Task.CompletedTask; }
         if (!int.TryParse(Replicas, NumberStyles.None, CultureInfo.InvariantCulture, out var count) || count < 0)
         { Issue = "Enter a non-negative replica count."; return Task.CompletedTask; }
         var patch = new JsonArray(new JsonObject { ["op"] = "add", ["path"] = "/spec/replicas", ["value"] = count });
-        return ReviewOperationAsync(KubernetesMutationKind.JsonPatch, patch.ToJsonString(), $"Scale to {count.ToString(CultureInfo.InvariantCulture)} replicas");
+        return ReviewOperationAsync(
+            KubernetesMutationKind.JsonPatch,
+            patch.ToJsonString(),
+            $"Scale to {CountText.Of(count, "replica", "replicas")}",
+            $"Scale to {CountText.Of(count, "Replica", "Replicas")}");
     }
     public Task ReviewRestartAsync()
     {
@@ -47,9 +79,9 @@ public sealed partial class KubernetesRuntimePanelViewModel
             ["path"] = "/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt",
             ["value"] = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture)
         });
-        return ReviewOperationAsync(KubernetesMutationKind.JsonPatch, patch.ToJsonString(), "Restart rollout");
+        return ReviewOperationAsync(KubernetesMutationKind.JsonPatch, patch.ToJsonString(), "Restart rollout", "Restart Rollout");
     }
-    private async Task ReviewOperationAsync(KubernetesMutationKind kind, string? body, string description)
+    private async Task ReviewOperationAsync(KubernetesMutationKind kind, string? body, string description, string confirmLabel)
     {
         if (_inspection is null || _session is null || IsBusy || HasUnsavedChanges || _disposed) { return; }
         ClearOperationReview();
@@ -63,13 +95,16 @@ public sealed partial class KubernetesRuntimePanelViewModel
             if (result.Outcome == KubernetesMutationOutcome.DryRun)
             {
                 _reviewedOperation = request;
+                ConfirmOperationLabel = confirmLabel;
+                IsDeleteReview = kind == KubernetesMutationKind.Delete;
+                OnPropertyChanged(nameof(HasOperationReview)); OnPropertyChanged(nameof(CanConfirmOperation));
                 OperationDescription = $"{description}: {ContextName} · {request.Resource.Namespace}/{request.Resource.Name}. Server dry run succeeded.";
                 PreviewManifest = result.Resource?.Json ?? Manifest;
             }
-            else { OperationDescription = "The operation could not be reviewed. No confirmation is available."; }
+            else { OperationDescription = "Asura couldn't prepare a review of this change, so it can't be confirmed. Try again."; }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.ResourceChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     public async Task ConfirmOperationAsync()
@@ -84,11 +119,11 @@ public sealed partial class KubernetesRuntimePanelViewModel
             {
                 KubernetesMutationOutcome.Applied => "Operation completed. Refresh to inspect the current resource.",
                 KubernetesMutationOutcome.OutcomeUnknown => "Connection ended after dispatch. Inspect the resource before trying another operation.",
-                _ => "The operation was not dispatched.",
+                _ => "The operation wasn't dispatched.",
             };
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        catch (KubernetesRequestException exception) { PresentError(exception); }
+        catch (KubernetesRequestException exception) { PresentError(exception, KubernetesActivity.ResourceChange); }
         finally { if (!_disposed) { IsBusy = false; } }
     }
     private void ClearOperationReview()
@@ -99,6 +134,7 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private void PublishOperationState()
     {
         OnPropertyChanged(nameof(HasResourceActions)); OnPropertyChanged(nameof(CanDelete)); OnPropertyChanged(nameof(CanScale)); OnPropertyChanged(nameof(CanRestart));
+        OnPropertyChanged(nameof(CanRequestDelete)); OnPropertyChanged(nameof(HasInspectorActions));
         OnPropertyChanged(nameof(HasOperationReview)); OnPropertyChanged(nameof(CanConfirmOperation));
     }
 }

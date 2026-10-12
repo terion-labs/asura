@@ -1,4 +1,4 @@
-<Window
+<controls:DialogWindow
     x:Class="Asura.App.Views.FileTransferDialog"
     x:DataType="vm:FileTransferEditorViewModel"
     xmlns="https://github.com/avaloniaui"
@@ -8,17 +8,14 @@
     xmlns:controls="using:Asura.App.Controls"
     Width="620"
     Height="430"
-    CanResize="False"
-    ShowInTaskbar="False"
-    WindowStartupLocation="CenterOwner"
-    Title="Queue transfer">
+    CanResize="False">
   <controls:DialogShell
-      Title="Queue file transfer"
+      Title="Queue File Transfer"
       Subtitle="Review and manage file transfers.">
     <controls:DialogShell.Footer>
       <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" />
-        <Button Classes="PrimaryButton" Click="OnQueueClick" Content="Queue transfer" />
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button Classes="PrimaryButton" Click="OnQueueClick" Content="Queue Transfer" IsDefault="True" />
       </StackPanel>
     </controls:DialogShell.Footer>
 
@@ -28,15 +25,27 @@
         <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
           <TextBlock Classes="Eyebrow" Text="Source" />
           <TextBlock Text="{Binding Source.Name}" />
-          <TextBlock Classes="Muted" FontSize="{DynamicResource ShellFontSize9}" Text="{Binding SourceLocation}" />
+          <TextBlock Classes="Muted Path" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SourceLocation}" ToolTip.Tip="{Binding SourceLocation}" />
         </StackPanel>
       </controls:SurfaceCard>
       <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
         <controls:LabeledField Label="Operation">
-          <ComboBox ItemsSource="{Binding Operations}" SelectedItem="{Binding Operation}" />
+          <ComboBox ItemsSource="{Binding OperationOptions}" SelectedItem="{Binding SelectedOperationOption}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:FileTransferOperationOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </controls:LabeledField>
         <controls:LabeledField Grid.Column="1" Label="When destination exists">
-          <ComboBox ItemsSource="{Binding ConflictPolicies}" SelectedItem="{Binding ConflictPolicy}" />
+          <ComboBox ItemsSource="{Binding ConflictPolicyOptions}" SelectedItem="{Binding SelectedConflictPolicyOption}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:FileConflictPolicyOption">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </controls:LabeledField>
       </Grid>
       <controls:LabeledField Label="Destination provider">
@@ -44,9 +53,9 @@
       </controls:LabeledField>
       <controls:LabeledField
           Label="Destination location"
-          Hint="The location is parsed into a structured provider address; it is never appended to a local command string.">
+          Hint="Asura reads this as a location on the destination, never as part of a command.">
         <TextBox Text="{Binding Destination}" />
       </controls:LabeledField>
     </StackPanel>
   </controls:DialogShell>
-</Window>
+</controls:DialogWindow>

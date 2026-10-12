@@ -24,7 +24,7 @@ public sealed partial class GitImageDiffView : UserControl
     public GitImageDiffView()
     {
         InitializeComponent();
-        Mode.ItemsSource = new[] { "Side by side", "Onion skin", "Swipe", "Pixel difference" };
+        Mode.ItemsSource = new[] { "Side by Side", "Onion Skin", "Swipe", "Pixel Difference" };
         Mode.SelectedIndex = 0;
         DetachedFromVisualTree += (_, _) => ClearImages();
     }
@@ -46,7 +46,7 @@ public sealed partial class GitImageDiffView : UserControl
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or NotSupportedException)
         {
-            Info.Text = "This binary content cannot be decoded as an image. For LFS pointers, download the objects from Repository → Git LFS.";
+            Info.Text = "This file can’t be shown as an image. If it’s stored in Git LFS, download it with Tools › Git LFS › Download Checkout Objects.";
         }
     }
 
@@ -77,10 +77,10 @@ public sealed partial class GitImageDiffView : UserControl
         return OrdinaryImagePreviewDecoder.Decode(content);
     }
 
-    private static string Describe(Bitmap? bitmap, GitImageVersion version) => version.IsLfsPointer ? "LFS object needs download · " + version.LfsObjectId
-        : version.IsPreviewUnavailable ? "unsupported image or source exceeds preview size limits"
-        : bitmap is null ? "missing"
-        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length} bytes · {version.FormatName ?? "image"}";
+    private static string Describe(Bitmap? bitmap, GitImageVersion version) => version.IsLfsPointer ? "in Git LFS, not downloaded"
+        : version.IsPreviewUnavailable ? "too large to preview, or not a supported image"
+        : bitmap is null ? "none"
+        : $"{version.PixelWidth ?? bitmap.PixelSize.Width} × {version.PixelHeight ?? bitmap.PixelSize.Height}, {version.OriginalByteLength ?? version.Bytes.Length:N0} bytes · {GitRuntimePanelViewModel.ImageFormatLabel(version.FormatName) ?? "image"}";
 
     private static Bitmap? Difference(GitImagePair pair)
     {

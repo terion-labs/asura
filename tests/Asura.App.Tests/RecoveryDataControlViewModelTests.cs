@@ -24,11 +24,13 @@ public sealed class RecoveryDataControlViewModelTests
         await viewModel.Initialization;
 
         var item = Assert.Single(viewModel.Runs);
-        Assert.Equal("Saved recovery 1", item.Title);
+        Assert.Equal("Saved Recovery 1", item.Title);
         Assert.Equal("Clear saved recovery 1", item.ClearAutomationName);
         Assert.Equal("2 snapshots", item.SnapshotLabel);
-        Assert.Equal("1.5 KiB", item.SizeLabel);
-        Assert.Equal("Last saved 2026-07-23 09:30 UTC", item.UpdatedLabel);
+        Assert.Equal(ByteSize.Format(1536), item.SizeLabel);
+        Assert.Equal(
+            "Last saved " + DisplayDates.Format(new DateTimeOffset(2026, 7, 23, 9, 30, 0, TimeSpan.Zero)),
+            item.UpdatedLabel);
         Assert.DoesNotContain(
             "private-run-id",
             string.Join(' ', item.Title, item.SnapshotLabel, item.SizeLabel, item.UpdatedLabel),
@@ -84,10 +86,10 @@ public sealed class RecoveryDataControlViewModelTests
         Assert.False(viewModel.HasAdditionalRuns);
         Assert.StartsWith("Cleared 1 snapshot.", viewModel.StatusMessage);
         Assert.Contains(
-            "remaining recovery metadata could not be loaded",
+            "couldn't load details about the remaining recovery data",
             viewModel.StatusMessage,
             StringComparison.Ordinal);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(ApplicationRunErrorCode.StorageUnavailable),
             viewModel.StatusMessage,
             StringComparison.Ordinal);
@@ -155,7 +157,7 @@ public sealed class RecoveryDataControlViewModelTests
         Assert.Empty(viewModel.Runs);
         Assert.Equal(0, viewModel.ListedRunCount);
         Assert.StartsWith("Cleared 1 snapshot.", viewModel.StatusMessage);
-        Assert.Contains(
+        Assert.DoesNotContain(
             nameof(ApplicationRunErrorCode.StorageFailure),
             viewModel.StatusMessage,
             StringComparison.Ordinal);

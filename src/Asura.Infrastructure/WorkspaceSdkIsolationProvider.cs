@@ -156,14 +156,16 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 }
                 if (!string.Equals(savedImage, image, StringComparison.Ordinal))
                 {
-                    return Failure("The persistent or staged workspace uses another image. Recreate the environment to change it.");
+                    return Failure("This workspace environment was made from another image. "
+                        + "To change its image, choose Recreate Environment in the workspace's settings.");
                 }
             }
             else
             {
                 if (File.Exists(rootfs) || File.Exists(Path.Combine(directory, "preparing.ext4")))
                 {
-                    return Failure("The workspace disk has no verified image identity. Recreate the environment to start a fresh SDK workspace.");
+                    return Failure("The workspace disk has no verified image identity. "
+                        + "Choose Recreate Environment in the workspace's settings to start with a fresh disk.");
                 }
 
                 // Commit identity before unpacking starts. An interrupted image download
@@ -179,7 +181,7 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
             {
                 if (File.Exists(readyMarker))
                 {
-                    return Failure("The persistent workspace disk is missing. Restore it from backup or explicitly recreate the environment.");
+                    return Failure(MissingDisk);
                 }
                 progress?.Report(new WorkspaceIsolationProgress("Preparing the SDK workspace disk…"));
                 await PrepareDiskAsync(request, rootfs, image, progress, cancellationToken).ConfigureAwait(false);
@@ -236,7 +238,7 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 catch (Exception cleanupFailure) when (cleanupFailure is IOException or UnauthorizedAccessException)
                 {
                     SecretSafeDiagnosticProjection.WriteTrace("workspace.service.prepare-cleanup.failed", cleanupFailure);
-                    return Failure("The connection service failed to start and its private state could not be removed.");
+                    return Failure("The connection service couldn't start, and Asura couldn't remove its private files. Restart Asura, then try again.");
                 }
             }
             if (exception is OperationCanceledException && cancellationToken.IsCancellationRequested)
@@ -244,8 +246,14 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
                 return WorkspaceIsolationResult<WorkspaceIsolationBinding>.Fail(WorkspaceIsolationErrorCode.Cancelled);
             }
 
+            // Only Asura's own refusals, each ending with its next step, are shown as
+            // written. The file system's or the runtime's text can carry paths or process
+            // output, so it stays in diagnostics, and the failure keeps the code's own
+            // message, which the app words for the workspace settings.
             SecretSafeDiagnosticProjection.WriteTrace("workspace.sdk.prepare.failed", exception);
-            return Failure(exception.Message);
+            return Failure(exception is WorkspaceEnvironmentRefusalException
+                ? exception.Message
+                : WorkspaceIsolationError.Create(WorkspaceIsolationErrorCode.PrepareFailed).Message);
         }
         finally
         {

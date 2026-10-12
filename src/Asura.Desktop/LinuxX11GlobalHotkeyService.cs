@@ -31,14 +31,12 @@ internal sealed class X11HotkeyConnectionException(string message) : Exception(m
 internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
 {
     private const int PrimaryHotkeyId = 1;
-    private const int EscapeHotkeyId = 2;
     private const byte BadValue = 2;
     private const byte BadAccess = 10;
     private const uint ShiftMask = 1U << 0;
     private const uint ControlMask = 1U << 2;
     private const uint AltMask = 1U << 3;
     private const uint MetaMask = 1U << 6;
-    private const nuint EscapeKeySymbol = 0xFF1B;
     private const nuint GraveKeySymbol = 0x0060;
     private const nuint F1KeySymbol = 0xFFBE;
     private const nuint F24KeySymbol = 0xFFD5;
@@ -48,9 +46,7 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
     private IX11HotkeyLoop? _loop;
     private KeyStroke? _registeredGesture;
     private int _primaryRegistered;
-    private int _escapeRegistered;
     private long _primaryGeneration;
-    private long _escapeGeneration;
     private bool _disposed;
 
     public LinuxX11GlobalHotkeyService()
@@ -76,8 +72,6 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
 
     public event EventHandler? Pressed;
 
-    public event EventHandler? EscapePressed;
-
     public KeyStroke? RegisteredGesture
     {
         get
@@ -100,10 +94,10 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
                 return Failure(
                     GlobalHotkeyRegistrationErrorCode.InvalidGesture,
                     "global_hotkey_invalid_gesture",
-                    "The selected shortcut is not supported by the X11 hot-key adapter.");
+                    "The window system can't use this shortcut as a global shortcut. Choose another one.");
             }
 
-            var loopResult = TryGetLoop(escapeCapture: false);
+            var loopResult = TryGetLoop();
             if (loopResult.Failure is not null)
             {
                 return loopResult.Failure;
@@ -112,7 +106,7 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
             var nativeResult = loopResult.Loop!.Register(PrimaryHotkeyId, nativeGesture);
             if (!nativeResult.Succeeded)
             {
-                return MapRegistrationFailure(nativeResult.ErrorCode, escapeCapture: false);
+                return MapRegistrationFailure(nativeResult.ErrorCode);
             }
 
             _registeredGesture = gesture;
@@ -130,40 +124,6 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
         }
     }
 
-    public GlobalHotkeyRegistrationResult BeginEscapeCapture()
-    {
-        lock (_lifecycleGate)
-        {
-            ObjectDisposedException.ThrowIf(_disposed, this);
-            EndEscapeCaptureCore();
-            var loopResult = TryGetLoop(escapeCapture: true);
-            if (loopResult.Failure is not null)
-            {
-                return loopResult.Failure;
-            }
-
-            var nativeResult = loopResult.Loop!.Register(
-                EscapeHotkeyId,
-                new X11HotkeyGesture(EscapeKeySymbol, 0));
-            if (!nativeResult.Succeeded)
-            {
-                return MapRegistrationFailure(nativeResult.ErrorCode, escapeCapture: true);
-            }
-
-            _ = Interlocked.Increment(ref _escapeGeneration);
-            Volatile.Write(ref _escapeRegistered, 1);
-            return new GlobalHotkeyRegistrationResult.Success(new KeyStroke("ESCAPE"));
-        }
-    }
-
-    public void EndEscapeCapture()
-    {
-        lock (_lifecycleGate)
-        {
-            EndEscapeCaptureCore();
-        }
-    }
-
     public void Dispose()
     {
         lock (_lifecycleGate)
@@ -174,7 +134,6 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
             }
 
             _disposed = true;
-            EndEscapeCaptureCore();
             UnregisterPrimary();
             if (_loop is not null)
             {
@@ -263,8 +222,7 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
         return false;
     }
 
-    private (IX11HotkeyLoop? Loop, GlobalHotkeyRegistrationResult? Failure) TryGetLoop(
-        bool escapeCapture)
+    private (IX11HotkeyLoop? Loop, GlobalHotkeyRegistrationResult? Failure) TryGetLoop()
     {
         if (_loop is not null)
         {
@@ -277,17 +235,12 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
             _loop.HotkeyPressed += OnHotkeyPressed;
             return (_loop, null);
         }
-        catch (X11HotkeyConnectionException exception)
+        catch (Exception exception) when (exception is X11HotkeyConnectionException
+            or DllNotFoundException
+            or EntryPointNotFoundException)
         {
-            return (null, NativeFailure(exception.Message, escapeCapture));
-        }
-        catch (DllNotFoundException exception)
-        {
-            return (null, NativeFailure(exception.Message, escapeCapture));
-        }
-        catch (EntryPointNotFoundException exception)
-        {
-            return (null, NativeFailure(exception.Message, escapeCapture));
+            SecretSafeDiagnosticProjection.WriteTrace("desktop.hotkey.x11-connect.failed", exception);
+            return (null, NativeFailure());
         }
     }
 
@@ -302,52 +255,30 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
         _registeredGesture = null;
     }
 
-    private void EndEscapeCaptureCore()
-    {
-        if (Interlocked.Exchange(ref _escapeRegistered, 0) != 0)
-        {
-            _ = Interlocked.Increment(ref _escapeGeneration);
-            _loop!.Unregister(EscapeHotkeyId);
-        }
-    }
-
     private void OnHotkeyPressed(int id)
     {
-        var generation = id switch
-        {
-            PrimaryHotkeyId when Volatile.Read(ref _primaryRegistered) != 0 =>
-                Volatile.Read(ref _primaryGeneration),
-            EscapeHotkeyId when Volatile.Read(ref _escapeRegistered) != 0 =>
-                Volatile.Read(ref _escapeGeneration),
-            _ => -1,
-        };
-        if (generation < 0)
+        if (id != PrimaryHotkeyId || Volatile.Read(ref _primaryRegistered) == 0)
         {
             return;
         }
 
+        var generation = Volatile.Read(ref _primaryGeneration);
+
         // Keep Xlib's event thread independent from callbacks that may synchronously change grabs.
         ThreadPool.QueueUserWorkItem(
-            static state => state.Service.DispatchHotkey(state.Id, state.Generation),
-            (Service: this, Id: id, Generation: generation),
+            static state => state.Service.DispatchHotkey(state.Generation),
+            (Service: this, Generation: generation),
             preferLocal: false);
     }
 
-    private void DispatchHotkey(int id, long generation)
+    private void DispatchHotkey(long generation)
     {
         try
         {
-            if (id == PrimaryHotkeyId
-                && Volatile.Read(ref _primaryRegistered) != 0
+            if (Volatile.Read(ref _primaryRegistered) != 0
                 && Volatile.Read(ref _primaryGeneration) == generation)
             {
                 Pressed?.Invoke(this, EventArgs.Empty);
-            }
-            else if (id == EscapeHotkeyId
-                && Volatile.Read(ref _escapeRegistered) != 0
-                && Volatile.Read(ref _escapeGeneration) == generation)
-            {
-                EscapePressed?.Invoke(this, EventArgs.Empty);
             }
         }
         catch (Exception exception)
@@ -358,33 +289,37 @@ internal sealed class LinuxX11GlobalHotkeyService : IGlobalHotkeyService
         }
     }
 
-    private static GlobalHotkeyRegistrationResult MapRegistrationFailure(
-        byte errorCode,
-        bool escapeCapture) => errorCode switch
+    private static GlobalHotkeyRegistrationResult MapRegistrationFailure(byte errorCode) =>
+        errorCode switch
         {
             BadAccess => Failure(
                 GlobalHotkeyRegistrationErrorCode.Conflict,
-                escapeCapture ? "escape_capture_conflict" : "global_hotkey_conflict",
-                escapeCapture
-                    ? "Another X11 client already owns Escape while Quick Terminal is open."
-                    : "Another X11 client already owns this global shortcut."),
+                "global_hotkey_conflict",
+                "Another app already uses this shortcut."),
             BadValue => Failure(
                 GlobalHotkeyRegistrationErrorCode.InvalidGesture,
-                escapeCapture ? "escape_capture_invalid" : "global_hotkey_invalid_gesture",
-                escapeCapture
-                    ? "X11 rejected transient Escape capture."
-                    : "X11 rejected the selected global shortcut."),
-            _ => NativeFailure($"X11 error {errorCode}", escapeCapture),
+                "global_hotkey_invalid_gesture",
+                "The window system didn't accept this shortcut. Choose another one."),
+            _ => UnexpectedRegistrationFailure(errorCode),
         };
 
-    private static GlobalHotkeyRegistrationResult NativeFailure(
-        string nativeDetail,
-        bool escapeCapture) => Failure(
+    /// <summary>The diagnostic code for an X11 error, such as "desktop.hotkey.x11-native-failure.x11-error-10".</summary>
+    internal static string NativeFailureDiagnosticCode(byte errorCode) =>
+        NativeStatusDiagnosticCode.Format("desktop.hotkey.x11-native-failure", "x11-error", errorCode);
+
+    // The X11 error code goes to diagnostics, not the message people read.
+    private static GlobalHotkeyRegistrationResult UnexpectedRegistrationFailure(byte errorCode)
+    {
+        SecretSafeDiagnosticProjection.WriteTrace(
+            NativeFailureDiagnosticCode(errorCode),
+            SecretSafeDiagnosticKind.Unexpected);
+        return NativeFailure();
+    }
+
+    private static GlobalHotkeyRegistrationResult NativeFailure() => Failure(
         GlobalHotkeyRegistrationErrorCode.NativeFailure,
-        escapeCapture ? "escape_capture_native_failure" : "global_hotkey_native_failure",
-        escapeCapture
-            ? $"X11 could not capture Escape ({nativeDetail})."
-            : $"X11 could not register the global shortcut ({nativeDetail}).");
+        "global_hotkey_native_failure",
+        "The window system didn't accept this shortcut. Try again, or choose another one.");
 
     private static GlobalHotkeyRegistrationResult Failure(
         GlobalHotkeyRegistrationErrorCode code,

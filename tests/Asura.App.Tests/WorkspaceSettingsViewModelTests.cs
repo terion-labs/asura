@@ -399,7 +399,7 @@ public sealed class WorkspaceSettingsViewModelTests
             WorkspaceDefinition.CurrentSchemaVersion,
             "Operations",
             "Production workspace",
-            ThemePreference.BronzeFallback.ToString(),
+            ThemePreference.BrandAccent.ToString(),
             [],
             isIsolated: true,
             isolationMounts: [WorkspaceMount]);

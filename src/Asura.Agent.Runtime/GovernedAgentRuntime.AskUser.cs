@@ -146,7 +146,7 @@ public sealed partial class GovernedAgentRuntime
             CancelQuestionAwaiter(
                 awaiter,
                 "question_cancelled",
-                "The agent question was cancelled.");
+                "The agent question was canceled.");
             throw;
         }
 

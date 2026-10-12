@@ -19,57 +19,72 @@
     The page now says only what each setting is. Where the label sits, how wide the
     control column is, and which row draws a separator are the group's business.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
-    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
-      <components:SettingsPageHeader
-          Heading="Quick Terminal"
-          Description="A global drop-down terminal that stays one keystroke away. Configure where it appears and how it behaves." />
-      <Button
-          Grid.Column="1"
-          VerticalAlignment="Bottom"
-          Classes="PrimaryButton"
-          Click="OnSaveQuickTerminalSettingsClick"
-          Content="Save settings"
-          AutomationProperties.Name="Save Quick Terminal settings" />
-    </Grid>
+  <StackPanel Classes="SettingsPage">
+    <!-- Every setting here applies as it changes; there is nothing to save. -->
+    <components:SettingsPageHeader
+        Heading="Quick Terminal"
+        Description="A global drop-down terminal that stays one keystroke away. Configure where it appears and how it behaves." />
 
     <controls:SettingsGroup
         Heading="Activation"
-        Description="Choose the global shortcut used to summon or dismiss the panel."
+        Description="The shortcut that shows or hides Quick Terminal from any app."
         ControlWidth="300">
-      <controls:SettingRow
-          Label="Global hotkey"
-          Description="{Binding QuickTerminalSettingsEditor.HotkeyHelpText}">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-          <TextBox
-              Text="{Binding QuickTerminalSettingsEditor.HotkeyText}"
-              AutomationProperties.Name="Quick Terminal global hotkey" />
+      <!-- The shortcut is shown, not typed: Record… listens for the keys, so
+           there is no notation to learn and no chord half typed on the way to
+           the one meant. -->
+      <controls:SettingRow Label="Global shortcut">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+          <Border
+              VerticalAlignment="Center"
+              Classes="Keycap"
+              AutomationProperties.Name="Quick Terminal global shortcut"
+              AutomationProperties.HelpText="{Binding QuickTerminalSettingsEditor.HotkeyText}">
+            <TextBlock Text="{Binding QuickTerminalSettingsEditor.HotkeyText}" />
+          </Border>
           <Button
-              Grid.Column="1"
               Classes="SecondaryButton"
               Click="OnRecordHotkeyClick"
-              Content="Record"
-              AutomationProperties.Name="Record Quick Terminal global hotkey" />
-        </Grid>
+              Content="Record…"
+              AutomationProperties.Name="Record Quick Terminal global shortcut" />
+          <Button
+              Classes="TextButton"
+              Command="{Binding QuickTerminalSettingsEditor.UseDefaultHotkey}"
+              Content="Use Default"
+              IsEnabled="{Binding !QuickTerminalSettingsEditor.UsesDefaultHotkey}"
+              AutomationProperties.Name="Use the default Quick Terminal global shortcut" />
+        </StackPanel>
       </controls:SettingRow>
       <controls:SettingsGroup.Footer>
-        <Grid
-            ColumnDefinitions="Auto,*"
-            ColumnSpacing="{DynamicResource ShellSpaceSm}"
-            AutomationProperties.LiveSetting="Polite"
-            AutomationProperties.Name="{Binding QuickTerminalSettingsEditor.RegistrationStatus}">
-          <Ellipse
-              Width="8"
-              Height="8"
-              VerticalAlignment="Center"
-              Fill="{Binding QuickTerminalSettingsEditor.RegistrationStatusBrush}" />
+        <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+          <Grid
+              ColumnDefinitions="Auto,*"
+              ColumnSpacing="{DynamicResource ShellSpaceSm}"
+              AutomationProperties.LiveSetting="Polite"
+              AutomationProperties.Name="{Binding QuickTerminalSettingsEditor.RegistrationStatus}">
+            <Ellipse
+                Width="8"
+                Height="8"
+                VerticalAlignment="Center"
+                controls:StatusToneBrush.Fill="{Binding QuickTerminalSettingsEditor.RegistrationStatusTone}" />
+            <TextBlock
+                Grid.Column="1"
+                Classes="Muted"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Text="{Binding QuickTerminalSettingsEditor.RegistrationStatus}"
+                TextWrapping="Wrap" />
+          </Grid>
+          <!-- The hotkey is exclusive while Asura runs, so a chord macOS or the
+               menu bar already uses would be taken from them. Warn as the
+               field changes; saving stays the person's call. -->
           <TextBlock
-              Grid.Column="1"
               Classes="Muted"
-              FontSize="{DynamicResource ShellFontSize10}"
-              Text="{Binding QuickTerminalSettingsEditor.RegistrationStatus}"
-              TextWrapping="Wrap" />
-        </Grid>
+              FontSize="{DynamicResource ShellSecondaryFontSize}"
+              Foreground="{DynamicResource ShellWarningBrush}"
+              IsVisible="{Binding QuickTerminalSettingsEditor.HasHotkeyWarning}"
+              Text="{Binding QuickTerminalSettingsEditor.HotkeyWarning}"
+              TextWrapping="Wrap"
+              AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>
 
@@ -79,7 +94,7 @@
         ControlWidth="280">
       <controls:SettingRow
           Label="Show on display"
-          Description="Active window follows whichever app is in front and falls back to Asura where unsupported. Asura window follows this app; Primary always uses the OS primary display.">
+          Description="Active window follows whichever app is in front, or Asura where that isn’t possible. Asura window follows Asura. Primary display always uses the main display.">
         <ComboBox
             ItemsSource="{Binding QuickTerminalSettingsEditor.MonitorOptions}"
             SelectedItem="{Binding QuickTerminalSettingsEditor.SelectedMonitorOption}"
@@ -94,8 +109,9 @@
       <controls:SettingRow
           Label="Panel height"
           Description="Percentage of the selected display's working area.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               Minimum="25"
               Maximum="90"
               Increment="1"
@@ -103,23 +119,23 @@
               Value="{Binding QuickTerminalSettingsEditor.HeightPercent}"
               AutomationProperties.Name="Quick Terminal panel height" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="%" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
     </controls:SettingsGroup>
 
     <controls:SettingsGroup
         Heading="Background"
-        Description="Tune translucency and the compositor-backed blur treatment."
+        Description="How much of the desktop shows through Quick Terminal."
         ControlWidth="280">
       <controls:SettingRow
           Label="Background opacity"
           Description="Opacity of the terminal backdrop; text, cursor, and controls stay crisp.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               ClipValueToMinMax="True"
               Minimum="0"
               Maximum="100"
@@ -127,11 +143,10 @@
               Value="{Binding QuickTerminalSettingsEditor.OpacityPercent}"
               AutomationProperties.Name="Quick Terminal background opacity" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="%" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
           Label="Translucency"
@@ -143,7 +158,7 @@
       <controls:SettingsGroup.Footer>
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="Some platforms expose only on/off blur, so Asura applies the stored radius at the nearest supported level."
             TextWrapping="Wrap" />
       </controls:SettingsGroup.Footer>
@@ -157,7 +172,6 @@
           Label="Animate the drop-down"
           Description="Slide the panel in and out instead of snapping.">
         <ToggleSwitch
-            HorizontalAlignment="Right"
             IsChecked="{Binding QuickTerminalSettingsEditor.AnimateSlide}"
             AutomationProperties.Name="Animate Quick Terminal" />
       </controls:SettingRow>
@@ -165,40 +179,44 @@
           Label="Reduce motion"
           Description="Disable slide animation even when animation is enabled.">
         <ToggleSwitch
-            HorizontalAlignment="Right"
             IsChecked="{Binding QuickTerminalSettingsEditor.ReduceMotion}"
             AutomationProperties.Name="Reduce Quick Terminal motion" />
       </controls:SettingRow>
       <controls:SettingRow
           Label="Animation duration"
           Description="Slide duration in milliseconds when motion is enabled.">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
           <NumericUpDown
+              Width="{controls:TextScaled 96}"
               Minimum="0"
               Maximum="1000"
               Increment="10"
               Value="{Binding QuickTerminalSettingsEditor.AnimationDurationMilliseconds}"
               AutomationProperties.Name="Quick Terminal animation duration" />
           <TextBlock
-              Grid.Column="1"
               VerticalAlignment="Center"
               Classes="Muted"
               Text="ms" />
-        </Grid>
+        </StackPanel>
       </controls:SettingRow>
       <controls:SettingRow
           Label="Hide on focus loss"
           Description="Dismiss the panel when focus moves to another application.">
         <ToggleSwitch
-            HorizontalAlignment="Right"
             IsChecked="{Binding QuickTerminalSettingsEditor.HideOnFocusLoss}"
             AutomationProperties.Name="Hide Quick Terminal on focus loss" />
+      </controls:SettingRow>
+      <controls:SettingRow
+          Label="Escape hides Quick Terminal"
+          Description="Dismiss the panel with Escape. When off, Escape reaches the program in the terminal, such as vim or less.">
+        <ToggleSwitch
+            IsChecked="{Binding QuickTerminalSettingsEditor.HideOnEscape}"
+            AutomationProperties.Name="Escape hides Quick Terminal" />
       </controls:SettingRow>
       <controls:SettingRow
           Label="Keep terminal session"
           Description="Retain the terminal and scrollback between openings. Turning this off starts a fresh shell next time.">
         <ToggleSwitch
-            HorizontalAlignment="Right"
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreLastSession}"
             AutomationProperties.Name="Keep Quick Terminal session" />
       </controls:SettingRow>
@@ -206,15 +224,14 @@
           Label="Restore on start"
           Description="Reopen Quick Terminal tabs and their connections when Asura starts, like main-window session restore.">
         <ToggleSwitch
-            HorizontalAlignment="Right"
             IsChecked="{Binding QuickTerminalSettingsEditor.RestoreOnStart}"
             AutomationProperties.Name="Restore Quick Terminal on start" />
       </controls:SettingRow>
       <controls:SettingsGroup.Footer>
         <TextBlock
             Classes="Muted"
-            FontSize="{DynamicResource ShellFontSize10}"
-            Text="Escape always hides the Quick Terminal panel."
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="{Binding QuickTerminalSettingsEditor.DismissSummary}"
             TextWrapping="Wrap" />
       </controls:SettingsGroup.Footer>
     </controls:SettingsGroup>

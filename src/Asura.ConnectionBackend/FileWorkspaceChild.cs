@@ -26,7 +26,7 @@ internal static class FileWorkspaceChild
             var execute = await BackendJsonFrames.ReadAsync(input, FileWorkspaceJsonContext.Default.FileWorkspaceReply, token).ConfigureAwait(false);
             if (execute != new FileWorkspaceReply(FileWorkspaceMessageKind.Execute))
             {
-                throw new InvalidDataException("The file backend execution acknowledgement is invalid.");
+                throw new InvalidDataException("The file backend execution acknowledgment is invalid.");
             }
             FileWorkspaceMessage result;
             try { result = await ExecuteAsync(registration.Registration.Provider, callbacks, request, token).ConfigureAwait(false); }

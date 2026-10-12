@@ -16,10 +16,15 @@ public sealed record FilePreviewSettings(
     bool KeepPreviewsBetweenRuns,
     long CacheBudgetBytes)
 {
+    // Decimal megabytes, the unit every size in the app is written in, so
+    // the settings page and the preview's caption name the same number.
     public static FilePreviewSettings Default { get; } = new(
-        AutoLoadThresholdBytes: 2 * 1024 * 1024,
+        AutoLoadThresholdBytes: 2_000_000,
         KeepPreviewsBetweenRuns: true,
-        CacheBudgetBytes: 512L * 1024 * 1024);
+        CacheBudgetBytes: 512_000_000);
+
+    private const long BinaryMegabyte = 1024 * 1024;
+    private const long DecimalMegabyte = 1_000_000;
 
     private readonly long _autoLoadThresholdBytes = ClampThreshold(AutoLoadThresholdBytes);
     private readonly long _cacheBudgetBytes = ClampBudget(CacheBudgetBytes);
@@ -42,11 +47,32 @@ public sealed record FilePreviewSettings(
         init => _cacheBudgetBytes = ClampBudget(value);
     }
 
+    /// <summary>
+    /// Settings as storage holds them. Before sizes were decimal, the settings
+    /// page saved whole binary megabytes (2 MiB, 512 MiB); read back as they
+    /// are, those would show as 2.097152 MB and step to 3.097152. Such a value
+    /// becomes the same count of decimal megabytes. A value that is already a
+    /// whole number of decimal megabytes is kept as it is.
+    /// </summary>
+    public static FilePreviewSettings FromStorage(
+        long autoLoadThresholdBytes,
+        bool keepPreviewsBetweenRuns,
+        long cacheBudgetBytes) =>
+        new(
+            FromBinaryMegabytes(autoLoadThresholdBytes),
+            keepPreviewsBetweenRuns,
+            FromBinaryMegabytes(cacheBudgetBytes));
+
+    internal static long FromBinaryMegabytes(long bytes) =>
+        bytes > 0 && bytes % BinaryMegabyte == 0 && bytes % DecimalMegabyte != 0
+            ? bytes / BinaryMegabyte * DecimalMegabyte
+            : bytes;
+
     private static long ClampThreshold(long value) =>
-        Math.Clamp(value, 64 * 1024, 256L * 1024 * 1024);
+        Math.Clamp(value, 64_000, 256_000_000);
 
     private static long ClampBudget(long value) =>
-        Math.Clamp(value, 16L * 1024 * 1024, 16L * 1024 * 1024 * 1024);
+        Math.Clamp(value, 16_000_000, 16_384_000_000);
 }
 
 /// <summary>

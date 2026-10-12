@@ -31,8 +31,9 @@ public sealed partial class MainWindow
 
     private async void OnAddKubernetesPanelClick(object? sender, RoutedEventArgs e)
     {
-        ViewModel.CloseOverlay();
-        _ = await ViewModel.AddKubernetesPanelAsync(_lifetime.Token);
+        _ = sender;
+        _ = e;
+        await AddPanelFromChooserAsync(() => ViewModel.AddKubernetesPanelAsync(_lifetime.Token));
     }
 
     private async void OnPlaceholderKubernetesClick(object? sender, RoutedEventArgs e) =>

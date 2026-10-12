@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Net;
+using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -48,7 +50,7 @@ public sealed record McpServerCredentialTrustReviewEntry(
     public bool HasWarning => State != McpServerCredentialReviewState.Available;
 
     public string AutomationName =>
-        $"{BindingName} vault binding: {MetadataSummary}; {StateSummary}";
+        $"{BindingName} stored credential: {MetadataSummary}; {StateSummary}";
 }
 
 public sealed record McpServerTrustReview
@@ -462,7 +464,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
     public bool IsEditing => ExpectedRevision is not null;
 
-    public string EditorTitle => IsEditing ? "Edit MCP server" : "New MCP server";
+    public string EditorTitle => IsEditing ? "Edit MCP Server" : "New MCP Server";
 
     public string ProfileId => _id.Value;
 
@@ -658,7 +660,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         var executable = Required(Executable, "Executable");
         if (!Path.IsPathFullyQualified(executable))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Executable),
                 "Executable must be a fully qualified local path.");
         }
 
@@ -668,8 +671,9 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         if (workingDirectory is not null
             && !Path.IsPathFullyQualified(workingDirectory))
         {
-            throw new ArgumentException(
-                "Working directory must be a fully qualified local path.");
+            throw InvalidField.Exception(
+                nameof(WorkingDirectory),
+                "Enter the working directory as a full path on this computer.");
         }
 
         return new McpServerTransport.Stdio(
@@ -688,7 +692,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         var endpointText = Required(Endpoint, "Streamable HTTP endpoint");
         if (!Uri.TryCreate(endpointText, UriKind.Absolute, out var endpoint))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Endpoint),
                 "Streamable HTTP endpoint must be an absolute HTTPS URI.");
         }
 
@@ -698,7 +703,8 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
             StringComparison.OrdinalIgnoreCase);
         if (isPlaintext && !IsLoopback(endpoint))
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(Endpoint),
                 "Streamable HTTP endpoint must use HTTPS; plaintext HTTP is allowed only for an exact loopback host.");
         }
 
@@ -725,7 +731,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
         {
             if (!_original.IsTrusted)
             {
-                changes.Add("Trust this imported server definition");
+                changes.Add("Trust this imported server");
             }
 
             if (profile.Transport.Kind != _original.Transport.Kind)
@@ -765,7 +771,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
             profile.Name,
             profile.Transport.Kind,
             stdioTransport?.Executable ?? string.Empty,
-            stdioTransport?.WorkingDirectory ?? "Executable directory",
+            stdioTransport?.WorkingDirectory ?? "The program's folder",
             httpTransport?.Endpoint.AbsoluteUri ?? string.Empty,
             httpTransport is null
                 ? "Local process"
@@ -820,7 +826,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Environment.SequenceEqual(original.Environment))
         {
-            changes.Add("Change environment-to-vault bindings");
+            changes.Add("Change environment variables that use stored credentials");
         }
     }
 
@@ -837,7 +843,7 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
 
         if (!transport.Headers.SequenceEqual(original.Headers))
         {
-            changes.Add("Change HTTP-header-to-vault bindings");
+            changes.Add("Change HTTP headers that use stored credentials");
         }
     }
 
@@ -987,16 +993,23 @@ public sealed class McpServerProfileEditorViewModel : ObservableObject
     {
         if (count >= maximum)
         {
-            throw new InvalidOperationException(
-                $"An MCP server cannot define more than {maximum} {itemName}.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                $"An MCP server can't have more than {maximum} {itemName}. Remove one before adding another."));
         }
     }
 
-    private static string Required(string value, string label)
+    /// <summary>
+    /// The trimmed value, or a failure naming the field it came from — the
+    /// property passed in — so the editor can show it under that field.
+    /// </summary>
+    private static string Required(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new ArgumentException($"{label} is required.");
+            throw InvalidField.Exception(field, $"{label} is required.");
         }
 
         return value.Trim();

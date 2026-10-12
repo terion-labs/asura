@@ -26,7 +26,7 @@ public sealed class SqliteOnboardingProgressStore : IOnboardingProgressStore
         {
             return Failure(
                 OnboardingProgressErrorCode.Cancelled,
-                "Loading first-run progress was cancelled.");
+                "Loading first-run progress was canceled.");
         }
         catch (InvalidDataException)
         {
@@ -124,7 +124,7 @@ public sealed class SqliteOnboardingProgressStore : IOnboardingProgressStore
         {
             return Failure(
                 OnboardingProgressErrorCode.Cancelled,
-                "Saving first-run progress was cancelled.");
+                "Saving first-run progress was canceled.");
         }
         catch (InvalidDataException)
         {

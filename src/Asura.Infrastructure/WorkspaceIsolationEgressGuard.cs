@@ -677,7 +677,7 @@ public sealed class WorkspaceIsolationEgressGuard : IWorkspaceIsolationEgressGua
             return NetworkConnectionResult<byte[]>.Fail(new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "proxy_secret_cancelled",
-                "Proxy credential access was cancelled.",
+                "Proxy credential access was canceled.",
                 retryable: false));
         }
 
@@ -801,7 +801,7 @@ public sealed class WorkspaceIsolationEgressGuard : IWorkspaceIsolationEgressGua
             return ProxyFailure(
                 NetworkConnectionErrorCode.Cancelled,
                 "workspace_proxy_route_cancelled",
-                "Enabling the isolated workspace proxy was cancelled after launch. Direct egress is treated as blocked because the guard state could not be confirmed.",
+                "Enabling the isolated workspace proxy was canceled after launch. Direct egress is treated as blocked because the guard state could not be confirmed.",
                 retryable: false,
                 isEnforced: true);
         }
@@ -939,7 +939,7 @@ public sealed class WorkspaceIsolationEgressGuard : IWorkspaceIsolationEgressGua
             return NetworkConnectionResult<Unit>.Fail(new NetworkConnectionError(
                 NetworkConnectionErrorCode.Cancelled,
                 "workspace_network_kill_switch_cancelled",
-                "Changing the workspace network kill switch was cancelled.",
+                "Changing the workspace network kill switch was canceled.",
                 retryable: false));
         }
         catch (Exception exception) when (exception is IOException or OperationCanceledException)
@@ -1018,7 +1018,7 @@ public sealed class WorkspaceIsolationEgressGuard : IWorkspaceIsolationEgressGua
                 new NetworkConnectionError(
                     NetworkConnectionErrorCode.Cancelled,
                     "workspace_network_kill_switch_cancelled",
-                    "Changing the workspace network kill switch was cancelled after launch. Direct egress is treated as blocked because the guard state could not be confirmed.",
+                    "Changing the workspace network kill switch was canceled after launch. Direct egress is treated as blocked because the guard state could not be confirmed.",
                     retryable: false),
                 isEnforced: true);
         }

@@ -2,10 +2,14 @@ using System.Runtime.InteropServices;
 
 namespace Asura.App.ViewModels;
 
+/// <summary>
+/// What a main window shows. Settings used to be a second route that replaced
+/// the workspace; it is a window of its own now, so the workspace is the only
+/// route left, and live terminals stay in view while a setting is changed.
+/// </summary>
 public enum ShellRoute
 {
     Workspace,
-    Settings,
 }
 
 public enum SettingsPage
@@ -18,10 +22,12 @@ public enum SettingsPage
     Browser,
     Terminal,
     QuickTerminal,
+    Git,
     Secrets,
     Diagnostics,
     Agent,
     Mcp,
+    Notifications,
     About,
 }
 
@@ -41,7 +47,7 @@ internal readonly record struct ShellNavigationSnapshot(
     long OverlayRevision);
 
 /// <summary>
-/// Owns the shell's route, settings subroute, and transient overlay state.
+/// Owns the shell's route, the Settings window's page, and transient overlay state.
 /// Runtime operations capture a snapshot before awaiting the host, then use
 /// the revision to avoid replacing navigation that happened while they waited.
 /// </summary>
@@ -49,6 +55,7 @@ public sealed class ShellNavigationViewModel : ObservableObject
 {
     private ShellRoute _route = ShellRoute.Workspace;
     private SettingsPage _settingsPage = SettingsPage.Appearance;
+    private bool _isSettingsVisible;
     private ShellOverlay _overlay;
     private long _overlayRevision;
 
@@ -60,7 +67,6 @@ public sealed class ShellNavigationViewModel : ObservableObject
             if (SetProperty(ref _route, value))
             {
                 OnPropertyChanged(nameof(IsWorkspaceVisible));
-                OnPropertyChanged(nameof(IsSettingsVisible));
                 OnPropertyChanged(nameof(IsWorkspaceCanvasVisible));
             }
         }
@@ -81,10 +87,12 @@ public sealed class ShellNavigationViewModel : ObservableObject
                 OnPropertyChanged(nameof(IsBrowserSettingsVisible));
                 OnPropertyChanged(nameof(IsTerminalSettingsVisible));
                 OnPropertyChanged(nameof(IsQuickTerminalSettingsVisible));
+                OnPropertyChanged(nameof(IsGitSettingsVisible));
                 OnPropertyChanged(nameof(IsSecretsSettingsVisible));
                 OnPropertyChanged(nameof(IsDiagnosticsSettingsVisible));
                 OnPropertyChanged(nameof(IsAgentSettingsVisible));
                 OnPropertyChanged(nameof(IsMcpSettingsVisible));
+                OnPropertyChanged(nameof(IsNotificationSettingsVisible));
                 OnPropertyChanged(nameof(IsAboutSettingsVisible));
             }
         }
@@ -110,7 +118,16 @@ public sealed class ShellNavigationViewModel : ObservableObject
 
     public bool IsWorkspaceVisible => Route == ShellRoute.Workspace;
 
-    public bool IsSettingsVisible => Route == ShellRoute.Settings;
+    /// <summary>
+    /// Whether this window's Settings window is open. Settings no longer
+    /// covers the workspace, so this says nothing about what the main window
+    /// itself shows.
+    /// </summary>
+    public bool IsSettingsVisible
+    {
+        get => _isSettingsVisible;
+        private set => SetProperty(ref _isSettingsVisible, value);
+    }
 
     public bool IsWorkspaceCanvasVisible => IsWorkspaceVisible && !HasOverlay;
 
@@ -130,6 +147,8 @@ public sealed class ShellNavigationViewModel : ObservableObject
 
     public bool IsQuickTerminalSettingsVisible => SettingsPage == SettingsPage.QuickTerminal;
 
+    public bool IsGitSettingsVisible => SettingsPage == SettingsPage.Git;
+
     public bool IsSecretsSettingsVisible => SettingsPage == SettingsPage.Secrets;
 
     public bool IsDiagnosticsSettingsVisible => SettingsPage == SettingsPage.Diagnostics;
@@ -137,6 +156,8 @@ public sealed class ShellNavigationViewModel : ObservableObject
     public bool IsAgentSettingsVisible => SettingsPage is SettingsPage.Agent or SettingsPage.Mcp;
 
     public bool IsMcpSettingsVisible => SettingsPage == SettingsPage.Mcp;
+
+    public bool IsNotificationSettingsVisible => SettingsPage == SettingsPage.Notifications;
 
     public bool IsAboutSettingsVisible => SettingsPage == SettingsPage.About;
 
@@ -150,12 +171,24 @@ public sealed class ShellNavigationViewModel : ObservableObject
 
     public bool IsDefinitionEditorVisible => Overlay == ShellOverlay.DefinitionEditor;
 
+    /// <summary>
+    /// Opens Settings on <paramref name="page"/>. Only a transient overlay
+    /// closes on the way: the palette or chooser that asked has done its job,
+    /// while an editor in the window stays open beside Settings.
+    /// </summary>
     public void ShowSettings(SettingsPage page)
     {
-        DismissOverlay();
+        if (Overlay is ShellOverlay.CommandPalette or ShellOverlay.NewPanel)
+        {
+            DismissOverlay();
+        }
+
         SettingsPage = page;
-        Route = ShellRoute.Settings;
+        IsSettingsVisible = true;
     }
+
+    /// <summary>The Settings window closed.</summary>
+    public void HideSettings() => IsSettingsVisible = false;
 
     public void ShowWorkspace()
     {

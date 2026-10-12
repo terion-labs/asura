@@ -5,21 +5,8 @@
     xmlns:dockThemes="using:Dock.Avalonia.Themes.Fluent"
     Name="Asura"
     RequestedThemeVariant="Default">
-  <NativeMenu.Menu>
-    <NativeMenu>
-      <NativeMenuItem
-          Header="About Asura…"
-          Click="OnAboutMenuClick" />
-      <NativeMenuItem
-          Header="Check for Updates…"
-          Click="OnCheckForUpdatesMenuClick" />
-      <NativeMenuItemSeparator />
-      <NativeMenuItem
-          Header="Settings…"
-          Gesture="Meta+OemComma"
-          Click="OnSettingsMenuClick" />
-    </NativeMenu>
-  </NativeMenu.Menu>
+  <!-- The application menu and every window's menu bar are built from the
+       command registry in App.Menus.cs and ApplicationMenuLayout.cs. -->
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.ThemeDictionaries>
@@ -40,19 +27,51 @@
           <SolidColorBrush x:Key="ShellTextBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellMutedBrush" Color="#B8B9B6" />
           <SolidColorBrush x:Key="ShellAccentBrush" Color="#FF8400" />
+          <SolidColorBrush x:Key="ShellAccentFillBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellAccentTextBrush" Color="#FF8400" />
           <SolidColorBrush x:Key="ShellAccentForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellAccentSoftBrush" Color="#291C0F" />
-          <SolidColorBrush x:Key="ShellDangerBrush" Color="#FF5C33" />
-          <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#111111" />
-          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#3A1715" />
-          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A84C45" />
+          <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#2E2E2E" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#474747" />
+          <SolidColorBrush x:Key="ShellDangerBrush" Color="#FF7B72" />
+          <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellDangerFillBrush" Color="#BA5953" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#FF8E86" />
+          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#291818" />
+          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#704240" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#77D797" />
-          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#173222" />
-          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#2E6743" />
+          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#18251E" />
+          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#335040" />
           <SolidColorBrush x:Key="ShellWarningBrush" Color="#E1A45F" />
-          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#32241A" />
-          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#75502F" />
-          <SolidColorBrush x:Key="ShellNoticeBorderBrush" Color="#70492E" />
+          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#251E1A" />
+          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#564436" />
+          <SolidColorBrush x:Key="ShellInfoBrush" Color="#6CB4FF" />
+          <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#1A1A1A" />
+          <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#2E2E2E" />
+          <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#B8B9B6" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF453A" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #59000000</BoxShadows>
+          <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#1FA09D" />
+          <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#8F7BE6" />
+          <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#8C9628" />
+          <SolidColorBrush x:Key="ShellChartSeries4Brush" Color="#D9599A" />
+          <SolidColorBrush x:Key="ShellChartSeries1FillBrush" Color="#331FA09D" />
+          <SolidColorBrush x:Key="ShellChartSeries2FillBrush" Color="#338F7BE6" />
+          <SolidColorBrush x:Key="ShellChartSeries3FillBrush" Color="#338C9628" />
+          <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33D9599A" />
+          <!-- The find wash: the system's yellow behind a match, with black text.
+               Its edge stands at least 3:1 off the content behind it. -->
+          <SolidColorBrush x:Key="ShellFindHighlightBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightBorderBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightForegroundBrush" Color="#000000" />
+          <!-- The wash behind a modal overlay pushes the window back rather
+               than blacking it out. -->
+          <SolidColorBrush x:Key="ShellScrimBrush" Color="#73000000" />
+          <BoxShadows x:Key="ShellOverlayShadow">0 18 54 0 #A0000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #111111, 0 18 54 0 #A0000000</BoxShadows>
+          <BoxShadows x:Key="ShellFocusRingOnAccentShadow">0 0 0 2.5 #FF8400, inset 0 0 0 1 #111111</BoxShadows>
           <!-- Fluent's own interaction states for text inputs and popups jump
                to its stock light-on-dark values on hover, which read as a
                harsh flash against the shell's quiet fields. The states stay
@@ -83,21 +102,51 @@
           <SolidColorBrush x:Key="ShellControlBorderBrush" Color="#CBCCC9" />
           <SolidColorBrush x:Key="ShellControlHoverBrush" Color="#CBCCC9" />
           <SolidColorBrush x:Key="ShellTextBrush" Color="#111111" />
-          <SolidColorBrush x:Key="ShellMutedBrush" Color="#666666" />
+          <SolidColorBrush x:Key="ShellMutedBrush" Color="#5C5E5A" />
           <SolidColorBrush x:Key="ShellAccentBrush" Color="#FF8400" />
-          <SolidColorBrush x:Key="ShellAccentForegroundBrush" Color="#111111" />
+          <SolidColorBrush x:Key="ShellAccentFillBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellAccentTextBrush" Color="#A35400" />
+          <SolidColorBrush x:Key="ShellAccentForegroundBrush" Color="#FFFFFF" />
           <SolidColorBrush x:Key="ShellAccentSoftBrush" Color="#E9E3D8" />
-          <SolidColorBrush x:Key="ShellDangerBrush" Color="#D93C15" />
+          <SolidColorBrush x:Key="ShellSelectedContentBrush" Color="#B75F00" />
+          <SolidColorBrush x:Key="ShellSelectedContentForegroundBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellUnemphasizedSelectionBrush" Color="#D7D8D5" />
+          <SolidColorBrush x:Key="ShellGridSelectionBrush" Color="#C4C5C2" />
+          <SolidColorBrush x:Key="ShellDangerBrush" Color="#B42318" />
           <SolidColorBrush x:Key="ShellDangerForegroundBrush" Color="#FFFFFF" />
-          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#FDE8E5" />
-          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#A73528" />
+          <SolidColorBrush x:Key="ShellDangerFillBrush" Color="#B42318" />
+          <SolidColorBrush x:Key="ShellDangerTextBrush" Color="#B42318" />
+          <SolidColorBrush x:Key="ShellDangerSoftBrush" Color="#F2E8E5" />
+          <SolidColorBrush x:Key="ShellDangerBorderBrush" Color="#B0786F" />
           <SolidColorBrush x:Key="ShellSuccessBrush" Color="#147A3F" />
-          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#E2F5E8" />
-          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#41935E" />
+          <SolidColorBrush x:Key="ShellSuccessSoftBrush" Color="#E4EEE6" />
+          <SolidColorBrush x:Key="ShellSuccessBorderBrush" Color="#7CA68A" />
           <SolidColorBrush x:Key="ShellWarningBrush" Color="#8A4B08" />
-          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#FFF0D6" />
-          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#B46B20" />
-          <SolidColorBrush x:Key="ShellNoticeBorderBrush" Color="#A06A36" />
+          <SolidColorBrush x:Key="ShellWarningSoftBrush" Color="#F3ECDE" />
+          <SolidColorBrush x:Key="ShellWarningBorderBrush" Color="#B6926B" />
+          <SolidColorBrush x:Key="ShellInfoBrush" Color="#0B5CAD" />
+          <SolidColorBrush x:Key="ShellInfoSoftBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ShellInfoBorderBrush" Color="#CBCCC9" />
+          <SolidColorBrush x:Key="ShellStatusNeutralBrush" Color="#5C5E5A" />
+          <SolidColorBrush x:Key="ShellAttentionBrush" Color="#FF3B30" />
+          <BoxShadows x:Key="ShellSegmentShadow">0 1 2 0 #26000000, 0 0 0 0.5 #1F000000</BoxShadows>
+          <SolidColorBrush x:Key="ShellChartSeries1Brush" Color="#008F8A" />
+          <SolidColorBrush x:Key="ShellChartSeries2Brush" Color="#7A5AD6" />
+          <SolidColorBrush x:Key="ShellChartSeries3Brush" Color="#7A8417" />
+          <SolidColorBrush x:Key="ShellChartSeries4Brush" Color="#C23D84" />
+          <SolidColorBrush x:Key="ShellChartSeries1FillBrush" Color="#33008F8A" />
+          <SolidColorBrush x:Key="ShellChartSeries2FillBrush" Color="#337A5AD6" />
+          <SolidColorBrush x:Key="ShellChartSeries3FillBrush" Color="#337A8417" />
+          <SolidColorBrush x:Key="ShellChartSeries4FillBrush" Color="#33C23D84" />
+          <!-- The find wash: the system's yellow behind a match, with black text.
+               Its edge stands at least 3:1 off the content behind it. -->
+          <SolidColorBrush x:Key="ShellFindHighlightBrush" Color="#FFD60A" />
+          <SolidColorBrush x:Key="ShellFindHighlightBorderBrush" Color="#8A6A00" />
+          <SolidColorBrush x:Key="ShellFindHighlightForegroundBrush" Color="#000000" />
+          <SolidColorBrush x:Key="ShellScrimBrush" Color="#40000000" />
+          <BoxShadows x:Key="ShellOverlayShadow">0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
+          <BoxShadows x:Key="ShellRailTileFloatShadow">0 0 0 2 #F2F3F0, 0 12 36 0 #2E000000, 0 1 3 0 #1F000000</BoxShadows>
+          <BoxShadows x:Key="ShellFocusRingOnAccentShadow">0 0 0 2.5 #FF8400, inset 0 0 0 1 #F2F3F0</BoxShadows>
           <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#F2F3F0" />
           <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#F2F3F0" />
@@ -129,15 +178,73 @@
         the pale strip the shell kept growing back.
       -->
       <SolidColorBrush x:Key="TitleBarBackgroundBrush" Color="Transparent" />
+      <!--
+        Fluent styles every popup — menus, flyouts, combo lists, tooltips — from
+        its own pair of resources, which it sets to the bundled Inter at 14. The
+        window styles itself from the shell's tokens, so anything that opened in
+        a popup changed typeface and size relative to the window behind it.
+        These take the place of Fluent's pair; the appearance pipeline
+        republishes them as the shell's UI family and base size, so they follow
+        the platform font and the text-size setting like everything else.
+      -->
+      <FontFamily x:Key="ContentControlThemeFontFamily">$Default</FontFamily>
+      <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
       <x:Double x:Key="ShellSurfaceOpacity">1</x:Double>
+      <!-- A terminal's own background opacity: opaque unless the person asked
+           for a translucent terminal and the window can be translucent. -->
+      <x:Double x:Key="ShellTerminalSurfaceOpacity">1</x:Double>
+      <x:Boolean x:Key="ShellTerminalTranslucencyAvailable">False</x:Boolean>
+      <!-- The Theme tiles in Settings: each mode as the mapper renders it.
+           Republished with the live profile, contrast and host colours. -->
+      <SolidColorBrush x:Key="ShellThemePreviewDarkBackgroundBrush" Color="#1B1B1B" />
+      <SolidColorBrush x:Key="ShellThemePreviewDarkBorderBrush" Color="#3A3A3C" />
+      <SolidColorBrush x:Key="ShellThemePreviewDarkMutedBrush" Color="#AEAEB2" />
+      <SolidColorBrush x:Key="ShellThemePreviewDarkSuccessBrush" Color="#77D797" />
+      <SolidColorBrush x:Key="ShellThemePreviewDarkAccentTextBrush" Color="#FF8400" />
+      <SolidColorBrush x:Key="ShellThemePreviewLightBackgroundBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ShellThemePreviewLightBorderBrush" Color="#D1D1D6" />
+      <SolidColorBrush x:Key="ShellThemePreviewLightMutedBrush" Color="#636366" />
+      <SolidColorBrush x:Key="ShellThemePreviewLightSuccessBrush" Color="#147A3F" />
+      <SolidColorBrush x:Key="ShellThemePreviewLightAccentTextBrush" Color="#A35400" />
+      <x:Boolean x:Key="ShellBlurBehindEnabled">True</x:Boolean>
+      <x:Boolean x:Key="ShellDifferentiateWithoutColor">False</x:Boolean>
+      <!-- The type ramp by role, macOS 26's: Body 13, Secondary 12, Caption 11. -->
+      <x:Double x:Key="ShellBaseFontSize">13</x:Double>
+      <x:Double x:Key="ShellBodyFontSize">13</x:Double>
+      <x:Double x:Key="ShellSecondaryFontSize">12</x:Double>
+      <x:Double x:Key="ShellCaptionFontSize">11</x:Double>
+      <x:Double x:Key="ShellBodyLineHeight">17.5</x:Double>
+      <x:Double x:Key="ShellSecondaryLineHeight">16</x:Double>
+      <x:Double x:Key="ShellCaptionLineHeight">15</x:Double>
+      <x:Double x:Key="ShellTextScaleReferenceSize">13</x:Double>
+      <!-- Rows and menus at macOS 26 metrics. -->
+      <x:Double x:Key="ShellRowMinHeight">28</x:Double>
+      <x:Double x:Key="ShellTreeRowMinHeight">24</x:Double>
+      <x:Double x:Key="ShellMenuItemHeight">24</x:Double>
+      <Thickness x:Key="ShellMenuPadding">5</Thickness>
+      <Thickness x:Key="ShellMenuItemPadding">9,0</Thickness>
+      <CornerRadius x:Key="ShellMenuItemCornerRadius">5</CornerRadius>
+      <Thickness x:Key="ShellMenuSeparatorMargin">9,5</Thickness>
+      <!-- The one inset of a menu flyout and a context menu: Fluent writes it
+           on the items presenter of both from this resource, and the menu's
+           own Padding is held at zero so the two never stack. It was a
+           vertical-only margin, so the first item sat further from the top
+           than from the sides. Republished with the text size. -->
+      <Thickness x:Key="MenuFlyoutScrollerMargin">5</Thickness>
+      <Thickness x:Key="MenuFlyoutPresenterThemePadding">0</Thickness>
+      <CornerRadius x:Key="ShellGroupCornerRadius">7</CornerRadius>
       <CornerRadius x:Key="ShellControlCornerRadius">7</CornerRadius>
       <CornerRadius x:Key="ShellCardCornerRadius">9</CornerRadius>
       <CornerRadius x:Key="ShellSidebarCornerRadius">9</CornerRadius>
       <x:Double x:Key="ShellCardRadius">9</x:Double>
       <CornerRadius x:Key="ShellPillCornerRadius">999</CornerRadius>
-      <x:Double x:Key="ShellPillFontSize">10</x:Double>
+      <x:Double x:Key="ShellPillFontSize">11</x:Double>
       <CornerRadius x:Key="ShellPanelBottomCornerRadius">0,0,9,9</CornerRadius>
       <CornerRadius x:Key="ShellInnerCornerRadius">5</CornerRadius>
+      <!-- The corner of a status mark that is meant to read as square — a
+           warning or a danger mark with Differentiate Without Color on.
+           Fixed: the mark is drawn at a fixed size, like the dot it replaces. -->
+      <CornerRadius x:Key="ShellMarkCornerRadius">1</CornerRadius>
       <!-- Every runtime panel wears the same header, so how tall it is belongs to
            the token set rather than to each of the eight views that draw one. It
            used to be 36 in six of them and 40 in two, which read as two panel
@@ -155,6 +262,10 @@
       <Thickness x:Key="ShellInsetMd">12</Thickness>
       <Thickness x:Key="ShellInsetLg">16</Thickness>
       <Thickness x:Key="ShellInsetXl">24</Thickness>
+      <!-- Where a checkbox's title starts: past the box and the gap after it,
+           which the stock checkbox draws at a fixed size. A line under the
+           title — a setting's description — starts here too. -->
+      <Thickness x:Key="ShellCheckBoxTitleInset">28,0,0,0</Thickness>
       <Thickness x:Key="ShellInsetXxl">32</Thickness>
       <Thickness x:Key="ShellCardPadding">16</Thickness>
       <!-- The tighter card inset, for cards that hold dense content — list
@@ -169,15 +280,88 @@
            scanned rather than read. As a resource, not an Inset markup use:
            the one consumer is a shared DataTemplate, where the Inset
            extension's parse-time resolution has proven unreliable. -->
-      <Thickness x:Key="ShellListRowPadding">12,8</Thickness>
+      <Thickness x:Key="ShellListRowPadding">10,6</Thickness>
+      <x:Double x:Key="ShellSpaceSection">20</x:Double>
+      <Thickness x:Key="ShellInsetSection">20</Thickness>
       <Thickness x:Key="ShellPillPadding">8,4</Thickness>
+      <!-- The Settings window, as macOS 26 System Settings measures at 1x.
+           Republished with the appearance by SettingsChromeTokens. -->
+      <x:Double x:Key="ShellSettingsSidebarWidth">232</x:Double>
+      <x:Double x:Key="ShellSettingsTitleBandHeight">52</x:Double>
+      <x:Double x:Key="ShellSettingsSidebarRowHeight">32</x:Double>
+      <x:Double x:Key="ShellSettingsSearchFieldHeight">28</x:Double>
+      <x:Double x:Key="ShellSettingsHistoryButtonHeight">36</x:Double>
+      <CornerRadius x:Key="ShellSettingsHistoryCornerRadius">18</CornerRadius>
+      <x:Double x:Key="ShellSettingsHistoryGlyphSize">14</x:Double>
+      <CornerRadius x:Key="ShellSettingsSearchFieldCornerRadius">14</CornerRadius>
+      <Thickness x:Key="ShellSettingsChromeEdgeThickness">0</Thickness>
+      <x:Double x:Key="ShellSettingsSliderTrackHeight">6</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderTrackCornerRadius">3</CornerRadius>
+      <x:Double x:Key="ShellSettingsSliderKnobWidth">20</x:Double>
+      <x:Double x:Key="ShellSettingsSliderKnobHeight">16</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderKnobCornerRadius">8</CornerRadius>
+      <Thickness x:Key="ShellSettingsSliderLineInset">0,-10,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsFooterInset">10,6,10,0</Thickness>
+      <x:Double x:Key="ShellSettingsModeTileMinWidth">212</x:Double>
+      <x:Double x:Key="ShellSettingsModeTileMaxWidth">212</x:Double>
+      <SolidColorBrush x:Key="ShellSettingsSliderTrackBrush" Color="#393939" />
+      <SolidColorBrush x:Key="ShellSettingsSliderKnobBrush" Color="#DCDCDC" />
+      <BoxShadows x:Key="ShellSettingsSliderKnobShadow">0 0.5 2 0 #80000000</BoxShadows>
+      <x:Double x:Key="ShellSettingsTileSize">20</x:Double>
+      <x:Double x:Key="ShellSettingsTileGlyphSize">13</x:Double>
+      <CornerRadius x:Key="ShellSettingsTileCornerRadius">5</CornerRadius>
+      <Thickness x:Key="ShellSettingsSidebarInset">10,0</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarSearchInset">10,9,10,8</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarItemPadding">9,0</Thickness>
+      <Thickness x:Key="ShellSettingsSidebarGroupInset">0,12,0,0</Thickness>
+      <CornerRadius x:Key="ShellSettingsSidebarSelectionCornerRadius">8</CornerRadius>
+      <Thickness x:Key="ShellSettingsTitleBandInset">8,0,20,0</Thickness>
+      <Thickness x:Key="ShellSettingsPagePadding">20,12,20,20</Thickness>
+      <x:Double x:Key="ShellSettingsGroupGap">10</x:Double>
+      <Thickness x:Key="ShellSettingsSectionInset">0,20,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsHeadingInset">10,0,10,10</Thickness>
+      <Thickness x:Key="ShellSettingsHeadingTextInset">10,0</Thickness>
+      <CornerRadius x:Key="ShellSettingsGroupCornerRadius">12</CornerRadius>
+      <Thickness x:Key="ShellSettingsGroupContentPadding">10</Thickness>
+      <Thickness x:Key="ShellSettingsRowPadding">10,8</Thickness>
+      <x:Double x:Key="ShellSettingsRowMinHeight">37</x:Double>
+      <Thickness x:Key="ShellSettingsSeparatorInset">10,0</Thickness>
+      <x:Double x:Key="ShellSettingsControlSpacing">10</x:Double>
+      <x:Double x:Key="ShellSettingsChevronBoxSize">20</x:Double>
+      <CornerRadius x:Key="ShellSettingsChevronBoxCornerRadius">5</CornerRadius>
+      <Thickness x:Key="ShellSettingsGroupBorderThickness">0</Thickness>
+      <x:Double x:Key="ShellSettingsLabelSpacing">2</x:Double>
+      <Thickness x:Key="ShellSettingsSwitchPadding">0.5</Thickness>
+      <Thickness x:Key="ShellSettingsSwitchLineInset">0,1,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsFormNoteInset">0,4,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsPopUpInset">0,0,3.5,0</Thickness>
+      <Thickness x:Key="ShellSettingsTitleInset">0,2,0,0</Thickness>
+      <x:Double x:Key="ShellSettingsPushButtonHeight">24</x:Double>
+      <Thickness x:Key="ShellSettingsPushButtonPadding">12,2</Thickness>
+      <x:Double x:Key="ShellSettingsHistoryDividerHeight">18</x:Double>
+      <SolidColorBrush x:Key="ShellSettingsSearchFieldBrush" Color="#535353" />
+      <SolidColorBrush x:Key="ShellSettingsHistoryCapsuleBrush" Color="#353535" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarBrush" Color="#252525" />
+      <SolidColorBrush x:Key="ShellSettingsGroupBrush" Color="#232323" />
+      <SolidColorBrush x:Key="ShellSettingsSeparatorBrush" Color="#2C2C2C" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarSelectionBrush" Color="#5A5A5B" />
+      <SolidColorBrush x:Key="ShellSettingsSidebarSelectionForegroundBrush" Color="#F5F5F7" />
+      <SolidColorBrush x:Key="ShellSettingsChevronBoxBrush" Color="#323233" />
+      <!-- Each Settings page's icon tile: a white glyph on the page's own
+           colour, as System Settings draws its sidebar. Identity, not state,
+           so they keep their colour in every theme. -->
+      <SolidColorBrush x:Key="ShellSettingsTileGlyphBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ShellSettingsTileGraphiteBrush" Color="#3A3A3C" />
+      <SolidColorBrush x:Key="ShellSettingsTileGreenBrush" Color="#28A03F" />
+      <SolidColorBrush x:Key="ShellSettingsTileBlueBrush" Color="#0A7AFF" />
+      <SolidColorBrush x:Key="ShellSettingsTileSkyBrush" Color="#1A82D4" />
+      <SolidColorBrush x:Key="ShellSettingsTileGrayBrush" Color="#7C7C80" />
+      <SolidColorBrush x:Key="ShellSettingsTileDarkGrayBrush" Color="#5A5A5E" />
+      <SolidColorBrush x:Key="ShellSettingsTileOrangeBrush" Color="#E0620E" />
+      <SolidColorBrush x:Key="ShellSettingsTileRedBrush" Color="#F0473C" />
+      <SolidColorBrush x:Key="ShellSettingsTilePurpleBrush" Color="#9B59D9" />
       <Thickness x:Key="ShellTabStripTopClearance">0,1,0,0</Thickness>
       <Thickness x:Key="ShellToolbarSeparatorMargin">0,7</Thickness>
-      <BoxShadows x:Key="ShellOverlayShadow">0 18 54 0 #A0000000</BoxShadows>
-      <!-- The wash behind every overlay. Deliberately near-black in both
-           themes: a scrim's job is to push the page back, and a pale scrim
-           over a pale page reads as a rendering fault rather than a layer. -->
-      <SolidColorBrush x:Key="ShellScrimBrush" Color="#F20B0B0C" />
       <!-- The ground a warning toast stands on when it floats over arbitrary
            content — a terminal, a native view — where no surface token can
            promise contrast. Warm-tinted near-black so the warning text and
@@ -185,11 +369,20 @@
       <SolidColorBrush x:Key="ShellWarningOverlayBrush" Color="#E6291D18" />
       <!-- The layout designer's slot identities. Fixed, not themed: a slot's
            colour is its name across sessions and themes, the way a tag colour
-           is, so these deliberately do not move with the palette. -->
+           is, so these deliberately do not move with the palette. The digit
+           on them is dark ink in every theme: white on orange or green fails
+           contrast, and the window background is white in a light theme. -->
+      <SolidColorBrush x:Key="ShellSlotBadgeInkBrush" Color="#111111" />
       <SolidColorBrush x:Key="ShellSlotBadgeOrangeBrush" Color="#FF8400" />
       <SolidColorBrush x:Key="ShellSlotBadgeBlueBrush" Color="#3B82F6" />
       <SolidColorBrush x:Key="ShellSlotBadgeGreenBrush" Color="#22C55E" />
       <SolidColorBrush x:Key="ShellSlotBadgePinkBrush" Color="#EC4899" />
+      <!-- What a Docker image, volume, and network are, so a mixed list can be
+           scanned by kind. Identity, not status: these have no state to
+           report, and a container's tile takes its status tone instead. -->
+      <SolidColorBrush x:Key="ShellDockerImageBrush" Color="#6F8FE7" />
+      <SolidColorBrush x:Key="ShellDockerVolumeBrush" Color="#AE7AD9" />
+      <SolidColorBrush x:Key="ShellDockerNetworkBrush" Color="#54A7A0" />
       <!-- The three widths an overlay opens at. Content decides which of the
            three it needs; nothing else about an overlay's size is a choice. -->
       <x:Double x:Key="ShellOverlayWidthSm">680</x:Double>
@@ -203,7 +396,8 @@
            composition pipeline republishes this with the live accent; this is
            the before-first-publish fallback. -->
       <BoxShadows x:Key="ShellFlyoutShadow">0 8 48 0 #8C000000, 0 2 14 0 #59000000, inset 0 0 40 0 #38FF8400</BoxShadows>
-      <BoxShadows x:Key="ShellFocusRingShadow">0 0 0 3 #59FF8400</BoxShadows>
+      <BoxShadows x:Key="ShellFocusRingShadow">0 0 0 2.5 #FF8400</BoxShadows>
+      <SolidColorBrush x:Key="ShellFocusRingBrush" Color="#FF8400" />
       <SolidColorBrush x:Key="ShellAgentPanelGlowBrush" Color="#10FF8400" />
       <BoxShadows x:Key="ShellAgentPanelGlowShadow">inset 0 0 224 0 #46FF8400, inset 0 0 112 0 #5CFF8400, inset 0 0 51.2 0 #7AFF8400, inset 0 0 17.6 0 #C0FF8400</BoxShadows>
       <!-- The clearance between a hairline-framed control and its content: the
@@ -261,6 +455,7 @@
     <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
     <StyleInclude Source="avares://Asura.App/Styles/DesignSystem.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraTheme.axaml" />
+    <StyleInclude Source="avares://Asura.App/Styles/SettingsStyles.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraDockTheme.axaml" />
     <StyleInclude Source="avares://Asura.App/Styles/AsuraDockImmediateTheme.axaml" />
   </Application.Styles>

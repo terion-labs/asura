@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
+using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 
@@ -48,7 +50,7 @@ public sealed record DatabaseTunnelOption(
 public sealed class DatabaseConnectionEditorViewModel : ObservableObject
 {
     public const string AgentAuthentication = "SSH agent";
-    public const string PasswordAuthentication = "Password (OS keychain)";
+    public const string PasswordAuthentication = "Password";
 
     private readonly IDatabaseConnectionCatalog _client;
     private readonly IReadOnlyList<ConnectionProfile> _connections;
@@ -78,8 +80,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     private string _tunnelPassword = string.Empty;
     private string _tunnelAuthentication = AgentAuthentication;
     private string _testStatus = "Not tested";
-    private string _testDetail =
-        "Save is allowed without a test; connecting validates the server again.";
+    private string _testDetail = "You can save without testing.";
+    private string _testFailureDetails = string.Empty;
     private bool _isTesting;
 
     public DatabaseConnectionEditorViewModel(
@@ -353,6 +355,25 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         private set => SetProperty(ref _testDetail, value);
     }
 
+    /// <summary>
+    /// What the driver said when the last test failed, behind the dialog's
+    /// Details disclosure. The status line says what happened in plain words;
+    /// the driver's own message is for whoever has to look closer.
+    /// </summary>
+    public string TestFailureDetails
+    {
+        get => _testFailureDetails;
+        private set
+        {
+            if (SetProperty(ref _testFailureDetails, value))
+            {
+                OnPropertyChanged(nameof(HasTestFailureDetails));
+            }
+        }
+    }
+
+    public bool HasTestFailureDetails => TestFailureDetails.Length > 0;
+
     public bool IsTesting
     {
         get => _isTesting;
@@ -363,7 +384,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(Name))
         {
-            throw new ArgumentException("Connection name is required.");
+            throw InvalidField.Exception(nameof(Name), "Connection name is required.");
         }
 
         var details = ResolveDetails();
@@ -398,6 +419,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
 
         IsTesting = true;
+        TestFailureDetails = string.Empty;
         TestStatus = "Testing connection";
         TestDetail = "Validating connection parameters…";
         try
@@ -420,7 +442,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
             TestStatus = "Validation failed";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "database.connection-editor.test.refused",
+                exception,
+                "Asura can't test the connection with these settings. Check each value, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -433,7 +458,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         catch (InvalidOperationException exception)
         {
             TestStatus = "Test unavailable";
-            TestDetail = exception.Message;
+            TestDetail = FailureReason.Refusal(
+                "database.connection-editor.tunnel.refused",
+                exception,
+                "Asura can't open the SSH tunnel for this test. Check the tunnel's settings, then test again.");
             ReportError(TestDetail, TestStatus);
             return;
         }
@@ -497,10 +525,53 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         catch (Exception exception)
         {
+            SecretSafeDiagnostics.WriteTrace("database.connection-editor.test.failed", exception);
             TestStatus = "Test failed";
-            TestDetail = exception.Message;
+            TestDetail = DescribeTestFailure(exception, SelectedDriver.IsFileBased);
+            TestFailureDetails = exception.Message;
             ReportError(TestDetail, TestStatus);
         }
+    }
+
+    /// <summary>
+    /// What a failed test means, in words a person can act on. The driver's
+    /// message names its own types and server codes and offers no next step,
+    /// so it goes behind Details and into diagnostics instead of the status.
+    /// </summary>
+    internal static string DescribeTestFailure(Exception exception, bool isFileBased)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            switch (current)
+            {
+                case ReadableFailureException:
+                    return current.Message;
+                case WorkspaceNetworkBlockedException:
+                    return DatabaseErrorText.KillSwitchBlocking;
+                case UnsupportedConnectionParameterException unsupported:
+                    return DatabaseErrorText.DescribeUnsupportedParameters(unsupported);
+                case TimeoutException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.TimedOut }:
+                    return "The server didn’t answer in time. Check the host and port, then test again.";
+                case System.Net.Sockets.SocketException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.Unreachable }:
+                    return "Asura couldn’t reach the server. Check the host and port and that the server is running, then test again.";
+                case System.Security.Authentication.AuthenticationException:
+                case DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.SecureConnection }:
+                    return "Asura couldn’t set up a secure connection. Check the server’s TLS settings, then test again.";
+            }
+        }
+
+        if (isFileBased)
+        {
+            return "Asura couldn’t open the database file. Check its path and permissions, then test again.";
+        }
+
+        return exception is System.Data.Common.DbException
+            or DatabaseProviderFailureException { Kind: DatabaseProviderFailureKind.Server }
+            ? "The server refused the connection. Check the username, password, and database, then test again."
+            : "Asura couldn’t connect to the database. Check the connection’s settings, then test again.";
     }
 
     /// <summary>
@@ -553,19 +624,40 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         {
             if (string.IsNullOrWhiteSpace(ConnectionStringInput))
             {
-                throw new ArgumentException("Enter a connection string or URL first.");
+                throw InvalidField.Exception(nameof(ConnectionStringInput), "Enter a connection string or URL first.");
             }
 
-            return _client.ParseConnectionDetails(
-                SelectedDriver.Id,
-                ConnectionStringInput.Trim());
+            try
+            {
+                return _client.ParseConnectionDetails(
+                    SelectedDriver.Id,
+                    ConnectionStringInput.Trim());
+            }
+            catch (UnsupportedConnectionParameterException exception)
+            {
+                // The format is fine; the driver can't use a parameter the URL
+                // names, so the field says which one to remove.
+                SecretSafeDiagnostics.WriteTrace("database.connection-editor.parse.unsupported", exception);
+                throw InvalidField.Exception(
+                    nameof(ConnectionStringInput),
+                    DatabaseErrorText.DescribeUnsupportedParameters(exception));
+            }
+            catch (Exception exception) when (exception is ArgumentException or FormatException)
+            {
+                // The driver's parser names its own keywords and offsets; the
+                // field says what to do instead.
+                SecretSafeDiagnostics.WriteTrace("database.connection-editor.parse.refused", exception);
+                throw InvalidField.Exception(
+                    nameof(ConnectionStringInput),
+                    $"Asura can't read this connection string for {SelectedDriver.DisplayName}. Check its format, or choose Parameters and fill in the fields instead.");
+            }
         }
 
         if (IsFileBased)
         {
             if (string.IsNullOrWhiteSpace(FilePath))
             {
-                throw new ArgumentException("Database file path is required.");
+                throw InvalidField.Exception(nameof(FilePath), "Database file path is required.");
             }
 
             return new DatabaseConnectionDetails(
@@ -586,14 +678,15 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(TunnelHost))
         {
-            throw new ArgumentException("The SSH tunnel needs a host.");
+            throw InvalidField.Exception(nameof(TunnelHost), "The SSH tunnel needs a host.");
         }
 
         var useAgent = !TunnelUsesPassword;
         var password = string.IsNullOrEmpty(TunnelPassword) ? null : TunnelPassword;
         if (!useAgent && password is null && !HasStoredTunnelPassword)
         {
-            throw new ArgumentException(
+            throw InvalidField.Exception(
+                nameof(TunnelPassword),
                 "The SSH tunnel needs a password, or switch it to the SSH agent.");
         }
 
@@ -611,8 +704,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         if (request.TunnelConnectionId is { } savedId)
         {
             return _connections.FirstOrDefault(item => item.Id == savedId)
-                ?? throw new InvalidOperationException(
-                    "The selected SSH tunnel connection no longer exists.");
+                ?? throw FailureReason.Readable(new InvalidOperationException(
+                    "The SSH connection chosen for the tunnel no longer exists. Choose another one, then test again."));
         }
 
         if (request.InlineTunnel is not { } inline)
@@ -627,11 +720,11 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         else if (inline.Password is not null)
         {
-            // A freshly typed tunnel password reaches the OS keychain on save;
+            // A freshly typed tunnel password reaches the secret store on save;
             // until then the tunnel opener has nothing to resolve.
-            throw new InvalidOperationException(
-                "Tunnel passwords are stored in the OS keychain on save. "
-                + "Save the connection first, then test.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                $"The tunnel password is stored in {PlatformTerms.SecretStore} when you save. "
+                + "Save the connection, then test it."));
         }
         else if (_existingInlineTunnel?.Authentication
             is ConnectionAuthentication.Password stored)
@@ -640,8 +733,8 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
         else
         {
-            throw new InvalidOperationException(
-                "The SSH tunnel has no stored password to test with.");
+            throw FailureReason.Readable(new InvalidOperationException(
+                "The SSH tunnel has no stored password to test with. Enter its password, save the connection, then test it."));
         }
 
         return BuildInlineTunnelProfile(
@@ -718,7 +811,10 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
         }
     }
 
-    private static int? ParsePort(string value, string label)
+    private static int? ParsePort(
+        string value,
+        string label,
+        [CallerArgumentExpression(nameof(value))] string field = "")
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -732,7 +828,7 @@ public sealed class DatabaseConnectionEditorViewModel : ObservableObject
                 out var parsed)
             || parsed is < 1 or > 65_535)
         {
-            throw new ArgumentException($"{label} must be a number between 1 and 65535.");
+            throw InvalidField.Exception(field, $"{label} must be a number between 1 and 65535.");
         }
 
         return parsed;

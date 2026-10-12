@@ -15,7 +15,7 @@
     IsVisible="{Binding IsVisibleInLayout}"
     AutomationProperties.Name="Database panel">
   <controls:PanelChrome
-      CloseLabel="Close database panel"
+      CloseLabel="Close Database panel"
       CloseRequested="OnCloseClick"
       HasAttention="{Binding HasAttention}"
       IsActive="{Binding IsActive}"
@@ -25,7 +25,12 @@
       SplitRequested="OnSplitRequested"
       Title="{Binding Title}">
     <controls:PanelChrome.Status>
-      <Border Classes="StatusDot" Classes.available="{Binding IsConnected}" />
+      <!-- The connection's real state, named for the tooltip and VoiceOver;
+           with Differentiate Without Color the dot becomes a glyph. -->
+      <controls:StatusMark
+          x:Name="ConnectionStatusMark"
+          Tone="{Binding ConnectionStatusTone}"
+          Description="{Binding ConnectionStatusLabel}" />
     </controls:PanelChrome.Status>
 
     <controls:PanelChrome.Leading>
@@ -41,7 +46,7 @@
       <controls:LiveRegionTextBlock
           VerticalAlignment="Center"
           Classes="Muted"
-          FontSize="{DynamicResource ShellFontSize9}"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
           Text="{Binding StatusText}"
           AutomationProperties.LiveSetting="Polite"
           AutomationProperties.Name="Database state" />
@@ -58,107 +63,70 @@
               Orientation="Horizontal"
               Spacing="{DynamicResource ShellSpaceSm}"
               IsEnabled="{Binding CanChangeConnection}">
-            <!-- Everything in this row wears the connection pill's 26px height
+            <!-- Everything in this row wears the connection pill's 26px height, grown with the text size,
                  so the header reads as one line of controls. -->
             <ComboBox
                 MinWidth="150"
-                Height="26"
+                MinHeight="{controls:TextScaled 26}"
                 VerticalAlignment="Center"
                 IsVisible="{Binding HasDatabaseChoices}"
                 ItemsSource="{Binding Databases}"
                 SelectedItem="{Binding SelectedDatabase, Mode=TwoWay}"
                 AutomationProperties.Name="Current database" />
-            <Button
+            <Border
                 VerticalAlignment="Center"
-                Classes="IconButton"
-                Click="OnEditConnectionClick"
-                IsVisible="{Binding IsSavedConnection}"
-                ToolTip.Tip="Edit connection"
-                AutomationProperties.Name="Edit this database connection">
-              <icons:SymbolIcon Symbol="Options" FontSize="13" />
+                Classes="ToolbarGroup"
+                IsVisible="{Binding IsSavedConnection}">
+              <Button
+                  Classes="IconButton ToolbarGroupAction"
+                  Click="OnEditConnectionClick"
+                  ToolTip.Tip="Edit connection…"
+                  AutomationProperties.Name="Edit this database connection">
+                <icons:SymbolIcon Symbol="Options" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Button>
+            </Border>
+            <!-- One button that says what it will do: Connect without a
+                 session, Disconnect with one. Reconnect is the occasional
+                 act, so it waits in the button's context menu. -->
+            <Button
+                x:Name="ConnectionButton"
+                MinWidth="96"
+                MinHeight="{controls:TextScaled 26}"
+                Padding="{controls:Inset Horizontal=Md}"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
+                HorizontalContentAlignment="Center"
+                Classes="SecondaryButton"
+                Command="{Binding ToggleConnectionCommand}"
+                Content="{Binding ConnectionActionLabel}"
+                AutomationProperties.Name="{Binding ConnectionActionLabel}">
+              <Button.ContextMenu>
+                <ContextMenu>
+                  <MenuItem
+                      x:Name="ReconnectMenuItem"
+                      Header="Reconnect"
+                      Command="{Binding ReconnectCommand}" />
+                  <MenuItem
+                      x:Name="ConnectionMenuItem"
+                      Header="{Binding ConnectionActionLabel}"
+                      Command="{Binding ToggleConnectionCommand}" />
+                </ContextMenu>
+              </Button.ContextMenu>
             </Button>
-            <Button
-                MinWidth="86"
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding ConnectCommand}"
-                Content="{Binding ConnectButtonLabel}"
-                AutomationProperties.Name="Connect to the database" />
-            <Button
-                Height="26"
-                Padding="{controls:Inset Horizontal=Md}"
-                VerticalAlignment="Center"
-                VerticalContentAlignment="Center"
-                Classes="SecondaryButton"
-                Command="{Binding DisconnectCommand}"
-                Content="Disconnect"
-                IsVisible="{Binding IsConnected}"
-                AutomationProperties.Name="Disconnect from the database" />
             <TextBlock
                 VerticalAlignment="Center"
                 Classes="Muted"
-                FontSize="{DynamicResource ShellFontSize10}"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
                 IsVisible="{Binding !HasConnectionTarget}"
                 Text="No connection — choose one from the connection menu."
                 TextTrimming="CharacterEllipsis" />
           </StackPanel>
 
-          <!-- The three perspectives on the selected object, out of the
-               connection group: switching views is not a connection change.
-               The database overview is not an object; they fade with it. -->
-          <Grid Grid.Column="1" VerticalAlignment="Center">
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding !IsDatabaseOverview}">
-              <UniformGrid Columns="3">
-              <ToggleButton
-                  x:Name="DataModeButton"
-                  Classes="Segment"
-                  Click="OnDataModeClick"
-                  Content="Data"
-                  AutomationProperties.Name="Show table data" />
-              <ToggleButton
-                  x:Name="StructureModeButton"
-                  Classes="Segment"
-                  Click="OnStructureModeClick"
-                  Content="Structure"
-                  AutomationProperties.Name="Show table structure" />
-              <ToggleButton
-                  x:Name="IndexesModeButton"
-                  Classes="Segment"
-                  Click="OnIndexesModeClick"
-                  Content="Indexes"
-                  AutomationProperties.Name="Show table indexes" />
-              </UniformGrid>
-            </Border>
-
-            <!-- Database-level perspectives occupy the same stable header
-                 slot as table perspectives. The diagram is rendered in-app;
-                 its portable Mermaid source remains available to copy/save. -->
-            <Border
-                VerticalAlignment="Center"
-                Classes="Segmented PerspectiveToggle"
-                IsVisible="{Binding IsDatabaseOverview}">
-              <UniformGrid Columns="2">
-                <ToggleButton
-                    x:Name="ObjectsOverviewButton"
-                    Classes="Segment"
-                    Click="OnObjectsOverviewClick"
-                    Content="Objects"
-                    AutomationProperties.Name="Show database objects" />
-                <ToggleButton
-                    x:Name="DiagramOverviewButton"
-                    Classes="Segment"
-                    Click="OnDiagramOverviewClick"
-                    Content="ER Diagram"
-                    AutomationProperties.Name="Show database Mermaid ER diagram" />
-              </UniformGrid>
-            </Border>
-          </Grid>
+          <!-- The perspectives, out of the connection group: switching views
+               is not a connection change. -->
+          <components:DatabasePerspectivePicker
+              Grid.Column="1"
+              DiagramShown="OnDiagramShown" />
         </Grid>
       </Border>
 

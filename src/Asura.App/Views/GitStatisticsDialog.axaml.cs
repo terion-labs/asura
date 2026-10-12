@@ -1,25 +1,76 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Asura.App.Controls;
+using Asura.Application;
 using Asura.Git;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 
 namespace Asura.App.Views;
 
-public sealed partial class GitStatisticsDialog : Window
+/// <summary>One row of the contributors table: a commit count and who made the commits.</summary>
+public sealed record GitContributorRow(int Commits, string Author)
 {
+    public string CommitsText => Commits.ToString("N0", CultureInfo.CurrentCulture);
+
+    public string AccessibleName => $"{Author}, {CountLabel.InSentence(Commits, "commit")}";
+}
+
+public sealed partial class GitStatisticsDialog : DialogWindow
+{
+    // The treemap cells take the chart palette in turn: the accent belongs to
+    // what can be pressed or is selected, and every folder in it was neither.
+    private static readonly string[] CellBrushKeys =
+    [
+        "ShellChartSeries1",
+        "ShellChartSeries2",
+        "ShellChartSeries3",
+        "ShellChartSeries4",
+    ];
+
+    // Below this a cell has no room for its name and size, which its tooltip
+    // still carries.
+    private const double LabelMinimumWidth = 56;
+    private const double LabelMinimumHeight = 34;
+
     private readonly IReadOnlyList<GitDirectorySize> _directories = [];
 
     public GitStatisticsDialog() => InitializeComponent();
 
     public GitStatisticsDialog(GitRepositoryStatistics statistics) : this()
     {
+        ArgumentNullException.ThrowIfNull(statistics);
         _directories = [.. statistics.Directories.Where(directory => directory.Bytes > 0)];
-        Summary.Text = $"{statistics.Directories.Sum(directory => directory.Files)} tracked files · {statistics.Directories.Sum(directory => directory.Bytes):N0} bytes";
-        Contributors.Text = statistics.Contributors;
+        Summary.Text = SummaryText(statistics);
+        var contributors = ParseContributors(statistics.Contributors);
+        Contributors.ItemsSource = contributors;
+        Contributors.IsVisible = contributors.Count > 0;
+        NoContributors.IsVisible = contributors.Count == 0;
     }
 
-    private void OnClose(object? sender, RoutedEventArgs e) => Close();
+    /// <summary>The line over the treemap: how many files, and their size in the units the rest of the app uses.</summary>
+    internal static string SummaryText(GitRepositoryStatistics statistics) =>
+        $"{CountLabel.Format(statistics.Directories.Sum(directory => directory.Files), "tracked file")} · {ByteSize.Format(statistics.Directories.Sum(directory => directory.Bytes))}";
+
+    /// <summary>
+    /// The rows of <c>git shortlog -sne</c>: a count, a tab, and the author.
+    /// A line that isn't in that shape is left out rather than shown raw.
+    /// </summary>
+    internal static IReadOnlyList<GitContributorRow> ParseContributors(string? shortlog) =>
+        [.. (shortlog ?? "")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line => ShortlogLine().Match(line))
+            .Where(match => match.Success)
+            .Select(match => new GitContributorRow(
+                int.Parse(match.Groups["count"].Value, NumberStyles.None, CultureInfo.InvariantCulture),
+                match.Groups["author"].Value.Trim()))];
+
+    [GeneratedRegex(@"^(?<count>\d{1,9})\s+(?<author>\S.*)$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex ShortlogLine();
+
     private void OnTreemapSize(object? sender, SizeChangedEventArgs e)
     {
         Treemap.Children.Clear();
@@ -54,17 +105,32 @@ public sealed partial class GitStatisticsDialog : Window
             return;
         }
         var item = directories[0];
+        var series = CellBrushKeys[Treemap.Children.Count % CellBrushKeys.Length];
+        var cellWidth = Math.Max(0, rectangle.Width - 2);
+        var cellHeight = Math.Max(0, rectangle.Height - 2);
         var card = new Border
         {
-            Width = Math.Max(0, rectangle.Width - 2),
-            Height = Math.Max(0, rectangle.Height - 2),
-            Background = this.FindResource("ShellAccentSoftBrush") as IBrush,
-            BorderBrush = this.FindResource("ShellBorderBrush") as IBrush,
+            Width = cellWidth,
+            Height = cellHeight,
+            Background = this.FindResource(series + "FillBrush") as IBrush,
+            BorderBrush = this.FindResource(series + "Brush") as IBrush,
             BorderThickness = new Thickness(1),
             ClipToBounds = true,
-            Child = new TextBlock { Text = $"{item.Path}\n{item.Bytes:N0} bytes", TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(4) }
+            // The value is on the cell, not only in its tooltip, wherever the
+            // name and size fit. The folder keeps its last segment, as Finder
+            // truncates a path.
+            Child = cellWidth < LabelMinimumWidth || cellHeight < LabelMinimumHeight ? null : new StackPanel
+            {
+                Margin = new Thickness(4),
+                Children =
+                {
+                    new TextBlock { Text = item.Path, TextTrimming = TextTrimming.PathSegmentEllipsis },
+                    new TextBlock { Text = ByteSize.Format(item.Bytes), Classes = { "Muted" }, TextTrimming = TextTrimming.CharacterEllipsis },
+                },
+            },
         };
-        ToolTip.SetTip(card, $"{item.Path}: {item.Files} files, {item.Bytes:N0} bytes");
+        AutomationProperties.SetName(card, $"{item.Path}, {ByteSize.Format(item.Bytes)}");
+        ToolTip.SetTip(card, $"{item.Path}: {CountLabel.Format(item.Files, "file")}, {ByteSize.Format(item.Bytes)}");
         Canvas.SetLeft(card, rectangle.X); Canvas.SetTop(card, rectangle.Y);
         Treemap.Children.Add(card);
     }

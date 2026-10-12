@@ -240,7 +240,7 @@ public sealed class AgentProcessListActionComposer
                 if (!AgentTargetScope.Contains(context.Target, narrowedPanel))
                 {
                     throw new ArgumentException(
-                        "The Process Monitor panel is outside the resolved run target.",
+                        "The Processes panel is outside the resolved run target.",
                         nameof(context));
                 }
 
@@ -293,7 +293,7 @@ public sealed class AgentProcessListActionComposer
         if (matches.Length != 1)
         {
             throw new ArgumentException(
-                "The resolved target must contain exactly one matching Process Monitor panel.",
+                "The resolved target must contain exactly one matching Processes panel.",
                 nameof(context));
         }
 
@@ -373,7 +373,7 @@ public sealed class AgentProcessListActionComposer
         AgentContextPanel panel,
         AgentProcessListRequest request) =>
         new(
-            "Local Process Monitor",
+            "Processes",
             "Local host",
             workingDirectory: null,
             [

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Asura.Application;
 using Asura.Core;
 using FluentIcons.Common;
@@ -65,10 +64,10 @@ public sealed record RecentSessionHistoryItemViewModel(
 
     public string LastUsed => RelativeTime(Record.LastUsedAt, ObservedAt);
 
-    public string Started => FormatTimestamp(Record.StartedAt);
+    public string Started => DisplayDates.Format(Record.StartedAt);
 
     public string Ended => Record.EndedAt is { } endedAt
-        ? FormatTimestamp(endedAt)
+        ? DisplayDates.Format(endedAt)
         : "In progress";
 
     public string Duration => Record.EndedAt is { } endedAt
@@ -76,8 +75,8 @@ public sealed record RecentSessionHistoryItemViewModel(
         : "In progress";
 
     public string ReopenStatus => CanOpen
-        ? "Reopening launches the current saved definition; history retains metadata, not a session snapshot."
-        : "The current saved definition no longer exists or is unavailable on this platform; metadata remains available for review.";
+        ? "Reopening opens the workspace or screen as it's saved now. History keeps names and times, not what was on screen."
+        : "The workspace or screen that session came from no longer exists or isn't available on this computer. Its details stay here for review.";
 
     /// <summary>
     /// Whether the row would look identical.
@@ -96,9 +95,6 @@ public sealed record RecentSessionHistoryItemViewModel(
         && string.Equals(SourceKind, other.SourceKind, StringComparison.Ordinal)
         && string.Equals(LastUsed, other.LastUsed, StringComparison.Ordinal)
         && SourceGlyph == other.SourceGlyph;
-
-    private static string FormatTimestamp(DateTimeOffset timestamp) =>
-        timestamp.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
     private static string FormatDuration(TimeSpan duration)
     {
@@ -137,19 +133,10 @@ public sealed record RecentSessionHistoryItemViewModel(
 
         return age < TimeSpan.FromDays(7)
             ? $"{Math.Max(1, (int)age.TotalDays)} d ago"
-            : timestamp.ToLocalTime().ToString("yyyy-MM-dd", CultureInfo.CurrentCulture);
+            : DisplayDates.Format(timestamp);
     }
 
-    private static string PanelKindLabel(PanelKind kind) => kind switch
-    {
-        PanelKind.Terminal => "Terminal",
-        PanelKind.FileViewer => "File Viewer",
-        PanelKind.Browser => "Browser",
-        PanelKind.Statistics => "Statistics",
-        PanelKind.ProcessMonitor => "Process Monitor",
-        PanelKind.DatabaseViewer => "Database",
-        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
-    };
+    private static string PanelKindLabel(PanelKind kind) => PanelTypes.Name(kind);
 
     private static string OutcomeLabel(RecentSessionOutcome outcome) => outcome switch
     {
@@ -157,7 +144,7 @@ public sealed record RecentSessionHistoryItemViewModel(
         RecentSessionOutcome.GracefullyClosed => "Closed",
         RecentSessionOutcome.ForceTerminated => "Force terminated",
         RecentSessionOutcome.Failed => "Failed",
-        RecentSessionOutcome.Cancelled => "Cancelled",
+        RecentSessionOutcome.Cancelled => "Canceled",
         RecentSessionOutcome.Interrupted => "Interrupted",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, null),
     };

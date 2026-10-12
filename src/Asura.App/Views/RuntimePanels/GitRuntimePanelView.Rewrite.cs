@@ -114,7 +114,7 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Choose rebase range", "Commits after this base through HEAD will appear in the todo editor.",
+        var values = await ShowGitFormAsync("Choose Rebase Range", "Edit Rebase Plan…", "Commits after this base, through HEAD, open in the rebase plan editor.",
             new GitWorkflowField("base", "Base revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD~1"));
         if (values is null)
         {
@@ -131,7 +131,7 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Compare revisions", "The changes view will show target against base.",
+        var values = await ShowGitFormAsync("Compare Revisions", "Compare", "The changes view will show target against base.",
             new GitWorkflowField("base", "Base revision", "HEAD"), new("target", "Target revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD"));
         if (values is not null)
         {
@@ -146,13 +146,13 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Create branch at revision", "Create a branch at the selected revision, with optional checkout.",
+        var values = await ShowGitFormAsync("Create Branch at Revision", "Create Branch", "Create a branch at the selected revision, with optional checkout.",
             new("name", "Branch name"), new("revision", "Starting revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD"),
-            new("checkout", "Switch to new branch", "No", Choices: ["No", "Yes"]));
+            GitWorkflowField.CheckBox("checkout", "Switch to the new branch", false));
         if (values is not null)
         {
             await viewModel.HistoryActionAsync(new(GitHistoryAction.CreateBranch,
-            [values["revision"]], Name: values["name"], SwitchBranch: string.Equals(values["checkout"], "Yes", StringComparison.Ordinal)));
+            [values["revision"]], Name: values["name"], SwitchBranch: GitWorkflowDialog.IsChecked(values, "checkout")));
         }
     }
 
@@ -163,9 +163,15 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Restore file from revision", "This replaces the file in your working tree with its recorded version. The index remains as it is.",
-            new("path", "File path", viewModel.SelectedChange?.Path ?? viewModel.SelectedCommitChange?.Path ?? ""),
-            new("revision", "Source revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD"));
+        // Replacing the working file drops whatever is in it now.
+        var values = await ShowGitFormAsync(new GitWorkflowForm(
+            "Restore File from Revision",
+            "This replaces the file in your working tree with its recorded version. The index remains as it is.",
+            new GitWorkflowAction("Restore File", IsDestructive: true),
+            [
+                new("path", "File path", viewModel.SelectedChange?.Path ?? viewModel.SelectedCommitChange?.Path ?? ""),
+                new("revision", "Source revision", viewModel.SelectedCommit?.Commit.Sha ?? "HEAD"),
+            ]));
         if (values is not null)
         {
             await viewModel.HistoryActionAsync(new(GitHistoryAction.RestoreFile, [values["revision"]], Path: values["path"]));
@@ -202,13 +208,14 @@ public sealed partial class GitRuntimePanelView
             return;
         }
 
-        var values = await ShowGitFormAsync("Git Flow · " + action,
+        // Every Git Flow action is reviewed step by step before it runs.
+        var values = await ShowGitFormAsync("Git Flow · " + ActionTitle(action), "Review Steps…",
             "Finish merges feature branches into develop. Release/hotfix finish also merges into main and creates a version tag. Each step stops on failure; resolve conflicts before proceeding.",
             new("kind", "Branch kind", "Feature", Choices: ["Feature", "Release", "Hotfix"]),
             new("name", "Name / version", Required: action is not (GitFlowAction.Initialize or GitFlowAction.CancelFinish)),
             new("main", "Main branch", settings.MainBranch), new("develop", "Development branch", settings.DevelopBranch),
             new("feature", "Feature prefix", settings.FeaturePrefix, Required: false), new("release", "Release prefix", settings.ReleasePrefix, Required: false),
-            new("hotfix", "Hotfix prefix", settings.HotfixPrefix, Required: false), new("remote", "Publish remote", viewModel.Remotes.FirstOrDefault()?.Name ?? "origin"));
+            new("hotfix", "Hotfix prefix", settings.HotfixPrefix, Required: false), GitWorkflowField.ChoiceOrText("remote", "Publish remote", RemoteNames(viewModel), "origin"));
         if (values is null)
         {
             return;

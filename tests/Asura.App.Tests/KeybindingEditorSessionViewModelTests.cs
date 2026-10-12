@@ -24,12 +24,30 @@ public sealed class KeybindingEditorSessionViewModelTests
         Assert.False(session.CanEditPrefix);
         Assert.False(session.CanSave);
         Assert.All(session.Rows, row => Assert.False(row.CanEdit));
+        Assert.All(session.Rows, row => Assert.False(row.ShowsActions));
         Assert.False(copyMode.CanUnbind);
         Assert.Equal("Active", copyMode.Status);
         Assert.Contains("read-only", session.StateSummary, StringComparison.OrdinalIgnoreCase);
 
         var error = Assert.Throws<InvalidOperationException>(() => session.Unbind(copyMode.Id));
         Assert.Contains("clone", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Editable_rows_offer_actions_and_name_shortcuts_that_never_fire()
+    {
+        var editor = CloneMacOs();
+        using var session = new KeybindingEditorSessionViewModel(editor, isReadOnly: false);
+        var copy = Row(session, BuiltInCommands.Copy);
+
+        Assert.All(session.Rows, row => Assert.True(row.ShowsActions));
+
+        session.RecordShortcut(copy.Id, [new KeyStroke("3", KeyModifiers.Shift | KeyModifiers.Meta)]);
+
+        var recorded = Row(session, BuiltInCommands.Copy);
+        Assert.Equal(
+            HostPlatform.Current == HostOperatingSystem.MacOS ? "Never fires" : "Active",
+            recorded.Status);
     }
 
     [Fact]
@@ -42,7 +60,7 @@ public sealed class KeybindingEditorSessionViewModelTests
         Assert.True(session.IsNew);
         Assert.False(session.IsDirty);
         Assert.True(session.CanSave);
-        Assert.Contains("not been saved", session.StateSummary, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("hasn't been saved", session.StateSummary, StringComparison.OrdinalIgnoreCase);
 
         session.Query = "copy";
         var copy = Assert.Single(session.Rows);
@@ -53,7 +71,9 @@ public sealed class KeybindingEditorSessionViewModelTests
             [new KeyStroke("C", KeyModifiers.Control | KeyModifiers.Shift)]);
 
         copy = Assert.Single(session.Rows);
-        Assert.Equal("Ctrl+Shift+C", copy.Shortcut);
+        Assert.Equal(
+            KeySequenceDisplay.Format(new KeyStroke("C", KeyModifiers.Control | KeyModifiers.Shift)),
+            copy.Shortcut);
         Assert.True(copy.CanResetShortcut);
         Assert.True(session.IsDirty);
         Assert.True(session.CanSave);
@@ -84,7 +104,10 @@ public sealed class KeybindingEditorSessionViewModelTests
         Assert.Equal("Conflict", Row(session, BuiltInCommands.Copy).Status);
         Assert.Equal("Conflict", Row(session, BuiltInCommands.Paste).Status);
         Assert.Contains("Resolve 1", session.StateSummary, StringComparison.Ordinal);
-        Assert.Throws<InvalidOperationException>(() => session.CreateSaveRequest());
+        var refusal = Assert.Throws<InvalidOperationException>(() => session.CreateSaveRequest());
+        // The conflict refusal is written for people, so Settings shows it as written.
+        Assert.True(Asura.App.Controls.FailureReason.IsReadable(refusal));
+        Assert.StartsWith("Resolve 1 shortcut conflict", refusal.Message, StringComparison.Ordinal);
 
         session.Unbind(paste.Id);
         var request = session.CreateSaveRequest();
@@ -114,7 +137,7 @@ public sealed class KeybindingEditorSessionViewModelTests
             repeatable: false,
             FailedSequenceBehavior.PassThrough);
 
-        Assert.Equal("Ctrl+A", session.PrefixShortcut);
+        Assert.Equal(KeySequenceDisplay.Format(new KeyStroke("A", KeyModifiers.Control)), session.PrefixShortcut);
         Assert.Equal(1_500, session.PrefixTimeoutMilliseconds);
         Assert.False(session.PrefixRepeatable);
         Assert.Equal(FailedSequenceBehavior.PassThrough, session.PrefixFailedBehavior);

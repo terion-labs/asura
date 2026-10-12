@@ -171,7 +171,7 @@ public sealed partial class InMemorySessionHostClient
                     var mismatch = HostResult<SessionSnapshot>.Fail(
                         HostError.Create(
                             HostErrorCode.EngineFailed,
-                            "The File Viewer engine did not bind the requested trusted root."),
+                            "The Files panel engine did not bind the requested trusted root."),
                         currentRevision: 0);
                     return outcomeReserved
                         ? OutcomeUncertain<SessionSnapshot>(0)

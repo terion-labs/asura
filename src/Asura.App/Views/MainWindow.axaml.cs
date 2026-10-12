@@ -13,6 +13,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using AvaloniaKeyModifiers = Avalonia.Input.KeyModifiers;
 
 namespace Asura.App.Views;
@@ -89,6 +90,7 @@ public sealed partial class MainWindow : Window
         AddHandler(PointerMovedEvent, OnAnyActivity, RoutingStrategies.Tunnel);
         Activated += OnWindowActivated;
         ScalingChanged += OnWindowScalingChanged;
+        KeepErrorNoticesBesideAgentPanel();
         // Asked for before the window is created, not after it is on screen.
         // The platform decides whether a window can be seen through when it
         // makes one; a hint arriving later is a request to change something
@@ -115,6 +117,29 @@ public sealed partial class MainWindow : Window
             WindowTransparencyLevel.Blur,
             WindowTransparencyLevel.Transparent,
         ];
+    }
+
+    /// <summary>
+    /// Error notices and the agent panel's composer both sit in the
+    /// bottom-right corner. While the panel reaches the bottom, the notices
+    /// stand off to its left, keeping their own gap from it.
+    /// </summary>
+    private void KeepErrorNoticesBesideAgentPanel()
+    {
+        // Looked up by name: this window loads its XAML itself.
+        if (this.FindControl<WorkspaceView>("WorkspaceRouteView") is not { } workspace
+            || this.FindControl<Border>("ErrorNoticesHost") is not { } notices)
+        {
+            return;
+        }
+
+        workspace.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == WorkspaceView.AgentPanelReservedWidthProperty)
+            {
+                notices.Margin = new Thickness(0, 0, workspace.AgentPanelReservedWidth, 0);
+            }
+        };
     }
 
     private void OnAnyActivity(object? sender, RoutedEventArgs e)
@@ -160,6 +185,17 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        // The application is already shutting down — after a confirmed quit or
+        // an update restart has closed this window's sessions — and is closing
+        // windows regardless. Starting this window's own close flow then would
+        // only ask about sessions that have already ended.
+        if (e.CloseReason == WindowCloseReason.ApplicationShutdown && e.IsProgrammatic)
+        {
+            ApproveEditorWindowsClose();
+            base.OnClosing(e);
+            return;
+        }
+
         if (!CloseCoordinator.IsWindowCloseApproved)
         {
             e.Cancel = true;
@@ -168,26 +204,23 @@ public sealed partial class MainWindow : Window
                 _ = CloseCoordinator.RequestWindowCloseAsync();
             }
         }
+        else
+        {
+            ApproveEditorWindowsClose();
+        }
 
         base.OnClosing(e);
     }
 
     protected override void OnOpened(EventArgs e)
     {
-        // Subscribed before the base raises Opened, not after. Startup restore
-        // runs from that event, and when the work it waits on has already
-        // finished it runs straight through — so the restored workspace
-        // announced its accent while nothing was listening yet, and the shell
-        // kept its own colour until the first switch.
-        ViewModel.WorkspaceAccentChanged += OnWorkspaceAccentChanged;
         // Whether a notification leaves a mark depends on whether anyone was
         // looking, and the window is the only thing that can say.
         Deactivated += OnWindowDeactivated;
+        AttachWindowLifecycle();
+        AttachSettingsPresentation();
+        AttachWindowEdges();
         base.OnOpened(e);
-        // And whatever it announced before any of this, in case something else
-        // ever gets in front of the subscription again. The accent that is
-        // already being worn costs nothing to apply.
-        OnWorkspaceAccentChanged(this, ViewModel.ActiveWorkspaceAccent);
         RefreshWindowChromeMetrics();
         Avalonia.Threading.Dispatcher.UIThread.Post(
             RefreshWindowChromeMetrics,
@@ -265,9 +298,9 @@ public sealed partial class MainWindow : Window
                 _ => MacOsWindowKind.CompactToolbar,
             });
         // The platform's own material for a window's base. Avalonia pins the
-        // view it creates to a fixed light one and lets its state follow the
-        // window's, so the glass reads wrong for a dark shell and dulls
-        // whenever focus moves away. Both are answered there.
+        // view it creates to a fixed light one, which reads wrong for a dark
+        // shell; that is answered there, and the glass dims with the window
+        // when focus moves away, as every Mac window's does.
         MacOsWindowMaterial.TrySit(this, MacOsMaterial.UnderWindowBackground);
         // Asking to be a different kind of window moves the standard buttons,
         // and the band is measured from where they are. Nothing else notices:
@@ -306,6 +339,8 @@ public sealed partial class MainWindow : Window
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        OnWindowLifecyclePropertyChanged(change);
+        OnWindowEdgesPropertyChanged(change);
         if (change.Property == WindowDecorationMarginProperty
             || change.Property == WindowStateProperty)
         {
@@ -328,62 +363,16 @@ public sealed partial class MainWindow : Window
         ViewModel.IsWindowFocused = false;
     }
 
-    private string? _pendingWorkspaceAccent;
-    private bool _workspaceAccentRepaintQueued;
-
-    /// <summary>
-    /// Retints the shell for the workspace now in front — after that workspace
-    /// is on screen, not before it.
-    ///
-    /// Republishing the appearance restyles every control bound to a token,
-    /// which is the whole window. Doing it inline made it part of switching:
-    /// the click was answered by a third of a second of restyling and only
-    /// then by the workspace appearing. The colour is not what you asked for
-    /// when you clicked a workspace, so it waits a frame and follows.
-    ///
-    /// Queued once and coalesced. Switching twice quickly should repaint the
-    /// colour you landed on, not each colour you passed through.
-    /// </summary>
-    private void OnWorkspaceAccentChanged(object? sender, string? accent)
-    {
-        _ = sender;
-        _pendingWorkspaceAccent = accent;
-        if (_workspaceAccentRepaintQueued)
-        {
-            return;
-        }
-
-        _workspaceAccentRepaintQueued = true;
-        Avalonia.Threading.Dispatcher.UIThread.Post(
-            () =>
-            {
-                _workspaceAccentRepaintQueued = false;
-                if (Avalonia.Application.Current is not App app)
-                {
-                    return;
-                }
-
-                // A stored accent that no longer parses is a definition problem,
-                // not a reason to leave the shell wearing the last workspace's
-                // colour.
-                app.SetWorkspaceAccent(
-                    _pendingWorkspaceAccent is { } pending
-                    && RgbColor.TryParse(pending, out var color)
-                        ? color
-                        : null);
-            },
-            Avalonia.Threading.DispatcherPriority.Background);
-    }
-
     protected override void OnClosed(EventArgs e)
     {
+        HandOffSettingsWindow();
         if (DataContext is MainWindowViewModel viewModel)
         {
-            viewModel.WorkspaceAccentChanged -= OnWorkspaceAccentChanged;
             viewModel.ReleaseAppearanceEditing();
         }
 
         Deactivated -= OnWindowDeactivated;
+        DetachWindowLifecycle();
         ScalingChanged -= OnWindowScalingChanged;
         Screens.Changed -= OnScreensChanged;
         _backingScaleSettledPass?.Dispose();
@@ -411,13 +400,13 @@ public sealed partial class MainWindow : Window
         this,
         ViewModel,
         () => SettingsRoute,
-        () => LayoutDesignerOverlay,
+        EnsureLayoutDesignerView,
         () => _workspaceDefinitionEditor,
         _lifetime.Token);
 
     private ShellCloseCoordinator CloseCoordinator => _closeCoordinator ??= new(
         ViewModel,
-        ShellClosePresentation.ForWindow(this, FocusNavigator),
+        ShellClosePresentation.ForWindow(this, FocusNavigator, AskBeforeClosing),
         _lifetime.Token);
 
     private ShellClipboard ClipboardWriter => _clipboardWriter ??= new(
@@ -431,14 +420,6 @@ public sealed partial class MainWindow : Window
     private CommandPaletteView CommandPaletteOverlay => _commandPaletteOverlay
         ?? throw new InvalidOperationException(
             "The command palette overlay has not been opened.");
-
-    private LayoutDesignerView LayoutDesignerOverlay => _layoutDesignerOverlay
-        ?? throw new InvalidOperationException(
-            "The layout designer overlay has not been opened.");
-
-    private NewPanelChooserView NewPanelChooserOverlay => _newPanelChooserOverlay
-        ?? throw new InvalidOperationException(
-            "The new panel chooser overlay has not been opened.");
 
     private T MaterializeRoute<T>(string templateKey, string hostName)
         where T : Control
@@ -468,36 +449,9 @@ public sealed partial class MainWindow : Window
             "CommandPaletteOverlayTemplate",
             "CommandPaletteOverlayHost");
 
-    private void EnsureNewPanelChooserOverlay() =>
-        _newPanelChooserOverlay ??= MaterializeRoute<NewPanelChooserView>(
-            "NewPanelOverlayTemplate",
-            "NewPanelOverlayHost");
-
-    private void EnsureLayoutDesignerOverlay() =>
-        _layoutDesignerOverlay ??= MaterializeRoute<LayoutDesignerView>(
-            "LayoutDesignerOverlayTemplate",
-            "LayoutDesignerOverlayHost");
-
-    private void EnsureDefinitionEditorOverlay()
-    {
-        if (_workspaceDefinitionEditor is not null)
-        {
-            return;
-        }
-
-        var card = MaterializeRoute<SurfaceCard>(
-            "DefinitionEditorOverlayTemplate",
-            "DefinitionEditorOverlayHost");
-        _workspaceDefinitionEditor = card
-            .GetLogicalDescendants()
-            .OfType<WorkspaceEditorView>()
-            .SingleOrDefault()
-            ?? throw new InvalidOperationException(
-                "The workspace definition editor is unavailable.");
-    }
-
     public void ShowCommandPalette()
     {
+        CaptureCommandPaletteOrigin();
         EnsureCommandPaletteOverlay();
         ViewModel.ShowOverlay(ShellOverlay.CommandPalette);
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -548,54 +502,22 @@ public sealed partial class MainWindow : Window
     public async Task NavigateToLauncherAsync() => await ShowNewItemLauncherAsync();
 
 
-    public async Task ShowNewPanelChooserAsync()
+    /// <summary>
+    /// Opens the Layout Designer over a new layout, or brings its window
+    /// forward when a layout is already being designed.
+    /// </summary>
+    public Task ShowLayoutDesignerAsync()
     {
-        if (ViewModel.HasOverlay && !await TryCloseOverlayAsync())
+        if (!ViewModel.IsLayoutDesignerVisible)
         {
-            return;
+            // The palette that asked has done its job.
+            ViewModel.CloseOverlay();
+            ViewModel.BeginCreateLayout();
         }
 
-        if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
-        {
-            ViewModel.SetError("Open a workspace tab before adding a panel.");
-            return;
-        }
-
-        ViewModel.ShowWorkspace();
-        if (!ViewModel.IsWorkspaceVisible)
-        {
-            return;
-        }
-
-        EnsureNewPanelChooserOverlay();
-        ViewModel.ShowOverlay(ShellOverlay.NewPanel);
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            if (ViewModel.IsNewPanelVisible)
-            {
-                NewPanelChooserOverlay.FocusInitialAction();
-            }
-        });
+        PresentLayoutDesigner();
+        return Task.CompletedTask;
     }
-
-    public async Task ShowLayoutDesignerAsync()
-    {
-        if (ViewModel.IsLayoutDesignerVisible)
-        {
-            FocusNavigator.FocusLayoutDesignerName();
-            return;
-        }
-
-        if (ViewModel.HasOverlay && !await TryCloseOverlayAsync())
-        {
-            return;
-        }
-
-        EnsureLayoutDesignerOverlay();
-        ViewModel.BeginCreateLayout();
-        FocusNavigator.FocusLayoutDesignerName();
-    }
-
 
     internal static bool IsExactGlobalGesture(
         Key actualKey,
@@ -651,16 +573,14 @@ public sealed partial class MainWindow : Window
         NavigateToSettings();
     }
 
-    private void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
+    private async void OnShowAgentSettingsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
         if (ViewModel.RuntimeWorkspace is { } runtime
             && ViewModel.TryGetWorkspaceDefinitionId(runtime.Id, out var workspaceId))
         {
-            EnsureDefinitionEditorOverlay();
-            ViewModel.BeginEditWorkspace(workspaceId);
-            FocusNavigator.FocusDefinitionEditor();
+            await EditWorkspaceAsync(workspaceId);
             return;
         }
 
@@ -673,7 +593,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
@@ -683,7 +603,7 @@ public sealed partial class MainWindow : Window
         {
             var receipt = result.Value!;
             ViewModel.SetDefinitionBundleStatus(
-                $"Exported {receipt.DefinitionCount} definitions to {Path.GetFileName(receipt.Path)}."
+                $"Exported {CountLabel.InSentence(receipt.DefinitionCount, "item")} to “{Path.GetFileName(receipt.Path)}”."
                 + (receipt.Warning is { } warning ? " " + warning : string.Empty));
         }
         else if (result.Error!.Code != DefinitionStoreErrorCode.Cancelled)
@@ -694,16 +614,15 @@ public sealed partial class MainWindow : Window
 
     private async void OnImportDefinitionsClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (_definitionBundles is null)
         {
-            ViewModel.SetError("Definition portability is unavailable in this host.");
+            ViewModel.SetError("Export and import aren’t available in this version of Asura.");
             return;
         }
 
         var mode = await new DefinitionImportModeDialog()
-            .ShowDialog<DefinitionImportMode?>(this);
+            .ShowDialog<DefinitionImportMode?>(DialogOwnerFor(sender));
         if (mode is null)
         {
             return;
@@ -725,7 +644,7 @@ public sealed partial class MainWindow : Window
 
         var plan = preflight.Value!;
         var confirmed = await new DefinitionImportPreflightDialog(plan)
-            .ShowDialog<bool>(this);
+            .ShowDialog<bool>(DialogOwnerFor(sender));
         if (!confirmed)
         {
             return;
@@ -748,12 +667,11 @@ public sealed partial class MainWindow : Window
         var receipt = applied.Value!;
         ViewModel.SetDefinitionBundleStatus(
             receipt.CatalogReloaded
-                ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions."
+                ? $"{ImportSummary(receipt)}."
                 : receipt.WorkspacesRemainUnavailable
-                    ? $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, "
-                        + "but the catalog refresh failed. Imported workspaces remain unavailable "
-                        + "until a catalog refresh succeeds or Asura restarts."
-                : $"Imported {receipt.Inserted} new and replaced {receipt.Replaced} definitions, but the catalog refresh failed.");
+                    ? $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings. "
+                        + "Imported workspaces stay unavailable until Asura reloads them or restarts."
+                : $"{ImportSummary(receipt)}, but Asura couldn’t reload its settings.");
         if (!receipt.CatalogReloaded)
         {
             ViewModel.SetError(receipt.ReloadError!.Message);
@@ -764,6 +682,19 @@ public sealed partial class MainWindow : Window
             await onboarding.RefreshAsync(_lifetime.Token);
         }
     }
+
+    /// <summary>
+    /// What an import changed, naming only the parts that happened: "Imported
+    /// 2 new items", "Replaced 3 items", or both.
+    /// </summary>
+    internal static string ImportSummary(DefinitionBundleImportReceipt receipt) =>
+        (receipt.Inserted, receipt.Replaced) switch
+        {
+            (0, 0) => "Nothing was imported",
+            (_, 0) => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")}",
+            (0, _) => $"Replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+            _ => $"Imported {CountLabel.InSentence(receipt.Inserted, "new item")} and replaced {CountLabel.InSentence(receipt.Replaced, "item")}",
+        };
 
     private async void OnRetryOnboardingClick(object? sender, RoutedEventArgs e)
     {
@@ -790,6 +721,8 @@ public sealed partial class MainWindow : Window
         _ = sender;
         _ = e;
         ViewModel.Onboarding?.ShowReview();
+        // The review shows in this window's launcher, behind Settings.
+        BringForwardForEditor();
         _ = NavigateToLauncherAsync();
     }
 
@@ -797,8 +730,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
-        NavigateToSettings();
-        SetSettingsPage(SettingsPage.Secrets);
+        NavigateToSettings(SettingsPage.Secrets);
     }
 
 
@@ -833,6 +765,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
+        BringForwardForEditor();
         await ShowLayoutDesignerAsync();
     }
 
@@ -843,8 +776,16 @@ public sealed partial class MainWindow : Window
         _ = await TryCloseOverlayAsync();
     }
 
-    private Task<bool> TryCloseOverlayAsync() =>
-        CloseCoordinator.TryCloseOverlayAsync();
+    /// <summary>
+    /// Closes the command palette. The editors that used to be overlays have
+    /// windows of their own and close with them.
+    /// </summary>
+    private Task<bool> TryCloseOverlayAsync()
+    {
+        ViewModel.CloseOverlay();
+        FocusNavigator.FocusCurrentRoute();
+        return Task.FromResult(true);
+    }
 
     private async void OnOpenWorkspaceClick(object? sender, RoutedEventArgs e)
     {
@@ -876,8 +817,30 @@ public sealed partial class MainWindow : Window
     private async void OnCloseWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is not Control { DataContext: LauncherWorkspaceViewModel workspace }
-            || !workspace.CanClose
+        if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
+        {
+            await CloseWorkspaceAsync(workspace, confirmFirst: false);
+        }
+    }
+
+    /// <summary>
+    /// Terminate Workspace from the Workspaces menu. Its item ends in an
+    /// ellipsis, so it asks every time — even when nothing in the workspace
+    /// is busy and the rail's close would end it at once — and having asked,
+    /// does not ask the running-session question a second time.
+    /// </summary>
+    private async void OnTerminateWorkspaceClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
+        {
+            await CloseWorkspaceAsync(workspace, confirmFirst: true);
+        }
+    }
+
+    private async Task CloseWorkspaceAsync(LauncherWorkspaceViewModel workspace, bool confirmFirst)
+    {
+        if (!workspace.CanClose
             || ViewModel.OpenWorkspaceInstance(workspace.Id) is not { } instanceId)
         {
             return;
@@ -885,6 +848,14 @@ public sealed partial class MainWindow : Window
 
         var runtime = ViewModel.OpenWorkspaces.FirstOrDefault(candidate =>
             candidate.Id == instanceId);
+        if (confirmFirst
+            && !await Confirmations.TerminateWorkspace(workspace.Name, runtime?.Tabs.Count ?? 0)
+                .ShowDialog<bool>(this))
+        {
+            FocusCurrentRoute();
+            return;
+        }
+
         if (runtime is not null
             && !await ConfirmDiscardDatabaseChangesAsync(runtime.Tabs.SelectMany(tab =>
                 tab.Panels)))
@@ -893,7 +864,10 @@ public sealed partial class MainWindow : Window
         }
 
         if (await RunCloseFlowAsync((decision, cancellationToken) =>
-                ViewModel.CloseWorkspaceAsync(instanceId, decision, cancellationToken)))
+                ViewModel.CloseWorkspaceAsync(
+                    instanceId,
+                    confirmFirst ? CloseDecision.Confirm : decision,
+                    cancellationToken)))
         {
             ViewModel.RemoveRuntimeWorkspace(instanceId);
             FocusCurrentRoute();
@@ -1006,12 +980,21 @@ public sealed partial class MainWindow : Window
         await ShowConnectionEditorAsync(null);
     }
 
-    private async void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
+    private void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
     {
+        _ = sender;
+        _ = e;
+        // One window, kept beside this one rather than blocking it.
+        if (OwnedWindows.OfType<SavedConnectionsDialog>().FirstOrDefault() is { } open)
+        {
+            open.Activate();
+            return;
+        }
+
         var dialog = new SavedConnectionsDialog { DataContext = ViewModel.Launcher };
         dialog.EditRequested += async (_, connection) => await ShowConnectionEditorAsync(connection, dialog);
         dialog.AddRequested += async (_, _) => await ShowConnectionEditorAsync(null, dialog);
-        await dialog.ShowDialog(this);
+        dialog.Show(this);
     }
 
     private async void OnEditConnectionClick(object? sender, RoutedEventArgs e)
@@ -1060,7 +1043,7 @@ public sealed partial class MainWindow : Window
     {
         if (FindSavedConnection(shortcut) is { } connection)
         {
-            await DeleteSavedConnectionAsync(connection);
+            await DeleteSavedConnectionAsync(connection, sender);
         }
     }
 
@@ -1069,26 +1052,19 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherConnectionViewModel connection })
         {
-            await DeleteSavedConnectionAsync(connection);
+            await DeleteSavedConnectionAsync(connection, sender);
         }
     }
 
-    private async Task DeleteSavedConnectionAsync(LauncherConnectionViewModel connection)
+    /// <summary>
+    /// Deletes the connection at once, without a question: the notice it
+    /// leaves can put it back, credentials and all, and asking about an
+    /// undoable action only teaches people to stop reading the questions that
+    /// matter. Settings and the launcher both come here; Undo takes focus in
+    /// the window <paramref name="origin"/> is in.
+    /// </summary>
+    private async Task DeleteSavedConnectionAsync(LauncherConnectionViewModel connection, object? origin)
     {
-        var noun = connection.Family switch
-        {
-            SavedConnectionFamily.Files => "file connection",
-            SavedConnectionFamily.Database => "database connection",
-            SavedConnectionFamily.Kubernetes => "Kubernetes connection",
-            _ => "connection",
-        };
-        var confirmed = await Confirmations.DefinitionDelete(noun, connection.Name)
-            .ShowDialog<bool>(this);
-        if (!confirmed)
-        {
-            return;
-        }
-
         var kind = connection.Family switch
         {
             SavedConnectionFamily.Files => FileProviderProfile.Kind,
@@ -1096,10 +1072,14 @@ public sealed partial class MainWindow : Window
             SavedConnectionFamily.Kubernetes => KubernetesConnectionProfile.Kind,
             _ => ConnectionProfile.Kind,
         };
-        _ = await ViewModel.DeleteAsync(
+        var result = await ViewModel.DeleteConnectionWithUndoAsync(
             new DefinitionKey(kind, connection.TargetId),
             connection.Revision,
             _lifetime.Token);
+        if (result.IsSuccess)
+        {
+            FocusDefinitionDeleteUndo(origin);
+        }
     }
 
     private async Task ShowConnectionEditorAsync(LauncherConnectionViewModel? existing, Window? owner = null)
@@ -1135,7 +1115,7 @@ public sealed partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
         }
     }
 
@@ -1161,7 +1141,7 @@ public sealed partial class MainWindow : Window
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
             return null;
         }
     }
@@ -1233,9 +1213,8 @@ public sealed partial class MainWindow : Window
 
     private async void OnClearRecentSessionsClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
-        if (!await Confirmations.HistoryClear().ShowDialog<bool>(this))
+        if (!await Confirmations.HistoryClear().ShowDialog<bool>(DialogOwnerFor(sender)))
         {
             return;
         }
@@ -1259,10 +1238,9 @@ public sealed partial class MainWindow : Window
 
     private async void OnResetRecentSessionHistoryClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         if (!ViewModel.CanResetRecentSessionHistory
-            || !await Confirmations.HistoryReset().ShowDialog<bool>(this))
+            || !await Confirmations.HistoryReset().ShowDialog<bool>(DialogOwnerFor(sender)))
         {
             return;
         }
@@ -1275,24 +1253,6 @@ public sealed partial class MainWindow : Window
         _ = sender;
         _ = e;
         _ = await ViewModel.RetryRecentSessionHistoryAsync(_lifetime.Token);
-    }
-
-    private async void OnSaveHistoryRetentionClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel.SelectedHistoryRetentionOption is not { } selected)
-        {
-            return;
-        }
-
-        if (ViewModel.RequiresHistoryRetentionConfirmation
-            && !await Confirmations.HistoryRetentionChange(selected).ShowDialog<bool>(this))
-        {
-            return;
-        }
-
-        _ = await ViewModel.SaveHistoryRetentionAsync(_lifetime.Token);
     }
 
     private async void OnExportAllHistoryClick(object? sender, RoutedEventArgs e)
@@ -1313,7 +1273,7 @@ public sealed partial class MainWindow : Window
     {
         if (_historyExport is null)
         {
-            ViewModel.SetHistoryExportStatus("Session-history export is unavailable.");
+            ViewModel.SetHistoryExportStatus("Session history export isn’t available.");
             return;
         }
 
@@ -1325,13 +1285,13 @@ public sealed partial class MainWindow : Window
         using var exportCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             _lifetime.Token);
         _historyExportLifetime = exportCancellation;
-        var finalStatus = "Session-history export failed. Please choose a different destination and retry.";
+        var finalStatus = "Session history couldn’t be exported. Choose a different destination and try again.";
         try
         {
             var snapshot = ViewModel.CaptureHistoryExportSnapshot();
             if (snapshot.Count == 0)
             {
-                finalStatus = "There are no matching metadata records to export.";
+                finalStatus = "There’s no session history to export.";
                 return;
             }
 
@@ -1340,23 +1300,33 @@ public sealed partial class MainWindow : Window
                 exportCancellation.Token);
             if (!result.IsSuccess)
             {
-                finalStatus = result.Error!.Code == RecentSessionHistoryExportErrorCode.Cancelled
-                    ? "Session-history export cancelled."
-                    : $"{result.Error.Message} Choose a different destination and retry.";
+                finalStatus = result.Error!.Code switch
+                {
+                    RecentSessionHistoryExportErrorCode.Cancelled =>
+                        "Session history export canceled.",
+                    RecentSessionHistoryExportErrorCode.TooManyRecords =>
+                        "There’s more session history than one export can hold.",
+                    RecentSessionHistoryExportErrorCode.InvalidHistory =>
+                        "Session history couldn’t be exported because a record is damaged.",
+                    RecentSessionHistoryExportErrorCode.CleanupFailure =>
+                        "Session history wasn’t exported, and a temporary file was left in the folder you chose. Delete it and try again.",
+                    _ =>
+                        "Session history couldn’t be exported. Choose a different destination and try again.",
+                };
                 return;
             }
 
             finalStatus =
-                $"Exported {result.Value!.Export.RecordCount:N0} metadata-only records to {Path.GetFileName(result.Value.Path)}.";
+                $"Exported {CountLabel.InSentence(result.Value!.Export.RecordCount, "session history record")} to “{Path.GetFileName(result.Value.Path)}”.";
         }
         catch (OperationCanceledException) when (exportCancellation.IsCancellationRequested)
         {
-            finalStatus = "Session-history export cancelled.";
+            finalStatus = "Session history export canceled.";
         }
         catch (Exception)
         {
             finalStatus =
-                "Session-history export failed unexpectedly. Choose a different destination and retry.";
+                "Session history couldn’t be exported. Choose a different destination and try again.";
         }
         finally
         {
@@ -1374,28 +1344,20 @@ public sealed partial class MainWindow : Window
 
     private async void OnCreateScreenClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
         try
         {
-            // Named in the editor itself; there is no longer a name box to carry
-            // one in from.
+            // Settings › Workspaces & Screens "+": named in the editor itself,
+            // which opens over the Settings window that asked for it.
             var editor = ViewModel.CreateNewSavedScreenEditor(string.Empty);
-            var saved = await new SavedScreenEditorDialog(
+            _ = await new SavedScreenEditorDialog(
                     editor,
                     ViewModel.SaveSavedScreenAsync)
-                .ShowDialog<bool>(this);
-            if (!saved)
-            {
-                return;
-            }
-
-            ViewModel.CloseOverlay();
-            FocusCurrentRoute();
+                .ShowDialog<bool>(DialogOwnerFor(sender));
         }
         catch (InvalidOperationException exception)
         {
-            ViewModel.SetError(exception.Message);
+            ViewModel.SetError(ShellFailureText.SavedScreenEditor(exception));
         }
     }
 
@@ -1406,8 +1368,8 @@ public sealed partial class MainWindow : Window
         var result = await ViewModel.SaveLayoutDesignerAsync(_lifetime.Token);
         if (result.IsSuccess)
         {
+            // Its window closes with the session.
             ViewModel.DismissLayoutDesigner();
-            FocusCurrentRoute();
         }
     }
 
@@ -1419,17 +1381,24 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        BringForwardForEditor();
+        if (ViewModel.LayoutDesignerEditor is { IsNew: false } designing
+            && designing.Id == layout.Id)
+        {
+            // The same layout again: its window, with the edits as they are.
+            PresentLayoutDesigner();
+            return;
+        }
+
         if (ViewModel.LayoutDesignerEditor?.RequestCancel()
                 == LayoutDesignerCancelDisposition.ConfirmDiscard
-            && !await Confirmations.DiscardChanges().ShowDialog<bool>(this))
+            && !await Confirmations.DiscardChanges().ShowDialog<bool>(LayoutDesignerDialogOwner))
         {
             return;
         }
 
-        ViewModel.DismissLayoutDesigner();
-        EnsureLayoutDesignerOverlay();
-        ViewModel.BeginEditLayout(layout.Id);
-        FocusNavigator.FocusLayoutDesignerName();
+        ViewModel.BeginEditLayout(layout.Id, replaceCurrent: true);
+        PresentLayoutDesigner();
     }
 
     private void OnLayoutSlotClick(object? sender, RoutedEventArgs e)
@@ -1470,23 +1439,23 @@ public sealed partial class MainWindow : Window
         LayoutDesignerInteractions.Reset();
     }
 
-    private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
+    private async void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        EnsureDefinitionEditorOverlay();
-        ViewModel.BeginCreateWorkspace();
-        FocusNavigator.FocusDefinitionEditor();
+        await CreateWorkspaceAsync();
     }
 
-    private void OnEditWorkspaceClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// Edit Workspace… from Settings, the launcher or a rail tile's menu:
+    /// the editor window for that workspace.
+    /// </summary>
+    private async void OnEditWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
-            EnsureDefinitionEditorOverlay();
-            ViewModel.BeginEditWorkspace(workspace.Id);
-            FocusNavigator.FocusDefinitionEditor();
+            await EditWorkspaceAsync(workspace.Id);
         }
     }
 
@@ -1501,11 +1470,11 @@ public sealed partial class MainWindow : Window
                 _ = await new SavedScreenEditorDialog(
                         editor,
                         ViewModel.SaveSavedScreenAsync)
-                    .ShowDialog<bool>(this);
+                    .ShowDialog<bool>(DialogOwnerFor(sender));
             }
             catch (InvalidOperationException exception)
             {
-                ViewModel.SetError(exception.Message);
+                ViewModel.SetError(ShellFailureText.SavedScreenEditor(exception));
             }
         }
     }
@@ -1523,7 +1492,7 @@ public sealed partial class MainWindow : Window
             }
             catch (InvalidOperationException exception)
             {
-                ViewModel.SetError(exception.Message);
+                ViewModel.SetError(ShellFailureText.WorkspaceSave(exception));
             }
 
             return;
@@ -1537,11 +1506,8 @@ public sealed partial class MainWindow : Window
         WorkspaceEditorSaveRequestedEventArgs e)
     {
         _ = sender;
-        var result = await SaveWorkspaceEditorFromWindowAsync(e.Request);
-        if (result.IsSuccess)
-        {
-            FocusCurrentRoute();
-        }
+        // On success the session ends and its window closes with it.
+        _ = await SaveWorkspaceEditorFromWindowAsync(e.Request);
     }
 
     private async void OnRecreateWorkspaceIsolationRequested(
@@ -1561,7 +1527,7 @@ public sealed partial class MainWindow : Window
         }
 
         if (!await Confirmations.RecreateWorkspaceIsolation(editor.Name)
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return;
         }
@@ -1583,12 +1549,12 @@ public sealed partial class MainWindow : Window
         if (!await Confirmations.WorkspaceIsolationRestart(
                     request.Definition.Name,
                     ViewModel.WorkspaceEditorImageChangeRebuildsIsolate(request))
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>.Failure(
                 new DefinitionStoreError(
                     DefinitionStoreErrorCode.Cancelled,
-                    "Workspace isolation change was cancelled."));
+                    "The workspace isolation change was canceled."));
         }
 
         return await ViewModel.SaveWorkspaceEditorRestartingAsync(
@@ -1611,7 +1577,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.BeginEditWorkspace(id);
-        FocusNavigator.FocusDefinitionEditor();
+        PresentWorkspaceEditor();
     }
 
     private async void OnCreateWorkspaceRequested(object? sender, EventArgs e)
@@ -1624,7 +1590,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.BeginCreateWorkspace();
-        FocusNavigator.FocusDefinitionEditor();
+        PresentWorkspaceEditor();
     }
 
     private async Task<bool> CommitWorkspaceEditsBeforeSwitchAsync()
@@ -1637,9 +1603,9 @@ public sealed partial class MainWindow : Window
         if (!editor.IsValid)
         {
             if (!await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
-                    "These changes cannot be saved yet. Discard them to switch workspaces, or keep editing.\n\n"
-                    + editor.ValidationSummary).ShowDialog<bool>(this))
+                    "Discard Workspace Changes?",
+                    "These changes can’t be saved yet, and switching workspaces loses them.\n\n"
+                    + editor.ValidationSummary).ShowDialog<bool>(WorkspaceEditorDialogOwner))
             {
                 return false;
             }
@@ -1658,50 +1624,75 @@ public sealed partial class MainWindow : Window
         _ = sender;
         if (e.Disposition == WorkspaceEditorCancelDisposition.ConfirmDiscard
             && !await Confirmations.DiscardChanges(
-                    "Discard workspace changes?",
+                    "Discard Workspace Changes?",
                     "The unsaved workspace order, tabs, panels, and startup settings will be lost.")
-                .ShowDialog<bool>(this))
+                .ShowDialog<bool>(WorkspaceEditorDialogOwner))
         {
             return;
         }
 
+        // Its window closes with the session.
         ViewModel.DismissWorkspaceEditor();
-        FocusCurrentRoute();
     }
 
+    /// <summary>
+    /// Deletes the workspace at once and leaves Undo, which also puts it back
+    /// in its place in the rail. An open workspace's tabs keep running and an
+    /// isolated workspace's isolate is kept; the notice says which.
+    /// </summary>
     private async void OnDeleteWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is Control { DataContext: LauncherWorkspaceViewModel workspace })
         {
-            var key = new DefinitionKey(WorkspaceDefinition.Kind, workspace.Id.Value);
-            var isOpen = ViewModel.IsDefinitionOpen(key);
-            var dialog = workspace.IsIsolated
-                ? Confirmations.DefinitionDelete(
-                    "Delete isolated workspace?",
-                    isOpen
-                        ? $"“{workspace.Name}” will be removed, while its running tabs and sessions remain alive until they close."
-                        : $"“{workspace.Name}” will be permanently removed from this profile.",
-                    "This does not delete the persistent isolate or its installed packages. Remove the isolate with the platform runtime until Asura adds reset and delete controls.",
-                    "Delete workspace")
-                : isOpen
-                ? Confirmations.DefinitionDelete(
-                    "Delete the open workspace definition?",
-                    $"“{workspace.Name}” is currently open. Its running tabs and sessions will remain alive, but this saved workspace can no longer be reopened after they close.",
-                    "Close this dialog if you want to keep the definition or save a replacement before deleting it.",
-                    "Delete and keep running")
-                : Confirmations.DefinitionDelete("workspace", workspace.Name);
-            var confirmed = await dialog
-                .ShowDialog<bool>(this);
-            if (!confirmed)
-            {
-                return;
-            }
+            await DeleteWorkspaceWithUndoAsync(workspace, sender);
+        }
+    }
 
-            _ = await ViewModel.DeleteAsync(
-                key,
-                workspace.Revision,
-                _lifetime.Token);
+    /// <summary>
+    /// Deletes <paramref name="workspace"/> as asked from the control
+    /// <paramref name="origin"/>, in Settings or in this window, whose notice
+    /// then takes focus on Undo.
+    /// </summary>
+    internal async Task DeleteWorkspaceWithUndoAsync(LauncherWorkspaceViewModel workspace, object? origin)
+    {
+        var result = await ViewModel.DeleteWorkspaceWithUndoAsync(
+            workspace.Id,
+            workspace.Revision,
+            _lifetime.Token);
+        if (result.IsSuccess)
+        {
+            FocusDefinitionDeleteUndo(origin);
+        }
+    }
+
+    /// <summary>
+    /// Undo or Dismiss in either notice, this window's or Settings': focus
+    /// goes back to this window's work when the notice was in it.
+    /// </summary>
+    private void OnDefinitionDeleteUndoFinished(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (IsActive)
+        {
+            FocusNavigator.FocusCurrentRoute();
+        }
+    }
+
+    /// <summary>
+    /// Keyboard focus goes to Undo, as it does after a saved screen is
+    /// deleted, in the window the delete was made in: this one, or Settings.
+    /// </summary>
+    private void FocusDefinitionDeleteUndo(object? origin)
+    {
+        if (DialogOwnerFor(origin) is SettingsWindow settings && ReferenceEquals(settings.Host, this))
+        {
+            FocusNavigator.FocusDefinitionDeleteUndo(settings);
+        }
+        else if (IsActive)
+        {
+            FocusNavigator.FocusDefinitionDeleteUndo(this);
         }
     }
 
@@ -1710,13 +1701,9 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherScreenViewModel screen })
         {
-            var confirmed = await Confirmations.DefinitionDelete("saved screen", screen.Name)
-                .ShowDialog<bool>(this);
-            if (!confirmed)
-            {
-                return;
-            }
-
+            // No question first: the delete can be undone from the notice it
+            // leaves, and asking about an undoable action only teaches people
+            // to stop reading the questions that matter.
             var result = await ViewModel.DeleteSavedScreenAsync(
                 new DefinitionKey(ScreenDefinition.Kind, screen.Id.Value),
                 screen.Revision,
@@ -1853,6 +1840,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.CloseOverlay();
+        RestoreCommandPaletteOrigin(command.Id);
         await ExecuteCommandAsync(command.Id, command.Arguments);
     }
 
@@ -1872,7 +1860,7 @@ public sealed partial class MainWindow : Window
         var terminal = FindActiveTerminalHost();
         if (terminal is null)
         {
-            ViewModel.SetError("The active panel cannot receive terminal input.");
+            ViewModel.SetError("The active panel doesn’t accept terminal input.");
             return;
         }
 
@@ -1882,7 +1870,7 @@ public sealed partial class MainWindow : Window
     private async void OnCommandSearchKeyDown(object? sender, KeyEventArgs e)
     {
         _ = sender;
-        if (e.Key == Key.Escape)
+        if (e.Key == Key.Escape && !SearchField.ClaimsEscape(e))
         {
             _ = await TryCloseOverlayAsync();
             e.Handled = true;
@@ -1928,7 +1916,8 @@ public sealed partial class MainWindow : Window
 
         if (!ViewModel.HasOverlay)
         {
-            var replayTarget = FindActiveTerminalHost();
+            var focused = FocusManager?.GetFocusedElement();
+            var replayTarget = FindApplicationKeyReplayTarget(focused);
             ApplicationKeyReplay? replay = replayTarget is null
                 ? null
                 : replayTarget.ReplayApplicationKeyStrokesAsync;
@@ -1936,7 +1925,8 @@ public sealed partial class MainWindow : Window
                 ViewModel.ActiveApplicationKeymap,
                 ViewModel.ActiveApplicationKeymapRevision,
                 ViewModel.ActiveApplicationKeymapName,
-                ViewModel.ActiveCommandContexts);
+                ViewModel.ActiveCommandContexts,
+                ApplicationKeyFocus.OwnsTextInput(focused));
             var handling = ApplicationKeys.Resolve(
                 ApplicationKeyStrokeMapper.Map(e.Key, e.KeyModifiers, e.KeySymbol),
                 profile);
@@ -1956,6 +1946,14 @@ public sealed partial class MainWindow : Window
 
         if (e.Key == Key.Escape && ViewModel.HasOverlay)
         {
+            // The first Escape clears a search field that has text — the
+            // palette's, the chooser's, the designer's — and the next one
+            // closes the overlay.
+            if (SearchField.ClaimsEscape(e))
+            {
+                return;
+            }
+
             e.Handled = true;
             _ = await TryCloseOverlayAsync();
             return;
@@ -1965,11 +1963,6 @@ public sealed partial class MainWindow : Window
         {
             FocusNavigator.FocusActivePanel();
             e.Handled = true;
-            return;
-        }
-
-        if (ViewModel.IsLayoutDesignerVisible)
-        {
             return;
         }
 
@@ -1995,18 +1988,26 @@ public sealed partial class MainWindow : Window
             e.Handled = true;
             await RequestNewTerminalAsync();
         }
-        else if (ViewModel.ActivePanel is TerminalRuntimePanelViewModel { IsCopyMode: true }
-            && !IsTerminalCopyGesture(e))
-        {
-            // Local copy mode leaves mouse selection and scrolling available but
-            // prevents ordinary key presses from mutating the live remote shell.
-            e.Handled = true;
-        }
+
+        // Copy mode's keys (the line cursor, selection, copy) are handled by the
+        // terminal surface, which also keeps every other key from the shell.
     }
 
-    private static bool IsTerminalCopyGesture(KeyEventArgs e) => OperatingSystem.IsMacOS()
-        ? e.Key == Key.C && (e.KeyModifiers & AvaloniaKeyModifiers.Meta) != AvaloniaKeyModifiers.None : e.Key == Key.C
-            && (e.KeyModifiers & AvaloniaKeyModifiers.Control) != AvaloniaKeyModifiers.None && (e.KeyModifiers & AvaloniaKeyModifiers.Shift) != AvaloniaKeyModifiers.None;
+    /// <summary>
+    /// A prefix that timed out, or met a key it does not bind, goes back to the
+    /// terminal only when that terminal has keyboard focus. Typing in a list
+    /// or a toolbar must not land in a shell that is merely visible.
+    /// </summary>
+    private TerminalPresentationHost? FindApplicationKeyReplayTarget(IInputElement? focused)
+    {
+        var terminal = FindActiveTerminalHost();
+        return terminal is not null
+            && (focused is null
+                || (focused is Visual visual && terminal.IsVisualAncestorOf(visual))
+                || ReferenceEquals(focused, terminal))
+            ? terminal
+            : null;
+    }
 
     private void FocusCurrentRoute() => FocusNavigator.FocusCurrentRoute();
 
@@ -2019,6 +2020,7 @@ public sealed partial class MainWindow : Window
             viewModel.IsWindowFocused = true;
         }
 
+        NoteSettingsHandOffActivation();
         RefreshWindowChromeMetrics();
         QueueBackingScaleReconciliation();
         _focusNavigator?.NotifyWindowActivated();
