@@ -38,6 +38,11 @@
     <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Button.RuntimeTabActivator">
       <Setter Property="Padding" Value="{controls:Inset Left=Lg, Right=Xl}" />
     </Style>
+    <!-- Across the chrome the pull-down slides out from beside the add
+         button, so its slot clips it from the tabs' side. -->
+    <Style Selector="components|RuntimeTabStripView[Orientation=Horizontal] Button#OverflowMenuButton">
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
     <Style Selector="components|RuntimeTabStripView[Orientation=Vertical] Grid.RuntimeTabDropTarget">
       <Setter Property="Height" Value="{DynamicResource ShellControlMinHeight}" />
     </Style>
@@ -107,17 +112,28 @@
 
        The strip shrinks to its tabs, so while they fit the button rides the
        last tab's edge; only an overflowing strip pins it to the far end,
-       where this hairline steps it off from whatever sits beyond. -->
+       where this hairline steps it off from whatever sits beyond.
+
+       The pull-down and the hairline sit in clipping slots the strip opens as
+       the room runs out (see MeasureOverride): they slide in with the room
+       the tabs give up instead of taking all of it in one frame, which
+       jolted every tab sideways just as they appeared. -->
   <DockPanel>
-    <Border
-        x:Name="OverflowSeparator"
+    <Panel
+        x:Name="OverflowSeparatorSlot"
         DockPanel.Dock="Right"
-        Width="1"
-        Height="14"
-        Margin="{controls:Inset Left=Sm}"
-        VerticalAlignment="Center"
-        Background="{DynamicResource ShellBorderBrush}"
-        IsVisible="False" />
+        ClipToBounds="True"
+        IsVisible="False">
+      <Border
+          x:Name="OverflowSeparator"
+          Width="1"
+          Height="14"
+          Margin="{controls:Inset Left=Sm}"
+          HorizontalAlignment="Right"
+          VerticalAlignment="Center"
+          Background="{DynamicResource ShellBorderBrush}"
+          IsVisible="False" />
+    </Panel>
     <Button
         x:Name="AddTabButton"
         DockPanel.Dock="Right"
@@ -132,23 +148,28 @@
         AutomationProperties.Name="New Tab">
       <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
     </Button>
-    <Button
-        x:Name="OverflowMenuButton"
+    <Panel
+        x:Name="OverflowMenuSlot"
         DockPanel.Dock="Right"
-        Width="22"
-        Height="22"
-        Padding="0"
-        Margin="{controls:Inset Left=Xs}"
-        VerticalAlignment="Center"
-        Classes="IconButton"
-        IsVisible="False"
-        ToolTip.Tip="Show all tabs"
-        AutomationProperties.Name="Show all tabs">
-      <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
-      <Button.Flyout>
-        <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
-      </Button.Flyout>
-    </Button>
+        ClipToBounds="True"
+        IsVisible="False">
+      <Button
+          x:Name="OverflowMenuButton"
+          Width="22"
+          Height="22"
+          Padding="0"
+          Margin="{controls:Inset Left=Xs}"
+          VerticalAlignment="Center"
+          Classes="IconButton"
+          IsVisible="False"
+          ToolTip.Tip="Show all tabs"
+          AutomationProperties.Name="Show all tabs">
+        <icons:SymbolIcon Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" />
+        <Button.Flyout>
+          <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnOverflowMenuOpening" />
+        </Button.Flyout>
+      </Button>
+    </Panel>
     <ScrollViewer
         x:Name="TabScrollViewer"
         HorizontalScrollBarVisibility="Hidden"

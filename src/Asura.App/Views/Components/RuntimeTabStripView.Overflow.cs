@@ -149,9 +149,13 @@ public sealed partial class RuntimeTabStripView
             return;
         }
 
+        var overflows = TabScrollViewer.Extent.Height - TabScrollViewer.Viewport.Height > 1;
+        OverflowSeparatorSlot.IsVisible = false;
         OverflowSeparator.IsVisible = false;
-        OverflowMenuButton.IsVisible =
-            TabScrollViewer.Extent.Height - TabScrollViewer.Viewport.Height > 1;
+        OverflowMenuSlot.Width = double.NaN;
+        OverflowMenuSlot.Opacity = 1;
+        OverflowMenuSlot.IsVisible = overflows;
+        OverflowMenuButton.IsVisible = overflows;
     }
 
     /// <summary>

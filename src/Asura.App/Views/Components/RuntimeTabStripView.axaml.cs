@@ -206,26 +206,27 @@ public sealed partial class RuntimeTabStripView : UserControl
     /// the strip knows how much room it was offered; a tab measured on its
     /// own inside the scroller is offered infinite room and would always
     /// take the most.
+    ///
+    /// The pull-down and its hairline do not take their room in one step.
+    /// They did, and the moment the strip ran out of room the tabs lost
+    /// those points all at once: everything, the pinned active tab with it,
+    /// jumped sideways just as the pull-down appeared. Their slots open
+    /// instead with the room the tabs give up, so every width here follows
+    /// the window's continuously.
     /// </summary>
     protected override Size MeasureOverride(Size availableSize)
     {
         if (Orientation == Orientation.Horizontal)
         {
             var count = CountTabs();
+            var spacing = TabSpacing();
             var room = availableSize.Width - ChromeWidth(AddTabButton);
-            var overflows = !FitsWithoutScrolling(room, count, TabSpacing());
-            if (overflows)
-            {
-                room -= ChromeWidth(OverflowMenuButton);
-                if (ShowsOverflowSeparator)
-                {
-                    room -= ChromeWidth(OverflowSeparator);
-                }
-            }
-
-            TabWidth = FitTabWidth(room, count, TabSpacing());
-            OverflowMenuButton.IsVisible = overflows;
-            OverflowSeparator.IsVisible = overflows && ShowsOverflowSeparator;
+            var menu = ChromeWidth(OverflowMenuButton);
+            var separator = ShowsOverflowSeparator ? ChromeWidth(OverflowSeparator) : 0;
+            var reveal = OverflowReveal(room, count, spacing, menu + separator);
+            Reveal(OverflowMenuSlot, OverflowMenuButton, menu, reveal);
+            Reveal(OverflowSeparatorSlot, OverflowSeparator, separator, reveal);
+            TabWidth = FitTabWidth(room - (reveal * (menu + separator)), count, spacing);
         }
 
         return base.MeasureOverride(availableSize);
@@ -233,7 +234,10 @@ public sealed partial class RuntimeTabStripView : UserControl
 
     /// <summary>
     /// The share of <paramref name="room"/> each of <paramref name="count"/>
-    /// tabs gets, between the minimum and the maximum tab width.
+    /// tabs gets, between the minimum and the maximum tab width. Not rounded:
+    /// layout rounding snaps each tab to the pixel grid, and a whole-point
+    /// share left the add button stepping by a point per tab while the
+    /// window moved smoothly.
     /// </summary>
     internal static double FitTabWidth(double room, int count, double spacing)
     {
@@ -242,14 +246,41 @@ public sealed partial class RuntimeTabStripView : UserControl
             return MaximumTabWidth;
         }
 
-        var share = Math.Floor((room - (spacing * (count - 1))) / count);
+        var share = (room - (spacing * (count - 1))) / count;
         return Math.Clamp(share, MinimumTabWidth, MaximumTabWidth);
     }
 
-    internal static bool FitsWithoutScrolling(double room, int count, double spacing) =>
-        count <= 0
-        || double.IsInfinity(room)
-        || (count * MinimumTabWidth) + (spacing * (count - 1)) <= room;
+    /// <summary>
+    /// How far the overflow chrome, <paramref name="chrome"/> points wide, is
+    /// open: 0 while the tabs have that much to spare beyond their minimum,
+    /// rising to 1 as the spare room runs out. The tabs reach the minimum and
+    /// start to scroll halfway, so by the time a tab goes out of sight the
+    /// pull-down that lists it is already there.
+    /// </summary>
+    internal static double OverflowReveal(double room, int count, double spacing, double chrome)
+    {
+        if (count <= 0 || chrome <= 0 || double.IsInfinity(room) || double.IsNaN(room))
+        {
+            return 0;
+        }
+
+        var minimum = (count * MinimumTabWidth) + (spacing * (count - 1));
+        return Math.Clamp((minimum + chrome - room) / chrome, 0, 1);
+    }
+
+    /// <summary>
+    /// Opens a slot to <paramref name="amount"/> of its content's room and
+    /// fades the content in with it. Writing an unchanged value is a no-op,
+    /// so a measure that changes nothing does not invalidate itself.
+    /// </summary>
+    private static void Reveal(Panel slot, Control content, double width, double amount)
+    {
+        var shown = amount > 0 && width > 0;
+        slot.IsVisible = shown;
+        content.IsVisible = shown;
+        slot.Width = shown ? width * amount : 0;
+        slot.Opacity = shown ? amount : 0;
+    }
 
     private static double ChromeWidth(Control control) =>
         (double.IsNaN(control.Width) ? 0 : control.Width)
@@ -283,7 +314,7 @@ public sealed partial class RuntimeTabStripView : UserControl
             ? Avalonia.Controls.Dock.Right
             : Avalonia.Controls.Dock.Bottom;
         DockPanel.SetDock(AddTabButton, dock);
-        DockPanel.SetDock(OverflowMenuButton, dock);
+        DockPanel.SetDock(OverflowMenuSlot, dock);
     }
 
     private void RaisePropertyChanged(params string[] names)

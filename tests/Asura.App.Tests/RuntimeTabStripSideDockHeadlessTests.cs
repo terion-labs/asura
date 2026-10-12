@@ -98,9 +98,107 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         Assert.Equal(120, RuntimeTabStripView.FitTabWidth(368, 3, 4));
         Assert.Equal(RuntimeTabStripView.MinimumTabWidth, RuntimeTabStripView.FitTabWidth(150, 3, 4));
         Assert.Equal(RuntimeTabStripView.MaximumTabWidth, RuntimeTabStripView.FitTabWidth(300, 0, 4));
-        Assert.True(RuntimeTabStripView.FitsWithoutScrolling(308, 3, 4));
-        Assert.False(RuntimeTabStripView.FitsWithoutScrolling(307, 3, 4));
+        Assert.Equal(100.5, RuntimeTabStripView.FitTabWidth(309.5, 3, 4));
+
+        // Three tabs need 308 points at their minimum. The overflow chrome
+        // starts to open once they have less than its width to spare, and is
+        // fully open by the time they have none.
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(343, 3, 4, 35));
+        Assert.Equal(0.5, RuntimeTabStripView.OverflowReveal(325.5, 3, 4, 35));
+        Assert.Equal(1, RuntimeTabStripView.OverflowReveal(308, 3, 4, 35));
+        Assert.Equal(1, RuntimeTabStripView.OverflowReveal(200, 3, 4, 35));
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(double.PositiveInfinity, 3, 4, 35));
+        Assert.Equal(0, RuntimeTabStripView.OverflowReveal(100, 0, 4, 35));
     }
+
+    /// <summary>
+    /// Narrowing the window past the point where the tabs stop compressing
+    /// must not jolt the strip. The pull-down and its hairline used to take
+    /// their 37 points in one frame, so every tab — the pinned active one
+    /// with it — jumped sideways just as the pull-down appeared. Swept one
+    /// point at a time across that boundary and back, nothing moves by more
+    /// than the strip's own continuous rate.
+    /// </summary>
+    [Fact]
+    public Task Overflow_chrome_opens_without_jolting_the_tabs() =>
+        RunHeadlessAsync(() =>
+        {
+            var tabs = Enumerable.Range(0, 6)
+                .Select(index => new FakeTab(
+                    $"tab-{index}",
+                    IsActive: index == 5,
+                    CanClose: true,
+                    HasAttention: false))
+                .ToArray();
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+                ShowsOverflowSeparator = true,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            var window = new Window
+            {
+                Width = 720,
+                Height = 80,
+                Content = strip,
+            };
+            window.Show();
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+
+            var scroll = strip.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var add = strip.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(button => string.Equals(button.Name, "AddTabButton", StringComparison.Ordinal));
+            var active = strip.GetVisualDescendants()
+                .OfType<Grid>()
+                .Single(host => host.Classes.Contains("RuntimeTabDropTarget")
+                    && ReferenceEquals(host.DataContext, tabs[5]));
+            var activeContainer = active.GetVisualAncestors().OfType<ContentPresenter>().First();
+            Assert.False(OverflowButton(strip).IsVisible);
+
+            (double Viewport, double Add, double Active)? previous = null;
+            var widths = Enumerable.Range(0, 120).Select(step => 720.0 - step).ToList();
+            widths.AddRange(Enumerable.Reverse(widths));
+            var sawOverflow = false;
+            foreach (var width in widths)
+            {
+                window.Width = width;
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+
+                var addX = add.TranslatePoint(default, window)!.Value.X;
+                var activeX = active.TranslatePoint(default, window)!.Value.X;
+                var current = (scroll.Viewport.Width, addX, activeX);
+                if (previous is { } last)
+                {
+                    // One point of window, at most two of strip — inside the
+                    // band where the chrome opens the tabs give up room at
+                    // twice the window's rate — and a pixel of layout
+                    // rounding. The jolt this guards against was 37.
+                    Assert.True(
+                        Math.Abs(current.Width - last.Viewport) <= 4
+                            && Math.Abs(current.addX - last.Add) <= 4
+                            && Math.Abs(current.activeX - last.Active) <= 4,
+                        $"window={width} viewport {last.Viewport}->{current.Width} "
+                        + $"add {last.Add}->{current.addX} active {last.Active}->{current.activeX}");
+                }
+
+                sawOverflow |= OverflowButton(strip).IsVisible
+                    && activeContainer.RenderTransform is not null;
+                previous = current;
+            }
+
+            // The sweep did cross into a scrolling strip with its pull-down
+            // and the active tab pinned, and came back out of it.
+            Assert.True(sawOverflow);
+            Assert.False(OverflowButton(strip).IsVisible);
+            window.Close();
+            return Task.CompletedTask;
+        });
 
     /// <summary>
     /// The active tab is sticky: it never leaves the strip, it rides whichever
