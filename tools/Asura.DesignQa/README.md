@@ -28,7 +28,9 @@ the editor to its AI configuration, whose rows are otherwise below every
 capture's fold. `settings-appearance-density-spacious` chooses Spacious density
 on the Appearance page and must visibly loosen against `settings-appearance`; a
 route that clicks a segment or a radio button checks it, since a raised click
-event alone toggles nothing. Workspace-editor routes and
+event alone toggles nothing. `settings-appearance-override` opens the
+appearance override the way its header does; a route that names a disclosure
+opens it. Workspace-editor routes and
 `overlay-layout-designer` render the editor's own window, opened the way the
 product opens it. `overlay-new-panel`
 is the Add Panel popover on the title band's "+".

@@ -102,6 +102,7 @@ internal static class Program
         "overlay-new-panel",
         "overlay-layout-designer",
         "settings-appearance-focused",
+        "settings-appearance-override",
         "design-system",
         "design-system-light",
         "design-system-high-contrast",
@@ -913,6 +914,12 @@ internal sealed class QaApplication : Avalonia.Application
         // Long settings pages are also captured whole, so a section below the
         // fold is reviewable without scrolling by hand.
         new("settings-appearance-full", vm => vm.ShowSettings(SettingsPage.Appearance), Height: 2100),
+        // The appearance override open, as a row of the Theme plate: what it
+        // opens on stands unframed under its header.
+        new(
+            "settings-appearance-override",
+            vm => vm.ShowSettings(SettingsPage.Appearance),
+            ClickFirst: "Override system appearance"),
         new("settings-terminal-full", vm => vm.ShowSettings(SettingsPage.Terminal), Height: 1500),
         // The corner and density settings are only worth having if they visibly
         // reshape the interface. Capturing both extremes makes a regression that
@@ -4808,26 +4815,32 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         if (route.ClickFirst is { } clickTarget)
         {
-            var button = captureRoot.GetVisualDescendants()
-                .OfType<Button>()
-                .FirstOrDefault(candidate =>
-                    string.Equals(
-                        AutomationProperties.GetName(candidate),
-                        clickTarget,
-                        StringComparison.Ordinal))
-                ?? throw new InvalidOperationException(
-                    $"The route wanted to click '{clickTarget}', which is not in the tree.");
-            // A segment or a radio button is chosen by checking it: a raised
-            // Click event alone never toggles one, which left a route that
-            // "clicked" Compact density capturing the page unchanged.
-            if (button is Avalonia.Controls.Primitives.ToggleButton toggle)
+            bool Named(Control candidate) =>
+                string.Equals(AutomationProperties.GetName(candidate), clickTarget, StringComparison.Ordinal);
+
+            // A disclosure is opened the way its header's click opens it.
+            if (captureRoot.GetVisualDescendants().OfType<Expander>().FirstOrDefault(Named) is { } disclosure)
             {
-                toggle.IsChecked = toggle is RadioButton || toggle.IsChecked != true;
+                disclosure.IsExpanded = true;
             }
             else
             {
-                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                var button = captureRoot.GetVisualDescendants().OfType<Button>().FirstOrDefault(Named)
+                    ?? throw new InvalidOperationException(
+                        $"The route wanted to click '{clickTarget}', which is not in the tree.");
+                // A segment or a radio button is chosen by checking it: a raised
+                // Click event alone never toggles one, which left a route that
+                // "clicked" Compact density capturing the page unchanged.
+                if (button is Avalonia.Controls.Primitives.ToggleButton toggle)
+                {
+                    toggle.IsChecked = toggle is RadioButton || toggle.IsChecked != true;
+                }
+                else
+                {
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                }
             }
+
             // Long enough for debounced effects of the click — the
             // appearance page coalesces edits for 220 ms before the
             // theme commit re-publishes the resources.
