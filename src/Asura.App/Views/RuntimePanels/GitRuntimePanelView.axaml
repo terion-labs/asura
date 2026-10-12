@@ -97,6 +97,13 @@
       <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
       <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
+    <!-- A sidebar section's header is one row band, the height of the refs
+         under it. Remotes and Tags hold a 28-point add button beside their
+         disclosure, so their headers stood taller than the others and the
+         gap above them looked wider than the gap above Stashes. -->
+    <Style Selector="StackPanel#GitSidebarSections ToggleButton.SectionDisclosure">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
+    </Style>
     <Style Selector="TextBox.GitRefFilter">
       <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
@@ -817,8 +824,11 @@
                   PlaceholderText="Filter branches and tags" AutomationProperties.Name="Filter branches and tags" />
             </StackPanel>
 
+            <!-- Every header is one row band (GitSidebarSections' style), so
+                 a section starts one short step after the last row above it,
+                 whether or not its header carries an add button. -->
             <ScrollViewer Grid.Row="1" Margin="{controls:Inset Top=Sm}" HorizontalScrollBarVisibility="Disabled">
-              <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <StackPanel x:Name="GitSidebarSections" Spacing="{DynamicResource ShellSpaceXs}">
                 <StackPanel Spacing="0">
                   <ToggleButton
                       x:Name="GitBranchesDisclosure"

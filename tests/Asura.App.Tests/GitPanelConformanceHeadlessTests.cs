@@ -598,6 +598,72 @@ public sealed class GitPanelConformanceHeadlessTests
             Assert.IsType<double>(Avalonia.Application.Current!.Resources[key]);
     }, BranchesAndTags());
 
+    /// <summary>
+    /// The owner saw a wide gap between the last branch and the Remotes
+    /// header. Remotes and Tags carry an add button, so their header rows
+    /// were the button's 28 points while Branches, Stashes and Worktrees were
+    /// the disclosure's own shorter height, and every section was then set
+    /// apart a second time by the list's spacing. Every header is now one row
+    /// band and every section starts the same short step after the last row
+    /// of the section above it.
+    /// </summary>
+    [Fact]
+    public Task Sidebar_sections_are_evenly_spaced_with_headers_one_row_tall() => RunPanelAsync((view, panel, window) =>
+    {
+        panel.IsBranchesSectionExpanded = true;
+        panel.IsRemotesSectionExpanded = true;
+        panel.IsTagsSectionExpanded = true;
+        panel.IsStashesSectionExpanded = true;
+        panel.IsWorktreesSectionExpanded = true;
+        // A row band taller than both the add button and the headless
+        // disclosure's own height, as Spacious density publishes one: a
+        // header that is not the row band shows here at whatever its content
+        // or its button makes it.
+        const double row = 34;
+        window.Resources["ShellRowMinHeight"] = row;
+        window.UpdateLayout();
+
+        var stack = view.FindControl<StackPanel>("GitSidebarSections")!;
+        var sections = stack.Children.Where(child => child.IsVisible).Cast<StackPanel>().ToArray();
+        Assert.Equal(["Branches", "Remotes", "Tags", "Stashes", "Worktrees"], sections.Select(Title), StringComparer.Ordinal);
+
+        var step = Assert.IsType<double>(window.FindResource("ShellSpaceXs"));
+        foreach (var section in sections)
+        {
+            var header = section.Children[0];
+            Assert.True(Math.Abs(header.Bounds.Height - row) < 0.5,
+                $"The {Title(section)} header is {header.Bounds.Height} points tall, not one {row}-point row.");
+
+            // A section ends with its last row: nothing empty trails it.
+            var rows = section.Children[1];
+            Assert.True(rows.IsVisible && rows.Bounds.Height > 0, $"The {Title(section)} section shows no rows.");
+            Assert.Equal(Bottom(section), Bottom(rows), 0.5);
+        }
+
+        for (var index = 1; index < sections.Length; index++)
+        {
+            var gap = Top(sections[index].Children[0]) - Bottom(sections[index - 1]);
+            Assert.True(Math.Abs(gap - step) < 0.5,
+                $"{Title(sections[index])} starts {gap} points after {Title(sections[index - 1])}, not {step}.");
+        }
+
+        return Task.CompletedTask;
+
+        double Top(Visual visual) => visual.TranslatePoint(default, stack)!.Value.Y;
+        double Bottom(Visual visual) => visual.TranslatePoint(new Point(0, visual.Bounds.Height), stack)!.Value.Y;
+        static string? Title(StackPanel section) =>
+            AutomationProperties.GetName(section.GetLogicalDescendants().OfType<ToggleButton>().First(toggle => toggle.Classes.Contains("SectionDisclosure")));
+    }, new FakeGitRepositoryClient
+    {
+        RefsOverride =
+        [
+            new("refs/heads/main", "main", GitRefKind.LocalBranch, "aaaa000000000000000000000000000000000000", IsCurrent: true),
+            new("refs/remotes/origin/main", "origin/main", GitRefKind.RemoteBranch, "aaaa000000000000000000000000000000000000", IsCurrent: false),
+            new("refs/tags/v1.0", "v1.0", GitRefKind.Tag, "aaaa000000000000000000000000000000000000", IsCurrent: false),
+        ],
+        Stashes = [new GitStashItem("stash@{0}", "WIP on main")],
+    });
+
     [Fact]
     public Task Stage_and_unstage_everything_say_their_verb() => RunPanelAsync((view, panel, window) =>
     {
