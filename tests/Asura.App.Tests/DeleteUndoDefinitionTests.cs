@@ -97,6 +97,177 @@ public sealed class DeleteUndoDefinitionTests
     }
 
     [Fact]
+    public async Task Closing_the_window_while_undo_restores_a_connection_keeps_its_credentials()
+    {
+        var connection = Connection("ssh-prod", "Production");
+        var catalog = new Catalog(connections: [connection]);
+        using var vault = new Vault();
+        var owned = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-prod"));
+        var undo = new DefinitionDeleteUndoViewModel(catalog, vault);
+        Assert.True((await undo.DeleteConnectionAsync(connection.Value.Key, 3, CancellationToken.None)).IsSuccess);
+        var save = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        catalog.ConnectionSaveGate = save;
+
+        var restoring = undo.UndoAsync(CancellationToken.None).AsTask();
+        Assert.True(undo.IsRestoring);
+        var closing = undo.CommitPendingAsync().AsTask();
+
+        // The connection is not saved back yet. Closing waits for the
+        // restore instead of removing the credentials it is putting back.
+        Assert.False(closing.IsCompleted);
+        Assert.True(vault.Contains(owned));
+
+        save.SetResult(true);
+        var restored = await restoring;
+        await closing;
+
+        Assert.True(restored.IsSuccess, restored.Error?.Message);
+        Assert.Same(connection.Value, Assert.Single(catalog.Snapshot.Connections).Value);
+        Assert.False(undo.HasPending);
+        Assert.True(vault.Contains(owned));
+        Assert.Equal(0, vault.Deletes);
+    }
+
+    [Fact]
+    public async Task Closing_the_window_while_undo_fails_makes_the_delete_final_once()
+    {
+        var connection = Connection("ssh-prod", "Production");
+        var catalog = new Catalog(connections: [connection]);
+        using var vault = new Vault();
+        var owned = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-prod"));
+        var undo = new DefinitionDeleteUndoViewModel(catalog, vault);
+        Assert.True((await undo.DeleteConnectionAsync(connection.Value.Key, 3, CancellationToken.None)).IsSuccess);
+        var save = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        catalog.ConnectionSaveGate = save;
+
+        var restoring = undo.UndoAsync(CancellationToken.None).AsTask();
+        var closing = undo.CommitPendingAsync().AsTask();
+        Assert.False(closing.IsCompleted);
+        Assert.True(vault.Contains(owned));
+
+        save.SetResult(false);
+        var restored = await restoring;
+        await closing;
+
+        Assert.Equal(DefinitionStoreErrorCode.StorageFailure, restored.Error?.Code);
+        Assert.Empty(catalog.Snapshot.Connections);
+        Assert.False(undo.HasPending);
+        Assert.False(vault.Contains(owned));
+        Assert.Equal(1, vault.Deletes);
+
+        // Nothing is left to make final a second time.
+        await undo.CommitPendingAsync();
+        await undo.DismissAsync();
+        Assert.Equal(1, vault.Deletes);
+    }
+
+    [Fact]
+    public async Task Closing_the_window_while_undo_is_canceled_makes_the_delete_final_once()
+    {
+        var connection = Connection("ssh-prod", "Production");
+        var catalog = new Catalog(connections: [connection]);
+        using var vault = new Vault();
+        var owned = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-prod"));
+        var undo = new DefinitionDeleteUndoViewModel(catalog, vault);
+        Assert.True((await undo.DeleteConnectionAsync(connection.Value.Key, 3, CancellationToken.None)).IsSuccess);
+        catalog.ConnectionSaveGate = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new CancellationTokenSource();
+
+        var restoring = undo.UndoAsync(cancellation.Token).AsTask();
+        var closing = undo.CommitPendingAsync().AsTask();
+        Assert.False(closing.IsCompleted);
+        Assert.True(vault.Contains(owned));
+
+        await cancellation.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => restoring);
+        await closing;
+
+        Assert.Empty(catalog.Snapshot.Connections);
+        Assert.False(undo.HasPending);
+        Assert.False(vault.Contains(owned));
+        Assert.Equal(1, vault.Deletes);
+    }
+
+    [Fact]
+    public Task A_delete_that_lands_while_undo_restores_the_previous_one_keeps_its_credentials() =>
+        // No synchronization context, so releasing the store's delete runs
+        // the second delete on to its first real wait before SetResult returns.
+        Task.Run(async () =>
+        {
+            var first = Connection("ssh-first", "First");
+            var second = Connection("ssh-second", "Second");
+            var catalog = new Catalog(connections: [first, second]);
+            using var vault = new Vault();
+            var firstSecret = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-first"));
+            var secondSecret = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-second"));
+            var undo = new DefinitionDeleteUndoViewModel(catalog, vault);
+            Assert.True((await undo.DeleteConnectionAsync(first.Value.Key, 3, CancellationToken.None)).IsSuccess);
+
+            // The second delete is under way in the store when Undo of the
+            // first starts.
+            var delete = new TaskCompletionSource();
+            catalog.DeleteGate = delete;
+            var deleting = undo.DeleteConnectionAsync(second.Value.Key, 3, CancellationToken.None).AsTask();
+            var save = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            catalog.ConnectionSaveGate = save;
+            var restoring = undo.UndoAsync(CancellationToken.None).AsTask();
+            Assert.True(undo.IsRestoring);
+
+            delete.SetResult();
+
+            // The second delete replaces the Undo, but the first is still
+            // being put back: its credentials stay until the restore decides.
+            Assert.Equal("Second", undo.Pending?.Name);
+            Assert.True(vault.Contains(firstSecret));
+
+            save.SetResult(true);
+            Assert.True((await restoring).IsSuccess);
+            Assert.True((await deleting).IsSuccess);
+
+            Assert.Equal("ssh-first", Assert.Single(catalog.Snapshot.Connections).Value.Id.Value);
+            Assert.Equal("Second", undo.Pending?.Name);
+            Assert.True(vault.Contains(firstSecret));
+            Assert.True(vault.Contains(secondSecret));
+            Assert.Equal(0, vault.Deletes);
+        });
+
+    [Fact]
+    public Task A_delete_that_lands_while_undo_fails_makes_the_previous_one_final_once() =>
+        // No synchronization context, as above.
+        Task.Run(async () =>
+        {
+            var first = Connection("ssh-first", "First");
+            var second = Connection("ssh-second", "Second");
+            var catalog = new Catalog(connections: [first, second]);
+            using var vault = new Vault();
+            var firstSecret = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-first"));
+            var secondSecret = vault.Add(new SecretScope(SecretScopeKind.Connection, "ssh-second"));
+            var undo = new DefinitionDeleteUndoViewModel(catalog, vault);
+            Assert.True((await undo.DeleteConnectionAsync(first.Value.Key, 3, CancellationToken.None)).IsSuccess);
+
+            var delete = new TaskCompletionSource();
+            catalog.DeleteGate = delete;
+            var deleting = undo.DeleteConnectionAsync(second.Value.Key, 3, CancellationToken.None).AsTask();
+            var save = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            catalog.ConnectionSaveGate = save;
+            var restoring = undo.UndoAsync(CancellationToken.None).AsTask();
+
+            delete.SetResult();
+            Assert.True(vault.Contains(firstSecret));
+
+            save.SetResult(false);
+            Assert.Equal(DefinitionStoreErrorCode.StorageFailure, (await restoring).Error?.Code);
+            Assert.True((await deleting).IsSuccess);
+
+            Assert.Empty(catalog.Snapshot.Connections);
+            Assert.Equal("Second", undo.Pending?.Name);
+            Assert.Equal("Deleted “Second”.", undo.Status);
+            Assert.False(vault.Contains(firstSecret));
+            Assert.True(vault.Contains(secondSecret));
+            Assert.Equal(1, vault.Deletes);
+        });
+
+    [Fact]
     public async Task A_stale_revision_deletes_nothing_and_leaves_the_last_undo_alone()
     {
         var first = Connection("ssh-first", "First");
@@ -209,18 +380,34 @@ public sealed class DeleteUndoDefinitionTests
             remove { }
         }
 
-        public ValueTask<DefinitionStoreResult<StoredDefinition<ConnectionProfile>>> SaveConnectionAsync(
+        /// <summary>
+        /// When set, a connection save waits here: true saves it, false
+        /// fails it, and canceling the save's token cancels it.
+        /// </summary>
+        public TaskCompletionSource<bool>? ConnectionSaveGate { get; set; }
+
+        /// <summary>When set, a delete waits here before it removes anything.</summary>
+        public TaskCompletionSource? DeleteGate { get; set; }
+
+        public async ValueTask<DefinitionStoreResult<StoredDefinition<ConnectionProfile>>> SaveConnectionAsync(
             ConnectionProfile definition,
             long? expectedRevision,
             CancellationToken cancellationToken)
         {
+            if (ConnectionSaveGate is { } gate
+                && !await gate.Task.WaitAsync(cancellationToken))
+            {
+                return DefinitionStoreResult<StoredDefinition<ConnectionProfile>>.Failure(
+                    new(DefinitionStoreErrorCode.StorageFailure, "Disk full."));
+            }
+
             var stored = new StoredDefinition<ConnectionProfile>(
                 definition,
                 1,
                 DateTimeOffset.UnixEpoch,
                 DateTimeOffset.UnixEpoch);
             _connections.Add(stored);
-            return ValueTask.FromResult(DefinitionStoreResult<StoredDefinition<ConnectionProfile>>.Success(stored));
+            return DefinitionStoreResult<StoredDefinition<ConnectionProfile>>.Success(stored);
         }
 
         public ValueTask<DefinitionStoreResult<StoredDefinition<WorkspaceDefinition>>> SaveWorkspaceAsync(
@@ -257,16 +444,21 @@ public sealed class DeleteUndoDefinitionTests
             return ValueTask.FromResult<DefinitionStoreError?>(null);
         }
 
-        public ValueTask<DefinitionStoreResult<Unit>> DeleteAsync(
+        public async ValueTask<DefinitionStoreResult<Unit>> DeleteAsync(
             DefinitionKey key,
             long expectedRevision,
             CancellationToken cancellationToken)
         {
+            if (DeleteGate is { } gate)
+            {
+                await gate.Task.WaitAsync(cancellationToken);
+            }
+
             var removed = _connections.RemoveAll(item => item.Value.Key == key)
                 + _workspaces.RemoveAll(item => item.Value.Key == key);
-            return ValueTask.FromResult(removed == 1
+            return removed == 1
                 ? DefinitionStoreResult<Unit>.Success(Unit.Value)
-                : DefinitionStoreResult<Unit>.Failure(new(DefinitionStoreErrorCode.NotFound, "Missing.")));
+                : DefinitionStoreResult<Unit>.Failure(new(DefinitionStoreErrorCode.NotFound, "Missing."));
         }
 
         public ValueTask<DefinitionStoreResult<DefinitionCatalogSnapshot>> InitializeAsync(CancellationToken cancellationToken) =>
@@ -339,6 +531,8 @@ public sealed class DeleteUndoDefinitionTests
             return reference;
         }
 
+        public int Deletes { get; private set; }
+
         public bool Contains(SecretRef reference) =>
             _secrets.Any(secret => secret.Reference == reference);
 
@@ -355,6 +549,7 @@ public sealed class DeleteUndoDefinitionTests
             Assert.Equal(secret.Scope, request.Scope);
             Assert.Equal(secret.Scope.OwnerId, request.Purpose.TargetId);
             _secrets.Remove(secret);
+            Deletes++;
             return ValueTask.FromResult(SecretVaultResult<Unit>.Succeed(Unit.Value));
         }
 
