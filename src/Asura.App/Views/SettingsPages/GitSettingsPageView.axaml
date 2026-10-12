@@ -22,7 +22,7 @@
     signing are the repository's, and stay in the panel. Every choice applies
     as it changes and reaches every open Git panel at once.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <components:SettingsPageHeader
         Heading="Git"
         Description="Choices that apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository." />

@@ -19,7 +19,7 @@
     The page now says only what each setting is. Where the label sits, how wide the
     control column is, and which row draws a separator are the group's business.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <!-- Every setting here applies as it changes; there is nothing to save. -->
     <components:SettingsPageHeader
         Heading="Quick Terminal"

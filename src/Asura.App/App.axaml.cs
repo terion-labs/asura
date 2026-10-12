@@ -1093,7 +1093,14 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardPaddingCompact", new Thickness(spacing.Medium));
         Publish("ShellPagePadding", new Thickness(spacing.Large));
         Publish("ShellRowPadding", new Thickness(spacing.Large, spacing.Medium));
-        Publish("ShellListRowPadding", new Thickness(spacing.Medium, spacing.Small));
+        // A list row's inset is macOS 26's: 10 across and 6 down at 100%, so a
+        // one-line row comes to the host's 28 points rather than floating in a
+        // band of 32.
+        Publish("ShellListRowPadding", new Thickness(HalfPoint(spacing.Small * 1.25), HalfPoint(spacing.Small * 0.75)));
+        // The gap between two sections of a page: 20 at 100%, between the
+        // gap between cards and the one around an empty state.
+        Publish("ShellSpaceSection", HalfPoint(spacing.Small * 2.5));
+        Publish("ShellInsetSection", new Thickness(HalfPoint(spacing.Small * 2.5)));
         Publish("ShellPillPadding", new Thickness(spacing.Small, spacing.ExtraSmall));
 
         // For a native child view that has to round its own layer because Avalonia
@@ -1118,6 +1125,10 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellMotionEnabled", resources.MotionEnabled);
         Publish("ShellAdvancedMaterialsEnabled", resources.AdvancedMaterialsEnabled);
     }
+
+    /// <summary>A length on the half-point grid, so filled surfaces meet without a seam.</summary>
+    private static double HalfPoint(double length) =>
+        Math.Round(length * 2, MidpointRounding.AwayFromZero) / 2;
 
     private void ApplyToWindow(
         Window window,

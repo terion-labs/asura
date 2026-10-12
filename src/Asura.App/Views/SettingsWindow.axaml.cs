@@ -3,6 +3,7 @@ using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Platform;
 
 namespace Asura.App.Views;
 
@@ -198,25 +199,67 @@ public sealed partial class SettingsWindow : Window
     /// The frame is never larger than the screen the window opens on, title
     /// bar included.
     /// </summary>
-    private void FitToScreen()
+    /// <param name="screen">
+    /// The screen the frame is on. Before the window is shown it has no screen
+    /// of its own to ask, so a restored frame names the one it was saved on;
+    /// left out, it is the window's screen, or the primary one.
+    /// </param>
+    private void FitToScreen(Screen? screen = null)
     {
         SizeToContent = SizeToContent.Manual;
-        if (AvailableScreenSize() is not { } available)
+        var screens = Screens;
+        screen ??= (IsVisible ? screens.ScreenFromWindow(this) : null)
+            ?? screens.Primary
+            ?? screens.All.FirstOrDefault();
+        if (screen is null)
         {
             return;
         }
 
-        Width = Math.Max(MinWidth, Math.Min(Width, available.Width * ScreenFraction));
-        Height = Math.Max(MinHeight, Math.Min(Height, available.Height * ScreenFraction));
+        var size = FitSize(
+            new Size(Width, Height),
+            new Size(MinWidth, MinHeight),
+            screen.WorkingArea.Size.ToSize(screen.Scaling));
+        Width = size.Width;
+        Height = size.Height;
     }
 
-    private Size? AvailableScreenSize()
+    /// <summary>
+    /// A frame's size on a screen with <paramref name="available"/> room: no
+    /// more than <see cref="ScreenFraction"/> of it, and no less than the
+    /// window's minimum.
+    /// </summary>
+    internal static Size FitSize(Size wanted, Size minimum, Size available) => new(
+        Math.Max(minimum.Width, Math.Min(wanted.Width, available.Width * ScreenFraction)),
+        Math.Max(minimum.Height, Math.Min(wanted.Height, available.Height * ScreenFraction)));
+
+    /// <summary>
+    /// The screen a restored frame belongs to: the one holding its origin
+    /// once it has been brought on screen, else the one holding the saved
+    /// origin, else the primary one. Fitting against the primary screen
+    /// shrank a frame saved on a larger second display and let one saved on
+    /// a smaller display stay taller than it.
+    /// </summary>
+    internal static T HomeScreen<T>(
+        PixelPoint placed,
+        PixelPoint saved,
+        IEnumerable<T> screens,
+        Func<T, PixelRect> workingArea,
+        T primary)
     {
-        var screens = Screens;
-        var screen = (IsVisible ? screens.ScreenFromWindow(this) : null)
-            ?? screens.Primary
-            ?? screens.All.FirstOrDefault();
-        return screen?.WorkingArea.Size.ToSize(screen.Scaling);
+        var all = screens.ToArray();
+        foreach (var origin in new[] { placed, saved })
+        {
+            foreach (var screen in all)
+            {
+                if (workingArea(screen).Contains(origin))
+                {
+                    return screen;
+                }
+            }
+        }
+
+        return primary;
     }
 
     private async Task ConfirmCloseAsync(MainWindow host)
@@ -293,7 +336,7 @@ public sealed partial class SettingsWindow : Window
         Position = frame.Position;
         Width = Math.Max(MinWidth, size.Width);
         Height = Math.Max(MinHeight, size.Height);
-        FitToScreen();
+        FitToScreen(HomeScreen(frame.Position, origin, screens.All, screen => screen.WorkingArea, primary));
     }
 
     private void SaveState()

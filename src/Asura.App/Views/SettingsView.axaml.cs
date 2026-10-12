@@ -58,6 +58,8 @@ internal sealed record McpServerSecretFormInput(
 
 public sealed partial class SettingsView : UserControl
 {
+    private BrowserProfileSettingsEditorViewModel? _browserProfileEditor;
+
     public SettingsView()
     {
         InitializeComponent();
@@ -74,6 +76,7 @@ public sealed partial class SettingsView : UserControl
         FollowListSelection(SecretList, DeleteSecretButton);
         FollowListSelection(AiProviderList, DeleteAiProviderButton);
         FollowListSelection(McpServerList, DeleteMcpServerButton);
+        BrowserProfilePopover.DataContextChanged += (_, _) => FollowBrowserProfileCreation();
         foreach (var (field, picker) in CredentialFormFields())
         {
             // A message about a choice goes once the choice is made again.
@@ -575,10 +578,18 @@ public sealed partial class SettingsView : UserControl
         DeleteBrowserProfileRequested?.Invoke(sender, e);
 
     /// <summary>
-    /// Either Add button in the + popover creates the profile through its
-    /// command; the popover then closes, as a menu would after its choice.
+    /// The + popover closes once the profile it asked for exists. A refused
+    /// name keeps it open with the reason under the field, rather than
+    /// closing it and reporting the refusal somewhere else on the page.
     /// </summary>
-    private void OnAddBrowserProfileChoiceClick(object? sender, RoutedEventArgs e)
+    private void FollowBrowserProfileCreation()
+    {
+        _browserProfileEditor?.ProfileCreated -= OnBrowserProfileCreated;
+        _browserProfileEditor = BrowserProfilePopover.DataContext as BrowserProfileSettingsEditorViewModel;
+        _browserProfileEditor?.ProfileCreated += OnBrowserProfileCreated;
+    }
+
+    private void OnBrowserProfileCreated(object? sender, EventArgs e)
     {
         _ = sender;
         _ = e;

@@ -47,34 +47,41 @@
 
     <!-- One state at a time: loading, nothing to show, couldn't load, or
          the list with its summary line. A refresh with snapshots already
-         listed keeps the list; the summary line says it is reloading. -->
-    <Panel>
-      <Panel.IsVisible>
+         listed keeps the list; the summary line says it is reloading.
+         Every state sits in the card the list would fill, as the cache and
+         logs section's states above do. -->
+    <controls:SurfaceCard Padding="0">
+      <controls:SurfaceCard.IsVisible>
         <MultiBinding Converter="{x:Static BoolConverters.And}">
           <Binding Path="IsBusy" FallbackValue="False" />
           <Binding Path="!HasRuns" FallbackValue="False" />
         </MultiBinding>
-      </Panel.IsVisible>
+      </controls:SurfaceCard.IsVisible>
       <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
           Kind="Loading"
           Heading="Loading recovery snapshots…"
           Body="This run’s own snapshot stays protected while earlier ones load." />
-    </Panel>
+    </controls:SurfaceCard>
 
-    <controls:StateOverlay
-        Kind="Empty"
-        Heading="No snapshots from earlier runs"
-        Body="This run’s own snapshot is protected, so it isn’t listed."
-        IsVisible="{Binding HasNoRuns, FallbackValue=False}" />
+    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoRuns, FallbackValue=False}">
+      <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
+          Kind="Empty"
+          Heading="No snapshots from earlier runs"
+          Body="This run’s own snapshot is protected, so it isn’t listed." />
+    </controls:SurfaceCard>
 
-    <controls:StateOverlay
-        Kind="Retry"
-        Heading="Recovery snapshots couldn’t be loaded"
-        Body="Nothing was removed. Click Refresh to try again."
-        ActionLabel="Refresh"
-        ActionRequested="OnRefreshClick"
-        FocusTarget="PrimaryAction"
-        IsVisible="{Binding HasError, FallbackValue=False}" />
+    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasError, FallbackValue=False}">
+      <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
+          Kind="Retry"
+          Heading="Recovery snapshots couldn’t be loaded"
+          Body="Nothing was removed. Click Refresh to try again."
+          ActionLabel="Refresh"
+          ActionRequested="OnRefreshClick"
+          FocusTarget="PrimaryAction" />
+    </controls:SurfaceCard>
 
     <controls:SurfaceCard
         x:Name="RecoveryRunList"
@@ -88,29 +95,35 @@
             IsEnabled="{Binding CanClearRuns, FallbackValue=False}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Grid Margin="{DynamicResource ShellRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Text="{Binding Title}" />
-                  <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SnapshotLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding UpdatedLabel}" />
-                  </WrapPanel>
-                </StackPanel>
-                <Button
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Classes="DestructiveButton"
-                    Click="OnClearRunClick"
-                    Content="Clear…"
-                    AutomationProperties.Name="{Binding ClearAutomationName}" />
+              <!-- A grouped row: the list row's inset inside the step every
+                   settings card keeps from its edge, so its title starts
+                   where a settings row's label starts. -->
+              <Grid Margin="{DynamicResource ShellInsetXs}">
+                <Grid Margin="{DynamicResource ShellListRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Text="{Binding Title}" />
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SnapshotLabel}" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding UpdatedLabel}" />
+                    </WrapPanel>
+                  </StackPanel>
+                  <Button
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Classes="DestructiveButton"
+                      Click="OnClearRunClick"
+                      Content="Clear…"
+                      AutomationProperties.Name="{Binding ClearAutomationName}" />
+                </Grid>
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
         <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
         <controls:LiveRegionTextBlock
-            Margin="{DynamicResource ShellRowPadding}"
+            Margin="{DynamicResource ShellListRowPadding}"
+            Padding="{controls:Inset Horizontal=Xs}"
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusMessage}"

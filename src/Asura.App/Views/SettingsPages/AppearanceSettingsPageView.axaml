@@ -10,7 +10,7 @@
     xmlns:icons="using:FluentIcons.Avalonia"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch">
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
     <components:SettingsPageHeader
         Heading="Appearance"
         Description="Customize how the app looks — color scheme, accent, and window style." />
@@ -470,9 +470,10 @@
       <components:SectionHeader
           Heading="Corners &amp; UI"
           Description="Window corners, density, and interface behavior." />
-      <!-- Every on/off choice here is one shape: a checkbox naming the
-           option, its description under the words. The cursor's settings
-           moved to the Terminal page, beside the rest of the cursor. -->
+      <!-- Every on/off choice here is one shape: the option's name and its
+           description on the left, a switch at the row's trailing edge. The
+           cursor's settings moved to the Terminal page, beside the rest of
+           the cursor. -->
       <controls:SettingsGroup ControlWidth="300">
         <controls:SettingRow
             Label="Density"

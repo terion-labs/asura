@@ -482,7 +482,7 @@ public sealed class SettingsViewContractTests
         // Terminal used to say 22 and 20 for the same intent, which is the drift
         // the scale exists to stop; a literal pinned here would reintroduce it.
         Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
+            "{DynamicResource ShellSpaceSection}",
             AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
@@ -646,7 +646,7 @@ public sealed class SettingsViewContractTests
         // written here. A literal is a gap the density and text-scale settings
         // cannot reach, and pinning one in a test is how it would stay that way.
         Assert.Equal(
-            "{DynamicResource ShellSpaceXl}",
+            "{DynamicResource ShellSpaceSection}",
             AttributeValue(content, "Spacing"));
         Assert.Null(AttributeValue(content, "Margin"));
         Assert.Null(AttributeValue(content, "IsVisible"));
@@ -1124,6 +1124,125 @@ public sealed class SettingsViewContractTests
                 bar!.Ancestors(),
                 ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
         }
+    }
+
+    /// <summary>
+    /// Every settings page puts one gap between its sections: the section
+    /// token, 20 points at 100%. Pages used 24, Keyboard Shortcuts, About and
+    /// AI used 16, so the rhythm changed from one page to the next.
+    /// </summary>
+    [Fact]
+    public void Every_settings_page_uses_one_section_gap()
+    {
+        const string section = "{DynamicResource ShellSpaceSection}";
+        var settings = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var pages = settings.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && (AttributeValue(element, "Name") ?? string.Empty).EndsWith("SettingsPage", StringComparison.Ordinal))
+            .ToArray();
+        Assert.True(pages.Length >= 10, $"Found {pages.Length} inline settings pages.");
+        foreach (var page in pages)
+        {
+            Assert.Equal(section, AttributeValue(page, "Spacing"));
+        }
+
+        // The AI page's two halves are sections of their own.
+        Assert.Equal(section, AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Spacing"));
+        Assert.Equal(
+            section,
+            AttributeValue(FindNamedElement(settings, "AiSettingsPage").Elements().First(), "Spacing"));
+
+        foreach (var page in new[] { "AppearanceSettingsPageView", "GitSettingsPageView", "NetworkingSettingsPageView", "QuickTerminalSettingsPageView" })
+        {
+            var root = Assert.IsType<XElement>(LoadSettingsPage(page).Root);
+            var stack = root.Elements().First(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal));
+            Assert.Equal(section, AttributeValue(stack, "Spacing"));
+        }
+    }
+
+    /// <summary>
+    /// Data &amp; Diagnostics shows each state of its two lists — loading,
+    /// empty, couldn't load — in the card the list would fill, so the page
+    /// keeps one shape. The cache section's empty state sat in a card while
+    /// the recovery section's sat bare on the page, and one failure was a
+    /// warning callout while the other was a retry state.
+    /// </summary>
+    [Theory]
+    [InlineData("LocalArtifactControlView")]
+    [InlineData("RecoveryDataControlView")]
+    public void Diagnostics_states_sit_in_the_card_their_list_fills(string view)
+    {
+        var root = Assert.IsType<XElement>(LoadView(view).Root);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "EmptyStatePanel", StringComparison.Ordinal));
+        var states = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(
+            ["Loading", "Empty", "Retry"],
+            states.Select(state => AttributeValue(state, "Kind")),
+            StringComparer.Ordinal);
+        foreach (var state in states)
+        {
+            var card = Assert.IsType<XElement>(state.Parent);
+            Assert.Equal("SurfaceCard", card.Name.LocalName);
+            Assert.Equal("0", AttributeValue(card, "Padding"));
+            Assert.Null(AttributeValue(card, "Tone"));
+            Assert.Equal("{controls:Inset Xl}", AttributeValue(state, "Margin"));
+        }
+    }
+
+    /// <summary>
+    /// The + popover for a browser profile adds a persistent profile on
+    /// Return and says a refused name inside itself.
+    /// </summary>
+    [Fact]
+    public void Browser_profile_popover_adds_on_return_and_refuses_in_place()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var persistent = FindNamedElement(root, "AddPersistentBrowserProfileButton");
+        var @private = FindNamedElement(root, "AddPrivateBrowserProfileButton");
+        Assert.Equal("True", AttributeValue(persistent, "IsDefault"));
+        Assert.Null(AttributeValue(@private, "IsDefault"));
+        foreach (var button in new[] { persistent, @private })
+        {
+            // The command makes the profile; the popover closes when the
+            // editor says it exists, not on the click, which closed it before
+            // the name was checked.
+            Assert.NotNull(AttributeValue(button, "Command"));
+            Assert.Null(AttributeValue(button, "Click"));
+        }
+
+        var error = FindNamedElement(root, "BrowserProfileCreationError");
+        Assert.Equal("{Binding CreationError}", AttributeValue(error, "Text"));
+        Assert.Equal(
+            "{Binding BrowserProfileSettingsEditor}",
+            AttributeValue(FindNamedElement(root, "BrowserProfilePopover"), "DataContext"));
+        Assert.Contains(
+            persistent.Ancestors(),
+            ancestor => string.Equals(ancestor.Name.LocalName, "Flyout", StringComparison.Ordinal)
+                && ancestor.Descendants().Contains(error));
+    }
+
+    /// <summary>
+    /// With no layouts, the layouts card says so rather than drawing an
+    /// empty rounded outline.
+    /// </summary>
+    [Fact]
+    public void Layouts_card_says_when_it_has_no_layouts()
+    {
+        var root = Assert.IsType<XElement>(LoadView("SettingsView").Root);
+        var layouts = Assert.Single(
+            root.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "ItemsSource"), "{Binding Layouts}", StringComparison.Ordinal));
+        var card = layouts.Ancestors().First(ancestor => string.Equals(ancestor.Name.LocalName, "SurfaceCard", StringComparison.Ordinal));
+        var empty = Assert.Single(
+            card.Descendants(),
+            element => string.Equals(element.Name.LocalName, "StateOverlay", StringComparison.Ordinal));
+        Assert.Equal("Empty", AttributeValue(empty, "Kind"));
+        Assert.Equal("{Binding !Layouts.Count}", AttributeValue(empty, "IsVisible"));
     }
 
     /// <summary>

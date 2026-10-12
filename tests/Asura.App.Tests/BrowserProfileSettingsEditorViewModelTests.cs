@@ -148,6 +148,39 @@ public sealed class BrowserProfileSettingsEditorViewModelTests
         Assert.Contains("disabled", editor.OperationStatus, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// The + popover's name starts empty, a refused name is said where it was
+    /// typed and leaves the name as it was, and a profile that is made empties
+    /// the name again, so the next popover never offers a name already taken.
+    /// It used to start at "Browser profile", report a refusal elsewhere on
+    /// the page, and keep the made profile's name for the next one.
+    /// </summary>
+    [Fact]
+    public async Task NewProfileNameStartsEmptyRefusesInPlaceAndResetsAfterCreating()
+    {
+        var fixture = Catalog(Store(BuiltInBrowserProfiles.Default, 1));
+        var editor = new BrowserProfileSettingsEditorViewModel(
+            new InMemoryBrowserProfilePreferences(),
+            catalog: fixture.Catalog);
+        Assert.Equal(string.Empty, editor.NewProfileName);
+
+        Assert.False(await editor.CreateProfileAsync(BrowserProfilePersistence.DurableMetadata));
+        Assert.True(editor.HasCreationError);
+        Assert.False(string.IsNullOrWhiteSpace(editor.CreationError));
+        Assert.Null(fixture.Proxy.LastSaved);
+        Assert.Null(editor.OperationStatus);
+
+        editor.NewProfileName = "Staging";
+        Assert.False(editor.HasCreationError);
+        Assert.True(await editor.CreateProfileAsync(BrowserProfilePersistence.PrivateSession));
+
+        Assert.Equal("Staging", fixture.Proxy.LastSaved?.Name);
+        Assert.Equal("Staging", editor.SelectedProfile?.Name);
+        Assert.Equal(string.Empty, editor.NewProfileName);
+        Assert.False(editor.HasCreationError);
+        Assert.Contains("Private browser profile created", editor.OperationStatus, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task HttpAuthenticationCreatesAnExactBrowserScopedVaultSecret()
     {

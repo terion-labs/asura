@@ -1565,6 +1565,23 @@
     <Setter Property="Opacity" Value="0.48" />
   </Style>
 
+  <!-- A switch on the selected row of the list you are working in stands on
+       the accent fill, where an accent track disappears and leaves a white
+       knob floating on the row. There it is drawn in the selection's ink:
+       outlined in it when off, filled with it when on, with the knob in the
+       accent, as the row's text and chips already turn. -->
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected ToggleSwitch /template/ Border#SwitchTrack">
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected ToggleSwitch:checked /template/ Border#SwitchTrack">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected ToggleSwitch:checked /template/ Border#SwitchKnob">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentBrush}" />
+  </Style>
+
   <!-- Expanders sit inside cards that already carry a surface and a border, so
        the Fluent default's own filled, bordered chrome reads as a second card
        nested in the first. The header keeps its affordance; the box goes. -->

@@ -715,8 +715,9 @@
                 Heading="AI configuration"
                 Description="Use app defaults or choose a provider, model, and tool permissions for this workspace.">
               <StackPanel Margin="{controls:Inset Lg}" Spacing="{DynamicResource ShellSpaceMd}">
-                <!-- An option, not the section's master: a checkbox whose
-                     label is its content, as everywhere else in the editor. -->
+                <!-- An option, not the section's master: a switch at the
+                     row's trailing edge with its label on the left, as every
+                     on/off setting in the editor and in Settings is drawn. -->
                 <controls:SettingRow
                     Label="Run the AI agent in the workspace environment"
                     Padding="0"

@@ -14,7 +14,7 @@
     connection is a dialog, like every other definition editor, so the page
     stays a page.
   -->
-  <StackPanel Spacing="{DynamicResource ShellSpaceXl}">
+  <StackPanel Spacing="{DynamicResource ShellSpaceSection}">
       <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
     <components:SettingsPageHeader
         Heading="Networking"

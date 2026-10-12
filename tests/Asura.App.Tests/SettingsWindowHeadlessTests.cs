@@ -323,10 +323,17 @@ public sealed class SettingsWindowHeadlessTests
                     .First(border => border.Classes.Contains("ListActionBar"));
                 Assert.Contains(card, bar.GetVisualAncestors());
 
+                // The hairline over the bar is the list's own bottom edge, so
+                // an empty list draws none: the bar's line sat right under the
+                // card's border, a doubled edge on an empty card.
+                Assert.Equal(0, bar.BorderThickness.Top);
                 if (list.ItemCount == 0)
                 {
+                    Assert.Equal(default, list.BorderThickness);
                     return true;
                 }
+
+                Assert.Equal(new Thickness(0, 0, 0, 1), list.BorderThickness);
 
                 list.SelectedIndex = 0;
                 Dispatcher.UIThread.RunJobs();
@@ -345,6 +352,17 @@ public sealed class SettingsWindowHeadlessTests
                 Assert.Equal(left, bottom, 3);
                 // The row itself spans the card edge to edge.
                 Assert.Equal(list.Bounds.Width, item.Bounds.Width, 3);
+
+                // macOS 26 grouped-row metrics: the highlight inset 4 on every
+                // side, the row's content 10 across and 6 down inside it, and
+                // the row at least the host's 28 points tall.
+                Assert.Equal(4, left, 3);
+                var row = item.GetVisualDescendants().OfType<Asura.App.Controls.ListItem>().First();
+                Assert.Equal(new Thickness(10, 6), row.ContentPadding);
+                var leading = row.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                    .First(presenter => string.Equals(presenter.Name, "PART_Leading", StringComparison.Ordinal));
+                Assert.Equal(14, leading.TranslatePoint(default, item)!.Value.X, 3);
+                Assert.True(item.Bounds.Height >= 28, $"The row is {item.Bounds.Height} tall.");
                 return true;
             }
             finally
@@ -352,6 +370,75 @@ public sealed class SettingsWindowHeadlessTests
                 host.Close();
             }
         }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// The + popover for a browser profile stays open on a refused name and
+    /// says why under the field, and closes once the profile exists. It used
+    /// to close on the click, before the name was checked, and report the
+    /// refusal elsewhere on the page.
+    /// </summary>
+    [Fact]
+    public async Task Browser_profile_popover_closes_only_once_the_profile_exists()
+    {
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            viewModel.ShowSettings(SettingsPage.Browser);
+            var view = new SettingsView { DataContext = viewModel };
+            var host = new Window { Content = view, Width = 1000, Height = 800 };
+            host.Show();
+            try
+            {
+                host.UpdateLayout();
+                var add = view.GetLogicalDescendants().OfType<Button>()
+                    .Single(item => string.Equals(item.Name, "AddBrowserProfileButton", StringComparison.Ordinal));
+                var flyout = Assert.IsType<Flyout>(add.Flyout);
+                flyout.ShowAt(add);
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(flyout.IsOpen);
+
+                var popover = Assert.IsType<StackPanel>(flyout.Content);
+                var editor = viewModel.BrowserProfileSettingsEditor;
+                Assert.Same(editor, popover.DataContext);
+                var persistent = popover.GetLogicalDescendants().OfType<Button>()
+                    .Single(item => string.Equals(item.Name, "AddPersistentBrowserProfileButton", StringComparison.Ordinal));
+                Assert.True(persistent.IsDefault);
+                Assert.Equal(string.Empty, editor.NewProfileName);
+
+                persistent.Command!.Execute(null);
+                await WaitUntilAsync(() => editor.HasCreationError);
+                Assert.True(flyout.IsOpen, "A refused name closed the popover.");
+                var error = popover.GetLogicalDescendants().OfType<TextBlock>()
+                    .Single(item => string.Equals(item.Name, "BrowserProfileCreationError", StringComparison.Ordinal));
+                Assert.True(error.IsVisible);
+
+                editor.NewProfileName = "Staging";
+                var before = editor.Profiles.Count;
+                persistent.Command.Execute(null);
+                await WaitUntilAsync(() => editor.Profiles.Count > before);
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(flyout.IsOpen, "The popover stayed open after the profile was made.");
+                Assert.Equal(string.Empty, editor.NewProfileName);
+                return true;
+            }
+            finally
+            {
+                host.Close();
+            }
+        }, CancellationToken.None));
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition never held.");
+            Dispatcher.UIThread.RunJobs();
+            await Task.Delay(10);
+        }
     }
 
     [Fact]
@@ -535,6 +622,12 @@ public sealed class SettingsWindowHeadlessTests
     /// height to each page, so it jumped on every page change, and a long
     /// page laid out taller than the frame it was given could not be
     /// scrolled to its end.
+    ///
+    /// The size and SizeToContent assertions are what catch that regression
+    /// here. The scroll assertion guards the page's own layout (a page whose
+    /// scroller grows past the window, or a last control the scroller cannot
+    /// reach); it cannot see the native frame being shorter than the laid-out
+    /// one, because the headless platform grants every frame it is asked for.
     /// </summary>
     [Fact]
     public async Task Settings_keeps_one_size_and_every_page_scrolls_to_its_end()
@@ -596,6 +689,39 @@ public sealed class SettingsWindowHeadlessTests
                 ForgetSettingsWindowState();
             }
         }, CancellationToken.None));
+    }
+
+    /// <summary>
+    /// A restored frame is fitted to the screen it was saved on, not the
+    /// primary one: fitting against the primary screen shrank a frame saved
+    /// on a larger second display and let one saved on a smaller display
+    /// stay taller than it.
+    /// </summary>
+    [Fact]
+    public void A_restored_frame_fits_the_screen_it_was_saved_on()
+    {
+        var primary = new PixelRect(0, 0, 1440, 900);
+        var large = new PixelRect(1440, 0, 2560, 1440);
+        var small = new PixelRect(-1024, 0, 1024, 600);
+        PixelRect[] screens = [primary, large, small];
+
+        Assert.Equal(
+            large,
+            SettingsWindow.HomeScreen(new PixelPoint(1500, 40), new PixelPoint(1500, 40), screens, area => area, primary));
+        Assert.Equal(
+            small,
+            SettingsWindow.HomeScreen(new PixelPoint(-900, 20), new PixelPoint(-900, 20), screens, area => area, primary));
+        // Brought back from off every screen, it belongs to where it landed.
+        Assert.Equal(
+            primary,
+            SettingsWindow.HomeScreen(new PixelPoint(100, 100), new PixelPoint(-40_000, -40_000), screens, area => area, primary));
+
+        var minimum = new Size(760, 480);
+        var saved = new Size(1600, 1100);
+        Assert.Equal(saved, SettingsWindow.FitSize(saved, minimum, large.Size.ToSize(1)));
+        Assert.Equal(new Size(primary.Width * 0.9, primary.Height * 0.9), SettingsWindow.FitSize(saved, minimum, primary.Size.ToSize(1)));
+        Assert.Equal(new Size(small.Width * 0.9, small.Height * 0.9), SettingsWindow.FitSize(saved, minimum, small.Size.ToSize(1)));
+        Assert.Equal(minimum, SettingsWindow.FitSize(new Size(100, 100), minimum, large.Size.ToSize(1)));
     }
 
     private static void ForgetSettingsWindowState(ISettingsWindowStateStore? store = null)

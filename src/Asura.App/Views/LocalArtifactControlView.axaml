@@ -43,32 +43,42 @@
 
     <!-- One state at a time: loading, nothing listed, couldn't check, or
          the list with its summary line. A refresh with items already
-         listed keeps the list, and the summary line says it is reloading. -->
-    <Panel>
-      <Panel.IsVisible>
+         listed keeps the list, and the summary line says it is reloading.
+         Every state sits in the card the list would fill, as the recovery
+         section's states below do, so the page keeps one shape whichever
+         state it is in. -->
+    <controls:SurfaceCard Padding="0">
+      <controls:SurfaceCard.IsVisible>
         <MultiBinding Converter="{x:Static BoolConverters.And}">
           <Binding Path="IsBusy" FallbackValue="False" />
           <Binding Path="!HasInventory" FallbackValue="False" />
         </MultiBinding>
-      </Panel.IsVisible>
+      </controls:SurfaceCard.IsVisible>
       <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
           Kind="Loading"
           Heading="Loading cache and log details…"
           Body="Nothing is removed while Asura checks its storage." />
-    </Panel>
+    </controls:SurfaceCard>
 
-    <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasNoInventory, FallbackValue=False}">
-      <controls:EmptyStatePanel
-          ShowsGlyph="False"
+    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasNoInventory, FallbackValue=False}">
+      <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
+          Kind="Empty"
           Heading="Nothing listed yet"
           Body="Click Refresh to see what Asura has stored." />
     </controls:SurfaceCard>
 
-    <controls:Callout
-        Tone="Warning"
-        Title="Storage couldn’t be checked"
-        Text="Asura couldn’t finish checking its storage. Nothing was removed. Click Refresh to try again."
-        IsVisible="{Binding HasError, FallbackValue=False}" />
+    <controls:SurfaceCard Padding="0" IsVisible="{Binding HasError, FallbackValue=False}">
+      <controls:StateOverlay
+          Margin="{controls:Inset Xl}"
+          Kind="Retry"
+          Heading="Storage couldn’t be checked"
+          Body="Nothing was removed. Click Refresh to try again."
+          ActionLabel="Refresh"
+          ActionRequested="OnRefreshClick"
+          FocusTarget="PrimaryAction" />
+    </controls:SurfaceCard>
 
     <controls:SurfaceCard
         x:Name="LocalArtifactList"
@@ -82,34 +92,40 @@
             IsEnabled="{Binding CanClearItems, FallbackValue=False}">
           <ItemsControl.ItemTemplate>
             <DataTemplate>
-              <Grid Margin="{DynamicResource ShellRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock Text="{Binding Title}" />
-                  <TextBlock
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="{Binding Description}"
-                      TextWrapping="Wrap" />
-                  <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding FileCountLabel}" />
-                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
-                  </WrapPanel>
-                </StackPanel>
-                <Button
-                    Grid.Column="1"
-                    VerticalAlignment="Center"
-                    Classes="DestructiveButton"
-                    Click="OnClearClick"
-                    Content="Clear…"
-                    IsEnabled="{Binding HasFiles, FallbackValue=False}"
-                    AutomationProperties.Name="{Binding ClearAutomationName}" />
+              <!-- A grouped row: the list row's inset inside the step every
+                   settings card keeps from its edge, so its title starts
+                   where a settings row's label starts. -->
+              <Grid Margin="{DynamicResource ShellInsetXs}">
+                <Grid Margin="{DynamicResource ShellListRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Text="{Binding Title}" />
+                    <TextBlock
+                        Classes="Muted"
+                        FontSize="{DynamicResource ShellSecondaryFontSize}"
+                        Text="{Binding Description}"
+                        TextWrapping="Wrap" />
+                    <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding FileCountLabel}" />
+                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
+                    </WrapPanel>
+                  </StackPanel>
+                  <Button
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Classes="DestructiveButton"
+                      Click="OnClearClick"
+                      Content="Clear…"
+                      IsEnabled="{Binding HasFiles, FallbackValue=False}"
+                      AutomationProperties.Name="{Binding ClearAutomationName}" />
+                </Grid>
               </Grid>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
         <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
         <controls:LiveRegionTextBlock
-            Margin="{DynamicResource ShellRowPadding}"
+            Margin="{DynamicResource ShellListRowPadding}"
+            Padding="{controls:Inset Horizontal=Xs}"
             Classes="Muted"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
             Text="{Binding StatusMessage}"

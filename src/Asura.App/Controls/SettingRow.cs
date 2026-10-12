@@ -41,7 +41,8 @@ internal sealed class SettingRow : ContentControl
     /// <see cref="LabelMinimumWidth"/> and the control takes what is left up to
     /// this width, and when that is too little for a control the control moves
     /// under the label. A fixed column starved the label at narrow window
-    /// widths until a two-word setting wrapped one word to a line.
+    /// widths until a two-word setting wrapped one word to a line. A row whose
+    /// control is a switch ignores it and takes the switch's own width.
     /// </summary>
     public static readonly StyledProperty<GridLength> ControlWidthProperty =
         AvaloniaProperty.Register<SettingRow, GridLength>(
@@ -105,6 +106,8 @@ internal sealed class SettingRow : ContentControl
             (row, _) => row.UpdateLeadingTitle());
         ContentProperty.Changed.AddClassHandler<SettingRow>(
             (row, _) => row.UpdateLeadingTitle());
+        ContentProperty.Changed.AddClassHandler<SettingRow>(
+            (row, _) => row.ApplyControlWidth());
     }
 
     public SettingRow() => UpdateStateClasses();
@@ -196,11 +199,22 @@ internal sealed class SettingRow : ContentControl
         _link.Update(FieldLabelLink.FindTarget(Content), _label, Description);
     }
 
+    /// <summary>
+    /// The control column this row actually reserves. A switch is one fixed
+    /// size, so it takes its own width rather than the group's: reserving a
+    /// 300-point column for a 38-point switch squeezed the label and its
+    /// description into half the row, wrapping a three-word setting onto four
+    /// lines beside an empty half, and at a large text size moved the switch
+    /// under its label for want of room it never needed.
+    /// </summary>
+    private GridLength ControlColumnWidth =>
+        Content is ToggleSwitch ? GridLength.Auto : ControlWidth;
+
     private void ApplyControlWidth()
     {
         if (_row is { ColumnDefinitions.Count: 2 })
         {
-            _row.ColumnDefinitions[1].Width = ControlWidth;
+            _row.ColumnDefinitions[1].Width = ControlColumnWidth;
         }
 
         InvalidateMeasure();
@@ -224,10 +238,11 @@ internal sealed class SettingRow : ContentControl
         var spare = double.IsFinite(width)
             ? width - Padding.Left - Padding.Right - row.ColumnSpacing - labelInset - LabelMinimumWidth
             : double.PositiveInfinity;
+        var columnWidth = ControlColumnWidth;
         double wanted;
-        if (ControlWidth.IsAbsolute)
+        if (columnWidth.IsAbsolute)
         {
-            wanted = ControlWidth.Value;
+            wanted = columnWidth.Value;
         }
         else
         {
@@ -245,9 +260,9 @@ internal sealed class SettingRow : ContentControl
             : 0;
         row.ColumnDefinitions[1].Width = wrap
             ? new GridLength(0)
-            : ControlWidth.IsAbsolute
-                ? new GridLength(Math.Min(ControlWidth.Value, spare))
-                : ControlWidth;
+            : columnWidth.IsAbsolute
+                ? new GridLength(Math.Min(columnWidth.Value, spare))
+                : columnWidth;
         PseudoClasses.Set(":wrapped", wrap);
     }
 

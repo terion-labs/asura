@@ -253,7 +253,9 @@
            scanned rather than read. As a resource, not an Inset markup use:
            the one consumer is a shared DataTemplate, where the Inset
            extension's parse-time resolution has proven unreliable. -->
-      <Thickness x:Key="ShellListRowPadding">12,8</Thickness>
+      <Thickness x:Key="ShellListRowPadding">10,6</Thickness>
+      <x:Double x:Key="ShellSpaceSection">20</x:Double>
+      <Thickness x:Key="ShellInsetSection">20</Thickness>
       <Thickness x:Key="ShellPillPadding">8,4</Thickness>
       <Thickness x:Key="ShellTabStripTopClearance">0,1,0,0</Thickness>
       <Thickness x:Key="ShellToolbarSeparatorMargin">0,7</Thickness>
