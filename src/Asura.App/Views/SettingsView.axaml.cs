@@ -574,6 +574,17 @@ public sealed partial class SettingsView : UserControl
     private void OnDeleteBrowserProfileClick(object? sender, RoutedEventArgs e) =>
         DeleteBrowserProfileRequested?.Invoke(sender, e);
 
+    /// <summary>
+    /// Either Add button in the + popover creates the profile through its
+    /// command; the popover then closes, as a menu would after its choice.
+    /// </summary>
+    private void OnAddBrowserProfileChoiceClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        AddBrowserProfileButton.Flyout?.Hide();
+    }
+
     private void OnLockNowClick(object? sender, RoutedEventArgs e) =>
         LockNowRequested?.Invoke(sender, e);
 

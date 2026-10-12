@@ -6,88 +6,92 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:vm="using:Asura.App.ViewModels"
     xmlns:controls="using:Asura.App.Controls">
-  <controls:SurfaceCard>
-    <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-          <TextBlock Classes="Headline" Text="App-managed cache &amp; logs" />
-          <TextBlock
-              Classes="Muted"
-              FontSize="{DynamicResource ShellSecondaryFontSize}"
-              Text="Files Asura keeps in its own cache and log folders. The log in use isn’t listed."
-              TextWrapping="Wrap" />
-        </StackPanel>
-        <Button
-            x:Name="RefreshLocalArtifactsButton"
-            Grid.Column="1"
-            Classes="SecondaryButton"
-            Click="OnRefreshClick"
-            Content="Refresh"
-            IsEnabled="{Binding CanRefresh, FallbackValue=False}"
-            AutomationProperties.Name="Refresh the cache and log list" />
-      </Grid>
+  <!--
+    A section of the Data & Diagnostics page, drawn as a settings group is:
+    the heading and its sentence on the page, then one card whose rows are
+    the kinds of storage, separated by hairlines, with the total as the
+    card's footer. Each kind used to be a card of its own inside the
+    section's card, filled with the notice tone, so the page read as a stack
+    of blue boxes.
+  -->
+  <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
+    <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+      <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+        <TextBlock Classes="Headline" Text="App-managed cache &amp; logs" AutomationProperties.HeadingLevel="2" />
+        <TextBlock
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="Files Asura keeps in its own cache and log folders. The log in use isn’t listed."
+            TextWrapping="Wrap" />
+      </StackPanel>
+      <Button
+          x:Name="RefreshLocalArtifactsButton"
+          Grid.Column="1"
+          VerticalAlignment="Center"
+          Classes="SecondaryButton"
+          Click="OnRefreshClick"
+          Content="Refresh"
+          IsEnabled="{Binding CanRefresh, FallbackValue=False}"
+          AutomationProperties.Name="Refresh the cache and log list" />
+    </Grid>
 
-      <controls:Callout
-          Tone="Notice"
-          Glyph="Shield"
-          Text="Saved workspaces, screens, and connections, secrets, history, recovery snapshots, terminal content, system caches, debug traces, and the log in use are never cleared here." />
+    <controls:Callout
+        Tone="Notice"
+        Glyph="Shield"
+        Text="Saved workspaces, screens, and connections, secrets, history, recovery snapshots, terminal content, system caches, debug traces, and the log in use are never cleared here." />
 
-      <!-- One state at a time: loading, nothing listed, couldn't check, or
-           the list with its summary line. A refresh with items already
-           listed keeps the list, and the summary line says it is reloading. -->
-      <Panel>
-        <Panel.IsVisible>
-          <MultiBinding Converter="{x:Static BoolConverters.And}">
-            <Binding Path="IsBusy" FallbackValue="False" />
-            <Binding Path="!HasInventory" FallbackValue="False" />
-          </MultiBinding>
-        </Panel.IsVisible>
-        <controls:StateOverlay
-            Kind="Loading"
-            Heading="Loading cache and log details…"
-            Body="Nothing is removed while Asura checks its storage." />
-      </Panel>
+    <!-- One state at a time: loading, nothing listed, couldn't check, or
+         the list with its summary line. A refresh with items already
+         listed keeps the list, and the summary line says it is reloading. -->
+    <Panel>
+      <Panel.IsVisible>
+        <MultiBinding Converter="{x:Static BoolConverters.And}">
+          <Binding Path="IsBusy" FallbackValue="False" />
+          <Binding Path="!HasInventory" FallbackValue="False" />
+        </MultiBinding>
+      </Panel.IsVisible>
+      <controls:StateOverlay
+          Kind="Loading"
+          Heading="Loading cache and log details…"
+          Body="Nothing is removed while Asura checks its storage." />
+    </Panel>
 
-      <controls:LiveRegionTextBlock
-          Classes="Muted"
-          FontSize="{DynamicResource ShellSecondaryFontSize}"
-          Text="{Binding StatusMessage}"
-          IsVisible="{Binding HasInventory, FallbackValue=False}"
-          TextWrapping="Wrap"
-          AutomationProperties.LiveSetting="Polite"
-          AutomationProperties.Name="{Binding StatusAutomationName}" />
+    <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasNoInventory, FallbackValue=False}">
+      <controls:EmptyStatePanel
+          ShowsGlyph="False"
+          Heading="Nothing listed yet"
+          Body="Click Refresh to see what Asura has stored." />
+    </controls:SurfaceCard>
 
-      <controls:SurfaceCard Padding="{DynamicResource ShellCardPaddingCompact}" IsVisible="{Binding HasNoInventory, FallbackValue=False}">
-        <controls:EmptyStatePanel
-            ShowsGlyph="False"
-            Heading="Nothing listed yet"
-            Body="Click Refresh to see what Asura has stored." />
-      </controls:SurfaceCard>
+    <controls:Callout
+        Tone="Warning"
+        Title="Storage couldn’t be checked"
+        Text="Asura couldn’t finish checking its storage. Nothing was removed. Click Refresh to try again."
+        IsVisible="{Binding HasError, FallbackValue=False}" />
 
-      <controls:Callout
-          Tone="Warning"
-          Title="Storage couldn’t be checked"
-          Text="Asura couldn’t finish checking its storage. Nothing was removed. Click Refresh to try again."
-          IsVisible="{Binding HasError, FallbackValue=False}" />
-
-      <ItemsControl
-          ItemsSource="{Binding Items}"
-          IsEnabled="{Binding CanClearItems, FallbackValue=False}"
-          IsVisible="{Binding HasInventory, FallbackValue=False}">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <controls:SurfaceCard Tone="Notice" Padding="{DynamicResource ShellCardPaddingCompact}" Margin="{controls:Inset Bottom=Sm}">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                  <TextBlock FontWeight="SemiBold" Text="{Binding Title}" />
+    <controls:SurfaceCard
+        x:Name="LocalArtifactList"
+        Padding="0"
+        ClipsContent="True"
+        IsVisible="{Binding HasInventory, FallbackValue=False}">
+      <StackPanel>
+        <ItemsControl
+            Classes="Separated StretchItems"
+            ItemsSource="{Binding Items}"
+            IsEnabled="{Binding CanClearItems, FallbackValue=False}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Grid Margin="{DynamicResource ShellRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock Text="{Binding Title}" />
                   <TextBlock
                       Classes="Muted"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
                       Text="{Binding Description}"
                       TextWrapping="Wrap" />
-                  <WrapPanel Orientation="Horizontal">
-                    <TextBlock Margin="{controls:Inset Right=Md}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding FileCountLabel}" />
+                  <WrapPanel Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceMd}">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding FileCountLabel}" />
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding SizeLabel}" />
                   </WrapPanel>
                 </StackPanel>
@@ -100,10 +104,19 @@
                     IsEnabled="{Binding HasFiles, FallbackValue=False}"
                     AutomationProperties.Name="{Binding ClearAutomationName}" />
               </Grid>
-            </controls:SurfaceCard>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </StackPanel>
-  </controls:SurfaceCard>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
+        <controls:LiveRegionTextBlock
+            Margin="{DynamicResource ShellRowPadding}"
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="{Binding StatusMessage}"
+            TextWrapping="Wrap"
+            AutomationProperties.LiveSetting="Polite"
+            AutomationProperties.Name="{Binding StatusAutomationName}" />
+      </StackPanel>
+    </controls:SurfaceCard>
+  </StackPanel>
 </UserControl>

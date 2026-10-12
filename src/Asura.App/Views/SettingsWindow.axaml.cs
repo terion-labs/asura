@@ -14,6 +14,12 @@ namespace Asura.App.Views;
 /// </summary>
 public sealed partial class SettingsWindow : Window
 {
+    /// <summary>
+    /// How much of the screen's working area the window may take, leaving
+    /// room for its title bar and the windows around it.
+    /// </summary>
+    private const double ScreenFraction = 0.9;
+
     private static SettingsWindowState? s_state;
 
     private MainWindow? _host;
@@ -182,33 +188,26 @@ public sealed partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// The first time, the window takes its natural width, but never more of
-    /// the screen than there is.
+    /// The window keeps one frame whichever page it shows, as a Mac settings
+    /// window with a sidebar does: a page longer than the window scrolls.
+    /// Fitting the height to each page made the window jump on every page
+    /// change, and on a screen too short for the page the frame the system
+    /// granted was shorter than the one laid out, so the bottom of a long
+    /// page could not be scrolled into view.
+    ///
+    /// The frame is never larger than the screen the window opens on, title
+    /// bar included.
     /// </summary>
     private void FitToScreen()
     {
+        SizeToContent = SizeToContent.Manual;
         if (AvailableScreenSize() is not { } available)
         {
             return;
         }
 
-        Width = Math.Max(MinWidth, Math.Min(Width, available.Width * 0.9));
-    }
-
-    /// <summary>
-    /// The window is as tall as the page on show, as a Mac settings window
-    /// is: a short page leaves no empty space below it, and one longer than
-    /// the screen allows scrolls. Choosing another page fits it again, even
-    /// after the window was resized by hand.
-    /// </summary>
-    private void FitHeightToPage()
-    {
-        if (AvailableScreenSize() is { } available)
-        {
-            MaxHeight = Math.Max(MinHeight, available.Height * 0.9);
-        }
-
-        SizeToContent = SizeToContent.Height;
+        Width = Math.Max(MinWidth, Math.Min(Width, available.Width * ScreenFraction));
+        Height = Math.Max(MinHeight, Math.Min(Height, available.Height * ScreenFraction));
     }
 
     private Size? AvailableScreenSize()
@@ -244,7 +243,6 @@ public sealed partial class SettingsWindow : Window
         {
             RefreshTitle();
             Remember(_viewModel?.SettingsPage);
-            FitHeightToPage();
         }
     }
 
@@ -268,7 +266,6 @@ public sealed partial class SettingsWindow : Window
     private void RestoreFrame()
     {
         var state = State;
-        FitHeightToPage();
         if (!state.HasFrame)
         {
             FitToScreen();
@@ -294,8 +291,9 @@ public sealed partial class SettingsWindow : Window
         var size = frame.Size.ToSize(scaling);
         WindowStartupLocation = WindowStartupLocation.Manual;
         Position = frame.Position;
-        // The width is the person's; the height follows the page.
         Width = Math.Max(MinWidth, size.Width);
+        Height = Math.Max(MinHeight, size.Height);
+        FitToScreen();
     }
 
     private void SaveState()

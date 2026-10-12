@@ -4767,10 +4767,10 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         {
             if (captureRoot is SettingsWindow settings)
             {
-                // Settings fits its height to the page, at most nine tenths of
-                // the screen. A capture takes the frame the route asks for, so
-                // a long page can be reviewed whole rather than cut at the
-                // headless screen's edge.
+                // Settings keeps one frame, at most nine tenths of the screen.
+                // A capture takes the frame the route asks for, so a long page
+                // can be reviewed whole rather than cut at the headless
+                // screen's edge.
                 settings.SizeToContent = SizeToContent.Manual;
                 settings.MaxHeight = double.PositiveInfinity;
             }
