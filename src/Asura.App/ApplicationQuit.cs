@@ -83,3 +83,76 @@ internal static class ApplicationQuit
         return QuitOutcome.ReadyToExit;
     }
 }
+
+/// <summary>
+/// The windows a confirmed quit has closed so far. Every window is saved
+/// before any closes, so a quit that finishes reopens them all. A quit that
+/// a later window interrupts leaves Asura running without the ones already
+/// closed, so they are forgotten as if each had been closed on its own: they
+/// leave the saved windows, the last one's frame is where the next new window
+/// starts, and their recovery slots are emptied.
+/// </summary>
+internal sealed class QuitClosedWindows
+{
+    private readonly List<(WindowPlacement? Placement, Action ReleaseSlot)> _closed = [];
+    private WindowPlacementSet? _saved;
+
+    /// <summary>The quit was confirmed with every window saved as <paramref name="saved"/>.</summary>
+    public void Approve(WindowPlacementSet saved)
+    {
+        ArgumentNullException.ThrowIfNull(saved);
+        _saved = saved;
+        _closed.Clear();
+    }
+
+    /// <summary>
+    /// A window closed for the confirmed quit. Its recovery slot is kept for
+    /// the next launch unless the quit is interrupted.
+    /// </summary>
+    public void Closed(WindowPlacement? placement, Action releaseSlot)
+    {
+        ArgumentNullException.ThrowIfNull(releaseSlot);
+        if (_saved is not null)
+        {
+            _closed.Add((placement, releaseSlot));
+        }
+    }
+
+    /// <summary>
+    /// A window could not close. Empties the recovery slots of the windows
+    /// that did and returns the windows to save now, or null with no quit
+    /// confirmed.
+    /// </summary>
+    public WindowPlacementSet? Withdraw()
+    {
+        if (_saved is not { } saved)
+        {
+            return null;
+        }
+
+        var closed = _closed.ToArray();
+        Clear();
+        foreach (var (_, releaseSlot) in closed)
+        {
+            releaseSlot();
+        }
+
+        var placements = closed
+            .Select(window => window.Placement)
+            .OfType<WindowPlacement>()
+            .ToArray();
+        var closedSlots = placements.Select(placement => placement.Slot).ToHashSet();
+        return new WindowPlacementSet(
+            [.. saved.Windows.Where(window => !closedSlots.Contains(window.Slot))],
+            placements.Length > 0
+                ? placements[^1] with { State = WindowPlacementState.Normal }
+                : saved.LastClosed);
+    }
+
+    /// <summary>The quit is over, finished or not.</summary>
+    public void Clear()
+    {
+        _saved = null;
+        _closed.Clear();
+    }
+}

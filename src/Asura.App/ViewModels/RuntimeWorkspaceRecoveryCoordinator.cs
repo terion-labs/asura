@@ -67,11 +67,13 @@ public sealed class RuntimeWorkspaceRecoveryCoordinator : IDisposable
     /// <summary>
     /// The window was closed on its own while Asura goes on running. Its slot
     /// is emptied, so neither the next window to take the slot nor the next
-    /// launch brings back a workspace that was deliberately closed.
+    /// launch brings back a workspace that was deliberately closed. Also
+    /// after the window's model is disposed: a quit that a later window
+    /// stops releases the slots of the windows it had already closed.
     /// </summary>
     public void ReleaseWindowSlot()
     {
-        if (_disposed || _snapshotKey is not { } snapshotKey)
+        if (_snapshotKey is not { } snapshotKey)
         {
             return;
         }

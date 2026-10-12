@@ -429,6 +429,102 @@ public sealed class WindowLifecyclePolicyTests
         Assert.False(windows[2].Closed);
     }
 
+    [Fact]
+    public async Task An_interrupted_quit_forgets_the_windows_it_had_already_closed()
+    {
+        var closedFirst = new WindowPlacement(0, 10, 20, 1200, 800, WindowPlacementState.Maximized);
+        var survivor = new WindowPlacement(1, 80, 90, 900, 700, WindowPlacementState.Normal);
+        var earlierClose = new WindowPlacement(2, 300, 300, 800, 600, WindowPlacementState.Normal);
+        var closedWindows = new QuitClosedWindows();
+        var released = new List<int>();
+        var saves = new List<WindowPlacementSet>();
+        var windows = new[]
+        {
+            new FakeQuitWindow
+            {
+                OnClosed = () => closedWindows.Closed(closedFirst, () => released.Add(closedFirst.Slot)),
+            },
+            new FakeQuitWindow { Closes = false },
+        };
+
+        var outcome = await ApplicationQuit.RunAsync(
+            windows,
+            () => Task.FromResult<IReadOnlyList<ActiveSessionSummary>?>([]),
+            _ => Task.FromResult(true),
+            () =>
+            {
+                var everyWindow = new WindowPlacementSet([survivor, closedFirst], earlierClose);
+                saves.Add(everyWindow);
+                closedWindows.Approve(everyWindow);
+            },
+            () =>
+            {
+                if (closedWindows.Withdraw() is { } kept)
+                {
+                    saves.Add(kept);
+                }
+            });
+
+        Assert.Equal(QuitOutcome.Interrupted, outcome);
+        Assert.Equal(2, saves.Count);
+        var saved = saves[^1];
+        // Only the window still open is reopened next time; the one the quit
+        // closed is where the next new window starts, and its workspace is gone.
+        Assert.Equal([survivor], saved.Windows);
+        Assert.Equal(closedFirst with { State = WindowPlacementState.Normal }, saved.LastClosed);
+        Assert.Equal([closedFirst.Slot], released);
+        Assert.Null(closedWindows.Withdraw());
+    }
+
+    [Fact]
+    public async Task A_quit_that_finishes_keeps_every_window_to_reopen()
+    {
+        var first = new WindowPlacement(0, 10, 20, 1200, 800, WindowPlacementState.Normal);
+        var second = new WindowPlacement(1, 80, 90, 900, 700, WindowPlacementState.FullScreen);
+        var closedWindows = new QuitClosedWindows();
+        var released = new List<int>();
+        var saves = new List<WindowPlacementSet>();
+        var windows = new[] { first, second }
+            .Select(placement => new FakeQuitWindow
+            {
+                OnClosed = () => closedWindows.Closed(placement, () => released.Add(placement.Slot)),
+            })
+            .ToArray();
+
+        var outcome = await ApplicationQuit.RunAsync(
+            windows,
+            () => Task.FromResult<IReadOnlyList<ActiveSessionSummary>?>([]),
+            _ => Task.FromResult(true),
+            () =>
+            {
+                var everyWindow = new WindowPlacementSet([first, second], null);
+                saves.Add(everyWindow);
+                closedWindows.Approve(everyWindow);
+            },
+            () => throw new InvalidOperationException("Nothing failed to close."));
+        closedWindows.Clear();
+
+        Assert.Equal(QuitOutcome.ReadyToExit, outcome);
+        var saved = Assert.Single(saves);
+        Assert.Equal([first, second], saved.Windows);
+        Assert.Empty(released);
+        Assert.Null(closedWindows.Withdraw());
+    }
+
+    [Fact]
+    public void Windows_closed_outside_a_confirmed_quit_are_not_kept_for_one()
+    {
+        var closedWindows = new QuitClosedWindows();
+        var released = 0;
+
+        closedWindows.Closed(
+            new WindowPlacement(0, 10, 20, 1200, 800, WindowPlacementState.Normal),
+            () => released++);
+
+        Assert.Null(closedWindows.Withdraw());
+        Assert.Equal(0, released);
+    }
+
     private sealed class FakeQuitWindow : IQuitParticipant
     {
         public bool DiscardsEdits { get; init; } = true;
@@ -436,6 +532,8 @@ public sealed class WindowLifecyclePolicyTests
         public IReadOnlyList<ActiveSessionSummary>? Running { get; init; } = [];
 
         public bool Closes { get; init; } = true;
+
+        public Action? OnClosed { get; init; }
 
         public bool WasAskedAboutEdits { get; private set; }
 
@@ -458,6 +556,11 @@ public sealed class WindowLifecyclePolicyTests
         public Task<bool> CloseForQuitAsync()
         {
             Closed = Closes;
+            if (Closes)
+            {
+                OnClosed?.Invoke();
+            }
+
             return Task.FromResult(Closes);
         }
     }

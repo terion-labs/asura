@@ -24,6 +24,7 @@ public sealed partial class App
     private readonly Dictionary<MainWindow, WindowPlacementState> _pendingWindowStates = [];
     private readonly HashSet<MainWindowViewModel> _windowsAwaitingRestore = [];
     private readonly List<WindowPlacement> _placementsToReopen = [];
+    private readonly QuitClosedWindows _quitClosedWindows = new();
     private WindowPlacement? _lastClosedPlacement;
     private DispatcherTimer? _placementSaveTimer;
     private WindowlessMenuBar? _windowlessMenuBar;
@@ -165,10 +166,12 @@ public sealed partial class App
                 approve: () =>
                 {
                     // Captured before anything closes, so every window is reopened.
-                    SaveWindowPlacements();
+                    var placements = CaptureWindowPlacements();
+                    SaveWindowPlacements(placements);
+                    _quitClosedWindows.Approve(placements);
                     _quitApproved = true;
                 },
-                withdraw: () => _quitApproved = false);
+                withdraw: WithdrawQuit);
             if (outcome == QuitOutcome.ReadyToExit)
             {
                 desktop.Shutdown();
@@ -176,7 +179,23 @@ public sealed partial class App
         }
         finally
         {
+            _quitClosedWindows.Clear();
             _quitInProgress = false;
+        }
+    }
+
+    /// <summary>
+    /// A window would not close, so Asura keeps running. The windows the quit
+    /// had already closed stay closed and are forgotten now, before a crash
+    /// could bring them back from what the quit saved.
+    /// </summary>
+    private void WithdrawQuit()
+    {
+        _quitApproved = false;
+        if (_quitClosedWindows.Withdraw() is { } placements)
+        {
+            _lastClosedPlacement = placements.LastClosed;
+            SaveWindowPlacements(placements);
         }
     }
 
@@ -600,18 +619,22 @@ public sealed partial class App
         SaveWindowPlacements();
     }
 
-    /// <summary>
-    /// Writes where every open window is, the window in front last so it is
-    /// reopened last and ends up in front again.
-    /// </summary>
-    private void SaveWindowPlacements(MainWindow? closing = null)
+    /// <summary>Writes where every open window is.</summary>
+    private void SaveWindowPlacements(MainWindow? closing = null) =>
+        SaveWindowPlacements(CaptureWindowPlacements(closing));
+
+    private void SaveWindowPlacements(WindowPlacementSet placements)
     {
         _placementSaveTimer?.Stop();
-        if (_windowPlacements is null)
-        {
-            return;
-        }
+        _windowPlacements?.Save(placements);
+    }
 
+    /// <summary>
+    /// Where every open window is, the window in front last so it is reopened
+    /// last and ends up in front again.
+    /// </summary>
+    private WindowPlacementSet CaptureWindowPlacements(MainWindow? closing = null)
+    {
         var front = ActiveMainWindow() ?? closing;
         MainWindow[] open = closing is null ? OpenMainWindows() : [.. OpenMainWindows(), closing];
         var windows = open
@@ -620,7 +643,7 @@ public sealed partial class App
             .Select(CapturePlacement)
             .OfType<WindowPlacement>()
             .ToArray();
-        _windowPlacements.Save(new WindowPlacementSet(windows, _lastClosedPlacement));
+        return new WindowPlacementSet(windows, _lastClosedPlacement);
     }
 
     private WindowPlacement? CapturePlacement(MainWindow window)
@@ -658,6 +681,7 @@ public sealed partial class App
         window.PropertyChanged -= OnWindowPropertyChanged;
         window.Opened -= OnPlacedWindowOpened;
         _pendingWindowStates.Remove(window);
+        var recovery = (window.DataContext as MainWindowViewModel)?.RuntimeRecovery;
         if (window.DataContext is MainWindowViewModel viewModel)
         {
             _windowsAwaitingRestore.Remove(viewModel);
@@ -679,7 +703,14 @@ public sealed partial class App
                 _lastClosedPlacement = closed with { State = WindowPlacementState.Normal };
             }
 
-            (window.DataContext as MainWindowViewModel)?.RuntimeRecovery.ReleaseWindowSlot();
+            recovery?.ReleaseWindowSlot();
+        }
+        else if (_quitApproved)
+        {
+            // Kept for the next launch, unless a later window stops the quit.
+            _quitClosedWindows.Closed(
+                CapturePlacement(window),
+                () => recovery?.ReleaseWindowSlot());
         }
 
         _windowSlots.Remove(window);
