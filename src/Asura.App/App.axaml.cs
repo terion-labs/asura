@@ -8,6 +8,7 @@ using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Platform;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -92,8 +93,23 @@ public sealed partial class App : Avalonia.Application
     /// <summary>The menu highlight's corner: rounded, inside the menu's own.</summary>
     internal const double MenuItemCornerRadius = 5;
 
+    /// <summary>
+    /// How long the pointer rests on an item before its submenu opens, and
+    /// before a submenu it left closes. Avalonia waits 400 ms, so moving down
+    /// the Git Tools menu felt like each submenu lagged behind the pointer;
+    /// macOS opens one almost at once. The same wait is the grace that lets
+    /// the pointer cut diagonally across a neighbouring item into the open
+    /// submenu, so it is shortened rather than removed.
+    /// </summary>
+    internal static readonly TimeSpan SubmenuHoverDelay = TimeSpan.FromMilliseconds(150);
+
     static App()
     {
+        // Every in-app menu, context menu and menu flyout takes its submenu
+        // timing from Avalonia's default interaction handler.
+        DefaultMenuInteractionHandler.MenuShowDelay = SubmenuHoverDelay;
+
+
         // A dock splitter is laid out by its Width or Height, while its panel
         // reserves the current Thickness. Dock copies Thickness to the active
         // axis when the splitter joins a panel, but those values can drift in
