@@ -764,9 +764,14 @@
                       Classes="Muted"
                       IsVisible="{Binding AgentPolicy.HasSingleProviderOption}"
                       Text="{Binding AgentPolicy.SelectedProvider.DisplayName}" />
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      IsVisible="{Binding !AgentPolicy.HasProviderOptions}"
+                      Text="None set up in AI settings" />
                 </Panel>
               </controls:SettingRow>
-              <controls:SettingRow Label="Model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+              <controls:SettingRow Label="Model" IsVisible="{CompiledBinding AgentPolicy.ShowsModelChoices}">
                 <Panel HorizontalAlignment="Right">
                   <ComboBox
                       IsVisible="{Binding AgentPolicy.HasMultipleModelOptions}"
@@ -784,7 +789,7 @@
                       Text="{Binding AgentPolicy.SelectedModel.DisplayName}" />
                 </Panel>
               </controls:SettingRow>
-              <controls:SettingRow Label="Compaction model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+              <controls:SettingRow Label="Compaction model" IsVisible="{CompiledBinding AgentPolicy.ShowsModelChoices}">
                 <ComboBox
                     ItemsSource="{Binding AgentPolicy.AgentTaskModelOptions}"
                     SelectedItem="{Binding AgentPolicy.SelectedCompactionModel, Mode=TwoWay}"
@@ -794,7 +799,7 @@
                   </ComboBox.ItemTemplate>
                 </ComboBox>
               </controls:SettingRow>
-              <controls:SettingRow Label="Title model" IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
+              <controls:SettingRow Label="Title model" IsVisible="{CompiledBinding AgentPolicy.ShowsModelChoices}">
                 <Panel HorizontalAlignment="Right">
                   <ComboBox
                       IsVisible="{Binding AgentPolicy.HasMultipleTitleModelOptions}"

@@ -1337,88 +1337,86 @@
               <components:SettingsPageHeader
                   Heading="Security &amp; Secrets"
                   Description="Manage app encryption and saved credentials." />
-              <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
-                <controls:SettingsGroup Heading="Application security">
-                  <controls:SettingRow
-                      Label="Enable app encryption"
-                      Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Encrypts everything Asura writes: the configuration database, the preview cache, and saved browser sessions. The keys are random and kept only in {0}. Turning this off deletes saved browser sessions instead of storing them unencrypted; browser profiles still work until you quit but are not restored. This protects data on disk; it does not lock the running app.'}">
-                    <ToggleSwitch VerticalAlignment="Center"
-                        IsChecked="{Binding ApplicationSecurityEditor.IsEncryptionEnabled}"
-                        IsEnabled="{Binding ApplicationSecurityEditor.IsEncryptionSupported}"
-                        AutomationProperties.Name="Enable app encryption" />
-                  </controls:SettingRow>
-                  <controls:SettingsGroup.Footer>
-                    <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="{Binding ApplicationSecurityEditor.EncryptionAvailability}" />
-                      <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="{Binding ApplicationSecurityEditor.StatusDetail}"
-                          IsVisible="{Binding ApplicationSecurityEditor.HasStatusDetail}" />
-                    </StackPanel>
-                  </controls:SettingsGroup.Footer>
-                </controls:SettingsGroup>
-                <controls:SettingsGroup
-                    Heading="Startup protection"
-                    Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Asks for a PIN when Asura opens and whenever the lock timeout passes. The PIN itself is never stored: Asura keeps only a check value made with a random key kept in {0}, and each wrong guess doubles the wait, even across restarts. This locks the window; app encryption above protects the data.'}"
-                    ControlWidth="300">
-                  <controls:SettingRow
-                      Label="Choose a PIN"
-                      Description="Enter it twice to turn startup protection on."
-                      IsStacked="True"
-                      IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionSetup}">
-                    <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                      <TextBox PasswordChar="●" PlaceholderText="Choose a PIN"
-                          Text="{Binding ApplicationSecurityEditor.NewPin}"
-                          AutomationProperties.Name="New startup PIN" />
-                      <TextBox Grid.Column="1" PasswordChar="●" PlaceholderText="Repeat the PIN"
-                          Text="{Binding ApplicationSecurityEditor.NewPinConfirmation}"
-                          AutomationProperties.Name="Repeat startup PIN" />
-                      <Button Grid.Column="2" Classes="PrimaryButton" Content="Turn On"
-                          Click="OnEnableStartupProtectionClick"
-                          AutomationProperties.Name="Turn on startup protection" />
-                    </Grid>
-                  </controls:SettingRow>
-                  <controls:SettingRow
-                      Label="Lock timeout"
-                      Description="How long the app may sit idle before it locks itself. Any key or pointer input counts as activity."
-                      IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}">
-                    <ComboBox
-                        ItemsSource="{Binding ApplicationSecurityEditor.LockTimeoutOptions}"
-                        SelectedItem="{Binding ApplicationSecurityEditor.SelectedLockTimeout}"
-                        AutomationProperties.Name="Lock timeout" />
-                  </controls:SettingRow>
-                  <controls:SettingRow
-                      Label="Current PIN"
-                      Description="Confirm it to lock the app now or to turn protection off."
-                      IsStacked="True"
-                      IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}">
-                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                      <TextBox PasswordChar="●" PlaceholderText="Current PIN"
-                          Text="{Binding ApplicationSecurityEditor.CurrentPin}"
-                          AutomationProperties.Name="Current startup PIN" />
-                      <Button Grid.Column="1" Classes="SecondaryButton" Content="Lock Now"
-                          Click="OnLockNowClick"
-                          AutomationProperties.Name="Lock Asura now" />
-                      <Button Grid.Column="2" Classes="SecondaryButton" Content="Turn Off"
-                          Click="OnDisableStartupProtectionClick"
-                          AutomationProperties.Name="Turn off startup protection" />
-                    </Grid>
-                  </controls:SettingRow>
-                  <controls:SettingsGroup.Footer>
-                    <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="Startup protection isn’t available in this version of Asura."
-                          IsVisible="{Binding !ApplicationSecurityEditor.IsProtectionAvailable}" />
-                      <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="Startup protection is on."
-                          IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}" />
-                      <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                          Text="{Binding ApplicationSecurityEditor.ProtectionStatus}"
-                          IsVisible="{Binding ApplicationSecurityEditor.HasProtectionStatus}" />
-                    </StackPanel>
-                  </controls:SettingsGroup.Footer>
-                </controls:SettingsGroup>
-              </StackPanel>
+              <controls:SettingsGroup Heading="Application security">
+                <controls:SettingRow
+                    Label="Enable app encryption"
+                    Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Encrypts everything Asura writes: the configuration database, the preview cache, and saved browser sessions. The keys are random and kept only in {0}. Turning this off deletes saved browser sessions instead of storing them unencrypted; browser profiles still work until you quit but are not restored. This protects data on disk; it does not lock the running app.'}">
+                  <ToggleSwitch VerticalAlignment="Center"
+                      IsChecked="{Binding ApplicationSecurityEditor.IsEncryptionEnabled}"
+                      IsEnabled="{Binding ApplicationSecurityEditor.IsEncryptionSupported}"
+                      AutomationProperties.Name="Enable app encryption" />
+                </controls:SettingRow>
+                <controls:SettingsGroup.Footer>
+                  <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                        Text="{Binding ApplicationSecurityEditor.EncryptionAvailability}" />
+                    <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                        Text="{Binding ApplicationSecurityEditor.StatusDetail}"
+                        IsVisible="{Binding ApplicationSecurityEditor.HasStatusDetail}" />
+                  </StackPanel>
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
+              <controls:SettingsGroup
+                  Heading="Startup protection"
+                  Description="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Asks for a PIN when Asura opens and whenever the lock timeout passes. The PIN itself is never stored: Asura keeps only a check value made with a random key kept in {0}, and each wrong guess doubles the wait, even across restarts. This locks the window; app encryption above protects the data.'}"
+                  ControlWidth="300">
+                <controls:SettingRow
+                    Label="Choose a PIN"
+                    Description="Enter it twice to turn startup protection on."
+                    IsStacked="True"
+                    IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionSetup}">
+                  <Grid ColumnDefinitions="*,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBox PasswordChar="●" PlaceholderText="Choose a PIN"
+                        Text="{Binding ApplicationSecurityEditor.NewPin}"
+                        AutomationProperties.Name="New startup PIN" />
+                    <TextBox Grid.Column="1" PasswordChar="●" PlaceholderText="Repeat the PIN"
+                        Text="{Binding ApplicationSecurityEditor.NewPinConfirmation}"
+                        AutomationProperties.Name="Repeat startup PIN" />
+                    <Button Grid.Column="2" Classes="PrimaryButton" Content="Turn On"
+                        Click="OnEnableStartupProtectionClick"
+                        AutomationProperties.Name="Turn on startup protection" />
+                  </Grid>
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Lock timeout"
+                    Description="How long the app may sit idle before it locks itself. Any key or pointer input counts as activity."
+                    IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}">
+                  <ComboBox
+                      ItemsSource="{Binding ApplicationSecurityEditor.LockTimeoutOptions}"
+                      SelectedItem="{Binding ApplicationSecurityEditor.SelectedLockTimeout}"
+                      AutomationProperties.Name="Lock timeout" />
+                </controls:SettingRow>
+                <controls:SettingRow
+                    Label="Current PIN"
+                    Description="Confirm it to lock the app now or to turn protection off."
+                    IsStacked="True"
+                    IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}">
+                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBox PasswordChar="●" PlaceholderText="Current PIN"
+                        Text="{Binding ApplicationSecurityEditor.CurrentPin}"
+                        AutomationProperties.Name="Current startup PIN" />
+                    <Button Grid.Column="1" Classes="SecondaryButton" Content="Lock Now"
+                        Click="OnLockNowClick"
+                        AutomationProperties.Name="Lock Asura now" />
+                    <Button Grid.Column="2" Classes="SecondaryButton" Content="Turn Off"
+                        Click="OnDisableStartupProtectionClick"
+                        AutomationProperties.Name="Turn off startup protection" />
+                  </Grid>
+                </controls:SettingRow>
+                <controls:SettingsGroup.Footer>
+                  <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                        Text="Startup protection isn’t available in this version of Asura."
+                        IsVisible="{Binding !ApplicationSecurityEditor.IsProtectionAvailable}" />
+                    <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                        Text="Startup protection is on."
+                        IsVisible="{Binding ApplicationSecurityEditor.ShowProtectionControls}" />
+                    <TextBlock Foreground="{DynamicResource ShellWarningBrush}" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                        Text="{Binding ApplicationSecurityEditor.ProtectionStatus}"
+                        IsVisible="{Binding ApplicationSecurityEditor.HasProtectionStatus}" />
+                  </StackPanel>
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
               <!-- Kept here rather than beside the history it governs: whether
                    a record of every session is written down at all is a
                    question about this machine, not about the list. -->

@@ -132,6 +132,7 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         {
             if (SetProperty(ref _isEnabled, value))
             {
+                OnPropertyChanged(nameof(ShowsModelChoices));
                 OnPropertyChanged(nameof(IsValid));
                 Changed?.Invoke(this, EventArgs.Empty);
             }
@@ -245,6 +246,15 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
             }
         }
     }
+
+    public bool HasProviderOptions => ProviderOptions.Count > 0;
+
+    /// <summary>
+    /// Whether the override's model pickers are shown: with no provider
+    /// set up there is no model to choose, so only the provider row stays,
+    /// saying so.
+    /// </summary>
+    public bool ShowsModelChoices => IsEnabled && HasProviderOptions;
 
     public bool HasSingleProviderOption => ProviderOptions.Count == 1;
 
