@@ -419,6 +419,36 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(viewModel.RuntimeRecovery.SnapshotKey);
     }
 
+    [Fact]
+    public async Task A_window_closed_by_a_quit_that_was_then_interrupted_still_empties_its_slot()
+    {
+        var recoveryStore = new PanelMoveRecoveryStore();
+        var startup = new ApplicationStartupState();
+        startup.Initialize(new ApplicationRunStart("interrupted-quit-test", false,
+            new ApplicationRunState(null, true, null, null)));
+        var recoveryWriter = new RuntimeRecoveryWriter(recoveryStore, startup, TimeProvider.System);
+        var (client, _) = CreateSessionClient();
+        var viewModel = CreateViewModel(client, CreateCatalogSnapshot(),
+            runtimeRecoveryWriter: recoveryWriter);
+        viewModel.RuntimeRecovery.AssignWindowSlot(1);
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        await recoveryWriter.FlushAsync(CancellationToken.None);
+        var recovery = viewModel.RuntimeRecovery;
+
+        // The quit closed this window, and its model went with it.
+        await viewModel.QuiesceForShutdownAsync(CancellationToken.None);
+        viewModel.Dispose();
+
+        // A later window kept Asura running, so this one is forgotten after all.
+        recovery.ReleaseWindowSlot();
+        await recoveryWriter.SealAndFlushAsync(CancellationToken.None);
+
+        var released = recoveryStore.Snapshots.Last(item => item.Key == "desktop.main-window.2");
+        Assert.True(RuntimeWorkspaceRecoveryCodec.TryDeserialize(released, out var empty, out _));
+        Assert.Null(empty!.Workspace);
+        Assert.Null(recovery.SnapshotKey);
+    }
+
     public class TerminalSavingCatalogProxy : DispatchProxy
     {
         public DefinitionCatalogSnapshot Snapshot { get; set; } = DefinitionCatalogSnapshot.Empty;
