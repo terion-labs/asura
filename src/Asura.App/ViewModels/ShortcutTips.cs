@@ -38,6 +38,8 @@ public sealed class ShortcutTips : INotifyPropertyChanged
 
     public string AddPanel => Tip("Add panel", BuiltInCommands.AddPanel);
 
+    public string Settings => Tip("Settings", BuiltInCommands.ShowSettings);
+
     public static string RunStatement { get; } = KeySequenceDisplay.WithShortcut(
         "Run the statement",
         new KeyStroke(
@@ -76,6 +78,7 @@ public sealed class ShortcutTips : INotifyPropertyChanged
         (nameof(CloseTab), CloseTab),
         (nameof(ToggleAgentPanel), ToggleAgentPanel),
         (nameof(AddPanel), AddPanel),
+        (nameof(Settings), Settings),
     ];
 
     private string Tip(string label, CommandId command) =>

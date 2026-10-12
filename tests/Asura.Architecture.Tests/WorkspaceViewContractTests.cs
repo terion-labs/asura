@@ -96,7 +96,7 @@ public sealed class WorkspaceViewContractTests
         // live region inside it: an empty one crashes Avalonia's macOS peer.
         var menu = Assert.Single(
             button.Descendants(),
-            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "DynamicMenuFlyout", StringComparison.Ordinal));
         Assert.Equal("OnWorkspaceNetworkMenuOpening", AttributeValue(menu, "Opening"));
         Assert.Equal("{Binding WorkspaceNetwork}", AttributeValue(button, "Tag"));
         Assert.DoesNotContain(
@@ -251,22 +251,38 @@ public sealed class WorkspaceViewContractTests
         Assert.Equal("{Binding WorkspacesMenuName}", AttributeValue(workspacesMenu, "AutomationProperties.Name"));
         var workspacesFlyout = Assert.Single(
             workspacesMenu.Descendants(),
-            element => string.Equals(element.Name.LocalName, "MenuFlyout", StringComparison.Ordinal));
+            element => string.Equals(element.Name.LocalName, "DynamicMenuFlyout", StringComparison.Ordinal));
         Assert.Equal("OnWorkspacesMenuOpening", AttributeValue(workspacesFlyout, "Opening"));
         Assert.DoesNotContain(
             workspacesMenu.Descendants(),
             element => string.Equals(element.Name.LocalName, "ToggleSwitch", StringComparison.Ordinal));
 
-        // On macOS Settings is the app menu's and ⌘,'s, not a title-bar
-        // button; Windows and Linux draw no menu bar, so the button stays
-        // there and only there.
-        var settingsButton = Assert.Single(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
-                && string.Equals(AttributeValue(element, "Click"), "OnShowSettingsClick", StringComparison.Ordinal));
+        // Settings is a gear at the foot of the workspaces rail on every
+        // platform, named for VoiceOver and tipped with its shortcut.
+        var settingsButtons = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "Button", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "Click"), "OnShowSettingsClick", StringComparison.Ordinal))
+            .ToArray();
+        Assert.Equal(2, settingsButtons.Length);
+        var railSettings = FindNamedElement(root, "RailSettingsButton");
+        Assert.Contains(railSettings, settingsButtons);
+        Assert.Equal("Bottom", AttributeValue(railSettings, "DockPanel.Dock"));
+        Assert.Equal("Settings", AttributeValue(railSettings, "AutomationProperties.Name"));
         Assert.Equal(
-            "{x:Static views:WorkspaceView.ShowsSettingsButton}",
-            AttributeValue(settingsButton, "IsVisible"));
+            "{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}",
+            AttributeValue(railSettings, "ToolTip.Tip"));
+        Assert.Null(AttributeValue(railSettings, "IsVisible"));
+        Assert.Contains(
+            railSettings.Ancestors(),
+            element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)
+                && string.Equals(AttributeValue(element, "IsVisible"), "{Binding IsWorkspaceRailVisible}", StringComparison.Ordinal));
+
+        // While the rail is hidden the gear stands in the title bar instead,
+        // so Settings never leaves the window.
+        var titleBarSettings = FindNamedElement(root, "TitleBarSettingsButton");
+        Assert.Contains(titleBarSettings, settingsButtons);
+        Assert.Equal("{Binding !IsWorkspaceRailVisible}", AttributeValue(titleBarSettings, "IsVisible"));
+        Assert.Equal("Settings", AttributeValue(titleBarSettings, "AutomationProperties.Name"));
 
         // Every edge the setting offers has a host, and each is bound to the
         // stored placement rather than being always visible.

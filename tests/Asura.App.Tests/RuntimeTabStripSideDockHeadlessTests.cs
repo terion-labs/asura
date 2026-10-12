@@ -187,10 +187,14 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
 
             var overflow = OverflowButton(strip);
             Assert.True(overflow.IsVisible);
-            var menu = Assert.IsType<MenuFlyout>(overflow.Flyout);
+            var menu = Assert.IsAssignableFrom<MenuFlyout>(overflow.Flyout);
             menu.ShowAt(overflow);
             var items = menu.Items.OfType<MenuItem>().ToArray();
             Assert.Equal(tabs.Select(tab => tab.Title), items.Select(item => item.Header as string), StringComparer.Ordinal);
+            // Drawn in the menu that opened, not only listed on the flyout: an
+            // empty one opened as a hairline under the button.
+            var presenter = Assert.IsType<MenuFlyoutPresenter>(menu.Popup.Child);
+            Assert.Equal(tabs.Length, presenter.ItemCount);
             Assert.Equal(MenuItemToggleType.Radio, items[1].ToggleType);
             Assert.True(items[1].IsChecked);
             Assert.False(items[0].IsChecked);

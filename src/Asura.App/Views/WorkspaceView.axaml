@@ -124,7 +124,7 @@
                 IsVisible="{Binding HasWorkspaceAttention}" />
           </Panel>
           <Button.Flyout>
-            <MenuFlyout Placement="BottomEdgeAlignedLeft" Opening="OnWorkspacesMenuOpening" />
+            <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedLeft" Opening="OnWorkspacesMenuOpening" />
           </Button.Flyout>
         </Button>
         <components:RuntimeTabStripView
@@ -197,7 +197,7 @@
                  The items are built as the menu opens; see
                  WorkspaceView.NetworkMenu.cs. -->
             <Button.Flyout>
-              <MenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnWorkspaceNetworkMenuOpening" />
+              <controls:DynamicMenuFlyout Placement="BottomEdgeAlignedRight" Opening="OnWorkspaceNetworkMenuOpening" />
             </Button.Flyout>
           </Button>
           <Button
@@ -284,7 +284,10 @@
                shows — so search keeps its place here rather than losing its
                only visible affordance with it. -->
           <Button Classes="IconButton" Click="OnShowCommandPaletteClick" ToolTip.Tip="{Binding CommandPaletteAction}" AutomationProperties.Name="Search commands, connections, screens, workspaces, and session history"><icons:SymbolIcon Symbol="Search" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
-          <Button Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="Settings" AutomationProperties.Name="Settings" IsVisible="{x:Static views:WorkspaceView.ShowsSettingsButton}"><icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
+          <!-- Settings lives at the foot of the workspaces rail. While the rail
+               is hidden the gear stands here instead, so it never leaves the
+               window. -->
+          <Button x:Name="TitleBarSettingsButton" Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}" AutomationProperties.Name="Settings" IsVisible="{Binding !IsWorkspaceRailVisible}"><icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
           <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
         </StackPanel>
       </Grid>
@@ -350,74 +353,91 @@
              side, plus the border — so the same gap can go all the way round
              instead of being squeezed sideways to fit a width written down
              elsewhere. -->
-        <StackPanel ClipToBounds="False" Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceSm}">
-          <ItemsControl ClipToBounds="False" ItemsSource="{Binding Workspaces}">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <StackPanel ClipToBounds="False" />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate>
-                <!-- Center, not the Stretch default: a fixed-width child of a
-                     vertical StackPanel is start-aligned, which pushed every
-                     tile against the rail's left edge. -->
-                <controls:WorkspaceRailTile
-                    Margin="{controls:Inset Bottom=Sm}"
-                    HorizontalAlignment="Center"
-                    Accent="{Binding Accent}"
-                    Icon="{Binding IconSymbol}"
-                    IsRunning="{Binding IsOpen}"
-                    IsCurrent="{Binding IsInFront}"
-                    IsIsolated="{Binding IsIsolated}"
-                    HasAttention="{Binding HasAttention}"
-                    HasAgentActivity="{Binding HasAgentActivity}"
-                    CanClose="{Binding CanClose}"
-                    CanSave="{Binding CanSaveLayout}"
-                    SaveRequested="OnSaveWorkspaceLayoutClick"
-                    ExpandsLeft="{Binding $parent[ItemsControl].DataContext.IsWorkspacePanelOnRight}"
-                    OpenRequested="OnOpenWorkspaceClick"
-                    CloseRequested="OnCloseWorkspaceClick"
-                    ToolTip.Tip="{Binding Name}"
-                    AutomationProperties.HelpText="{x:Static views:WorkspaceView.RailTileHelpText}"
-                    AutomationProperties.Name="{Binding Name}">
-                  <!-- What the tile can do, in one place a right-click, Shift+F10
-                       or the Menu key reaches: the tile's own hover actions are
-                       there too, and ending the workspace sits last, behind a
-                       separator. Each item is the Workspace menu's command and
-                       takes its title, acting on this tile's workspace rather
-                       than the one in front. -->
-                  <controls:WorkspaceRailTile.ContextMenu>
-                    <ContextMenu>
-                      <MenuItem Header="Open" Click="OnOpenWorkspaceClick" />
-                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.EditWorkspace}" Click="OnEditWorkspaceClick" />
-                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.SaveWorkspaceLayout}" Click="OnSaveWorkspaceLayoutClick" IsEnabled="{Binding CanSaveLayout}" />
-                      <Separator />
-                      <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.TerminateWorkspace}" Click="OnRailTerminateWorkspaceClick" IsEnabled="{Binding CanClose}" />
-                    </ContextMenu>
-                  </controls:WorkspaceRailTile.ContextMenu>
-                </controls:WorkspaceRailTile>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-          <!-- A ghost tile, not a push button: the rail's add affordance sits
-               beside filled workspace tiles and must read as an empty slot. -->
+        <DockPanel ClipToBounds="False" Margin="{controls:Inset Sm}" LastChildFill="False">
+          <StackPanel DockPanel.Dock="Top" ClipToBounds="False" Spacing="{DynamicResource ShellSpaceSm}">
+            <ItemsControl ClipToBounds="False" ItemsSource="{Binding Workspaces}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel ClipToBounds="False" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <!-- Center, not the Stretch default: a fixed-width child of a
+                       vertical StackPanel is start-aligned, which pushed every
+                       tile against the rail's left edge. -->
+                  <controls:WorkspaceRailTile
+                      Margin="{controls:Inset Bottom=Sm}"
+                      HorizontalAlignment="Center"
+                      Accent="{Binding Accent}"
+                      Icon="{Binding IconSymbol}"
+                      IsRunning="{Binding IsOpen}"
+                      IsCurrent="{Binding IsInFront}"
+                      IsIsolated="{Binding IsIsolated}"
+                      HasAttention="{Binding HasAttention}"
+                      HasAgentActivity="{Binding HasAgentActivity}"
+                      CanClose="{Binding CanClose}"
+                      CanSave="{Binding CanSaveLayout}"
+                      SaveRequested="OnSaveWorkspaceLayoutClick"
+                      ExpandsLeft="{Binding $parent[ItemsControl].DataContext.IsWorkspacePanelOnRight}"
+                      OpenRequested="OnOpenWorkspaceClick"
+                      CloseRequested="OnCloseWorkspaceClick"
+                      ToolTip.Tip="{Binding Name}"
+                      AutomationProperties.HelpText="{x:Static views:WorkspaceView.RailTileHelpText}"
+                      AutomationProperties.Name="{Binding Name}">
+                    <!-- What the tile can do, in one place a right-click, Shift+F10
+                         or the Menu key reaches: the tile's own hover actions are
+                         there too, and ending the workspace sits last, behind a
+                         separator. Each item is the Workspace menu's command and
+                         takes its title, acting on this tile's workspace rather
+                         than the one in front. -->
+                    <controls:WorkspaceRailTile.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Open" Click="OnOpenWorkspaceClick" />
+                        <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.EditWorkspace}" Click="OnEditWorkspaceClick" />
+                        <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.SaveWorkspaceLayout}" Click="OnSaveWorkspaceLayoutClick" IsEnabled="{Binding CanSaveLayout}" />
+                        <Separator />
+                        <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.TerminateWorkspace}" Click="OnRailTerminateWorkspaceClick" IsEnabled="{Binding CanClose}" />
+                      </ContextMenu>
+                    </controls:WorkspaceRailTile.ContextMenu>
+                  </controls:WorkspaceRailTile>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <!-- A ghost tile, not a push button: the rail's add affordance sits
+                 beside filled workspace tiles and must read as an empty slot. -->
+            <Button
+                Width="{DynamicResource ShellTileSizeMd}"
+                Height="{DynamicResource ShellTileSizeMd}"
+                MinWidth="{DynamicResource ShellTileSizeMd}"
+                MinHeight="{DynamicResource ShellTileSizeMd}"
+                HorizontalAlignment="Center"
+                Padding="0"
+                Background="Transparent"
+                BorderBrush="{DynamicResource ShellBorderBrush}"
+                Foreground="{DynamicResource ShellMutedBrush}"
+                Click="OnCreateWorkspaceClick"
+                ToolTip.Tip="New workspace…"
+                AutomationProperties.Name="Create a new workspace">
+              <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+          </StackPanel>
+          <!-- Settings, at the foot of the rail on every platform, after the
+               workspaces in the Tab order. On a Mac the app menu and ⌘, reach
+               it too. -->
           <Button
+              x:Name="RailSettingsButton"
+              DockPanel.Dock="Bottom"
+              Classes="IconButton"
               Width="{DynamicResource ShellTileSizeMd}"
               Height="{DynamicResource ShellTileSizeMd}"
-              MinWidth="{DynamicResource ShellTileSizeMd}"
-              MinHeight="{DynamicResource ShellTileSizeMd}"
               HorizontalAlignment="Center"
-              Padding="0"
-              Background="Transparent"
-              BorderBrush="{DynamicResource ShellBorderBrush}"
-              Foreground="{DynamicResource ShellMutedBrush}"
-              Click="OnCreateWorkspaceClick"
-              ToolTip.Tip="New workspace…"
-              AutomationProperties.Name="Create a new workspace">
-            <icons:SymbolIcon HorizontalAlignment="Center" VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+              Click="OnShowSettingsClick"
+              ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}"
+              AutomationProperties.Name="Settings">
+            <icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" />
           </Button>
-        </StackPanel>
+        </DockPanel>
       </Border>
 
       <!-- Margin on the window side only, by dock class: the canvas already
