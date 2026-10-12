@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.Versioning;
 using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
 using Asura.Application;
@@ -272,6 +273,236 @@ public sealed class FilePanelHigConformanceTests
     }
 
     [Fact]
+    public async Task A_move_to_the_Trash_that_takes_only_some_items_still_says_which_it_left()
+    {
+        var client = new StubFilePanelClient();
+        client.Entries.Add(Entry(client, "alpha"));
+        client.Entries.Add(Entry(client, "beta"));
+        var trash = new RecordingTrash();
+        trash.Refused.Add("beta");
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            client,
+            deferInitialization: true,
+            trash: trash);
+
+        await panel.StartInitialization();
+        panel.SelectedEntry = panel.Entries[0];
+        panel.SetSelectedEntries([.. client.Entries]);
+
+        // The listing is refreshed for the item that went; the notice about
+        // the one that stayed must outlive that refresh.
+        Assert.False(await panel.MoveSelectionToTrashAsync());
+
+        Assert.Single(trash.Moved);
+        Assert.True(panel.CanUndoMoveToTrash);
+        Assert.Contains("beta", panel.OperationIssue!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_Trash_that_cannot_take_anything_says_so_rather_than_blaming_the_item()
+    {
+        var client = new StubFilePanelClient();
+        client.Entries.Add(Entry(client, "alpha"));
+        client.Entries.Add(Entry(client, "beta"));
+        const string refusal = "Other people on this computer can change the Trash, so nothing was moved to it.";
+        var trash = new RecordingTrash { Unavailable = new TrashUnavailableException(refusal) };
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            client,
+            deferInitialization: true,
+            trash: trash);
+
+        await panel.StartInitialization();
+        panel.SelectedEntry = panel.Entries[0];
+        panel.SetSelectedEntries([.. client.Entries]);
+
+        Assert.False(await panel.MoveSelectionToTrashAsync());
+
+        var issue = panel.OperationIssue!;
+        Assert.Equal(refusal, issue.Message);
+        Assert.DoesNotContain("another app", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("Trash folder", issue.SuggestedAction, StringComparison.Ordinal);
+        Assert.DoesNotContain("this folder", issue.SuggestedAction, StringComparison.Ordinal);
+        Assert.Empty(trash.Moved);
+        Assert.False(panel.CanUndoMoveToTrash);
+    }
+
+    [Fact]
+    public async Task An_Undo_still_refreshing_leaves_the_notice_to_a_newer_move()
+    {
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var trash = new RecordingTrash { TrashDirectory = root.FullName };
+            var client = new StubFilePanelClient();
+            var (panel, _) = await TrashThreeAsync(trash, client);
+            using (panel)
+            {
+                trash.Occupied.Add("beta");
+                var listing = new TaskCompletionSource<FilePanelResult<FilePanelPage>>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                client.ListCompletion = listing;
+                var listed = client.ListCallCount;
+
+                // The Undo meets beta's conflict and waits on its refresh.
+                var undo = panel.UndoMoveToTrashAsync();
+                await WaitUntilAsync(() => client.ListCallCount > listed);
+
+                // Meanwhile Command-Delete is pressed. While the folder loads
+                // there is nothing it can take, and it says so.
+                Assert.False(await panel.MoveSelectionToTrashAsync());
+                var newer = panel.OperationIssue;
+                Assert.NotNull(newer);
+
+                listing.SetResult(FilePanelResult<FilePanelPage>.Success(new FilePanelPage([], null)));
+                Assert.False(await undo);
+
+                // The Undo's notice about beta is older and must not replace it.
+                Assert.Same(newer, panel.OperationIssue);
+                Assert.True(panel.CanUndoMoveToTrash);
+            }
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task An_Undo_that_meets_a_conflict_keeps_what_it_has_not_put_back_for_another_Undo()
+    {
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var trash = new RecordingTrash { TrashDirectory = root.FullName };
+            var (panel, paths) = await TrashThreeAsync(trash);
+            using (panel)
+            {
+                // Undo goes last to first: gamma comes back, beta's name is
+                // taken, and alpha has not been tried.
+                trash.Occupied.Add("beta");
+
+                Assert.False(await panel.UndoMoveToTrashAsync());
+
+                Assert.Equal([paths[2]], trash.PutBack);
+                Assert.True(panel.CanUndoMoveToTrash);
+                Assert.True(panel.OperationIssue!.CanRetry);
+                Assert.Contains("beta", panel.OperationIssue.Message, StringComparison.Ordinal);
+                Assert.Contains("Undo", panel.OperationIssue.SuggestedAction, StringComparison.Ordinal);
+
+                trash.Occupied.Clear();
+
+                Assert.True(await panel.UndoMoveToTrashAsync());
+
+                Assert.Equal([paths[2], paths[1], paths[0]], trash.PutBack);
+                Assert.False(panel.CanUndoMoveToTrash);
+            }
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task An_Undo_drops_an_item_that_has_left_the_Trash_and_keeps_the_rest()
+    {
+        // These items go nowhere that exists, so the one that fails cannot
+        // be retried; holding on to it would block the others for good.
+        var trash = new RecordingTrash();
+        var (panel, paths) = await TrashThreeAsync(trash);
+        using (panel)
+        {
+            trash.Occupied.Add("gamma");
+
+            Assert.False(await panel.UndoMoveToTrashAsync());
+
+            Assert.Empty(trash.PutBack);
+            Assert.True(panel.CanUndoMoveToTrash);
+            trash.Occupied.Clear();
+
+            Assert.True(await panel.UndoMoveToTrashAsync());
+
+            Assert.Equal([paths[1], paths[0]], trash.PutBack);
+            Assert.False(panel.CanUndoMoveToTrash);
+        }
+    }
+
+    [Fact]
+    public async Task A_cancelled_Undo_keeps_what_it_has_not_put_back()
+    {
+        var trash = new RecordingTrash();
+        var client = new StubFilePanelClient();
+        var (panel, paths) = await TrashThreeAsync(trash, client);
+        using (panel)
+        using (var cancellation = new CancellationTokenSource())
+        {
+            // Cancelled while gamma is on its way back: gamma still lands,
+            // and nothing after it is tried.
+            trash.BeforePutBack = () =>
+            {
+                if (trash.PutBack.Count == 0)
+                {
+                    cancellation.Cancel();
+                }
+            };
+
+            var listed = client.ListCallCount;
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(
+                () => panel.UndoMoveToTrashAsync(cancellation.Token));
+
+            Assert.Equal([paths[2]], trash.PutBack);
+            Assert.True(panel.CanUndoMoveToTrash);
+            // Gamma is back in the folder, so the listing was refreshed to show it.
+            Assert.True(client.ListCallCount > listed);
+            trash.BeforePutBack = null;
+
+            Assert.True(await panel.UndoMoveToTrashAsync());
+
+            Assert.Equal([paths[2], paths[1], paths[0]], trash.PutBack);
+            Assert.False(panel.CanUndoMoveToTrash);
+        }
+    }
+
+    private static async Task<(FileRuntimePanelViewModel Panel, string[] Paths)> TrashThreeAsync(
+        RecordingTrash trash,
+        StubFilePanelClient? client = null)
+    {
+        client ??= new StubFilePanelClient();
+        client.Entries.Add(Entry(client, "alpha"));
+        client.Entries.Add(Entry(client, "beta"));
+        client.Entries.Add(Entry(client, "gamma"));
+        var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            client,
+            deferInitialization: true,
+            trash: trash);
+        await panel.StartInitialization();
+        panel.SelectedEntry = panel.Entries[0];
+        panel.SetSelectedEntries([.. client.Entries]);
+
+        Assert.True(await panel.MoveSelectionToTrashAsync());
+
+        Assert.Equal(["alpha", "beta", "gamma"], trash.Moved.Select(Path.GetFileName), StringComparer.Ordinal);
+        return (panel, [.. trash.Moved]);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition was not met in time.");
+            await Task.Delay(10);
+        }
+    }
+
+    [Fact]
     public async Task The_status_mark_follows_the_connection_and_names_its_state()
     {
         var client = new StubFilePanelClient();
@@ -373,8 +604,14 @@ public sealed class FilePanelHigConformanceTests
     }
 
     [Fact]
+    [UnsupportedOSPlatform("windows")]
     public void The_freedesktop_Trash_records_where_an_item_came_from_and_puts_it_back()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var root = Directory.CreateTempSubdirectory("asura-trash-");
         try
         {
@@ -413,6 +650,7 @@ public sealed class FilePanelHigConformanceTests
     }
 
     [Fact]
+    [UnsupportedOSPlatform("windows")]
     public void The_freedesktop_Trash_only_renames_and_leaves_an_item_it_cannot_move()
     {
         if (OperatingSystem.IsWindows())
@@ -435,6 +673,125 @@ public sealed class FilePanelHigConformanceTests
             FreedesktopFileTrash.Rename(file, moved);
             Assert.False(File.Exists(file));
             Assert.Equal("stay", File.ReadAllText(moved));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_new_freedesktop_Trash_is_private_to_its_owner()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            // Created as XDG_DATA_HOME/Trash would be, under the usual umask
+            // that leaves new folders readable by everyone. A runner whose
+            // umask is already 077 can't tell the difference here; the test
+            // of a Trash others can read covers the same rule on any umask.
+            var dataHome = Path.Combine(root.FullName, "data");
+            var trashDirectory = Path.Combine(dataHome, "Trash");
+            var trash = new FreedesktopFileTrash(trashDirectory);
+            var file = Path.Combine(root.FullName, "secret.txt");
+            File.WriteAllText(file, "private");
+
+            trash.MoveToTrash(file);
+
+            const UnixFileMode ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(trashDirectory));
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(Path.Combine(trashDirectory, "files")));
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(Path.Combine(trashDirectory, "info")));
+            Assert.Equal(
+                UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                File.GetUnixFileMode(Path.Combine(trashDirectory, "info", "secret.txt.trashinfo")));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    [UnsupportedOSPlatform("windows")]
+    public void A_freedesktop_Trash_others_can_read_is_made_private_before_anything_goes_in()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var trashDirectory = Path.Combine(root.FullName, "Trash");
+            const UnixFileMode readable = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
+            foreach (var directory in new[] { trashDirectory, Path.Combine(trashDirectory, "files"), Path.Combine(trashDirectory, "info") })
+            {
+                Directory.CreateDirectory(directory);
+                File.SetUnixFileMode(directory, readable);
+            }
+
+            var file = Path.Combine(root.FullName, "secret.txt");
+            File.WriteAllText(file, "private");
+
+            new FreedesktopFileTrash(trashDirectory).MoveToTrash(file);
+
+            const UnixFileMode ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(trashDirectory));
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(Path.Combine(trashDirectory, "files")));
+            Assert.Equal(ownerOnly, File.GetUnixFileMode(Path.Combine(trashDirectory, "info")));
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("files")]
+    [InlineData("info")]
+    [UnsupportedOSPlatform("windows")]
+    public void A_freedesktop_Trash_others_can_change_is_refused(string part)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var trashDirectory = Path.Combine(root.FullName, "Trash");
+            Directory.CreateDirectory(Path.Combine(trashDirectory, "files"));
+            Directory.CreateDirectory(Path.Combine(trashDirectory, "info"));
+            File.SetUnixFileMode(
+                Path.Combine(trashDirectory, part),
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute);
+            var file = Path.Combine(root.FullName, "secret.txt");
+            File.WriteAllText(file, "private");
+
+            // Its own type, so the panel shows these words rather than
+            // guessing at the item.
+            var refusal = Assert.Throws<TrashUnavailableException>(
+                () => new FreedesktopFileTrash(trashDirectory).MoveToTrash(file));
+
+            Assert.Contains("other people", refusal.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(root.FullName, refusal.Message, StringComparison.Ordinal);
+            Assert.Equal("private", File.ReadAllText(file));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(trashDirectory, "files")));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(Path.Combine(trashDirectory, "info")));
         }
         finally
         {
@@ -562,6 +919,12 @@ public sealed class FilePanelHigConformanceTests
 
         public bool Refuse { get; init; }
 
+        /// <summary>Thrown for every item: the Trash itself can't take any.</summary>
+        public TrashUnavailableException? Unavailable { get; init; }
+
+        /// <summary>Names the Trash refuses while it takes the others.</summary>
+        public HashSet<string> Refused { get; } = new(StringComparer.Ordinal);
+
         public List<string> Moved { get; } = [];
 
         public List<string> PutBack { get; } = [];
@@ -572,7 +935,12 @@ public sealed class FilePanelHigConformanceTests
 
         public TrashedItem MoveToTrash(string path)
         {
-            if (Refuse)
+            if (Unavailable is not null)
+            {
+                throw Unavailable;
+            }
+
+            if (Refuse || Refused.Contains(Path.GetFileName(path)))
             {
                 throw new IOException("Permission denied.");
             }
@@ -583,11 +951,36 @@ public sealed class FilePanelHigConformanceTests
             }
 
             _moved.TrySetResult();
-            return new TrashedItem(path, "/Trash/" + Path.GetFileName(path));
+            if (TrashDirectory is null)
+            {
+                return new TrashedItem(path, "/Trash/" + Path.GetFileName(path));
+            }
+
+            var trashed = Path.Combine(TrashDirectory, Path.GetFileName(path));
+            File.WriteAllText(trashed, "trashed");
+            return new TrashedItem(path, trashed);
         }
+
+        /// <summary>Names whose place is taken, so putting them back fails.</summary>
+        public HashSet<string> Occupied { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>Runs before each put-back, as the user might act meanwhile.</summary>
+        public Action? BeforePutBack { get; set; }
+
+        /// <summary>
+        /// Where trashed items really go; without it they go nowhere that
+        /// exists, as when the system does not say where it put them.
+        /// </summary>
+        public string? TrashDirectory { get; init; }
 
         void IFileTrash.PutBack(TrashedItem item)
         {
+            BeforePutBack?.Invoke();
+            if (Occupied.Contains(Path.GetFileName(item.OriginalPath)))
+            {
+                throw new IOException("An item with that name is already there.");
+            }
+
             lock (PutBack)
             {
                 PutBack.Add(item.OriginalPath);
