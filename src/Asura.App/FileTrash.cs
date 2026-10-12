@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace Asura.App;
@@ -112,7 +113,12 @@ public static class FileTrash
 /// across devices is a transfer, not a delete, and could fill the home
 /// volume. The move is therefore a bare <c>rename(2)</c>; <see cref="File.Move(string, string)"/>
 /// would quietly fall back to copy-and-delete across devices.
+///
+/// The Trash is private to its owner, as GLib makes it: an item leaves
+/// whatever folder kept it private on its way in, so a Trash others could
+/// read would show them what was deleted and where it came from.
 /// </summary>
+[UnsupportedOSPlatform("windows")]
 internal sealed class FreedesktopFileTrash : IFileTrash
 {
     // The same numbers on Linux and macOS.
@@ -120,6 +126,16 @@ internal sealed class FreedesktopFileTrash : IFileTrash
     private const int ErrorAccess = 13;
     private const int ErrorCrossDevice = 18;
 
+    private const UnixFileMode OwnerOnly =
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
+    private const UnixFileMode OthersAccess =
+        UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.GroupExecute
+        | UnixFileMode.OtherRead | UnixFileMode.OtherWrite | UnixFileMode.OtherExecute;
+
+    private const UnixFileMode OthersWrite = UnixFileMode.GroupWrite | UnixFileMode.OtherWrite;
+
+    private readonly string _directory;
     private readonly string _files;
     private readonly string _info;
     private readonly Func<DateTime> _now;
@@ -127,6 +143,7 @@ internal sealed class FreedesktopFileTrash : IFileTrash
     public FreedesktopFileTrash(string trashDirectory, Func<DateTime>? now = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(trashDirectory);
+        _directory = trashDirectory;
         _files = Path.Combine(trashDirectory, "files");
         _info = Path.Combine(trashDirectory, "info");
         _now = now ?? (() => DateTime.Now);
@@ -161,8 +178,7 @@ internal sealed class FreedesktopFileTrash : IFileTrash
             throw new IOException($"“{Path.GetFileName(source)}” no longer exists.");
         }
 
-        Directory.CreateDirectory(_files);
-        Directory.CreateDirectory(_info);
+        PrepareTrash();
         var (name, infoPath) = ReserveName(Path.GetFileName(source), source);
         var destination = Path.Combine(_files, name);
         try
@@ -176,6 +192,45 @@ internal sealed class FreedesktopFileTrash : IFileTrash
         }
 
         return new TrashedItem(source, destination);
+    }
+
+    /// <summary>
+    /// Makes the Trash and its two folders private to their owner before
+    /// anything goes in. A missing folder is created owner-only. One others
+    /// can write to is refused, not repaired: someone else may already have
+    /// put things in it. One others can only read or enter is narrowed to
+    /// owner-only, which is how a new one would be made anyway; only a
+    /// folder's owner may change its mode, so that also proves it is this
+    /// user's. A folder that is already owner-only takes new items only from
+    /// its owner.
+    /// </summary>
+    private void PrepareTrash()
+    {
+        foreach (var directory in (string[])[_directory, _files, _info])
+        {
+            Directory.CreateDirectory(directory, OwnerOnly);
+            var mode = File.GetUnixFileMode(directory);
+            if ((mode & OthersWrite) != 0)
+            {
+                throw new IOException(
+                    "Other people on this computer can change the Trash, so nothing was moved to it. Make the Trash folder private to you, then try again.");
+            }
+
+            if ((mode & OthersAccess) == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                File.SetUnixFileMode(directory, mode & ~OthersAccess);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                throw new IOException(
+                    "The Trash belongs to another user, so nothing was moved to it.");
+            }
+        }
     }
 
     /// <summary>
@@ -241,7 +296,15 @@ internal sealed class FreedesktopFileTrash : IFileTrash
 
             try
             {
-                using var stream = new FileStream(infoPath, FileMode.CreateNew, FileAccess.Write);
+                // Only its owner may read where an item came from.
+                using var stream = new FileStream(
+                    infoPath,
+                    new FileStreamOptions
+                    {
+                        Mode = FileMode.CreateNew,
+                        Access = FileAccess.Write,
+                        UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                    });
                 var info = string.Create(
                     CultureInfo.InvariantCulture,
                     $"[Trash Info]\nPath={EscapePath(source)}\nDeletionDate={_now():yyyy-MM-ddTHH:mm:ss}\n");

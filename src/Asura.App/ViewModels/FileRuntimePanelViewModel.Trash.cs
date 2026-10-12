@@ -95,6 +95,12 @@ public sealed partial class FileRuntimePanelViewModel
         }
 
         OnPropertyChanged(nameof(CanUndoMoveToTrash));
+        // Refreshing clears the panel's notice, so the notice comes after.
+        if (trashed.Count > 0 && !_disposed)
+        {
+            await RefreshAsync(cancellationToken).ConfigureAwait(true);
+        }
+
         if (failure is not null)
         {
             SetOperationIssue(new FileOperationIssue(
@@ -105,17 +111,18 @@ public sealed partial class FileRuntimePanelViewModel
                 CanRetry: true));
         }
 
-        if (trashed.Count > 0 && !_disposed)
-        {
-            await RefreshAsync(cancellationToken).ConfigureAwait(true);
-        }
-
         return failure is null;
     }
 
     /// <summary>
     /// Puts back what the last move to the Trash took, in reverse order so a
     /// folder returns before anything that was inside it.
+    ///
+    /// It stops at the first item that cannot come back, or when cancelled.
+    /// Whatever is still in the Trash then stays undoable, so once the
+    /// conflict is resolved Undo picks up where it stopped. Only an item that
+    /// has left the Trash is let go: it can never be put back from here, and
+    /// keeping it would stop every Undo at the same place.
     /// </summary>
     public async Task<bool> UndoMoveToTrashAsync(CancellationToken cancellationToken = default)
     {
@@ -127,7 +134,9 @@ public sealed partial class FileRuntimePanelViewModel
 
         ClearOperationIssue();
         var items = _lastTrashed;
-        _lastTrashed = [];
+        // Undo works from the end, so what is still in the Trash is always
+        // the front of the list.
+        var stillTrashed = items.Count;
         _isTrashBusy = true;
         OnPropertyChanged(nameof(CanUndoMoveToTrash));
         string? failure;
@@ -138,14 +147,21 @@ public sealed partial class FileRuntimePanelViewModel
                 {
                     for (var index = items.Count - 1; index >= 0; index--)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         try
                         {
                             trash.PutBack(items[index]);
+                            stillTrashed = index;
                         }
                         catch (Exception exception) when (exception is IOException
                             or UnauthorizedAccessException)
                         {
                             SecretSafeDiagnostics.WriteTrace("files.trash.put-back.failed", exception);
+                            if (!IsInTrash(items[index]))
+                            {
+                                stillTrashed = index;
+                            }
+
                             return DescribePutBackFailure(items[index], exception);
                         }
                     }
@@ -156,18 +172,9 @@ public sealed partial class FileRuntimePanelViewModel
         }
         finally
         {
+            _lastTrashed = [.. items.Take(stillTrashed)];
             _isTrashBusy = false;
-        }
-
-        OnPropertyChanged(nameof(CanUndoMoveToTrash));
-        if (failure is not null)
-        {
-            SetOperationIssue(new FileOperationIssue(
-                FileOperationIssueKind.Conflict,
-                "Couldn’t put back from the Trash",
-                failure,
-                "Use Put Back in the Trash, or move the item back by hand.",
-                CanRetry: false));
+            OnPropertyChanged(nameof(CanUndoMoveToTrash));
         }
 
         if (!_disposed)
@@ -175,8 +182,29 @@ public sealed partial class FileRuntimePanelViewModel
             await RefreshAsync(cancellationToken).ConfigureAwait(true);
         }
 
+        if (failure is not null)
+        {
+            SetOperationIssue(_lastTrashed.Count > 0
+                ? new FileOperationIssue(
+                    FileOperationIssueKind.Conflict,
+                    "Couldn’t put back from the Trash",
+                    failure,
+                    "Choose Undo again to put back the rest, or use Put Back in the Trash.",
+                    CanRetry: true)
+                : new FileOperationIssue(
+                    FileOperationIssueKind.Conflict,
+                    "Couldn’t put back from the Trash",
+                    failure,
+                    "Use Put Back in the Trash, or move the item back by hand.",
+                    CanRetry: false));
+        }
+
         return failure is null;
     }
+
+    private static bool IsInTrash(TrashedItem item) =>
+        item.TrashedPath is { } trashed
+        && (File.Exists(trashed) || Directory.Exists(trashed));
 
     /// <summary>
     /// Why an item couldn't come back from the Trash, read from where things
@@ -198,8 +226,7 @@ public sealed partial class FileRuntimePanelViewModel
             return $"“{name}” couldn't be put back because an item with that name is already in the folder it came from. Rename or move that item, then choose Undo again.";
         }
 
-        if (item.TrashedPath is not { } trashed
-            || !(File.Exists(trashed) || Directory.Exists(trashed)))
+        if (!IsInTrash(item))
         {
             return $"“{name}” couldn't be put back because it's no longer in the Trash. Refresh the folder to see whether it's already back.";
         }
