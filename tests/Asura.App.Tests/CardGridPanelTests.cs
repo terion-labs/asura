@@ -110,3 +110,47 @@ public sealed class CardGridPanelRowHeightTests
         Assert.Equal(130, panel.Children[3].Bounds.Top, precision: 3);
     }
 }
+
+/// <summary>
+/// A fixed set of tiles spread over the fewest rows the width allows, every
+/// row as full as the next, the tiles sharing the width.
+/// </summary>
+public sealed class CardGridPanelBalancedRowsTests
+{
+    [Theory]
+    [InlineData(1080, 6, 1)]
+    [InlineData(740, 3, 2)]
+    [InlineData(400, 2, 3)]
+    public void Six_tiles_stand_in_even_rows_that_fill_the_width(double width, int columns, int rows)
+    {
+        var panel = new CardGridPanel { MinItemWidth = 150, Spacing = 12, BalancesRows = true };
+        for (var index = 0; index < 6; index++)
+        {
+            panel.Children.Add(new Border { Height = 100 });
+        }
+
+        panel.Measure(new Size(width, double.PositiveInfinity));
+        panel.Arrange(new Rect(0, 0, width, panel.DesiredSize.Height));
+
+        var tops = panel.Children.GroupBy(card => card.Bounds.Top).ToArray();
+        Assert.Equal(rows, tops.Length);
+        Assert.All(tops, row => Assert.Equal(columns, row.Count()));
+        Assert.All(tops, row => Assert.Equal(width, row.Max(card => card.Bounds.Right), precision: 1));
+    }
+
+    /// <summary>Seven that fit five to a row stand four over three, not five over two.</summary>
+    [Fact]
+    public void An_uneven_set_leaves_the_shortest_row_one_short_at_most()
+    {
+        var panel = new CardGridPanel { MinItemWidth = 100, Spacing = 10, BalancesRows = true };
+        for (var index = 0; index < 7; index++)
+        {
+            panel.Children.Add(new Border { Height = 40 });
+        }
+
+        panel.Measure(new Size(540, double.PositiveInfinity));
+        panel.Arrange(new Rect(0, 0, 540, panel.DesiredSize.Height));
+
+        Assert.Equal([4, 3], panel.Children.GroupBy(card => card.Bounds.Top).Select(row => row.Count()));
+    }
+}

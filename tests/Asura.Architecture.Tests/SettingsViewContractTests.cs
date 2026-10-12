@@ -98,6 +98,9 @@ public sealed class SettingsViewContractTests
         Assert.Equal("False", AttributeValue(expander, "IsExpanded"));
         Assert.Equal("Tool permissions", AttributeValue(expander, "Header"));
         Assert.Equal("Default agent tool permissions", AttributeValue(expander, "AutomationProperties.Name"));
+        // A row of its plate: the settings styles give it the row's height
+        // and insets, so a margin of its own would inset it a second time.
+        Assert.Null(AttributeValue(expander, "Margin"));
         // One choice of three values: the shared segmented control, whose
         // segments a screen reader hears as a radio group.
         var picker = Assert.Single(permissions.Descendants(), element => string.Equals(

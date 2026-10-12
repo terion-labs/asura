@@ -405,14 +405,20 @@ public sealed class SettingsSystemLayoutHeadlessTests
             var panel = theme.GetVisualDescendants().OfType<RowSeparatorPanel>().Single();
             Assert.True(panel.SkipsSeparatedRows);
             Assert.Equal(new Thickness(10, 0), panel.SeparatorInset);
-            // The tiles, then the platform profile's row: one line between
-            // them, inset 10 from each edge, and none under the row.
+            // The tiles, the override disclosure's row, then the platform
+            // profile's row: a line between each two, inset 10 from each
+            // edge, and none under the last row.
             var lines = panel.SeparatorBounds();
-            var line = Assert.Single(lines);
-            Assert.Equal(10, line.X, precision: 0);
-            Assert.Equal(panel.Bounds.Width - 20, line.Width, precision: 0);
+            Assert.Equal(2, lines.Count);
+            Assert.All(lines, line =>
+            {
+                Assert.Equal(10, line.X, precision: 0);
+                Assert.Equal(panel.Bounds.Width - 20, line.Width, precision: 0);
+            });
+            var disclosure = theme.Items.OfType<Expander>().Single();
+            Assert.Equal(disclosure.Bounds.Top - 1, lines[0].Y, precision: 0);
             var row = theme.Items.OfType<SettingRow>().Single();
-            Assert.Equal(row.Bounds.Top - 1, line.Y, precision: 0);
+            Assert.Equal(row.Bounds.Top - 1, lines[1].Y, precision: 0);
             Assert.True(row.IsLast);
             return Task.CompletedTask;
         });

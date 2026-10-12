@@ -38,82 +38,81 @@
     <controls:SettingsGroup
         Heading="Theme"
         Description="Asura follows the system's appearance. Override it only when this app has to differ.">
-      <StackPanel Margin="{DynamicResource ShellSettingsGroupContentPadding}" Spacing="{DynamicResource ShellSpaceSm}">
-        <StackPanel>
+      <StackPanel Margin="{DynamicResource ShellSettingsGroupContentPadding}">
+        <RadioButton
+            x:Name="AppearanceModeSystem"
+            Classes="PresetCard ModeTile"
+            IsCheckedChanged="OnAppearanceModeChanged"
+            AutomationProperties.Name="Color mode System">
+          <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+            <Border MinHeight="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+              <Grid ColumnDefinitions="*,*">
+                <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
+                <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
+                <TextBlock Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
+                <TextBlock Grid.Column="1" Margin="{controls:Inset Horizontal=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
+              </Grid>
+            </Border>
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock Classes="PresetName" Text="System" />
+              <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Grid>
+          </StackPanel>
+        </RadioButton>
+      </StackPanel>
+      <!-- A row of the plate between the System tile and the profile, as
+           System Settings draws a disclosure: starts folded, and opens on its
+           own when the stored mode is already an override, so an override is
+           never hidden from the person who made it. -->
+      <Expander
+          x:Name="AppearanceOverrideExpander"
+          IsExpanded="False"
+          AutomationProperties.Name="Override system appearance">
+        <!-- Wraps at a large text size rather than running off the plate. -->
+        <Expander.Header>
+          <TextBlock Text="Override system appearance" TextWrapping="Wrap" />
+        </Expander.Header>
+        <WrapPanel ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceMd}">
           <RadioButton
-              x:Name="AppearanceModeSystem"
+              x:Name="AppearanceModeDark"
               Classes="PresetCard ModeTile"
               IsCheckedChanged="OnAppearanceModeChanged"
-              AutomationProperties.Name="Color mode System">
+              AutomationProperties.Name="Color mode Dark">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <Border MinHeight="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-                <Grid ColumnDefinitions="*,*">
-                  <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
-                  <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
-                  <TextBlock Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
-                  <TextBlock Grid.Column="1" Margin="{controls:Inset Horizontal=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
-                </Grid>
+              <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkAccentTextBrush}" Text="▸ localhost:3000" />
+                </StackPanel>
               </Border>
               <Grid ColumnDefinitions="*,Auto">
-                <TextBlock Classes="PresetName" Text="System" />
+                <TextBlock Classes="PresetName" Text="Dark" />
                 <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
               </Grid>
             </StackPanel>
           </RadioButton>
-        </StackPanel>
-        <!-- Starts folded; it opens on its own when the stored mode is already
-             an override, so an override is never hidden from the person who
-             made it. -->
-        <Expander
-            x:Name="AppearanceOverrideExpander"
-            IsExpanded="False"
-            AutomationProperties.Name="Override system appearance">
-          <!-- Wraps at a large text size rather than running off the plate. -->
-          <Expander.Header>
-            <TextBlock Text="Override system appearance" TextWrapping="Wrap" />
-          </Expander.Header>
-          <WrapPanel Margin="{controls:Inset Top=Sm}" ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceMd}">
-              <RadioButton
-                  x:Name="AppearanceModeDark"
-                  Classes="PresetCard ModeTile"
-                  IsCheckedChanged="OnAppearanceModeChanged"
-                  AutomationProperties.Name="Color mode Dark">
-                <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-                    <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkAccentTextBrush}" Text="▸ localhost:3000" />
-                    </StackPanel>
-                  </Border>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="PresetName" Text="Dark" />
-                    <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Grid>
+          <RadioButton
+              x:Name="AppearanceModeLight"
+              Classes="PresetCard ModeTile"
+              IsCheckedChanged="OnAppearanceModeChanged"
+              AutomationProperties.Name="Color mode Light">
+            <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+              <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
+                  <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightAccentTextBrush}" Text="▸ localhost:3000" />
                 </StackPanel>
-              </RadioButton>
-              <RadioButton
-                  x:Name="AppearanceModeLight"
-                  Classes="PresetCard ModeTile"
-                  IsCheckedChanged="OnAppearanceModeChanged"
-                  AutomationProperties.Name="Color mode Light">
-                <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
-                    <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
-                      <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightAccentTextBrush}" Text="▸ localhost:3000" />
-                    </StackPanel>
-                  </Border>
-                  <Grid ColumnDefinitions="*,Auto">
-                    <TextBlock Classes="PresetName" Text="Light" />
-                    <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
-                  </Grid>
-                </StackPanel>
-              </RadioButton>
-          </WrapPanel>
-        </Expander>
-      </StackPanel>
+              </Border>
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Classes="PresetName" Text="Light" />
+                <icons:SymbolIcon Grid.Column="1" Classes="PresetCheck" Symbol="Checkmark" FontSize="{DynamicResource ShellIconSizeSm}" />
+              </Grid>
+            </StackPanel>
+          </RadioButton>
+        </WrapPanel>
+      </Expander>
       <!-- A setting, not a theme: a row under the tiles rather than a card
            beside them that read as a fourth tile. -->
       <controls:SettingRow
@@ -154,15 +153,18 @@
           <controls:StatusChip Shape="Rounded" Tone="Default" IsOutlined="False" VerticalAlignment="Center" Content="{Binding TerminalSettingsEditor.PaletteName}" />
         </StackPanel>
       </controls:SettingRow>
-      <!-- Six presets in at most three columns: three by two, or two by
-           three when narrow, so no row is left with a lone card. Four
-           columns left a ragged row of two under a row of four. -->
+      <!-- The presets fill the plate's width: as many to a row as fit,
+           spread evenly so every row is as full as the next — six in one
+           row on a wide window, three by two, two by three when narrow — and
+           each tile stretched to its share, so no column is left mostly
+           empty. A tile is never narrower than its preview's words. -->
       <ItemsControl x:Name="TerminalPalettePresets" Margin="{DynamicResource ShellSettingsGroupContentPadding}" ItemsSource="{Binding TerminalSettingsEditor.PalettePresets}">
-        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="150" MaxColumns="3" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><controls:CardGridPanel MinItemWidth="{controls:TextScaled 150}" BalancesRows="True" Spacing="{DynamicResource ShellSpaceMd}" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <RadioButton
                 Width="NaN"
+                HorizontalAlignment="Stretch"
                 Classes="PresetCard"
                 GroupName="TerminalPalette"
                 Click="OnSelectTerminalPaletteClick"

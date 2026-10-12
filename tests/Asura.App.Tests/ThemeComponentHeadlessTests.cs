@@ -240,6 +240,32 @@ public sealed class ThemeComponentHeadlessTests
             Assert.Equal(Symbol.ChevronDown, chevron.Symbol);
         });
 
+    /// <summary>
+    /// A disclosure keeps no box: Fluent's rules for its own header part and
+    /// for the open section reached through the shell's template, and drew
+    /// a near-black fill under the pointer and a frame around what opened.
+    /// </summary>
+    [Fact]
+    public Task A_disclosure_draws_no_fill_under_the_pointer_and_no_frame_when_open() =>
+        RunHeadlessAsync(window =>
+        {
+            var expander = new Expander { Header = "Advanced", Content = new TextBlock { Text = "Body" } };
+            Show(window, expander);
+            var header = Part<ToggleButton>(expander, "ExpanderHeader");
+
+            window.MouseMove(header.TranslatePoint(new Point(header.Bounds.Width / 2, header.Bounds.Height / 2), window)!.Value);
+            window.UpdateLayout();
+            Assert.True(header.IsPointerOver);
+            Assert.DoesNotContain(
+                header.GetVisualDescendants().OfType<Border>(),
+                border => border.Background is ISolidColorBrush { Color.A: > 0 }
+                    || (border.BorderThickness != default && border.BorderBrush is ISolidColorBrush { Color.A: > 0 }));
+
+            expander.IsExpanded = true;
+            window.UpdateLayout();
+            Assert.Equal(default, Part<Border>(expander, "ExpanderContent").BorderThickness);
+        });
+
     /// <summary>A pop-up button's glyph is the up and down pair.</summary>
     [Fact]
     public Task A_pop_up_button_wears_the_chevron_pair() =>

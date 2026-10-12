@@ -133,6 +133,9 @@ internal static class SettingsChromeTokens
         publish("ShellSettingsRowPadding", new Thickness(groupGap, spacing.Small));
         publish("ShellSettingsRowMinHeight", App.RowMinHeight(resources, RowMinHeight));
         publish("ShellSettingsSeparatorInset", new Thickness(groupGap, 0));
+        // What a disclosure opens on stands on the rows' edge, straight under
+        // its header, and a group's step clear of the plate's bottom.
+        publish("ShellSettingsDisclosureContentPadding", new Thickness(groupGap, 0, groupGap, groupGap));
         // The value of a pop-up button stands 12 from its chevrons, as the
         // host's do, counting the glyphs' own side bearing.
         publish("ShellSettingsControlSpacing", HalfPoint(spacing.Small * 1.25));

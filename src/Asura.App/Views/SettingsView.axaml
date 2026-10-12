@@ -1694,10 +1694,7 @@
                 <!-- The permissions are a list of their own, folded until
                      asked for: each capability's Off, Ask, and Auto. -->
                 <Expander
-                    Margin="{DynamicResource ShellSettingsRowPadding}"
                     Header="Tool permissions"
-                    HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch"
                     IsExpanded="False"
                     AutomationProperties.Name="Default agent tool permissions"
                     AutomationProperties.HelpText="Expand to edit the Off, Ask, and Auto permissions for each capability.">
