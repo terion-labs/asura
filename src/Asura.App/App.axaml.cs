@@ -962,9 +962,20 @@ public sealed partial class App : Avalonia.Application
         // a menu or a tooltip read in the same face and size as the window.
         Publish("ContentControlThemeFontFamily", resources.FontFamily);
         Publish("ControlContentThemeFontSize", resources.BaseFontSize);
-        Publish("ShellBaseFontSize", resources.BaseFontSize);
+        // The type ramp by role: Body for every primary run of text, Secondary
+        // for the line under it, Caption for badges, keycaps, counts and axes.
+        // Body never renders under the caption: a desktop whose own body is
+        // smaller (Breeze's 10) is lifted to it.
+        var captionFontSize = resources.SecondaryFontSize;
+        var bodyFontSize = Math.Max(resources.BaseFontSize, captionFontSize);
+        Publish("ShellBaseFontSize", bodyFontSize);
+        Publish("ShellBodyFontSize", bodyFontSize);
         Publish("ShellSecondaryFontSize", resources.SecondaryFontSize);
+        Publish("ShellCaptionFontSize", captionFontSize);
         Publish("ShellPillFontSize", resources.PillFontSize);
+        Publish("ShellBodyLineHeight", LineHeightFor(bodyFontSize));
+        Publish("ShellSecondaryLineHeight", LineHeightFor(resources.SecondaryFontSize));
+        Publish("ShellCaptionLineHeight", LineHeightFor(captionFontSize));
         foreach (var baseFontSize in ScalableFontSizes)
         {
             Publish($"ShellFontSize{baseFontSize}", resources.ScaleFontSize(baseFontSize));
@@ -1118,6 +1129,10 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellMotionEnabled", resources.MotionEnabled);
         Publish("ShellAdvancedMaterialsEnabled", resources.AdvancedMaterialsEnabled);
     }
+
+    /// <summary>A text size's leading, on the half-point grid.</summary>
+    internal static double LineHeightFor(double fontSize) =>
+        Math.Round(fontSize * 1.35 * 2, MidpointRounding.AwayFromZero) / 2;
 
     private void ApplyToWindow(
         Window window,

@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using StubFilePanelClient = Asura.App.Tests.FileRuntimePanelViewModelTests.StubFilePanelClient;
 
@@ -85,6 +86,121 @@ public sealed class ArchivePreviewLayoutHeadlessTests
 
             Assert.False(listing.FindControl<StackPanel>("Pager")!.IsVisible);
         });
+
+    /// <summary>
+    /// Every preview under the details card follows it at the card's own
+    /// bottom margin and lines up with its sides. The code preview stood 20
+    /// points under the card and the table and byte previews 16, against the
+    /// archive listing's 8, so the gap changed with the file.
+    /// </summary>
+    [Theory]
+    [InlineData("notes.txt", "hello\n", FilePanelPreviewKind.Text, typeof(CodePreviewView))]
+    [InlineData("people.csv", "name,city\nada,london\n", FilePanelPreviewKind.Text, typeof(PreviewTableView))]
+    [InlineData("payload.bin", "\u0000\u0001", FilePanelPreviewKind.Hex, typeof(HexPreviewView))]
+    public Task Every_preview_follows_the_details_card_at_the_card_gap(
+        string name,
+        string content,
+        FilePanelPreviewKind kind,
+        Type previewType) =>
+        RunHeadlessAsync(async window =>
+        {
+            using var panel = await OpenPreviewAsync(name, content, kind);
+            var view = new FileRuntimePanelView { DataContext = panel };
+            window.Content = view;
+            window.Show();
+            Control? preview = null;
+            await WaitUntilAsync(() =>
+            {
+                window.UpdateLayout();
+                preview = view.GetVisualDescendants().OfType<Control>()
+                    .FirstOrDefault(control => control.GetType() == previewType && control.IsEffectivelyVisible && control.Bounds.Height > 0);
+                return preview is not null;
+            });
+
+            var card = view.GetVisualDescendants().OfType<TextBlock>()
+                .Single(text => text.Text == "Kind" && text.IsEffectivelyVisible)
+                .GetVisualAncestors().OfType<Asura.App.Controls.SurfaceCard>().First();
+            var cardTopLeft = card.TranslatePoint(default, view)!.Value;
+            var cardBottom = card.TranslatePoint(new Point(0, card.Bounds.Height), view)!.Value.Y;
+            var cardRight = card.TranslatePoint(new Point(card.Bounds.Width, 0), view)!.Value.X;
+            var shown = Assert.IsAssignableFrom<Control>(preview);
+            var previewTopLeft = shown.TranslatePoint(default, view)!.Value;
+            var previewRight = shown.TranslatePoint(new Point(shown.Bounds.Width, 0), view)!.Value.X;
+
+            Assert.Equal(card.Margin.Bottom, previewTopLeft.Y - cardBottom, 1);
+            Assert.Equal(cardTopLeft.X, previewTopLeft.X, 1);
+            Assert.Equal(cardRight, previewRight, 1);
+        });
+
+    /// <summary>
+    /// A listing's summary is one footer, the same in the archive, table and
+    /// byte previews: a 28-point band at the listing's own inset.
+    /// </summary>
+    [Theory]
+    [InlineData("people.csv", "name,city\nada,london\n", FilePanelPreviewKind.Text, typeof(PreviewTableView))]
+    [InlineData("payload.bin", "\u0000\u0001", FilePanelPreviewKind.Hex, typeof(HexPreviewView))]
+    public Task Table_and_byte_previews_share_the_listing_footer(
+        string name,
+        string content,
+        FilePanelPreviewKind kind,
+        Type previewType) =>
+        RunHeadlessAsync(async window =>
+        {
+            using var panel = await OpenPreviewAsync(name, content, kind);
+            var view = new FileRuntimePanelView { DataContext = panel };
+            window.Content = view;
+            window.Show();
+            UserControl? preview = null;
+            await WaitUntilAsync(() =>
+            {
+                window.UpdateLayout();
+                preview = view.GetVisualDescendants().OfType<UserControl>()
+                    .FirstOrDefault(control => control.GetType() == previewType && control.IsEffectivelyVisible && control.Bounds.Height > 0);
+                return preview is not null;
+            });
+
+            var footer = preview!.FindControl<Grid>("Footer")!;
+            Assert.True(footer.Bounds.Height >= 28, $"The footer is {footer.Bounds.Height} points tall.");
+            var summary = footer.GetVisualDescendants().OfType<TextBlock>().Single();
+            Assert.Equal(VerticalAlignment.Center, summary.VerticalAlignment);
+
+            // The archive listing's footer: the small inset across, none down.
+            Assert.True(footer.TryFindResource("ShellSpaceSm", out var inset));
+            Assert.Equal(new Thickness(Assert.IsType<double>(inset), 0), footer.Margin);
+        });
+
+    private static async Task<FileRuntimePanelViewModel> OpenPreviewAsync(
+        string name,
+        string content,
+        FilePanelPreviewKind kind)
+    {
+        var client = new StubFilePanelClient();
+        client.Entries.Add(new FilePanelEntry(
+            client.Root.Child(new FilePanelPathSegment(name)),
+            name,
+            FilePanelEntryKind.File,
+            content.Length,
+            DateTimeOffset.UnixEpoch,
+            IsHidden: false));
+        client.Preview = new FilePanelPreview(
+            client.Root.Child(new FilePanelPathSegment(name)),
+            kind,
+            "text/plain; charset=utf-8",
+            System.Text.Encoding.UTF8.GetBytes(content),
+            isTruncated: false);
+        var panel = new FileRuntimePanelViewModel(PanelInstanceId.New(), "Files", client);
+        await panel.Initialization;
+        panel.SelectedEntry = Assert.Single(panel.Entries);
+        await panel.PreviewSelectedAsync();
+        if (kind == FilePanelPreviewKind.Hex)
+        {
+            // A dump is shown on request, from the preview's own toggle.
+            panel.PreviewToggles.Single().IsOn = true;
+            await panel.PreviewPresentation;
+        }
+
+        return panel;
+    }
 
     private static async Task<FileRuntimePanelViewModel> OpenArchiveAsync(int entryCount)
     {

@@ -23,30 +23,40 @@
         AutomationProperties.Name="File bytes">
       <ListBox.ItemTemplate>
         <DataTemplate x:DataType="previews:HexPreviewRow">
+          <!-- One size for the whole row: the offset is muted, not smaller,
+               so its digits sit on the bytes' baseline. -->
           <StackPanel Margin="{controls:Inset Right=Lg}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Offset}" />
             <TextBlock
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Bytes}" />
             <TextBlock
                 Classes="Muted"
                 FontFamily="{DynamicResource ShellDataFontFamily}"
-                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                FontSize="{DynamicResource ShellFontSize12}"
                 Text="{Binding Characters}" />
           </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
-    <TextBlock
+    <!-- The footer every File preview listing has: one 28-point band under
+         the rows, its summary at the listing's own inset. -->
+    <Grid
+        x:Name="Footer"
         Grid.Row="1"
-        Margin="{controls:Inset Horizontal=Sm, Vertical=Xs}"
-        Classes="Muted"
-        FontSize="{DynamicResource ShellSecondaryFontSize}"
-        Text="{Binding Summary}" />
+        MinHeight="{controls:TextScaled 28}"
+        Margin="{controls:Inset Horizontal=Sm}">
+      <TextBlock
+          VerticalAlignment="Center"
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          Text="{Binding Summary}"
+          TextTrimming="CharacterEllipsis" />
+    </Grid>
   </Grid>
 </UserControl>

@@ -46,10 +46,10 @@ public sealed partial class HexPreviewView : UserControl
             && value is FontFamily data
                 ? data
                 : FontFamily.Default;
-        var size = this.TryFindResource("ShellSecondaryFontSize", ActualThemeVariant, out var points)
-            && points is double secondary
-                ? secondary
-                : 11;
+        var size = this.TryFindResource("ShellFontSize12", ActualThemeVariant, out var points)
+            && points is double dataSize
+                ? dataSize
+                : 12;
         using var layout = new TextLayout("0", new Typeface(family), size, null);
         return layout.WidthIncludingTrailingWhitespace;
     }

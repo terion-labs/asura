@@ -308,6 +308,49 @@ public sealed class DockerRuntimePanelViewHeadlessTests
             }
         });
 
+    /// <summary>
+    /// The resource types are a source list, and a source-list row is the
+    /// Finder sidebar's 28-point band: on their padding alone the rows came to
+    /// about 26 points, under the Git sidebar beside them.
+    /// </summary>
+    [Fact]
+    public Task ResourceTypeRowsAreFinderSidebarHeight() =>
+        RunHeadlessAsync(async () =>
+        {
+            FontManager.Current.AddFontCollection(new Asura.App.Controls.AsuraTerminalFontCollection());
+            Assert.IsType<App>(Avalonia.Application.Current).ApplyApplicationResources(
+                EffectiveAppearanceResourceMapper.Map(ThemePreference.Default.Resolve(
+                    new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null))));
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+
+                var rows = view.FindControl<ListBox>("DockerFamilyNavigation")!
+                    .GetVisualDescendants()
+                    .OfType<ListBoxItem>()
+                    .Where(item => item.Classes.Contains("DockerNav"))
+                    .ToArray();
+                Assert.Equal(4, rows.Length);
+                Assert.All(rows, row => Assert.True(
+                    row.Bounds.Height >= 28,
+                    $"A resource type row is {row.Bounds.Height} points tall."));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
     [Fact]
     public Task ContainerLifecycleButtonsDispatchFromPointerClicks() =>
         RunHeadlessAsync(async () =>

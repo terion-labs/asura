@@ -120,7 +120,7 @@
             VerticalAlignment="Center"
             FontFamily="{DynamicResource ShellDataFontFamily}"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            LineHeight="{DynamicResource ShellLineHeight12}"
+            LineHeight="{DynamicResource ShellSecondaryLineHeight}"
             Classes="Path"
             Text="{Binding DiffFileName}" />
         <controls:StatusChip

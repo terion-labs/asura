@@ -70,7 +70,7 @@
           <Border.Styles>
             <Style Selector="TextBlock.DetailLabel">
               <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-              <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
+              <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
               <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
             </Style>
             <Style Selector="SelectableTextBlock.DetailValue, TextBlock.DetailValue">

@@ -677,20 +677,23 @@
               </StackPanel>
             </controls:SurfaceCard>
             <Grid Grid.Row="3">
+              <!-- Every preview follows the details card at the card's own
+                   bottom margin and lines up with its sides: a top margin of
+                   its own would double the gap under the card. -->
               <components:CodePreviewView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   IsVisible="{Binding HasSourcePreview}"
                   Text="{Binding PreviewText}"
                   WordWrap="{Binding WrapPreviewText}"
                   FileName="{Binding PreviewTitle}" />
               <!-- A file shown as its bytes, a screenful at a time. -->
               <components:HexPreviewView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewHex}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasHexPreview}" />
               <!-- A delimited file is shown as the table it describes. -->
               <components:PreviewTableView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewTable}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasTablePreview}" />
               <!-- A format the shell cannot show is named and given a symbol,
@@ -717,9 +720,7 @@
               </StackPanel>
               <!-- An archive is listed, never unpacked. A long one is paged
                    from the listing's own footer, beside its summary, so the
-                   entries follow the details card directly. The card's own
-                   bottom margin is the gap above the list; a top margin here
-                   would double it. -->
+                   entries follow the details card directly. -->
               <components:PreviewTreeView
                   x:Name="ArchivePreview"
                   Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
@@ -733,7 +734,7 @@
                   IsVisible="{Binding HasMarkdownPreview}">
                 <components:MarkdownPreviewView
                     ContinuousSelection="True"
-                    Padding="{controls:Inset Lg}"
+                    Padding="{controls:Inset Horizontal=Lg, Bottom=Lg}"
                     Text="{Binding PreviewText}" />
               </ScrollViewer>
               <!-- A database file previews as the database viewer itself,
@@ -751,7 +752,7 @@
                    preview opens showing the whole picture, and detail is
                    reached without leaving the panel. PDF pages share it. -->
               <components:ZoomableImageView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   Source="{Binding PreviewImage}"
                   IsVisible="{Binding HasImagePreview}" />
 

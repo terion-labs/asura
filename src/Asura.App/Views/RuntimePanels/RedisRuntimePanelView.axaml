@@ -85,7 +85,7 @@
     </Style>
     <Style Selector="controls|ListItem.RedisKeyRow /template/ TextBlock#PART_Detail">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
     </Style>
   </UserControl.Styles>
   <controls:PanelChrome
@@ -347,7 +347,7 @@
                     <TextBlock
                         Classes="Muted"
                         FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        LineHeight="{DynamicResource ShellLineHeight12}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                         Text="{Binding SelectedKeyMetadata}" />
                   </StackPanel>
                   <StackPanel

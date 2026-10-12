@@ -82,10 +82,14 @@
              first sample, the failure that replaced them, or a stopped panel
              that never got a sample. A state never floats over the charts. -->
         <ScrollViewer Grid.Row="1" Margin="{controls:Inset Lg}" IsVisible="{Binding ShowContent, FallbackValue=False}">
+          <!-- A card is padded 16 on every side, and its eyebrow, figure,
+               detail and chart sit on the 4-point grid, a step apart: with the
+               row padding the cards were wider than tall inside, and their
+               lines touched. -->
           <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="CPU usage" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding CpuText}" />
                   <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Normalized across logical processors" TextWrapping="Wrap" />
@@ -97,20 +101,20 @@
                       SampleInterval="{Binding SampleInterval}"
                       LabelBrush="{DynamicResource ShellMutedBrush}"
                       ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
-                      LabelFontSize="{DynamicResource ShellFontSize11}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
                       Maximum="100"
                       LineBrush="{DynamicResource ShellChartSeries1Brush}"
                       AreaBrush="{DynamicResource ShellChartSeries1FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="CPU usage history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
                     <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Process memory" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding MemoryText}" />
                   <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Memory in use by the processes Asura can read" TextWrapping="Wrap" />
@@ -122,19 +126,19 @@
                       SampleInterval="{Binding SampleInterval}"
                       LabelBrush="{DynamicResource ShellMutedBrush}"
                       ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
-                      LabelFontSize="{DynamicResource ShellFontSize11}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
                       LineBrush="{DynamicResource ShellChartSeries2Brush}"
                       AreaBrush="{DynamicResource ShellChartSeries2FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Process memory history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
                     <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Network receive" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding NetworkReceivedText}" />
                   <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
@@ -146,19 +150,19 @@
                       SampleInterval="{Binding SampleInterval}"
                       LabelBrush="{DynamicResource ShellMutedBrush}"
                       ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
-                      LabelFontSize="{DynamicResource ShellFontSize11}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
                       LineBrush="{DynamicResource ShellChartSeries3Brush}"
                       AreaBrush="{DynamicResource ShellChartSeries3FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network receive history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
                     <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
                 </Grid>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
-                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
+                <Grid RowDefinitions="Auto,Auto,Auto,108,Auto" RowSpacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Network send" />
                   <TextBlock Grid.Row="1" FontSize="{DynamicResource ShellFontSize24}" FontWeight="SemiBold" Text="{Binding NetworkSentText}" />
                   <TextBlock Grid.Row="2" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Across non-loopback interfaces" TextWrapping="Wrap" />
@@ -170,12 +174,12 @@
                       SampleInterval="{Binding SampleInterval}"
                       LabelBrush="{DynamicResource ShellMutedBrush}"
                       ReadoutBackground="{DynamicResource ShellSurfaceBrush}"
-                      LabelFontSize="{DynamicResource ShellFontSize11}"
+                      LabelFontSize="{DynamicResource ShellCaptionFontSize}"
                       LineBrush="{DynamicResource ShellChartSeries4Brush}"
                       AreaBrush="{DynamicResource ShellChartSeries4FillBrush}"
                       GridBrush="{DynamicResource ShellBorderBrush}"
                       AutomationProperties.Name="Network send history over the last two minutes" />
-                  <Grid Grid.Row="4" Margin="{controls:Inset Top=Xs}" ColumnDefinitions="*,Auto">
+                  <Grid Grid.Row="4" ColumnDefinitions="*,Auto">
                     <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Last 2 min" />
                     <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Now" />
                   </Grid>
@@ -184,14 +188,14 @@
             </controls:CardGridPanel>
 
             <controls:CardGridPanel MinItemWidth="236" MaxColumns="2" Spacing="{DynamicResource ShellSpaceMd}">
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Running processes" />
                   <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="{Binding ProcessCountText}" TextWrapping="Wrap" />
                   <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding ProcessDetailText}" TextWrapping="Wrap" />
                 </StackPanel>
               </controls:SurfaceCard>
-              <controls:SurfaceCard Padding="{DynamicResource ShellRowPadding}">
+              <controls:SurfaceCard Padding="{DynamicResource ShellCardPadding}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock Classes="Eyebrow" Text="Host uptime" />
                   <TextBlock FontSize="{DynamicResource ShellFontSize20}" FontWeight="SemiBold" Text="{Binding UptimeText}" />

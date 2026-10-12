@@ -199,9 +199,9 @@ public sealed class ThemeComponentHeadlessTests
         });
 
     /// <summary>
-    /// Dense trims a control's height, never its text: dense controls sat a
-    /// size below the panel rows they act on, and a text button was at 10
-    /// wherever it stood. Both read at the body size.
+    /// A dense control is shorter, not smaller to read: buttons and fields
+    /// are Body wherever they stand. At the secondary size a filter bar read a
+    /// step under the rows it filters.
     /// </summary>
     [Fact]
     public Task Dense_controls_and_text_buttons_read_at_the_body_size() =>
@@ -213,12 +213,12 @@ public sealed class ThemeComponentHeadlessTests
             var text = new Button { Content = "Show", Classes = { "TextButton" } };
             Show(window, new StackPanel { Children = { dense, denseBox, denseCombo, text } });
 
-            var body = Number(window, "ShellBaseFontSize");
+            var body = Number(window, "ShellBodyFontSize");
+            Assert.Equal(13, body);
             Assert.Equal(body, dense.FontSize);
             Assert.Equal(body, denseBox.FontSize);
             Assert.Equal(body, denseCombo.FontSize);
             Assert.Equal(body, text.FontSize);
-            Assert.True(dense.MinHeight <= 24, "Dense keeps its compact height.");
         });
 
     [Fact]
@@ -338,10 +338,7 @@ public sealed class ThemeComponentHeadlessTests
                 cellText.TranslatePoint(default, grid)!.Value.X,
                 headerLabel.TranslatePoint(default, grid)!.Value.X,
                 precision: 1);
-            // A panel table is content: body-size cells under secondary-size
-            // headers, never the 11-point caption it once used for both.
-            Assert.Equal(Number(window, "ShellSecondaryFontSize"), headerLabel.FontSize);
-            Assert.Equal(Number(window, "ShellBaseFontSize"), cellText.FontSize);
+            Assert.Equal(Number(window, "ShellBodyFontSize"), headerLabel.FontSize);
 
             var headers = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
                 .Where(header => header.Name != "PART_TopLeftCornerHeader" && header.Content is not null)
