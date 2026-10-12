@@ -301,6 +301,77 @@ public sealed class FilePanelHigConformanceTests
     }
 
     [Fact]
+    public async Task A_Trash_that_cannot_take_anything_says_so_rather_than_blaming_the_item()
+    {
+        var client = new StubFilePanelClient();
+        client.Entries.Add(Entry(client, "alpha"));
+        client.Entries.Add(Entry(client, "beta"));
+        const string refusal = "Other people on this computer can change the Trash, so nothing was moved to it.";
+        var trash = new RecordingTrash { Unavailable = new TrashUnavailableException(refusal) };
+        using var panel = new FileRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Files",
+            client,
+            deferInitialization: true,
+            trash: trash);
+
+        await panel.StartInitialization();
+        panel.SelectedEntry = panel.Entries[0];
+        panel.SetSelectedEntries([.. client.Entries]);
+
+        Assert.False(await panel.MoveSelectionToTrashAsync());
+
+        var issue = panel.OperationIssue!;
+        Assert.Equal(refusal, issue.Message);
+        Assert.DoesNotContain("another app", issue.Message, StringComparison.Ordinal);
+        Assert.Contains("Trash folder", issue.SuggestedAction, StringComparison.Ordinal);
+        Assert.DoesNotContain("this folder", issue.SuggestedAction, StringComparison.Ordinal);
+        Assert.Empty(trash.Moved);
+        Assert.False(panel.CanUndoMoveToTrash);
+    }
+
+    [Fact]
+    public async Task An_Undo_still_refreshing_leaves_the_notice_to_a_newer_move()
+    {
+        var root = Directory.CreateTempSubdirectory("asura-trash-");
+        try
+        {
+            var trash = new RecordingTrash { TrashDirectory = root.FullName };
+            var client = new StubFilePanelClient();
+            var (panel, _) = await TrashThreeAsync(trash, client);
+            using (panel)
+            {
+                trash.Occupied.Add("beta");
+                var listing = new TaskCompletionSource<FilePanelResult<FilePanelPage>>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                client.ListCompletion = listing;
+                var listed = client.ListCallCount;
+
+                // The Undo meets beta's conflict and waits on its refresh.
+                var undo = panel.UndoMoveToTrashAsync();
+                await WaitUntilAsync(() => client.ListCallCount > listed);
+
+                // Meanwhile Command-Delete is pressed. While the folder loads
+                // there is nothing it can take, and it says so.
+                Assert.False(await panel.MoveSelectionToTrashAsync());
+                var newer = panel.OperationIssue;
+                Assert.NotNull(newer);
+
+                listing.SetResult(FilePanelResult<FilePanelPage>.Success(new FilePanelPage([], null)));
+                Assert.False(await undo);
+
+                // The Undo's notice about beta is older and must not replace it.
+                Assert.Same(newer, panel.OperationIssue);
+                Assert.True(panel.CanUndoMoveToTrash);
+            }
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task An_Undo_that_meets_a_conflict_keeps_what_it_has_not_put_back_for_another_Undo()
     {
         var root = Directory.CreateTempSubdirectory("asura-trash-");
@@ -364,7 +435,8 @@ public sealed class FilePanelHigConformanceTests
     public async Task A_cancelled_Undo_keeps_what_it_has_not_put_back()
     {
         var trash = new RecordingTrash();
-        var (panel, paths) = await TrashThreeAsync(trash);
+        var client = new StubFilePanelClient();
+        var (panel, paths) = await TrashThreeAsync(trash, client);
         using (panel)
         using (var cancellation = new CancellationTokenSource())
         {
@@ -378,11 +450,15 @@ public sealed class FilePanelHigConformanceTests
                 }
             };
 
+            var listed = client.ListCallCount;
+
             await Assert.ThrowsAnyAsync<OperationCanceledException>(
                 () => panel.UndoMoveToTrashAsync(cancellation.Token));
 
             Assert.Equal([paths[2]], trash.PutBack);
             Assert.True(panel.CanUndoMoveToTrash);
+            // Gamma is back in the folder, so the listing was refreshed to show it.
+            Assert.True(client.ListCallCount > listed);
             trash.BeforePutBack = null;
 
             Assert.True(await panel.UndoMoveToTrashAsync());
@@ -393,9 +469,10 @@ public sealed class FilePanelHigConformanceTests
     }
 
     private static async Task<(FileRuntimePanelViewModel Panel, string[] Paths)> TrashThreeAsync(
-        RecordingTrash trash)
+        RecordingTrash trash,
+        StubFilePanelClient? client = null)
     {
-        var client = new StubFilePanelClient();
+        client ??= new StubFilePanelClient();
         client.Entries.Add(Entry(client, "alpha"));
         client.Entries.Add(Entry(client, "beta"));
         client.Entries.Add(Entry(client, "gamma"));
@@ -413,6 +490,16 @@ public sealed class FilePanelHigConformanceTests
 
         Assert.Equal(["alpha", "beta", "gamma"], trash.Moved.Select(Path.GetFileName), StringComparer.Ordinal);
         return (panel, [.. trash.Moved]);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition was not met in time.");
+            await Task.Delay(10);
+        }
     }
 
     [Fact]
@@ -606,7 +693,9 @@ public sealed class FilePanelHigConformanceTests
         try
         {
             // Created as XDG_DATA_HOME/Trash would be, under the usual umask
-            // that leaves new folders readable by everyone.
+            // that leaves new folders readable by everyone. A runner whose
+            // umask is already 077 can't tell the difference here; the test
+            // of a Trash others can read covers the same rule on any umask.
             var dataHome = Path.Combine(root.FullName, "data");
             var trashDirectory = Path.Combine(dataHome, "Trash");
             var trash = new FreedesktopFileTrash(trashDirectory);
@@ -693,7 +782,9 @@ public sealed class FilePanelHigConformanceTests
             var file = Path.Combine(root.FullName, "secret.txt");
             File.WriteAllText(file, "private");
 
-            var refusal = Assert.Throws<IOException>(
+            // Its own type, so the panel shows these words rather than
+            // guessing at the item.
+            var refusal = Assert.Throws<TrashUnavailableException>(
                 () => new FreedesktopFileTrash(trashDirectory).MoveToTrash(file));
 
             Assert.Contains("other people", refusal.Message, StringComparison.OrdinalIgnoreCase);
@@ -828,6 +919,9 @@ public sealed class FilePanelHigConformanceTests
 
         public bool Refuse { get; init; }
 
+        /// <summary>Thrown for every item: the Trash itself can't take any.</summary>
+        public TrashUnavailableException? Unavailable { get; init; }
+
         /// <summary>Names the Trash refuses while it takes the others.</summary>
         public HashSet<string> Refused { get; } = new(StringComparer.Ordinal);
 
@@ -841,6 +935,11 @@ public sealed class FilePanelHigConformanceTests
 
         public TrashedItem MoveToTrash(string path)
         {
+            if (Unavailable is not null)
+            {
+                throw Unavailable;
+            }
+
             if (Refuse || Refused.Contains(Path.GetFileName(path)))
             {
                 throw new IOException("Permission denied.");

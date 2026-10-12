@@ -33,7 +33,9 @@ public interface IFileTrash
     /// <summary>
     /// Moves an item to the Trash. Throws <see cref="IOException"/> or
     /// <see cref="UnauthorizedAccessException"/> when the system refuses; the
-    /// item is then where it was.
+    /// item is then where it was. A <see cref="TrashUnavailableException"/>
+    /// says the Trash itself can't take anything, so no other item will fare
+    /// better.
     /// </summary>
     TrashedItem MoveToTrash(string path);
 
@@ -43,6 +45,29 @@ public interface IFileTrash
     /// the Trash.
     /// </summary>
     void PutBack(TrashedItem item);
+}
+
+/// <summary>
+/// The Trash itself can't take anything, whichever item is moved: it is set up
+/// in a way that would expose or endanger what goes in. The message is written
+/// for the person using Asura, names no path, and is about the Trash rather
+/// than the item, so it can be shown as is.
+/// </summary>
+internal sealed class TrashUnavailableException : IOException
+{
+    public TrashUnavailableException()
+    {
+    }
+
+    public TrashUnavailableException(string message)
+        : base(message)
+    {
+    }
+
+    public TrashUnavailableException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }
 
 /// <summary>The Trash this machine has, if Asura knows how to reach it.</summary>
@@ -212,8 +237,8 @@ internal sealed class FreedesktopFileTrash : IFileTrash
             var mode = File.GetUnixFileMode(directory);
             if ((mode & OthersWrite) != 0)
             {
-                throw new IOException(
-                    "Other people on this computer can change the Trash, so nothing was moved to it. Make the Trash folder private to you, then try again.");
+                throw new TrashUnavailableException(
+                    "Other people on this computer can change the Trash, so nothing was moved to it.");
             }
 
             if ((mode & OthersAccess) == 0)
@@ -225,10 +250,11 @@ internal sealed class FreedesktopFileTrash : IFileTrash
             {
                 File.SetUnixFileMode(directory, mode & ~OthersAccess);
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException exception)
             {
-                throw new IOException(
-                    "The Trash belongs to another user, so nothing was moved to it.");
+                throw new TrashUnavailableException(
+                    "The Trash belongs to another user, so nothing was moved to it.",
+                    exception);
             }
         }
     }
