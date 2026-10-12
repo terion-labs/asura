@@ -199,11 +199,12 @@ public sealed class ThemeComponentHeadlessTests
         });
 
     /// <summary>
-    /// The host's small control size is 11 points; dense controls were at 10,
-    /// and a text button was at 10 wherever it stood.
+    /// A dense control is shorter, not smaller to read: buttons and fields
+    /// are Body wherever they stand. At the secondary size a filter bar read a
+    /// step under the rows it filters.
     /// </summary>
     [Fact]
-    public Task Dense_controls_use_the_small_size_and_text_buttons_the_body_size() =>
+    public Task Dense_controls_and_text_buttons_read_at_the_body_size() =>
         RunHeadlessAsync(window =>
         {
             var dense = new Button { Content = "Refresh", Classes = { "Dense" } };
@@ -212,11 +213,12 @@ public sealed class ThemeComponentHeadlessTests
             var text = new Button { Content = "Show", Classes = { "TextButton" } };
             Show(window, new StackPanel { Children = { dense, denseBox, denseCombo, text } });
 
-            var small = Number(window, "ShellSecondaryFontSize");
-            Assert.Equal(small, dense.FontSize);
-            Assert.Equal(small, denseBox.FontSize);
-            Assert.Equal(small, denseCombo.FontSize);
-            Assert.Equal(Number(window, "ShellBaseFontSize"), text.FontSize);
+            var body = Number(window, "ShellBodyFontSize");
+            Assert.Equal(13, body);
+            Assert.Equal(body, dense.FontSize);
+            Assert.Equal(body, denseBox.FontSize);
+            Assert.Equal(body, denseCombo.FontSize);
+            Assert.Equal(body, text.FontSize);
         });
 
     [Fact]
@@ -336,7 +338,7 @@ public sealed class ThemeComponentHeadlessTests
                 cellText.TranslatePoint(default, grid)!.Value.X,
                 headerLabel.TranslatePoint(default, grid)!.Value.X,
                 precision: 1);
-            Assert.Equal(Number(window, "ShellFontSize11"), headerLabel.FontSize);
+            Assert.Equal(Number(window, "ShellBodyFontSize"), headerLabel.FontSize);
 
             var headers = grid.GetVisualDescendants().OfType<DataGridColumnHeader>()
                 .Where(header => header.Name != "PART_TopLeftCornerHeader" && header.Content is not null)

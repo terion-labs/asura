@@ -78,13 +78,18 @@ public sealed class ThemeToneContrastTests
         }
     }
 
+    /// <summary>
+    /// At normal contrast a tinted card keeps its tone quietly: its edge is
+    /// half way to the neutral card's, and a notice's edge is the neutral
+    /// card's outright.
+    /// </summary>
     [Fact]
     public void Normal_contrast_keeps_the_quiet_tone_borders()
     {
         var normal = Map(PlatformProfile.MacOsLiquidGlass, EffectiveAppearanceMode.Dark, false, "#007AFF");
 
-        Assert.Equal(Color.Parse("#A84C45"), normal.DangerBorder);
-        Assert.Equal(Color.Parse("#2F5A86"), normal.InfoBorder);
+        Assert.Equal(Color.Parse("#714340"), normal.DangerBorder);
+        Assert.Equal(normal.Border, normal.InfoBorder);
     }
 
     /// <summary>

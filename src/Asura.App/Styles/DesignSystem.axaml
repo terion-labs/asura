@@ -73,8 +73,11 @@
         <Setter Property="Background" Value="{DynamicResource ShellSidebarBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ShellSidebarBorderBrush}" />
       </Style>
-      <!-- A notice is information, in its own tone. Drawn in the accent it
-           read as a warning whenever the accent was orange or yellow. -->
+      <!-- A notice is information. Its card is the neutral raised surface —
+           the info tone's fill and edge are published neutral — and only a
+           callout's glyph carries the tone. Tinted, every note and every row
+           of an inventory turned the page blue; drawn in the accent, it read
+           as a warning whenever the accent was orange or yellow. -->
       <Style Selector="^:tone-notice">
         <Setter Property="Background" Value="{DynamicResource ShellInfoSoftBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ShellInfoBorderBrush}" />
@@ -182,7 +185,7 @@
                             Classes="IconButton Compact"
                             ToolTip.Tip="Collapse panel"
                             controls:PanelChrome.OverflowHeader="Collapse Panel">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Subtract" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Subtract" />
                         </Button>
                         <Button
                             Name="PART_Expand"
@@ -190,7 +193,7 @@
                             Classes="IconButton Compact"
                             ToolTip.Tip="{TemplateBinding ExpansionLabel}"
                             controls:PanelChrome.OverflowHeader="{TemplateBinding ExpansionMenuHeader}">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="{TemplateBinding ExpansionIcon}" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="{TemplateBinding ExpansionIcon}" />
                         </Button>
                         <Button
                             Name="PART_Float"
@@ -199,7 +202,7 @@
                             IsVisible="{TemplateBinding CanFloat}"
                             ToolTip.Tip="Move to its own window"
                             controls:PanelChrome.OverflowHeader="Move to Its Own Window">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultiple" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="WindowMultiple" />
                         </Button>
                         <Button
                             Name="PART_Dock"
@@ -208,7 +211,7 @@
                             IsVisible="{TemplateBinding IsFloating}"
                             ToolTip.Tip="Put back in the workspace"
                             controls:PanelChrome.OverflowHeader="Put Back in the Workspace">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="WindowMultipleOff" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="WindowMultipleOff" />
                         </Button>
                         <Button
                             Name="PART_SplitLeftRight"
@@ -217,7 +220,7 @@
                             IsVisible="{TemplateBinding CanSplit}"
                             ToolTip.Tip="Split left/right"
                             controls:PanelChrome.OverflowHeader="Split Left and Right">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitVertical" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="SplitVertical" />
                         </Button>
                         <Button
                             Name="PART_SplitTopBottom"
@@ -226,7 +229,7 @@
                             IsVisible="{TemplateBinding CanSplit}"
                             ToolTip.Tip="Split top/bottom"
                             controls:PanelChrome.OverflowHeader="Split Top and Bottom">
-                          <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="SplitHorizontal" />
+                          <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="SplitHorizontal" />
                         </Button>
                       </StackPanel>
                     </StackPanel>
@@ -235,14 +238,14 @@
                     <Button Name="PART_Overflow" Classes="IconButton Compact"
                         IsVisible="{TemplateBinding IsHeaderCondensed}"
                         AutomationProperties.Name="More panel actions" ToolTip.Tip="More panel actions">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="MoreHorizontal" />
+                      <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="MoreHorizontal" />
                     </Button>
                     <Button
                         Name="PART_Close"
                         AutomationProperties.Name="{TemplateBinding CloseLabel}"
                         Classes="IconButton Compact"
                         ToolTip.Tip="{TemplateBinding CloseLabel}">
-                      <icons:SymbolIcon FontSize="{DynamicResource ShellFontSize12}" Symbol="Dismiss" />
+                      <icons:SymbolIcon FontSize="{DynamicResource ShellIconSizeSm}" Symbol="Dismiss" />
                     </Button>
                   </StackPanel>
                   <ContentPresenter
@@ -286,7 +289,7 @@
                           VerticalAlignment="Center"
                           Spacing="{DynamicResource ShellSpaceSm}">
                         <TextBlock
-                            FontSize="{DynamicResource ShellFontSize11}"
+                            FontSize="{DynamicResource ShellBodyFontSize}"
                             Text="{TemplateBinding Title}"
                             MaxWidth="{Binding $self.FontSize, Converter={x:Static controls:TextScaledLength.PanelTitle}}"
                             TextTrimming="CharacterEllipsis" />
@@ -909,7 +912,7 @@
               <TextBlock
                   Name="PART_Detail"
                   Classes="Muted"
-                  FontSize="{DynamicResource ShellFontSize11}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
                   Text="{TemplateBinding Detail}"
                   TextTrimming="CharacterEllipsis"
                   IsVisible="False" />
@@ -1102,8 +1105,8 @@
                   MaxWidth="280"
                   HorizontalAlignment="Center"
                   Foreground="{DynamicResource ShellMutedBrush}"
-                  FontSize="{DynamicResource ShellFontSize11}"
-                  LineHeight="{DynamicResource ShellLineHeight11}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding Body}"
                   TextAlignment="Center"
                   TextWrapping="Wrap"
@@ -1150,13 +1153,13 @@
               <icons:SymbolIcon
                   VerticalAlignment="Top"
                   Symbol="ErrorCircle"
-                  FontSize="{DynamicResource ShellFontSize11}"
+                  FontSize="{DynamicResource ShellIconSizeSm}"
                   Foreground="{DynamicResource ShellDangerBrush}" />
               <TextBlock
                   Grid.Column="1"
                   Foreground="{DynamicResource ShellDangerBrush}"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  LineHeight="{DynamicResource ShellLineHeight11}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding Error}"
                   TextWrapping="Wrap" />
             </Grid>
@@ -1164,7 +1167,7 @@
                 Name="PART_Hint"
                 Foreground="{DynamicResource ShellMutedBrush}"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
-                LineHeight="{DynamicResource ShellLineHeight11}"
+                LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                 Text="{TemplateBinding Hint}"
                 TextWrapping="Wrap"
                 IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1255,13 +1258,13 @@
                   Spacing="{DynamicResource ShellSpaceXs}">
                 <TextBlock
                     Name="PART_Label"
-                    LineHeight="{DynamicResource ShellLineHeight12}"
+                    LineHeight="{DynamicResource ShellBodyLineHeight}"
                     Text="{TemplateBinding Label}"
                     TextWrapping="Wrap" />
                 <TextBlock
                     Foreground="{DynamicResource ShellMutedBrush}"
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                     Text="{TemplateBinding Description}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1311,7 +1314,7 @@
                       Margin="{DynamicResource ShellCheckBoxTitleInset}"
                       Foreground="{DynamicResource ShellMutedBrush}"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      LineHeight="{DynamicResource ShellLineHeight11}"
+                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                       Text="{TemplateBinding Description}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1341,13 +1344,13 @@
                     Spacing="{DynamicResource ShellSpaceXs}">
                   <TextBlock
                       Name="PART_Label"
-                      LineHeight="{DynamicResource ShellLineHeight12}"
+                      LineHeight="{DynamicResource ShellBodyLineHeight}"
                       Text="{TemplateBinding Label}"
                       TextWrapping="Wrap" />
                   <TextBlock
                       Foreground="{DynamicResource ShellMutedBrush}"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      LineHeight="{DynamicResource ShellLineHeight11}"
+                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                       Text="{TemplateBinding Description}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1385,8 +1388,8 @@
                    and they disagreed by two points for no reason anyone chose. -->
               <TextBlock
                   Foreground="{DynamicResource ShellMutedBrush}"
-                  FontSize="{DynamicResource ShellFontSize12}"
-                  LineHeight="{DynamicResource ShellLineHeight12}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding Description}"
                   TextWrapping="Wrap"
                   IsVisible="{TemplateBinding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1465,7 +1468,7 @@
               <TextBlock
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  LineHeight="{DynamicResource ShellLineHeight11}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding EffectiveDescription}"
                   TextWrapping="Wrap" />
             </StackPanel>
@@ -1545,8 +1548,8 @@
                   MaxWidth="280"
                   HorizontalAlignment="Center"
                   Foreground="{DynamicResource ShellMutedBrush}"
-                  FontSize="{DynamicResource ShellFontSize11}"
-                  LineHeight="{DynamicResource ShellLineHeight11}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding Body}"
                   TextAlignment="Center"
                   TextWrapping="Wrap"
@@ -1585,8 +1588,8 @@
                     TextWrapping="Wrap" />
                 <TextBlock
                     Foreground="{DynamicResource ShellMutedBrush}"
-                    FontSize="{DynamicResource ShellFontSize11}"
-                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                     Text="{TemplateBinding Body}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Body, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1658,7 +1661,7 @@
                 <TextBlock
                     Classes="Muted"
                     FontSize="{DynamicResource ShellBaseFontSize}"
-                    LineHeight="{DynamicResource ShellLineHeight13}"
+                    LineHeight="{DynamicResource ShellBodyLineHeight}"
                     Text="{TemplateBinding Text}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1669,7 +1672,7 @@
                 <TextBlock
                     Classes="Muted"
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                     Text="{TemplateBinding Footnote}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding Footnote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1725,7 +1728,7 @@
                   Name="PART_Description"
                   Classes="Muted"
                   FontSize="{DynamicResource ShellSecondaryFontSize}"
-                  LineHeight="{DynamicResource ShellLineHeight11}"
+                  LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                   Text="{TemplateBinding StateDescription}"
                   TextWrapping="Wrap"
                   IsVisible="False" />
@@ -1775,7 +1778,7 @@
                       Name="PART_Subtitle"
                       Classes="Muted"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      LineHeight="{DynamicResource ShellLineHeight11}"
+                      LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                       Text="{TemplateBinding Subtitle}"
                       TextWrapping="Wrap"
                       IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
@@ -1824,7 +1827,7 @@
                     VerticalAlignment="Center"
                     Classes="Muted"
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    LineHeight="{DynamicResource ShellLineHeight11}"
+                    LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                     Text="{TemplateBinding FooterHint}"
                     TextWrapping="Wrap"
                     IsVisible="{TemplateBinding FooterHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
