@@ -547,7 +547,14 @@ public sealed class SettingsViewContractTests
         // keeps the three exclusive itself.
         var overrideDisclosure = FindNamedElement(root, "AppearanceOverrideExpander");
         Assert.Equal("Expander", overrideDisclosure.Name.LocalName);
-        Assert.Equal("Override system appearance", AttributeValue(overrideDisclosure, "Header"));
+        Assert.Equal("Override system appearance", AttributeValue(overrideDisclosure, "AutomationProperties.Name"));
+        // The header is a wrapping line, so a large text size keeps it on
+        // the plate rather than running it off the edge.
+        var overrideHeader = Assert.Single(overrideDisclosure.Descendants(), element =>
+            string.Equals(element.Name.LocalName, "TextBlock", StringComparison.Ordinal)
+            && element.Ancestors().Any(ancestor => string.Equals(ancestor.Name.LocalName, "Expander.Header", StringComparison.Ordinal)));
+        Assert.Equal("Override system appearance", AttributeValue(overrideHeader, "Text"));
+        Assert.Equal("Wrap", AttributeValue(overrideHeader, "TextWrapping"));
         var overrideParent = FindNamedElement(root, "AppearanceModeDark").Parent;
         Assert.NotNull(overrideParent);
         foreach (var tileName in new[]
@@ -560,7 +567,10 @@ public sealed class SettingsViewContractTests
             var tile = FindNamedElement(root, tileName);
             Assert.Equal("RadioButton", tile.Name.LocalName);
             Assert.Null(AttributeValue(tile, "GroupName"));
-            Assert.Equal("PresetCard", AttributeValue(tile, "Classes"));
+            // ModeTile: the tile keeps its width at 100% and grows with the
+            // text, so a large size neither cuts its preview nor runs its
+            // name into its check.
+            Assert.Equal("PresetCard ModeTile", AttributeValue(tile, "Classes"));
             Assert.Equal("OnAppearanceModeChanged", AttributeValue(tile, "IsCheckedChanged"));
             Assert.Equal(
                 !string.Equals(tileName, "AppearanceModeSystem", StringComparison.Ordinal),
@@ -1163,7 +1173,6 @@ public sealed class SettingsViewContractTests
     public void Every_settings_page_uses_one_section_gap()
     {
         const string page = "SettingsPage";
-        const string groupGap = "{DynamicResource ShellSettingsGroupGap}";
         var settings = Assert.IsType<XElement>(LoadView("SettingsView").Root);
         var pages = settings.Descendants()
             .Where(element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
@@ -1176,12 +1185,23 @@ public sealed class SettingsViewContractTests
             Assert.Null(AttributeValue(inline, "Spacing"));
         }
 
-        // The AI page's two halves: its own sections stacked a plate's gap
-        // apart, and MCP a section of the page under its own heading.
+        // The AI page's sections stand in the page itself, as every page's
+        // do, so its hidden opening line and its first heading take the
+        // page's rules: a stack of its own around them stood the page's
+        // heading 10 off the edge every other page's stands on. MCP is a
+        // section of the page under its own heading.
         Assert.Equal("SettingsSection", AttributeValue(FindNamedElement(settings, "McpSettingsSection"), "Classes"));
-        Assert.Equal(
-            groupGap,
-            AttributeValue(FindNamedElement(settings, "AiSettingsPage").Elements().First(), "Spacing"));
+        var ai = FindNamedElement(settings, "AiSettingsPage");
+        Assert.Contains(ai.Elements(), element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
+        Assert.Contains(ai.Elements(), element => string.Equals(element.Name.LocalName, "SettingsGroup", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            ai.Elements(),
+            element => string.Equals(element.Name.LocalName, "StackPanel", StringComparison.Ordinal)
+                && AttributeValue(element, "Classes") is null);
+        foreach (var inline in pages)
+        {
+            Assert.Contains(inline.Elements(), element => string.Equals(element.Name.LocalName, "SettingsPageHeader", StringComparison.Ordinal));
+        }
 
         // A stack inside a page stacks its plates the same gap apart.
         Assert.DoesNotContain(
@@ -1209,6 +1229,13 @@ public sealed class SettingsViewContractTests
             styles,
             StringComparison.Ordinal);
         Assert.Contains("ShellSettingsSectionInset", styles, StringComparison.Ordinal);
+        // The first section shown opens the page under the title band; which
+        // one that is is the group's to know, not a child count's.
+        Assert.Contains(
+            "<Style Selector=\"StackPanel.SettingsPage > controls|SettingsGroup:headed:first-shown\">",
+            styles,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("SettingsGroup:headed:nth-child", styles, StringComparison.Ordinal);
     }
 
     /// <summary>

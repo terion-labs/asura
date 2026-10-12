@@ -31,6 +31,14 @@ internal sealed class SettingRow : ContentControl
         AvaloniaProperty.Register<SettingRow, string?>(nameof(Description));
 
     /// <summary>
+    /// A reading of what the control is set to, shown at the trailing end of
+    /// a stacked row's label line: a slider's value, which a slider does not
+    /// draw itself. A screen reader hears the value from the control.
+    /// </summary>
+    public static readonly StyledProperty<string?> ValueProperty =
+        AvaloniaProperty.Register<SettingRow, string?>(nameof(Value));
+
+    /// <summary>
     /// How wide the control column is at most.
     ///
     /// Set on the <see cref="SettingsGroup"/> rather than the row, so every row in
@@ -122,6 +130,12 @@ internal sealed class SettingRow : ContentControl
     {
         get => GetValue(DescriptionProperty);
         set => SetValue(DescriptionProperty, value);
+    }
+
+    public string? Value
+    {
+        get => GetValue(ValueProperty);
+        set => SetValue(ValueProperty, value);
     }
 
     public GridLength ControlWidth

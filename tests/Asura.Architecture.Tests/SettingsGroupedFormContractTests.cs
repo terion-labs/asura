@@ -130,6 +130,108 @@ public sealed class SettingsGroupedFormContractTests
         Assert.DoesNotContain(root.Descendants(), element => Is(element, "SectionHeader"));
     }
 
+    /// <summary>
+    /// A pop-up button in a row shows its value alone, as System Settings'
+    /// do: a menu that says more about each choice — a connection's kind, a
+    /// profile's layer — keeps that to its items. The button showed "Personal
+    /// WireGuard  WireGuard", and a profile's persistence was a second line
+    /// hung under its value.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ViewsAndEditor))]
+    public void A_pop_up_button_shows_its_value_alone(string view)
+    {
+        var root = Load(view);
+        foreach (var popUp in root.Descendants().Where(element => Is(element, "ComboBox")
+                     && element.Ancestors().Any(ancestor => Is(ancestor, "SettingRow") || IsFormRow(ancestor))))
+        {
+            var name = Attribute(popUp, "AutomationProperties.Name");
+            var item = popUp.Elements().FirstOrDefault(element => Is(element, "ComboBox.ItemTemplate"));
+            if (item is not null && item.Descendants().Count(element => Is(element, "TextBlock")) > 1)
+            {
+                var box = popUp.Elements().FirstOrDefault(element => Is(element, "ComboBox.SelectionBoxItemTemplate"));
+                Assert.True(box is not null, $"{view}: the pop-up '{name}' shows its whole menu item as its value.");
+                Assert.Single(box.Descendants(), element => Is(element, "TextBlock"));
+            }
+
+            // Nor a second line beside it about the chosen item, shown
+            // alongside the value rather than in its place.
+            Assert.DoesNotContain(
+                popUp.Parent!.Elements(),
+                sibling => Is(sibling, "TextBlock")
+                    && Attribute(sibling, "IsVisible") is null
+                    && (Attribute(sibling, "Text") ?? string.Empty).Contains(".Selected", StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// A pop-up row's explanation is the row's description, under its label,
+    /// as "Click wallpaper to show desktop" has its own: a form row put it
+    /// under the value in the control's column, beside an empty label column.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(Views))]
+    public void A_pop_up_rows_explanation_stands_under_its_label(string view)
+    {
+        var root = Load(view);
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => IsFormRow(element)
+                && Attribute(element, "Hint") is not null
+                && element.Elements().Any(child => Is(child, "ComboBox")));
+    }
+
+    /// <summary>
+    /// A footnote is text under its plate; a status that comes with an
+    /// action is the plate's last row, where the action can be reached in
+    /// the row's order.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ViewsAndEditor))]
+    public void A_groups_footnote_carries_no_action(string view)
+    {
+        var root = Load(view);
+        foreach (var footer in root.Descendants().Where(element => Is(element, "SettingsGroup.Footer")))
+        {
+            Assert.DoesNotContain(footer.Descendants(), element => Is(element, "Button"));
+        }
+    }
+
+    /// <summary>
+    /// The workspace editor is one grouped form: the tabs are a plate with a
+    /// heading like the sections around them, nothing is boxed inside a
+    /// plate, and the capabilities' rows are parted by the plate's hairline.
+    /// </summary>
+    [Fact]
+    public void The_workspace_editor_is_one_grouped_form()
+    {
+        const string view = "WorkspaceEditorView.axaml";
+        var root = Load(view);
+        var tabs = root.Descendants().Single(element => string.Equals(Attribute(element, "Name"), "TabsGroup", StringComparison.Ordinal));
+        Assert.True(Is(tabs, "SettingsGroup"));
+        Assert.Equal("Tabs", Attribute(tabs, "Heading"));
+        Assert.Contains(tabs.Descendants(), element => string.Equals(Attribute(element, "Name"), "EntryList", StringComparison.Ordinal));
+
+        foreach (var group in root.Descendants().Where(element => Is(element, "SettingsGroup")))
+        {
+            Assert.DoesNotContain(group.Descendants(), element => Is(element, "SurfaceCard"));
+            Assert.DoesNotContain(group.Descendants(), element => Is(element, "SectionHeader"));
+        }
+
+        var capabilities = root.Descendants().Single(element => Is(element, "ItemsControl")
+            && (Attribute(element, "ItemsSource") ?? string.Empty).Contains("AgentPolicy.Capabilities", StringComparison.Ordinal));
+        Assert.Contains("Separated", (Attribute(capabilities, "Classes") ?? string.Empty).Split(' '), StringComparer.Ordinal);
+        Assert.Contains(
+            "controls|SettingsGroup ItemsControl.Separated",
+            ReadStyles(),
+            StringComparison.Ordinal);
+        // The editor no longer draws its own edge-to-edge row borders.
+        Assert.DoesNotContain(
+            root.Descendants(),
+            element => Is(element, "Style")
+                && (Attribute(element, "Selector") ?? string.Empty).Contains("ItemsControl.Separated", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void The_settings_group_draws_its_heading_outside_a_borderless_plate()
     {
@@ -206,6 +308,17 @@ public sealed class SettingsGroupedFormContractTests
         var settings = app.IndexOf("Styles/SettingsStyles.axaml", StringComparison.Ordinal);
         Assert.True(theme > 0 && settings > theme, "The settings styles load after the theme they refine.");
     }
+
+    public static TheoryData<string> ViewsAndEditor()
+    {
+        var data = Views();
+        data.Add("WorkspaceEditorView.axaml");
+        return data;
+    }
+
+    private static bool IsFormRow(XElement element) =>
+        Is(element, "LabeledField")
+        && (Attribute(element, "Classes") ?? string.Empty).Split(' ').Contains("FormRow", StringComparer.Ordinal);
 
     private static XElement Load(string view) =>
         Assert.IsType<XElement>(XDocument.Load(Path.Combine(

@@ -18,14 +18,14 @@
     <Style Selector="TextBox.ElidedPath:not(:focus-within)">
       <Setter Property="Foreground" Value="Transparent" />
     </Style>
-    <!-- A grouped list with nothing selected in it, as Settings draws one:
-         its rows edge to edge in one card with a hairline between them. -->
-    <Style Selector="ItemsControl.Separated > ContentPresenter">
-      <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
-      <Setter Property="BorderThickness" Value="0,0,0,1" />
-    </Style>
-    <Style Selector="ItemsControl.Separated > ContentPresenter:nth-last-child(1)">
-      <Setter Property="BorderThickness" Value="0" />
+    <!-- The selected tab's own settings are plates of the same grouped
+         form as the sections above them: the window's ground lifted, rounded,
+         with no edge but the one Increase Contrast gives. -->
+    <Style Selector="StackPanel#SelectedEntryEditor > controls|SurfaceCard:tone-default">
+      <Setter Property="Background" Value="{DynamicResource ShellSettingsGroupBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ShellSettingsSeparatorBrush}" />
+      <Setter Property="BorderThickness" Value="{DynamicResource ShellSettingsGroupBorderThickness}" />
+      <Setter Property="CornerRadius" Value="{DynamicResource ShellSettingsGroupCornerRadius}" />
     </Style>
   </UserControl.Styles>
   <!--
@@ -203,8 +203,9 @@
                   Description="Only these folders on this computer are visible inside the environment, each at the path you give it. Saving changes here restarts an open workspace after asking."
                   IsStacked="True"
                   IsVisible="{Binding IsIsolated}">
-                <controls:SurfaceCard Tone="Sunken" Padding="{DynamicResource ShellCardPaddingCompact}">
-                  <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+                <!-- The folders are the row's own lines, not a box inside the
+                     plate: a plate in a plate read as a second card. -->
+                <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
                     <ItemsControl ItemsSource="{Binding IsolationMounts}" Grid.IsSharedSizeScope="True">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -308,8 +309,7 @@
                           Text="Read &amp; Write lets programs in the environment change those files."
                           TextWrapping="Wrap" />
                     </Grid>
-                  </StackPanel>
-                </controls:SurfaceCard>
+                </StackPanel>
               </controls:SettingRow>
             </controls:SettingsGroup>
 
@@ -347,6 +347,13 @@
                     SelectedItem="{Binding NetworkPolicy.SelectedConnection, Mode=TwoWay}"
                     IsEnabled="{Binding NetworkPolicy.HasAvailableConnections}"
                     AutomationProperties.Name="Workspace network connection">
+                  <!-- The button shows the connection's name alone, as a
+                       pop-up button does; the menu says what kind each is. -->
+                  <ComboBox.SelectionBoxItemTemplate>
+                    <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
+                      <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ComboBox.SelectionBoxItemTemplate>
                   <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
                       <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
@@ -371,15 +378,13 @@
                   IsStacked="True"
                   IsVisible="{Binding OverridesNetworkSettings}">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <!-- One grouped list: the connections sit edge to edge in a
-                       single card with a hairline between them, as every
-                       settings list does, instead of a card apiece. -->
-                  <controls:SurfaceCard
-                      Tone="Raised"
-                      Padding="0"
-                      ClipsContent="True"
+                  <!-- The connections are the row's own lines, an inset
+                       hairline between each two, as a list in a plate is
+                       drawn; a card inside the plate read as a second plate. -->
+                  <ItemsControl
+                      Classes="Separated StretchItems"
+                      ItemsSource="{Binding NetworkPolicy.Connections}"
                       IsVisible="{Binding NetworkPolicy.HasConnections}">
-                    <ItemsControl Classes="Separated StretchItems" ItemsSource="{Binding NetworkPolicy.Connections}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
                           <controls:ListItem
@@ -398,8 +403,7 @@
                           </controls:ListItem>
                         </DataTemplate>
                       </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                  </controls:SurfaceCard>
+                  </ItemsControl>
                   <controls:Callout
                       Tone="Notice"
                       ShowsGlyph="False"
@@ -413,116 +417,110 @@
               </controls:SettingRow>
             </controls:SettingsGroup>
 
-            <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
-              <components:SectionHeader
-                  Heading="Tabs"
-                  Count="{Binding EntryCount}"
-                  Description="Each tab opens a saved connection or screen, or one created just for this workspace. They open in this order." />
+            <!-- The tabs are a grouped list like the sections around them: the
+                 rows in the plate, and adding one the plate's last row. -->
+            <controls:SettingsGroup
+                x:Name="TabsGroup"
+                Heading="Tabs"
+                Description="Each tab opens a saved connection or screen, or one created just for this workspace. They open in this order.">
+              <TextBlock
+                  Margin="{DynamicResource ShellSettingsRowPadding}"
+                  Classes="Muted"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="This workspace opens empty. Add a connection or a screen below."
+                  IsVisible="{Binding HasNoEntries}" />
 
-              <controls:SurfaceCard Tone="Sunken" Padding="0" ClipsContent="True">
-                <StackPanel>
-                  <TextBlock
-                      Margin="{controls:Inset Lg}"
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="This workspace opens empty. Add a connection or a screen below."
-                      IsVisible="{Binding HasNoEntries}" />
+              <ListBox
+                  x:Name="EntryList"
+                  Classes="NeutralSelection"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  ItemsSource="{Binding Entries}"
+                  SelectionChanged="OnEntrySelectionChanged"
+                  AutomationProperties.Name="Workspace tabs">
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WorkspaceEntryEditorViewModel">
+                    <controls:ListItem
+                        Margin="{controls:Inset Vertical=Xs}"
+                        Title="{Binding DisplayName}"
+                        Detail="{Binding Detail}">
+                      <controls:ListItem.Leading>
+                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                          <Border
+                              Background="Transparent"
+                              Cursor="SizeAll"
+                              PointerPressed="OnEntryDragHandlePressed"
+                              PointerMoved="OnEntryDragHandleMoved"
+                              PointerReleased="OnEntryDragHandleReleased"
+                              ToolTip.Tip="Drag to reorder"
+                              AutomationProperties.Name="Reorder this tab">
+                            <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" FontSize="{DynamicResource ShellIconSizeSm}" Foreground="{DynamicResource ShellMutedBrush}" />
+                          </Border>
+                          <controls:IdentityTile
+                              TileSize="Small"
+                              Tint="{DynamicResource ShellSurfaceHoverBrush}"
+                              Foreground="{DynamicResource ShellTextBrush}"
+                              Symbol="{Binding RowSymbol}" />
+                        </StackPanel>
+                      </controls:ListItem.Leading>
+                      <controls:ListItem.Trailing>
+                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                          <!-- Two chips rather than one with a bound tone: the
+                               difference between a shared definition and a
+                               copy is what this row exists to make obvious,
+                               and a tone is an enum a binding cannot reach.
+                               A rounded label is never toned, so a broken
+                               reference gets a warning chip of its own. -->
+                          <controls:StatusChip
+                              Tone="Warning"
+                              Content="{Binding ReferenceStatus}"
+                              IsVisible="{Binding HasMissingReference}" />
+                          <controls:StatusChip
+                              Shape="Rounded"
+                              Tone="Default"
+                              Content="{Binding BadgeLabel}"
+                              IsVisible="{Binding !IsWorkspaceOnly}" />
+                          <controls:StatusChip
+                              Shape="Rounded"
+                              Tone="Notice"
+                              Content="{Binding BadgeLabel}"
+                              IsVisible="{Binding IsWorkspaceOnly}" />
+                          <Button
+                              Classes="IconButton"
+                              Click="OnRemoveEntryClick"
+                              ToolTip.Tip="Remove from this workspace"
+                              AutomationProperties.Name="Remove this tab from the workspace">
+                            <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
+                          </Button>
+                        </StackPanel>
+                      </controls:ListItem.Trailing>
+                    </controls:ListItem>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
 
-                  <ListBox
-                      x:Name="EntryList"
-                      Classes="NeutralSelection"
-                      Background="Transparent"
-                      BorderThickness="0"
-                      ItemsSource="{Binding Entries}"
-                      SelectionChanged="OnEntrySelectionChanged"
-                      AutomationProperties.Name="Workspace tabs">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:WorkspaceEntryEditorViewModel">
-                        <controls:ListItem
-                            Margin="{controls:Inset Vertical=Xs}"
-                            Title="{Binding DisplayName}"
-                            Detail="{Binding Detail}">
-                          <controls:ListItem.Leading>
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <Border
-                                  Background="Transparent"
-                                  Cursor="SizeAll"
-                                  PointerPressed="OnEntryDragHandlePressed"
-                                  PointerMoved="OnEntryDragHandleMoved"
-                                  PointerReleased="OnEntryDragHandleReleased"
-                                  ToolTip.Tip="Drag to reorder"
-                                  AutomationProperties.Name="Reorder this tab">
-                                <icons:SymbolIcon VerticalAlignment="Center" Symbol="ReOrderDotsVertical" FontSize="{DynamicResource ShellIconSizeSm}" Foreground="{DynamicResource ShellMutedBrush}" />
-                              </Border>
-                              <controls:IdentityTile
-                                  TileSize="Small"
-                                  Tint="{DynamicResource ShellSurfaceHoverBrush}"
-                                  Foreground="{DynamicResource ShellTextBrush}"
-                                  Symbol="{Binding RowSymbol}" />
-                            </StackPanel>
-                          </controls:ListItem.Leading>
-                          <controls:ListItem.Trailing>
-                            <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
-                              <!-- Two chips rather than one with a bound tone: the
-                                   difference between a shared definition and a
-                                   copy is what this row exists to make obvious,
-                                   and a tone is an enum a binding cannot reach.
-                                   A rounded label is never toned, so a broken
-                                   reference gets a warning chip of its own. -->
-                              <controls:StatusChip
-                                  Tone="Warning"
-                                  Content="{Binding ReferenceStatus}"
-                                  IsVisible="{Binding HasMissingReference}" />
-                              <controls:StatusChip
-                                  Shape="Rounded"
-                                  Tone="Default"
-                                  Content="{Binding BadgeLabel}"
-                                  IsVisible="{Binding !IsWorkspaceOnly}" />
-                              <controls:StatusChip
-                                  Shape="Rounded"
-                                  Tone="Notice"
-                                  Content="{Binding BadgeLabel}"
-                                  IsVisible="{Binding IsWorkspaceOnly}" />
-                              <Button
-                                  Classes="IconButton"
-                                  Click="OnRemoveEntryClick"
-                                  ToolTip.Tip="Remove from this workspace"
-                                  AutomationProperties.Name="Remove this tab from the workspace">
-                                <icons:SymbolIcon Symbol="Dismiss" FontSize="{DynamicResource ShellIconSizeXs}" />
-                              </Button>
-                            </StackPanel>
-                          </controls:ListItem.Trailing>
-                        </controls:ListItem>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-
-                  <Border Height="1" Background="{DynamicResource ShellBorderBrush}" />
-
-                  <Grid Margin="{controls:Inset Lg}" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <!-- Only Save is primary; adding is one of several things
-                         to do here. -->
-                    <Button
-                        x:Name="AddTabButton"
-                        Classes="SecondaryButton"
-                        Click="OnAddTabClick"
-                        AutomationProperties.Name="Add a tab to this workspace">
-                      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                        <icons:SymbolIcon VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                        <TextBlock VerticalAlignment="Center" Text="Add Tab…" />
-                      </StackPanel>
-                    </Button>
-                    <TextBlock
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="A saved connection or screen, or a screen that belongs only to this workspace."
-                        TextWrapping="Wrap" />
-                  </Grid>
-                </StackPanel>
-              </controls:SurfaceCard>
-            </StackPanel>
+              <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                <!-- Only Save is primary; adding is one of several things
+                     to do here. -->
+                <Button
+                    x:Name="AddTabButton"
+                    Classes="SecondaryButton"
+                    Click="OnAddTabClick"
+                    AutomationProperties.Name="Add a tab to this workspace">
+                  <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                    <icons:SymbolIcon VerticalAlignment="Center" Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                    <TextBlock VerticalAlignment="Center" Text="Add Tab…" />
+                  </StackPanel>
+                </Button>
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Classes="Muted"
+                    FontSize="{DynamicResource ShellSecondaryFontSize}"
+                    Text="A saved connection or screen, or a screen that belongs only to this workspace."
+                    TextWrapping="Wrap" />
+              </Grid>
+            </controls:SettingsGroup>
 
             <controls:Callout
                 Tone="Notice"
@@ -532,6 +530,7 @@
 
             <TextBlock
                 x:Name="SelectTabPrompt"
+                Margin="{DynamicResource ShellSettingsHeadingTextInset}"
                 Classes="Muted"
                 FontSize="{DynamicResource ShellSecondaryFontSize}"
                 Text="Select a tab above to set its name, what it opens, and its panels."
@@ -828,14 +827,15 @@
                     PlaceholderText="Leave empty to inherit the global instructions."
                     AutomationProperties.Name="Workspace agent system prompt" />
               </controls:SettingRow>
-              <!-- Each capability's Off, Ask, and Auto, a row apiece. -->
-              <StackPanel
-                  Margin="{DynamicResource ShellSettingsSeparatorInset}"
+              <!-- Each capability's Off, Ask, and Auto, a row apiece, with
+                   the plate's inset hairline between each two. -->
+              <ItemsControl
+                  Classes="Separated"
+                  ItemsSource="{Binding AgentPolicy.Capabilities}"
                   IsVisible="{CompiledBinding AgentPolicy.IsEnabled}">
-                <ItemsControl ItemsSource="{Binding AgentPolicy.Capabilities}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                      <Grid MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Margin="{controls:Inset Vertical=Sm}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                      <Grid MinHeight="{DynamicResource ShellSettingsRowMinHeight}" Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
                         <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
                           <TextBlock Text="{Binding DisplayName}" TextWrapping="Wrap" />
                           <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Description}" TextWrapping="Wrap" />
@@ -853,15 +853,22 @@
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock
-                    Margin="{controls:Inset Bottom=Sm}"
-                    Foreground="{DynamicResource ShellDangerBrush}"
-                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                    Text="Choose an AI provider that’s available and turned on, and enter a model name."
-                    TextWrapping="Wrap"
-                    IsVisible="{CompiledBinding !AgentPolicy.IsValid}" />
-              </StackPanel>
+              </ItemsControl>
+              <TextBlock
+                  Margin="{DynamicResource ShellSettingsRowPadding}"
+                  Foreground="{DynamicResource ShellDangerBrush}"
+                  FontSize="{DynamicResource ShellSecondaryFontSize}"
+                  Text="Choose an AI provider that’s available and turned on, and enter a model name."
+                  TextWrapping="Wrap"
+                  AutomationProperties.LiveSetting="Polite">
+                <!-- Shown only while the override is on and incomplete. -->
+                <TextBlock.IsVisible>
+                  <MultiBinding Converter="{x:Static BoolConverters.And}">
+                    <Binding Path="AgentPolicy.IsEnabled" />
+                    <Binding Path="!AgentPolicy.IsValid" />
+                  </MultiBinding>
+                </TextBlock.IsVisible>
+              </TextBlock>
             </controls:SettingsGroup>
 
             <controls:SettingsGroup Heading="Details" ControlWidth="300">

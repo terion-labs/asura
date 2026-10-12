@@ -26,18 +26,19 @@ internal sealed class SettingsGroup : ItemsControl
         AvaloniaProperty.Register<SettingsGroup, string?>(nameof(Description));
 
     /// <summary>
-    /// The width every row's control column takes. Auto by default, so a group of
-    /// short controls does not reserve a column it has no use for.
-    /// </summary>
-    /// <summary>
-    /// What closes the card: a live registration status, or a sentence qualifying
-    /// the settings above it. These were rows in the stack with a hand-written
-    /// separator above them, which is why a footnote could end up looking like a
-    /// setting that had lost its control.
+    /// The footnote under the plate: a live status, or a sentence qualifying
+    /// the settings above it, in the secondary size on the heading's edge, as
+    /// System Settings prints a group's explanation. Inside the plate it read
+    /// as a setting that had lost its control; a status that comes with an
+    /// action is a row of the plate instead.
     /// </summary>
     public static readonly StyledProperty<object?> FooterProperty =
         AvaloniaProperty.Register<SettingsGroup, object?>(nameof(Footer));
 
+    /// <summary>
+    /// The width every row's control column takes. Auto by default, so a group of
+    /// short controls does not reserve a column it has no use for.
+    /// </summary>
     public static readonly StyledProperty<GridLength> ControlWidthProperty =
         AvaloniaProperty.Register<SettingsGroup, GridLength>(
             nameof(ControlWidth),
@@ -95,6 +96,67 @@ internal sealed class SettingsGroup : ItemsControl
         ApplyToRows();
     }
 
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        FollowSiblings(Parent as Panel);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        FollowSiblings(null);
+    }
+
+    private Panel? _followedPanel;
+
+    /// <summary>
+    /// Whether nothing shown stands before this group in its panel, which is
+    /// what lets a page open on its first section without a section's gap
+    /// above it. Counting children was not enough: a page's hidden opening
+    /// line and an error notice that shows only with an error came first on
+    /// some pages and not others, and a search hides whole sections.
+    /// </summary>
+    private void FollowSiblings(Panel? panel)
+    {
+        if (_followedPanel is { } previous)
+        {
+            foreach (var sibling in previous.Children)
+            {
+                sibling.PropertyChanged -= OnSiblingPropertyChanged;
+            }
+        }
+
+        _followedPanel = panel;
+        if (panel is not null)
+        {
+            foreach (var sibling in panel.Children)
+            {
+                if (!ReferenceEquals(sibling, this))
+                {
+                    sibling.PropertyChanged += OnSiblingPropertyChanged;
+                }
+            }
+        }
+
+        UpdateFirstShown();
+    }
+
+    private void OnSiblingPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        _ = sender;
+        if (e.Property == IsVisibleProperty)
+        {
+            UpdateFirstShown();
+        }
+    }
+
+    private void UpdateFirstShown() =>
+        PseudoClasses.Set(
+            ":first-shown",
+            _followedPanel is { } panel
+                && panel.Children.TakeWhile(sibling => !ReferenceEquals(sibling, this)).All(sibling => !sibling.IsVisible));
+
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
@@ -149,8 +211,7 @@ internal sealed class SettingsGroup : ItemsControl
 
     /// <summary>
     /// A footer that hides itself — a warning with nothing to warn about —
-    /// takes its row and its hairline with it, rather than leaving an empty
-    /// band at the bottom of the plate.
+    /// takes its space under the plate with it.
     /// </summary>
     private void FollowFooter(Control? previous, Control? next)
     {

@@ -21,8 +21,16 @@ sample collaborators, as the product binds its own; without them the page shows
 only its first group. `settings-terminal-light`,
 `settings-terminal-high-contrast`, `settings-terminal-scale-200` and
 `settings-appearance-scale-250` show the grouped form in the appearances it has
-to survive. Workspace-editor routes and `overlay-layout-designer` render the
-editor's own window, opened the way the product opens it. `overlay-new-panel`
+to survive; the high-contrast route marks the Settings window with the
+`high-contrast` class as the product's App does every window it reaches.
+`settings-workspace-editor-ai` turns the workspace's AI override on and scrolls
+the editor to its AI configuration, whose rows are otherwise below every
+capture's fold. `settings-appearance-density-spacious` chooses Spacious density
+on the Appearance page and must visibly loosen against `settings-appearance`; a
+route that clicks a segment or a radio button checks it, since a raised click
+event alone toggles nothing. Workspace-editor routes and
+`overlay-layout-designer` render the editor's own window, opened the way the
+product opens it. `overlay-new-panel`
 is the Add Panel popover on the title band's "+".
 
 A route that throws is logged as `FAILED <route>: <error>` and the run carries

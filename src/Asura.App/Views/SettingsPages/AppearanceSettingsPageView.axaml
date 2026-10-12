@@ -39,19 +39,19 @@
         Heading="Theme"
         Description="Asura follows the system's appearance. Override it only when this app has to differ.">
       <StackPanel Margin="{DynamicResource ShellSettingsGroupContentPadding}" Spacing="{DynamicResource ShellSpaceSm}">
-        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+        <StackPanel>
           <RadioButton
               x:Name="AppearanceModeSystem"
-              Classes="PresetCard"
+              Classes="PresetCard ModeTile"
               IsCheckedChanged="OnAppearanceModeChanged"
               AutomationProperties.Name="Color mode System">
             <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-              <Border Height="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+              <Border MinHeight="72" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
                 <Grid ColumnDefinitions="*,*">
                   <Border Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1,1,0,1" CornerRadius="8,0,0,8" />
                   <Border Grid.Column="1" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="0,1,1,1" CornerRadius="0,8,8,0" />
-                  <TextBlock Margin="{controls:Inset Left=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
-                  <TextBlock Grid.Column="1" Margin="{controls:Inset Right=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
+                  <TextBlock Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ dev" />
+                  <TextBlock Grid.Column="1" Margin="{controls:Inset Horizontal=Sm}" HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ dev" />
                 </Grid>
               </Border>
               <Grid ColumnDefinitions="*,Auto">
@@ -66,17 +66,20 @@
              made it. -->
         <Expander
             x:Name="AppearanceOverrideExpander"
-            Header="Override system appearance"
             IsExpanded="False"
             AutomationProperties.Name="Override system appearance">
-          <StackPanel Margin="{controls:Inset Top=Sm}" Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceMd}">
+          <!-- Wraps at a large text size rather than running off the plate. -->
+          <Expander.Header>
+            <TextBlock Text="Override system appearance" TextWrapping="Wrap" />
+          </Expander.Header>
+          <WrapPanel Margin="{controls:Inset Top=Sm}" ItemSpacing="{DynamicResource ShellSpaceMd}" LineSpacing="{DynamicResource ShellSpaceMd}">
               <RadioButton
                   x:Name="AppearanceModeDark"
-                  Classes="PresetCard"
+                  Classes="PresetCard ModeTile"
                   IsCheckedChanged="OnAppearanceModeChanged"
                   AutomationProperties.Name="Color mode Dark">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <Border Height="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                  <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewDarkBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewDarkBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                       <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkMutedBrush}" Text="❯ npm run dev" />
                       <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewDarkSuccessBrush}" Text="✓ ready in 312ms" />
@@ -91,11 +94,11 @@
               </RadioButton>
               <RadioButton
                   x:Name="AppearanceModeLight"
-                  Classes="PresetCard"
+                  Classes="PresetCard ModeTile"
                   IsCheckedChanged="OnAppearanceModeChanged"
                   AutomationProperties.Name="Color mode Light">
                 <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
-                  <Border Height="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
+                  <Border MinHeight="72" Background="{DynamicResource ShellThemePreviewLightBackgroundBrush}" BorderBrush="{DynamicResource ShellThemePreviewLightBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource ShellControlCornerRadius}" ClipToBounds="True">
                     <StackPanel Margin="{controls:Inset Sm}" Spacing="{DynamicResource ShellSpaceXs}">
                       <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightMutedBrush}" Text="❯ npm run dev" />
                       <TextBlock FontSize="{DynamicResource ShellSecondaryFontSize}" Foreground="{DynamicResource ShellThemePreviewLightSuccessBrush}" Text="✓ ready in 312ms" />
@@ -108,7 +111,7 @@
                   </Grid>
                 </StackPanel>
               </RadioButton>
-          </StackPanel>
+          </WrapPanel>
         </Expander>
       </StackPanel>
       <!-- A setting, not a theme: a row under the tiles rather than a card
@@ -372,7 +375,7 @@
             ValueChanged="OnTerminalAppearanceChanged"
             AutomationProperties.Name="Terminal font size" />
       </controls:SettingRow>
-      <controls:SettingRow Label="Line height" Description="{Binding TerminalSettingsEditor.LineHeightText}" IsStacked="True">
+      <controls:SettingRow Label="Line height" Value="{Binding TerminalSettingsEditor.LineHeightText}" IsStacked="True">
         <controls:SliderEndLabels StartLabel="Tight" EndLabel="Loose">
           <Slider
               Minimum="1"
@@ -454,7 +457,7 @@
       </controls:SettingRow>
       <controls:SettingRow
           Label="Background opacity"
-          Description="{Binding #BackdropOpacitySlider.Value, StringFormat={}{0:0}%}"
+          Value="{Binding #BackdropOpacitySlider.Value, StringFormat={}{0:0}%}"
           IsStacked="True">
         <controls:SliderEndLabels StartLabel="Clear" EndLabel="Opaque">
           <Slider

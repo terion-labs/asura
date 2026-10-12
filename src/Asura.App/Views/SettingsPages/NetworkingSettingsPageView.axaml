@@ -40,6 +40,13 @@
             SelectedItem="{Binding Policy.SelectedConnection, Mode=TwoWay}"
             IsEnabled="{Binding Policy.HasAvailableConnections}"
             AutomationProperties.Name="Application network connection">
+          <!-- The button shows the connection's name alone, as a pop-up
+               button does; the menu says what kind each one is. -->
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
+              <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="vm:NetworkPolicyConnectionOptionViewModel">
               <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">

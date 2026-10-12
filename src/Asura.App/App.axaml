@@ -291,6 +291,22 @@
       <x:Double x:Key="ShellSettingsSidebarRowHeight">32</x:Double>
       <x:Double x:Key="ShellSettingsSearchFieldHeight">28</x:Double>
       <x:Double x:Key="ShellSettingsHistoryButtonHeight">36</x:Double>
+      <CornerRadius x:Key="ShellSettingsHistoryCornerRadius">18</CornerRadius>
+      <x:Double x:Key="ShellSettingsHistoryGlyphSize">14</x:Double>
+      <CornerRadius x:Key="ShellSettingsSearchFieldCornerRadius">14</CornerRadius>
+      <Thickness x:Key="ShellSettingsChromeEdgeThickness">0</Thickness>
+      <x:Double x:Key="ShellSettingsSliderTrackHeight">6</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderTrackCornerRadius">3</CornerRadius>
+      <x:Double x:Key="ShellSettingsSliderKnobWidth">20</x:Double>
+      <x:Double x:Key="ShellSettingsSliderKnobHeight">16</x:Double>
+      <CornerRadius x:Key="ShellSettingsSliderKnobCornerRadius">8</CornerRadius>
+      <Thickness x:Key="ShellSettingsSliderLineInset">0,-10,0,0</Thickness>
+      <Thickness x:Key="ShellSettingsFooterInset">10,6,10,0</Thickness>
+      <x:Double x:Key="ShellSettingsModeTileMinWidth">212</x:Double>
+      <x:Double x:Key="ShellSettingsModeTileMaxWidth">212</x:Double>
+      <SolidColorBrush x:Key="ShellSettingsSliderTrackBrush" Color="#393939" />
+      <SolidColorBrush x:Key="ShellSettingsSliderKnobBrush" Color="#DCDCDC" />
+      <BoxShadows x:Key="ShellSettingsSliderKnobShadow">0 0.5 2 0 #80000000</BoxShadows>
       <x:Double x:Key="ShellSettingsTileSize">20</x:Double>
       <x:Double x:Key="ShellSettingsTileGlyphSize">13</x:Double>
       <CornerRadius x:Key="ShellSettingsTileCornerRadius">5</CornerRadius>

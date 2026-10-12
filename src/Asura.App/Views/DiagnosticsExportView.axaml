@@ -16,10 +16,9 @@
         x:Name="DiagnosticsBundleGroup"
         Heading="Diagnostics bundle"
         Description="Create a support archive after reviewing what it contains.">
-      <controls:LabeledField
-          Classes="FormRow"
+      <controls:SettingRow
           Label="Diagnostic detail"
-          Hint="{Binding SelectedRedactionDescription}">
+          Description="{Binding SelectedRedactionDescription}">
         <ComboBox
             ItemsSource="{Binding RedactionOptions}"
             SelectedItem="{Binding SelectedRedactionOption, Mode=TwoWay}"
@@ -29,7 +28,7 @@
             <DataTemplate><TextBlock Text="{Binding Name}" /></DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-      </controls:LabeledField>
+      </controls:SettingRow>
 
       <controls:Callout
           Tone="Notice"

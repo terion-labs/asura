@@ -27,7 +27,10 @@
         Heading="Git"
         Description="Choices that apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository." />
 
-    <controls:SettingsGroup Heading="Git command" ControlWidth="300">
+    <controls:SettingsGroup
+        Heading="Git command"
+        Description="Choices here apply to every Git panel. A repository's identity and signing are set in its panel, from Tools ▸ Repository."
+        ControlWidth="300">
       <controls:SettingRow
           Label="Git executable"
           Description="The program each Git panel runs, on that panel's own connection: a command name such as git, or a full path.">

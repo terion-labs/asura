@@ -5,6 +5,7 @@ using Asura.App.Views.Components;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -415,6 +416,267 @@ public sealed class SettingsSystemLayoutHeadlessTests
             Assert.True(row.IsLast);
             return Task.CompletedTask;
         });
+    }
+
+    /// <summary>
+    /// Every row of a plate stands one pitch from the next: 37 for the row
+    /// and the point of its hairline, with no gap left over between rows
+    /// that draw their own line.
+    /// </summary>
+    [Fact]
+    public async Task Rows_of_a_plate_stand_38_apart_from_the_first_to_the_last()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Terminal, (_, _, view, _) =>
+        {
+            var group = view.GetLogicalDescendants()
+                .OfType<SettingsGroup>()
+                .Single(candidate => string.Equals(candidate.Heading, "Input & safety", StringComparison.Ordinal));
+            var plate = Part<Border>(group, "PART_Plate");
+            var rows = group.Items.OfType<SettingRow>().Where(row => row.IsVisible).ToArray();
+            Assert.True(rows.Length >= 4);
+            var tops = rows.Select(row => row.TranslatePoint(default, plate)!.Value.Y).ToArray();
+            Assert.Equal(0, tops[0], precision: 0);
+            for (var index = 1; index < tops.Length; index++)
+            {
+                Assert.Equal(38, tops[index] - tops[index - 1], precision: 1);
+            }
+
+            // The last row closes the plate: no hairline, no gap under it.
+            Assert.Equal(plate.Bounds.Height, tops[^1] + 37, precision: 0);
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// The search field is a capsule and so is its focus ring: its corners
+    /// are half its height on the part that wears the ring, and nothing
+    /// between that part and the sidebar clips the ring to the field's box.
+    /// </summary>
+    [Fact]
+    public async Task The_search_fields_focus_ring_is_a_whole_capsule()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Appearance, (_, settings, view, _) =>
+        {
+            var search = view.FindControl<TextBox>("SettingsSearch")!;
+            Assert.True(search.Focus(NavigationMethod.Tab));
+            Dispatcher.UIThread.RunJobs();
+            settings.UpdateLayout();
+
+            var frame = Part<Border>(search, "PART_BorderElement");
+            Assert.Equal(28, frame.Bounds.Height);
+            Assert.Equal(new CornerRadius(14), frame.CornerRadius);
+            Assert.Equal(new CornerRadius(14), search.CornerRadius);
+            Assert.NotEqual(default, frame.BoxShadow);
+            var sidebar = view.FindControl<Border>("SettingsSidebar")!;
+            foreach (var clip in frame.GetVisualAncestors().OfType<Control>().TakeWhile(ancestor => !ReferenceEquals(ancestor, sidebar)))
+            {
+                Assert.False(clip.ClipToBounds, $"{clip.GetType().Name} {clip.Name} cuts the ring to the field's box.");
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// Increase Contrast gives the search field and the back and forward
+    /// capsule an edge, from the published tokens alone: the window here
+    /// wears no high-contrast class.
+    /// </summary>
+    [Fact]
+    public async Task Increase_contrast_edges_the_search_field_and_the_history_capsule()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Terminal, (_, settings, view, _) =>
+        {
+            var capsule = view.FindControl<Border>("SettingsHistoryCapsule")!;
+            var search = view.FindControl<TextBox>("SettingsSearch")!;
+            Assert.Equal(default, capsule.BorderThickness);
+
+            using var appearance = ApplyAppearance(highContrast: true);
+            settings.UpdateLayout();
+            Assert.DoesNotContain("high-contrast", settings.Classes, StringComparer.Ordinal);
+            Assert.Equal(new Thickness(1), capsule.BorderThickness);
+            Assert.Equal(new Thickness(1), Part<Border>(search, "PART_BorderElement").BorderThickness);
+            Assert.NotEqual(Color(capsule.Background), Color(capsule.BorderBrush));
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// The back and forward capsule is a toolbar item: at 250% text its
+    /// chevrons keep their size and stand inside their halves with room to
+    /// spare, rather than growing to the capsule's edges.
+    /// </summary>
+    [Fact]
+    public async Task The_history_capsules_chevrons_keep_their_size_at_large_text()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Terminal, (_, settings, view, _) =>
+        {
+            using var appearance = ApplyAppearance(textScale: 2.5);
+            settings.UpdateLayout();
+            foreach (var name in new[] { "SettingsBackButton", "SettingsForwardButton" })
+            {
+                var button = view.FindControl<Button>(name)!;
+                var glyph = button.GetVisualDescendants().OfType<SymbolIcon>().Single();
+                Assert.Equal(14, glyph.FontSize);
+                var origin = glyph.TranslatePoint(default, button)!.Value;
+                Assert.True(origin.Y >= 8, $"{name}'s chevron is {origin.Y} from the top.");
+                Assert.True(button.Bounds.Height - origin.Y - glyph.Bounds.Height >= 8, $"{name}'s chevron reaches the bottom.");
+                Assert.True(origin.X >= 8 && button.Bounds.Width - origin.X - glyph.Bounds.Width >= 8, $"{name}'s chevron reaches a side.");
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// A slider row is the host's: the label, the track close under it, and
+    /// the end labels close under the track — about 18 and 16 between their
+    /// centres in the host's, where Fluent's slider stood its track 60 under
+    /// the label — with a light capsule knob and the accent only on the
+    /// track up to the value.
+    /// </summary>
+    [Fact]
+    public async Task A_slider_row_sits_its_track_and_end_labels_close_under_the_label()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Appearance, (_, settings, view, _) =>
+        {
+            var row = view.GetLogicalDescendants()
+                .OfType<SettingRow>()
+                .Single(candidate => string.Equals(candidate.Label, "Line height", StringComparison.Ordinal));
+            var slider = Assert.IsType<Slider>(Assert.IsType<SliderEndLabels>(row.Content).Content);
+            Assert.Same(settings.FindResource("SettingsSliderTheme"), slider.Theme);
+            // The reading stands on the label's line, not on a line of its own.
+            row.SetCurrentValue(SettingRow.ValueProperty, "1.40");
+            settings.UpdateLayout();
+            var label = Part<TextBlock>(row, "PART_Label");
+            var value = Part<TextBlock>(row, "PART_Value");
+            Assert.True(value.IsVisible);
+            Assert.Equal(CentreY(label, row), CentreY(value, row), precision: 0);
+
+            var filled = Part<Border>(Part<RepeatButton>(slider, "PART_DecreaseButton"), "PART_TrackPart");
+            var knob = Part<Border>(slider, "PART_Knob");
+            var start = Part<TextBlock>(row, "PART_StartLabel");
+            Assert.Equal(6, filled.Bounds.Height);
+            Assert.Equal(new Size(20, 16), knob.Bounds.Size);
+            Assert.InRange(CentreY(filled, row) - CentreY(label, row), 14, 19.5);
+            Assert.InRange(CentreY(start, row) - CentreY(filled, row), 15, 18.5);
+            Assert.Equal(Brush(settings, "ShellAccentBrush"), Color(filled.Background));
+            Assert.Equal(Brush(settings, "ShellSettingsSliderKnobBrush"), Color(knob.Background));
+            return Task.CompletedTask;
+        });
+
+        static double CentreY(Visual part, Visual row) =>
+            part.TranslatePoint(new Point(0, part.Bounds.Height / 2), row)!.Value.Y;
+    }
+
+    /// <summary>
+    /// A footnote stands under its plate, not in it, on the heading's edge.
+    /// </summary>
+    [Fact]
+    public async Task A_groups_footnote_stands_under_its_plate()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Terminal, (_, _, view, _) =>
+        {
+            var group = view.GetLogicalDescendants()
+                .OfType<SettingsGroup>()
+                .Single(candidate => string.Equals(candidate.Heading, "Integration & compatibility", StringComparison.Ordinal));
+            var plate = Part<Border>(group, "PART_Plate");
+            var footer = Part<ContentPresenter>(group, "PART_Footer");
+            Assert.True(footer.IsVisible);
+            Assert.DoesNotContain(footer, plate.GetVisualDescendants());
+            var top = footer.TranslatePoint(default, plate)!.Value;
+            Assert.True(top.Y >= plate.Bounds.Height, "The footnote overlaps its plate.");
+            Assert.Equal(10, top.X, precision: 0);
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// Every page opens on its first section, 12 under the title band, as
+    /// System Settings' do: its own heading and opening line are kept for
+    /// the search but not shown — on the AI page as on every other.
+    /// </summary>
+    [Fact]
+    public async Task Every_page_opens_on_its_first_section_under_the_title_band()
+    {
+        await RunInSettingsWindowAsync(SettingsPage.Appearance, async (window, settings, view, _) =>
+        {
+            var scroll = view.FindControl<ScrollViewer>("SettingsPageScroll")!;
+            foreach (var page in SettingsPanes.Sidebar)
+            {
+                Assert.True(await window.RequestSettingsPageAsync(page));
+                Dispatcher.UIThread.RunJobs();
+                settings.UpdateLayout();
+                var content = scroll.GetVisualDescendants()
+                    .OfType<StackPanel>()
+                    .First(panel => panel.Classes.Contains("SettingsPage") && panel.IsEffectivelyVisible);
+                var header = Assert.Single(content.Children.OfType<SettingsPageHeader>());
+                Assert.False(header.IsVisible, $"{page} shows its opening line.");
+                var first = content.Children.First(child => child.IsVisible);
+                var top = first.TranslatePoint(default, scroll)!.Value.Y;
+                Assert.True(Math.Abs(top - 12) < 0.5, $"{page} opens {top} under the band, on a {first.GetType().Name}.");
+                if (first is SettingsGroup { Heading: not null } group)
+                {
+                    Assert.Equal(20 + 10, Part<TextBlock>(group, "PART_Heading").TranslatePoint(default, scroll)!.Value.X, precision: 0);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Republishes the Settings window's tokens for an appearance, as the
+    /// product does, and the shell's icon size with them: the whole
+    /// appearance asks for fonts the headless platform does not have.
+    /// </summary>
+    private static IDisposable ApplyAppearance(bool highContrast = false, double textScale = 1)
+    {
+        var app = Assert.IsType<App>(Avalonia.Application.Current);
+        var published = new Dictionary<object, object?>();
+        void Publish(object key, object? value)
+        {
+            if (!published.ContainsKey(key))
+            {
+                published[key] = app.Resources.TryGetValue(key, out var previous) ? previous : Missing;
+            }
+
+            app.Resources[key] = value;
+        }
+
+        var mapped = EffectiveAppearanceResourceMapper.Map(
+            Asura.Core.ThemePreference.Default.Resolve(
+                new Asura.Core.HostAppearance(
+                    Asura.Core.HostOperatingSystem.MacOS,
+                    Asura.Core.HostColorScheme.Dark,
+                    accent: null,
+                    highContrast: highContrast,
+                    textScale: textScale)));
+        SettingsChromeTokens.Publish(Publish, mapped);
+        Publish("ShellIconSizeMd", Math.Round(16 * textScale));
+        Publish("ShellBorderBrush", new SolidColorBrush(mapped.Border));
+        Dispatcher.UIThread.RunJobs();
+        return new Restore(() =>
+        {
+            foreach (var (key, previous) in published)
+            {
+                if (ReferenceEquals(previous, Missing))
+                {
+                    app.Resources.Remove(key);
+                }
+                else
+                {
+                    app.Resources[key] = previous;
+                }
+            }
+
+            Dispatcher.UIThread.RunJobs();
+        });
+    }
+
+    private static readonly object Missing = new();
+
+    private sealed class Restore(Action restore) : IDisposable
+    {
+        public void Dispose() => restore();
     }
 
     private static async Task RunInSettingsWindowAsync(

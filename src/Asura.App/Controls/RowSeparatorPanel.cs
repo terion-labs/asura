@@ -13,8 +13,14 @@ namespace Asura.App.Controls;
 /// which runs edge to edge: the row's own box has no way to stop its border
 /// short of its corners. The panel knows where one row ends and the next
 /// begins, so it draws the line there, in the point it leaves between them.
+///
+/// It leaves that point only where it draws a line. A row that draws its own
+/// hairline is stacked flush with the next, so every row of a plate stands
+/// one pitch apart: a stack's spacing put a point of plate between each two
+/// settings rows on top of the row's own hairline, and the rows stood 39
+/// apart where the host's stand 38.
 /// </summary>
-internal sealed class RowSeparatorPanel : StackPanel
+internal sealed class RowSeparatorPanel : Panel
 {
     public static readonly StyledProperty<IBrush?> SeparatorBrushProperty =
         AvaloniaProperty.Register<RowSeparatorPanel, IBrush?>(nameof(SeparatorBrush));
@@ -34,12 +40,6 @@ internal sealed class RowSeparatorPanel : StackPanel
 
     /// <summary>A hairline's thickness, which is also the gap left for it.</summary>
     internal const double HairlineThickness = 1;
-
-    public RowSeparatorPanel()
-    {
-        Orientation = Avalonia.Layout.Orientation.Vertical;
-        Spacing = HairlineThickness;
-    }
 
     public IBrush? SeparatorBrush
     {
@@ -74,10 +74,9 @@ internal sealed class RowSeparatorPanel : StackPanel
                 continue;
             }
 
-            if (above is not null && !(SkipsSeparatedRows && DrawsOwnSeparator(above)))
+            if (above is not null && NeedsSeparator(above))
             {
-                // In the point left between the two, or over the last point
-                // of the row above when they are stacked flush.
+                // In the point left between the two.
                 lines.Add(new Rect(
                     SeparatorInset.Left,
                     child.Bounds.Top - HairlineThickness,
@@ -91,7 +90,37 @@ internal sealed class RowSeparatorPanel : StackPanel
         return lines;
     }
 
+    /// <summary>Whether the panel parts <paramref name="above"/> from the row after it.</summary>
+    private bool NeedsSeparator(Control above) => !(SkipsSeparatedRows && DrawsOwnSeparator(above));
+
     private static bool DrawsOwnSeparator(Control row) => row is SettingRow or LabeledField;
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var childConstraint = new Size(availableSize.Width, double.PositiveInfinity);
+        double width = 0;
+        double height = 0;
+        Control? above = null;
+        foreach (var child in Children)
+        {
+            child.Measure(childConstraint);
+            if (!child.IsVisible)
+            {
+                continue;
+            }
+
+            if (above is not null && NeedsSeparator(above))
+            {
+                height += HairlineThickness;
+            }
+
+            width = Math.Max(width, child.DesiredSize.Width);
+            height += child.DesiredSize.Height;
+            above = child;
+        }
+
+        return new Size(width, height);
+    }
 
     /// <remarks>
     /// A panel's own drawing is its background, so the hairlines are drawn
@@ -100,9 +129,29 @@ internal sealed class RowSeparatorPanel : StackPanel
     /// </remarks>
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var arranged = base.ArrangeOverride(finalSize);
-        PaintSeparators(arranged);
-        return arranged;
+        double top = 0;
+        Control? above = null;
+        foreach (var child in Children)
+        {
+            if (!child.IsVisible)
+            {
+                child.Arrange(new Rect(0, top, finalSize.Width, 0));
+                continue;
+            }
+
+            if (above is not null && NeedsSeparator(above))
+            {
+                top += HairlineThickness;
+            }
+
+            var height = child.DesiredSize.Height;
+            child.Arrange(new Rect(0, top, finalSize.Width, height));
+            top += height;
+            above = child;
+        }
+
+        PaintSeparators(finalSize);
+        return finalSize;
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -112,7 +161,7 @@ internal sealed class RowSeparatorPanel : StackPanel
             || change.Property == SeparatorInsetProperty
             || change.Property == SkipsSeparatedRowsProperty)
         {
-            InvalidateArrange();
+            InvalidateMeasure();
         }
     }
 

@@ -1374,11 +1374,22 @@
                     VerticalAlignment="Center"
                     Spacing="{DynamicResource ShellSpaceSm}">
                   <StackPanel Spacing="{DynamicResource ShellSettingsLabelSpacing}">
-                    <TextBlock
-                        Name="PART_Label"
-                        LineHeight="{DynamicResource ShellBodyLineHeight}"
-                        Text="{TemplateBinding Label}"
-                        TextWrapping="Wrap" />
+                    <!-- A reading of the control — a slider's value — stands
+                         at the label line's trailing end. -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceLg}">
+                      <TextBlock
+                          Name="PART_Label"
+                          LineHeight="{DynamicResource ShellBodyLineHeight}"
+                          Text="{TemplateBinding Label}"
+                          TextWrapping="Wrap" />
+                      <TextBlock
+                          Name="PART_Value"
+                          Grid.Column="1"
+                          Foreground="{DynamicResource ShellMutedBrush}"
+                          LineHeight="{DynamicResource ShellBodyLineHeight}"
+                          Text="{TemplateBinding Value}"
+                          IsVisible="{TemplateBinding Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </Grid>
                     <TextBlock
                         Name="PART_Description"
                         Foreground="{DynamicResource ShellMutedBrush}"
@@ -1412,7 +1423,7 @@
          it. The plate is the window's ground lifted by a few percent of the
          label colour, rounded and with no edge of its own — Increase
          Contrast gives it one — and the rows run edge to edge inside it. A
-         footer closes the plate as its last row. On a settings page a headed
+         footer is the footnote under the plate. On a settings page a headed
          section also stands a section's gap below whatever is above it
          (SettingsStyles), where a plate without a heading stands only the
          gap between two plates. -->
@@ -1423,7 +1434,6 @@
       <Setter Property="ItemsPanel">
         <ItemsPanelTemplate>
           <controls:RowSeparatorPanel
-              Spacing="{DynamicResource ShellSpaceNone}"
               SkipsSeparatedRows="True"
               SeparatorBrush="{DynamicResource ShellSettingsSeparatorBrush}"
               SeparatorInset="{DynamicResource ShellSettingsSeparatorInset}" />
@@ -1460,30 +1470,21 @@
                 BorderThickness="{DynamicResource ShellSettingsGroupBorderThickness}"
                 CornerRadius="{DynamicResource ShellSettingsGroupCornerRadius}"
                 ClipToBounds="True">
-              <StackPanel>
-                <ItemsPresenter Name="PART_Rows" ItemsPanel="{TemplateBinding ItemsPanel}" />
-                <Border
-                    Name="PART_FooterSeparator"
-                    Height="1"
-                    Margin="{DynamicResource ShellSettingsSeparatorInset}"
-                    Background="{DynamicResource ShellSettingsSeparatorBrush}"
-                    IsVisible="False" />
-                <ContentPresenter
-                    Name="PART_Footer"
-                    Padding="{DynamicResource ShellSettingsRowPadding}"
-                    Content="{TemplateBinding Footer}"
-                    IsVisible="False" />
-              </StackPanel>
+              <ItemsPresenter Name="PART_Rows" ItemsPanel="{TemplateBinding ItemsPanel}" />
             </Border>
+            <!-- The footnote stands under the plate in the secondary size,
+                 on the heading's edge, as the host prints a group's
+                 explanation; a row with an action belongs in the plate. -->
+            <ContentPresenter
+                Name="PART_Footer"
+                Margin="{DynamicResource ShellSettingsFooterInset}"
+                TextBlock.LineHeight="{DynamicResource ShellSecondaryLineHeight}"
+                Content="{TemplateBinding Footer}"
+                IsVisible="False" />
           </StackPanel>
         </ControlTemplate>
       </Setter>
       <Style Selector="^:headed /template/ StackPanel#PART_Header, ^:described /template/ StackPanel#PART_Header">
-        <Setter Property="IsVisible" Value="True" />
-      </Style>
-      <!-- The footer follows rows with a hairline; alone in the plate it
-           needs none. -->
-      <Style Selector="^:footed:has-rows /template/ Border#PART_FooterSeparator">
         <Setter Property="IsVisible" Value="True" />
       </Style>
       <Style Selector="^:footed /template/ ContentPresenter#PART_Footer">

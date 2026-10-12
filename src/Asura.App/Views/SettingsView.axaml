@@ -241,11 +241,13 @@
           Height="{DynamicResource ShellSettingsTitleBandHeight}"
           Background="Transparent"
           WindowDecorationProperties.ElementRole="TitleBar">
-        <StackPanel
+        <!-- A grid, so a long title at a large text size has a width to
+             trim to rather than the endless one a horizontal stack gives. -->
+        <Grid
             Margin="{DynamicResource ShellSettingsTitleBandInset}"
             VerticalAlignment="Center"
-            Orientation="Horizontal"
-            Spacing="{DynamicResource ShellSpaceMd}">
+            ColumnDefinitions="Auto,*"
+            ColumnSpacing="{DynamicResource ShellSpaceMd}">
           <Border
               x:Name="SettingsHistoryCapsule"
               Classes="SettingsHistoryCapsule"
@@ -276,13 +278,14 @@
           </Border>
           <TextBlock
               x:Name="SettingsPageTitle"
+              Grid.Column="1"
               Margin="{DynamicResource ShellSettingsTitleInset}"
               VerticalAlignment="Center"
               FontSize="{DynamicResource ShellFontSize15}"
               FontWeight="Bold"
               TextTrimming="CharacterEllipsis"
               AutomationProperties.HeadingLevel="1" />
-        </StackPanel>
+        </Grid>
       </Border>
 
       <ScrollViewer x:Name="SettingsPageScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
@@ -568,7 +571,9 @@
               <!-- The profile is chosen in a row of its own, with Clone Preset
                    beside the pop-up; which profile is active is said under
                    its name, and how one becomes active closes the plate. -->
-              <controls:SettingsGroup Heading="Profile">
+              <controls:SettingsGroup
+                  Heading="Profile"
+                  Description="Shortcuts with blocking conflicts can’t be saved.">
                 <controls:SettingRow
                     Label="Shortcut profile"
                     Description="{Binding ActiveApplicationKeymapName, StringFormat={}Active application profile · {0}}">
@@ -579,6 +584,13 @@
                         SelectedItem="{Binding SelectedKeybindingProfile, Mode=OneWay}"
                         SelectionChanged="OnKeybindingProfileSelectionChanged"
                         AutomationProperties.Name="Keyboard shortcut profile">
+                      <!-- The button shows the value alone, as a pop-up button
+                           does; the menu says which layer each one is. -->
+                      <ComboBox.SelectionBoxItemTemplate>
+                        <DataTemplate>
+                          <TextBlock Classes="MiddleTruncated" Text="{Binding Name}" />
+                        </DataTemplate>
+                      </ComboBox.SelectionBoxItemTemplate>
                       <ComboBox.ItemTemplate>
                         <DataTemplate>
                           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
@@ -889,30 +901,32 @@
               <components:SettingsPageHeader
                   Heading="Browser"
                   Description="Manage browser profiles. Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked." />
-              <controls:SettingsGroup Heading="Defaults">
+              <controls:SettingsGroup
+                  Heading="Defaults"
+                  Description="Persistent profiles keep cookies, site storage, cache, and history in encrypted storage between runs. Permission requests and downloads are blocked.">
                 <controls:SettingRow
                     Label="Default named profile"
                     Description="Used by new browser panels. If it’s turned off or missing, the panel says so instead of using another profile.">
-                  <!-- One line per item, as a pop-up button's menu is; what the
-                       chosen profile keeps is said under it. -->
-                  <StackPanel HorizontalAlignment="Right" Spacing="{DynamicResource ShellSettingsLabelSpacing}">
-                    <ComboBox
-                        ItemsSource="{Binding BrowserProfileSettingsEditor.Profiles}"
-                        SelectedItem="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile, Mode=TwoWay}"
-                        AutomationProperties.Name="Default named browser profile">
-                      <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                        </DataTemplate>
-                      </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock
-                        HorizontalAlignment="Right"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile.PersistenceLabel, FallbackValue={x:Null}}"
-                        TextWrapping="Wrap" />
-                  </StackPanel>
+                  <!-- The button shows the profile's name alone, as a pop-up
+                       button does; the menu says what each profile keeps. -->
+                  <ComboBox
+                      ItemsSource="{Binding BrowserProfileSettingsEditor.Profiles}"
+                      SelectedItem="{Binding BrowserProfileSettingsEditor.SelectedDefaultProfile, Mode=TwoWay}"
+                      AutomationProperties.Name="Default named browser profile">
+                    <ComboBox.SelectionBoxItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                      </DataTemplate>
+                    </ComboBox.SelectionBoxItemTemplate>
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+                          <TextBlock VerticalAlignment="Center" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                          <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding PersistenceLabel}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
                 </controls:SettingRow>
                 <controls:SettingRow
                     Label="Default profile sharing"
@@ -1116,30 +1130,29 @@
                       AutomationProperties.Name="Browser HTTP authentication password"
                       AutomationProperties.HelpText="Required when attaching; leave empty to keep the stored password." />
                 </controls:LabeledField>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="Leave the password empty to keep the stored one. The built-in profile can’t store authentication. Open browser panels keep the profile settings they started with until they close."
-                        TextWrapping="Wrap" />
-                    <Button
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Classes="SecondaryButton"
-                        Command="{Binding BrowserProfileSettingsEditor.DetachAuthenticationCommand}"
-                        Content="Detach"
-                        AutomationProperties.Name="Detach selected browser profile HTTP authentication" />
-                    <Button
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Classes="PrimaryButton"
-                        Command="{Binding BrowserProfileSettingsEditor.SaveAuthenticationCommand}"
-                        Content="Save Authentication"
-                        AutomationProperties.Name="Save selected browser profile HTTP authentication" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="Leave the password empty to keep the stored one. The built-in profile can’t store authentication. Open browser panels keep the profile settings they started with until they close."
+                      TextWrapping="Wrap" />
+                  <Button
+                      Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Classes="SecondaryButton"
+                      Command="{Binding BrowserProfileSettingsEditor.DetachAuthenticationCommand}"
+                      Content="Detach"
+                      AutomationProperties.Name="Detach selected browser profile HTTP authentication" />
+                  <Button
+                      Grid.Column="2"
+                      VerticalAlignment="Center"
+                      Classes="PrimaryButton"
+                      Command="{Binding BrowserProfileSettingsEditor.SaveAuthenticationCommand}"
+                      Content="Save Authentication"
+                      AutomationProperties.Name="Save selected browser profile HTTP authentication" />
+                </Grid>
               </controls:SettingsGroup>
               <controls:SettingsGroup
                   Heading="Browsing data"
@@ -1185,7 +1198,7 @@
 
               <!-- One section treatment for the whole page: each section is a
                    settings group with its heading, and each setting a row. -->
-              <controls:SettingsGroup Heading="Continuity">
+              <controls:SettingsGroup Heading="Continuity" Description="Terminal settings apply to new sessions.">
                 <controls:SettingRow
                     Label="Multiplex SSH terminals"
                     Description="New SSH terminals use an app-managed tmux session, with GNU Screen as a fallback. Disconnecting or closing Asura preserves it; explicitly closing the panel, tab, or workspace ends it."
@@ -1443,27 +1456,26 @@
                       <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding DisplayName}" /></DataTemplate></ComboBox.ItemTemplate>
                     </ComboBox>
                   </controls:SettingRow>
-                  <controls:SettingsGroup.Footer>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                      <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                            Text="{Binding HistoryRetentionStatus}"
-                            AutomationProperties.LiveSetting="Polite"
-                            AutomationProperties.Name="History retention status" />
-                        <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
-                            Text="{Binding HistoryExportStatus}"
-                            IsVisible="{Binding HistoryExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                            AutomationProperties.LiveSetting="Polite"
-                            AutomationProperties.Name="History export status" />
-                      </StackPanel>
-                      <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
-                        <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
-                        <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
-                        <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear session history" />
-                        <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
-                      </WrapPanel>
-                    </Grid>
-                  </controls:SettingsGroup.Footer>
+                  <!-- A status with an action is the plate's last row, not a footnote. -->
+                  <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                    <StackPanel VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
+                      <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                          Text="{Binding HistoryRetentionStatus}"
+                          AutomationProperties.LiveSetting="Polite"
+                          AutomationProperties.Name="History retention status" />
+                      <controls:LiveRegionTextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" TextWrapping="Wrap"
+                          Text="{Binding HistoryExportStatus}"
+                          IsVisible="{Binding HistoryExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                          AutomationProperties.LiveSetting="Polite"
+                          AutomationProperties.Name="History export status" />
+                    </StackPanel>
+                    <WrapPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" ItemSpacing="{DynamicResource ShellSpaceXs}" LineSpacing="{DynamicResource ShellSpaceXs}">
+                      <Button Classes="SecondaryButton" Click="OnExportAllHistoryClick" Content="Export All…" IsEnabled="{Binding CanExportAllHistory}" AutomationProperties.Name="Export all session history" />
+                      <Button Classes="SecondaryButton" Click="OnCancelHistoryExportClick" Content="Cancel Export" IsVisible="{Binding IsHistoryExporting}" AutomationProperties.Name="Cancel session history export" />
+                      <Button Classes="DestructiveButton" Click="OnClearRecentSessionsClick" Content="Clear History…" IsEnabled="{Binding CanClearRecentSessionHistory}" AutomationProperties.Name="Clear session history" />
+                      <Button Classes="DestructiveButton" Click="OnResetRecentSessionHistoryClick" Content="Reset Unreadable History…" IsEnabled="{Binding CanResetRecentSessionHistory}" IsVisible="{Binding HasUnreadableRecentSessionHistory}" AutomationProperties.Name="Reset unreadable session history" />
+                    </WrapPanel>
+                  </Grid>
                 </controls:SettingsGroup>
               </StackPanel>
               <controls:Callout Glyph="Shield" Text="{Binding SecretVaultStatus}" />
@@ -1486,12 +1498,11 @@
                 <controls:LabeledField Classes="FormRow" Label="Value">
                   <TextBox x:Name="SecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
                 </controls:LabeledField>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Use this credential when editing a connection." TextWrapping="Wrap" />
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateConnectionSecretClick" Content="Store Credential" AutomationProperties.Name="Store connection credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Use this credential when editing a connection." TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateConnectionSecretClick" Content="Store Credential" AutomationProperties.Name="Store connection credential" />
+                </Grid>
               </controls:SettingsGroup>
               <controls:SettingsGroup Heading="New file-provider credential">
                 <controls:LabeledField x:Name="SecretFileProviderField" Classes="FormRow" Label="File provider">
@@ -1512,12 +1523,11 @@
                 <controls:LabeledField Classes="FormRow" Label="Value">
                   <TextBox x:Name="FileProviderSecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" />
                 </controls:LabeledField>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
-                    <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateFileProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store file-provider credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Save the provider first, then store and select its credential." TextWrapping="Wrap" />
+                  <Button Grid.Column="1" Classes="SecondaryButton" Click="OnCreateFileProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store file-provider credential" />
+                </Grid>
               </controls:SettingsGroup>
               <!-- Credentials are stored from the forms above; – removes the
                    selected one, as its context menu and Delete do. -->
@@ -1577,7 +1587,6 @@
             </StackPanel>
 
             <StackPanel x:Name="AiSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsAgentSettingsVisible}">
-              <StackPanel Spacing="{DynamicResource ShellSettingsGroupGap}">
               <components:SettingsPageHeader
                   Heading="AI"
                   Description="Choose agent defaults, connect model providers, and manage MCP servers. Workspaces and saved screens can override agent defaults." />
@@ -1862,12 +1871,9 @@
                 <controls:LabeledField Classes="FormRow" Label="API key">
                   <TextBox x:Name="AiProviderSecretValueInput" PasswordChar="●" PlaceholderText="Never displayed again" AutomationProperties.Name="API key" />
                 </controls:LabeledField>
-                <controls:SettingsGroup.Footer>
-                  <Button HorizontalAlignment="Right" Classes="SecondaryButton" Click="OnCreateAiProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store AI provider credential" />
-                </controls:SettingsGroup.Footer>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Button Margin="{DynamicResource ShellSettingsRowPadding}" HorizontalAlignment="Right" Classes="SecondaryButton" Click="OnCreateAiProviderSecretClick" Content="Store Credential" AutomationProperties.Name="Store AI provider credential" />
               </controls:SettingsGroup>
-
-              </StackPanel>
 
               <!-- A section of the AI page under its own heading: the window's
                    title already names the page. The heading has the rank of
@@ -2032,23 +2038,22 @@
                     PlaceholderText="Never displayed again"
                     AutomationProperties.Name="MCP credential value" />
                 </controls:LabeledField>
-                <controls:SettingsGroup.Footer>
-                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Classes="Muted"
-                        FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        Text="Choose a credential binding above."
-                        TextWrapping="Wrap" />
-                    <Button
-                        Grid.Column="1"
-                        Classes="SecondaryButton"
-                        Click="OnCreateMcpServerSecretClick"
-                        Content="Store Credential"
-                        IsEnabled="{Binding HasMcpServerSecretTargets}"
-                        AutomationProperties.Name="Store MCP credential" />
-                  </Grid>
-                </controls:SettingsGroup.Footer>
+                <!-- A status with an action is the plate's last row, not a footnote. -->
+                <Grid Margin="{DynamicResource ShellSettingsRowPadding}" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceMd}">
+                  <TextBlock
+                      VerticalAlignment="Center"
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      Text="Choose a credential binding above."
+                      TextWrapping="Wrap" />
+                  <Button
+                      Grid.Column="1"
+                      Classes="SecondaryButton"
+                      Click="OnCreateMcpServerSecretClick"
+                      Content="Store Credential"
+                      IsEnabled="{Binding HasMcpServerSecretTargets}"
+                      AutomationProperties.Name="Store MCP credential" />
+                </Grid>
               </controls:SettingsGroup>
 
               </StackPanel>
@@ -2090,7 +2095,9 @@
               <components:SettingsPageHeader
                   Heading="Notifications"
                   Description="Choose what Asura posts to the system's notification center while you work in another app. While Asura is in front, it shows the same news as attention marks on the panel, tab, and workspace instead of a banner." />
-              <controls:SettingsGroup Heading="System permission">
+              <controls:SettingsGroup
+                  Heading="System permission"
+                  Description="Asura posts to the system's notification center while you work in another app. While Asura is in front, it shows the same news as attention marks on the panel, tab, and workspace instead of a banner.">
                 <controls:SettingRow
                     Label="Notifications for Asura"
                     Description="{Binding NotificationSettings.AuthorizationDetail}">

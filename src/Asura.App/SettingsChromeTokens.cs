@@ -44,6 +44,25 @@ internal static class SettingsChromeTokens
     /// <summary>The back and forward capsule's height.</summary>
     internal const double HistoryButtonHeight = 36;
 
+    /// <summary>
+    /// The chevrons' size in the back and forward capsule. The capsule is a
+    /// toolbar item, which keeps one size whatever the text size, as AppKit's
+    /// do, so its glyphs keep one size too: a glyph that grew with the text
+    /// filled the fixed capsule edge to edge at 200%.
+    /// </summary>
+    internal const double HistoryGlyphSize = 14;
+
+    /// <summary>A slider's track, as thick as the host's in a grouped form.</summary>
+    internal const double SliderTrackHeight = 6;
+
+    /// <summary>A slider's knob: the host's white capsule, 20 by 16.</summary>
+    internal const double SliderKnobWidth = 20;
+
+    internal const double SliderKnobHeight = 16;
+
+    /// <summary>A theme tile's width at 100% text.</summary>
+    internal const double ModeTileWidth = 212;
+
     /// <summary>How far the sidebar may grow with the text size.</summary>
     private const double MaximumSidebarScale = 1.5;
 
@@ -75,8 +94,16 @@ internal static class SettingsChromeTokens
         publish("ShellSettingsSidebarWidth", Math.Round(SidebarWidth * Math.Min(Math.Max(scale, 1), MaximumSidebarScale)));
         publish("ShellSettingsTitleBandHeight", TitleBandHeight);
         publish("ShellSettingsSidebarRowHeight", App.RowMinHeight(resources, SidebarRowHeight));
-        publish("ShellSettingsSearchFieldHeight", Math.Round(SearchFieldHeight * scale));
+        var searchHeight = Math.Round(SearchFieldHeight * scale);
+        publish("ShellSettingsSearchFieldHeight", searchHeight);
+        // A capsule's corners are exactly half its height. The pill radius
+        // the shell uses elsewhere is a large number the fill clamps but a
+        // focus ring does not, so the ring around the search field was drawn
+        // at a smaller radius than the field and showed only at its corners.
+        publish("ShellSettingsSearchFieldCornerRadius", new CornerRadius(searchHeight / 2));
         publish("ShellSettingsHistoryButtonHeight", HistoryButtonHeight);
+        publish("ShellSettingsHistoryCornerRadius", new CornerRadius(HistoryButtonHeight / 2));
+        publish("ShellSettingsHistoryGlyphSize", HistoryGlyphSize);
         var tile = Math.Round(TileSize * scale);
         publish("ShellSettingsTileSize", tile);
         publish("ShellSettingsTileGlyphSize", Math.Round(tile * 0.65));
@@ -126,6 +153,24 @@ internal static class SettingsChromeTokens
         publish("ShellSettingsPushButtonHeight", Math.Round(PushButtonHeight * scale));
         publish("ShellSettingsPushButtonPadding", new Thickness(spacing.Medium, 2 * scale));
         publish("ShellSettingsChevronBoxSize", Math.Round(TileSize * scale));
+        // A slider in a grouped form: the track on the label's heels and the
+        // end labels close under it, the knob the host's white capsule.
+        publish("ShellSettingsSliderTrackHeight", SliderTrackHeight);
+        publish("ShellSettingsSliderTrackCornerRadius", new CornerRadius(SliderTrackHeight / 2));
+        publish("ShellSettingsSliderKnobWidth", SliderKnobWidth);
+        publish("ShellSettingsSliderKnobHeight", SliderKnobHeight);
+        publish("ShellSettingsSliderKnobCornerRadius", new CornerRadius(SliderKnobHeight / 2));
+        // A stacked row parts its label from its control by the small step;
+        // a slider takes that back and two points more, which stands its
+        // track ten points under the label's baseline, as the host's does.
+        publish("ShellSettingsSliderLineInset", new Thickness(0, -(spacing.Small + 2), 0, 0));
+        // A footnote stands under its plate, on the heading's edge.
+        publish("ShellSettingsFooterInset", new Thickness(groupGap, HalfPoint(spacing.Small * 0.75), groupGap, 0));
+        // A theme tile keeps its width at 100% and grows with the text up to
+        // the width the text would give it, so a large size neither runs
+        // the name into its check nor cuts the preview's words.
+        publish("ShellSettingsModeTileMinWidth", ModeTileWidth);
+        publish("ShellSettingsModeTileMaxWidth", Math.Round(ModeTileWidth * Math.Max(scale, 1)));
         publish("ShellSettingsChevronBoxCornerRadius", new CornerRadius(Math.Round(5 * cornerStep)));
 
         var background = resources.Background;
@@ -135,6 +180,11 @@ internal static class SettingsChromeTokens
         publish("ShellSettingsGroupBrush", new SolidColorBrush(resources.HighContrast ? background : Tint(background, text, GroupTint)));
         publish("ShellSettingsSeparatorBrush", new SolidColorBrush(resources.HighContrast ? resources.Border : Tint(background, text, SeparatorTint)));
         publish("ShellSettingsGroupBorderThickness", new Thickness(resources.HighContrast ? 1 : 0));
+        // Increase Contrast gives the search field and the back and forward
+        // capsule an edge, as it does every plate: their fill is then the
+        // window's. A token rather than a window class, so the edge reaches
+        // every window the appearance reaches.
+        publish("ShellSettingsChromeEdgeThickness", new Thickness(resources.HighContrast ? 1 : 0));
         publish("ShellSettingsSidebarSelectionBrush", new SolidColorBrush(resources.HighContrast ? resources.Border : Tint(sidebar, text, SelectionTint)));
         publish(
             "ShellSettingsSidebarSelectionForegroundBrush",
@@ -142,6 +192,18 @@ internal static class SettingsChromeTokens
         var isLight = resources.ThemeVariant == ThemeVariant.Light;
         publish("ShellSettingsSearchFieldBrush", new SolidColorBrush(resources.HighContrast ? background : Tint(sidebar, text, isLight ? 0.07 : 0.22)));
         publish("ShellSettingsHistoryCapsuleBrush", new SolidColorBrush(resources.HighContrast ? background : Tint(background, text, isLight ? 0.07 : 0.12)));
+        // A slider's unfilled track is a tint of the plate, its knob the
+        // host's white capsule — a shade softer on a dark window — lifted by
+        // a soft shadow. Increase Contrast draws the track in the edge colour.
+        var plate = resources.HighContrast ? background : Tint(background, text, GroupTint);
+        publish("ShellSettingsSliderTrackBrush", new SolidColorBrush(resources.HighContrast ? resources.Border : Tint(plate, text, isLight ? 0.1 : 0.11)));
+        publish("ShellSettingsSliderKnobBrush", new SolidColorBrush(isLight ? Colors.White : Color.FromRgb(0xDC, 0xDC, 0xDC)));
+        publish("ShellSettingsSliderKnobShadow", new BoxShadows(new BoxShadow
+        {
+            OffsetY = 0.5,
+            Blur = 2,
+            Color = Color.FromArgb(isLight ? (byte)0x4D : (byte)0x80, 0, 0, 0),
+        }));
         publish("ShellSettingsChevronBoxBrush", new SolidColorBrush(Tint(Tint(background, text, GroupTint), text, resources.ThemeVariant == ThemeVariant.Light ? 0.07 : 0.06)));
     }
 

@@ -83,7 +83,12 @@ internal static class Program
         "settings-networking-editor",
         "settings-workspace-editor-isolated",
         "settings-workspace-editor-networking",
+        "settings-workspace-editor-ai",
         "settings-terminal",
+        "settings-terminal-light",
+        "settings-terminal-high-contrast",
+        "settings-terminal-scale-200",
+        "settings-appearance-scale-250",
         "settings-quick-terminal",
         "settings-keybindings",
         "settings-files",
@@ -829,6 +834,19 @@ internal sealed class QaApplication : Avalonia.Application
             },
             Height: 1500,
             PrepareCapture: ScrollWorkspaceEditorToEnd),
+        // The workspace's own AI configuration with its override on, scrolled
+        // to the section: the rows the override shows, with the capabilities'
+        // Off, Ask, and Auto, are otherwise below every other capture's fold.
+        new(
+            "settings-workspace-editor-ai",
+            vm =>
+            {
+                vm.ShowSettings(SettingsPage.Workspaces);
+                vm.BeginEditWorkspace(new WorkspaceId("operations"));
+                vm.WorkspaceEditor!.AgentPolicy.IsEnabled = true;
+            },
+            Height: 1500,
+            PrepareCapture: ScrollWorkspaceEditorToAi),
         // The two interactions a still capture cannot otherwise reach. Both
         // drive the real controls — the flyout is opened as a click opens it,
         // and the reorder is a genuine press-move-release on the drag handle —
@@ -885,11 +903,13 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-appearance-focused", vm => vm.ShowSettings(SettingsPage.Appearance), FocusFirst: "Search settings"),
         // The whole settings-apply-immediately loop, end to end: the click
         // commits the theme, the catalog change re-publishes the resources, and
-        // the capture must visibly densify against plain settings-appearance.
+        // the capture must visibly loosen against plain settings-appearance.
+        // Spacious, because the macOS profile the harness runs under already
+        // arrives compact, and choosing the density on show changed nothing.
         new(
-            "settings-appearance-density-compact",
+            "settings-appearance-density-spacious",
             vm => vm.ShowSettings(SettingsPage.Appearance),
-            ClickFirst: "Compact density"),
+            ClickFirst: "Spacious density"),
         // Long settings pages are also captured whole, so a section below the
         // fold is reviewable without scrolling by hand.
         new("settings-appearance-full", vm => vm.ShowSettings(SettingsPage.Appearance), Height: 2100),
@@ -1142,6 +1162,22 @@ internal sealed class QaApplication : Avalonia.Application
         // The detail column's own scroller, by name: the rail's list scrolls
         // too, and it comes first in the tree.
         editor.FindControl<ScrollViewer>("DetailScroll")!.ScrollToEnd();
+    }
+
+    private static void ScrollWorkspaceEditorToAi(MainWindow window)
+    {
+        var editor = WorkspaceEditorWindowOf(window).GetVisualDescendants()
+            .OfType<WorkspaceEditorView>()
+            .First();
+        var scroll = editor.FindControl<ScrollViewer>("DetailScroll")!;
+        var section = editor.GetVisualDescendants()
+            .OfType<SettingsGroup>()
+            .First(group => string.Equals(group.Heading, "AI configuration", StringComparison.Ordinal));
+        scroll.UpdateLayout();
+        if (section.TranslatePoint(default, scroll) is { } top)
+        {
+            scroll.Offset = new Vector(0, Math.Max(0, scroll.Offset.Y + top.Y - 24));
+        }
     }
 
     private static Window OpenNetworkConnectionEditor(MainWindowViewModel viewModel)
@@ -4729,6 +4765,18 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 ?? (viewModel.IsSettingsVisible ? (Window?)SettingsWindow.Current : null);
         var secondaryWindow = SecondaryWindow();
         Window captureRoot = secondaryWindow ?? window;
+        // The product's App.ApplyToWindow marks every window it reaches with
+        // the high-contrast class; republishing the resources here does not,
+        // so a window of its own is marked as a dialog is below.
+        void MarkHighContrast(Window? target)
+        {
+            if (route.HighContrast && target is not null && !target.Classes.Contains("high-contrast"))
+            {
+                target.Classes.Add("high-contrast");
+            }
+        }
+
+        MarkHighContrast(secondaryWindow);
 
         if (route.FocusFirst is { } focusTarget)
         {
@@ -4769,7 +4817,17 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                         StringComparison.Ordinal))
                 ?? throw new InvalidOperationException(
                     $"The route wanted to click '{clickTarget}', which is not in the tree.");
-            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            // A segment or a radio button is chosen by checking it: a raised
+            // Click event alone never toggles one, which left a route that
+            // "clicked" Compact density capturing the page unchanged.
+            if (button is Avalonia.Controls.Primitives.ToggleButton toggle)
+            {
+                toggle.IsChecked = toggle is RadioButton || toggle.IsChecked != true;
+            }
+            else
+            {
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            }
             // Long enough for debounced effects of the click — the
             // appearance page coalesces edits for 220 ms before the
             // theme commit re-publishes the resources.
@@ -4837,6 +4895,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             {
                 secondaryWindow = replacement;
                 captureRoot = replacement;
+                MarkHighContrast(replacement);
                 captureWidth = CaptureWidth();
                 captureHeight = CaptureHeight();
                 await SizeCaptureRootAsync();

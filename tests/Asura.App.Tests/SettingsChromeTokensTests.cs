@@ -59,6 +59,52 @@ public sealed class SettingsChromeTokensTests
     }
 
     /// <summary>
+    /// The search field's corners are half its height at every text size, so
+    /// the focus ring drawn around them is a capsule as well; the back and
+    /// forward capsule is a toolbar item, one size with one glyph size.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 28)]
+    [InlineData(2, 56)]
+    [InlineData(2.5, 70)]
+    public void Capsules_are_round_ended_and_the_history_control_keeps_its_size(double scale, double searchHeight)
+    {
+        var tokens = Publish(HostColorScheme.Dark, textScale: scale);
+
+        Assert.Equal(searchHeight, tokens["ShellSettingsSearchFieldHeight"]);
+        Assert.Equal(new CornerRadius(searchHeight / 2), tokens["ShellSettingsSearchFieldCornerRadius"]);
+        Assert.Equal(36d, tokens["ShellSettingsHistoryButtonHeight"]);
+        Assert.Equal(new CornerRadius(18), tokens["ShellSettingsHistoryCornerRadius"]);
+        Assert.Equal(14d, tokens["ShellSettingsHistoryGlyphSize"]);
+    }
+
+    /// <summary>
+    /// A slider is the host's: a 6-point track, a 20 by 16 knob in white —
+    /// a shade softer on a dark window — and the track pulled up close under
+    /// the label. A theme tile grows with the text.
+    /// </summary>
+    [Theory]
+    [InlineData(HostColorScheme.Dark)]
+    [InlineData(HostColorScheme.Light)]
+    public void Sliders_are_a_thin_track_and_a_light_capsule_knob(HostColorScheme scheme)
+    {
+        var resources = Resources(scheme);
+        var tokens = Publish(resources);
+
+        Assert.Equal(6d, tokens["ShellSettingsSliderTrackHeight"]);
+        Assert.Equal(20d, tokens["ShellSettingsSliderKnobWidth"]);
+        Assert.Equal(16d, tokens["ShellSettingsSliderKnobHeight"]);
+        Assert.Equal(new CornerRadius(8), tokens["ShellSettingsSliderKnobCornerRadius"]);
+        Assert.Equal(new Thickness(0, -(resources.Spacing.Small + 2), 0, 0), tokens["ShellSettingsSliderLineInset"]);
+        var knob = Color(tokens["ShellSettingsSliderKnobBrush"]);
+        Assert.True(Luminance(knob) >= 215, $"The knob is {knob}.");
+        Assert.NotEqual(Color(tokens["ShellSettingsGroupBrush"]), Color(tokens["ShellSettingsSliderTrackBrush"]));
+        Assert.Equal(212d, tokens["ShellSettingsModeTileMinWidth"]);
+        Assert.Equal(212d, tokens["ShellSettingsModeTileMaxWidth"]);
+        Assert.Equal(530d, Publish(scheme, textScale: 2.5)["ShellSettingsModeTileMaxWidth"]);
+    }
+
+    /// <summary>
     /// A plate is the window lifted by a few percent of the label colour: a
     /// shade lighter in dark, darker in light, as AppKit's fills are, with
     /// the hairline between rows a step further and the sidebar's selection
@@ -102,6 +148,10 @@ public sealed class SettingsChromeTokensTests
         var tokens = Publish(resources);
 
         Assert.Equal(new Thickness(1), tokens["ShellSettingsGroupBorderThickness"]);
+        // The search field and the back and forward capsule too, by token,
+        // so the edge reaches them whatever classes their window wears.
+        Assert.Equal(new Thickness(1), tokens["ShellSettingsChromeEdgeThickness"]);
+        Assert.Equal(new Thickness(0), Publish(HostColorScheme.Dark)["ShellSettingsChromeEdgeThickness"]);
         Assert.Equal(resources.Border, Color(tokens["ShellSettingsSeparatorBrush"]));
         Assert.True(Contrast(Color(tokens["ShellSettingsSidebarSelectionForegroundBrush"]), Color(tokens["ShellSettingsSidebarSelectionBrush"])) >= 7);
     }
