@@ -57,8 +57,13 @@
          It is not a Tab stop: Command-W and the tab's context menu close
          from the keyboard, and a hidden stop between every pair of tabs
          would only be in the way. -->
+    <!-- Shown and hidden by opacity, never by IsVisible: the button keeps its
+         place in every closable tab, so hovering a tab, or a tab sliding under
+         the pointer while the strip scrolls, never re-measures the strip. -->
     <Style Selector="Button.RuntimeTabClose">
       <Setter Property="IsVisible" Value="False" />
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
       <Setter Property="IsTabStop" Value="False" />
       <Setter Property="Width" Value="20" />
       <Setter Property="Height" Value="20" />
@@ -67,8 +72,12 @@
       <Setter Property="Width" Value="24" />
       <Setter Property="Height" Value="24" />
     </Style>
-    <Style Selector="Grid.RuntimeTabDropTarget.active Button.RuntimeTabClose.closable, Grid.RuntimeTabDropTarget:pointerover Button.RuntimeTabClose.closable">
+    <Style Selector="Button.RuntimeTabClose.closable">
       <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="Grid.RuntimeTabDropTarget.active Button.RuntimeTabClose.closable, Grid.RuntimeTabDropTarget:pointerover Button.RuntimeTabClose.closable">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
     <!-- A tab's title reads at body size, as Safari's and Terminal's do:
          the title and its editor take the text style the window gives

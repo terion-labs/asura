@@ -31,11 +31,23 @@ public sealed partial class RuntimeTabStripView
         ObserveTabs(Tabs);
     }
 
+    /// <summary>
+    /// A scroll that only moves the strip repaints what moving changes: the
+    /// pinned active tab and the edge fade, as the strip always did. Tab
+    /// positions and the side strip's pull-down depend on the tabs and the
+    /// room, so they wait for those to change; recomputing them on every
+    /// scroll frame made the pinned tab stutter.
+    /// </summary>
     private void OnTabScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         _ = sender;
-        _ = e;
-        UpdateOverflowPresentation();
+        if (e.ExtentDelta != default || e.ViewportDelta != default)
+        {
+            UpdateOverflowPresentation();
+            return;
+        }
+
+        UpdateOverflowFade(PinActiveTab(TabHosts()));
     }
 
     private void ObserveTabs(IEnumerable? tabs)

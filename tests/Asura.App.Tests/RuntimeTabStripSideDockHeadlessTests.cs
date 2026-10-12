@@ -388,21 +388,30 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
                 .Single(button => button.Classes.Contains("RuntimeTabClose")
                     && ReferenceEquals(button.DataContext, tab));
 
-            Assert.True(Close(tabs[0]).IsVisible);
+            // Shown means drawn and clickable. A closable tab keeps the button
+            // in its layout either way, so hover never re-measures the strip.
+            static bool Shown(Button close) => close.IsVisible && close.Opacity >= 1 && close.IsHitTestVisible;
+
+            Assert.True(Shown(Close(tabs[0])));
             Assert.True(Close(tabs[0]).Bounds.Width >= 20);
             Assert.True(Close(tabs[0]).Bounds.Height >= 20);
-            Assert.False(Close(tabs[1]).IsVisible);
+            Assert.False(Shown(Close(tabs[1])));
+            Assert.True(Close(tabs[1]).IsVisible);
             Assert.False(Close(tabs[0]).IsTabStop);
 
             var resting = strip.GetVisualDescendants()
                 .OfType<Grid>()
                 .Single(grid => grid.Classes.Contains("RuntimeTabDropTarget")
                     && ReferenceEquals(grid.DataContext, tabs[1]));
+            var restingCloseBounds = Close(tabs[1]).Bounds;
+            var restingTitleBounds = resting.Children.OfType<Button>().First().Bounds;
             window.MouseMove(Assert.NotNull(resting.TranslatePoint(
                 new Point(resting.Bounds.Width / 2, resting.Bounds.Height / 2),
                 window)));
             window.UpdateLayout();
-            Assert.True(Close(tabs[1]).IsVisible);
+            Assert.True(Shown(Close(tabs[1])));
+            Assert.Equal(restingCloseBounds, Close(tabs[1]).Bounds);
+            Assert.Equal(restingTitleBounds, resting.Children.OfType<Button>().First().Bounds);
 
             var pinned = strip.GetVisualDescendants()
                 .OfType<Grid>()
@@ -1032,11 +1041,12 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
                     row.GetVisualDescendants().OfType<Button>(),
                     button => button.Classes.Contains("IconButton"));
                 // Close shows on the active row; the other offers it on hover.
-                Assert.Equal(row.Classes.Contains("active"), close.IsVisible);
-                if (!close.IsVisible)
-                {
-                    continue;
-                }
+                // Both keep it in their layout, so the trailing edge holds
+                // whether or not it is drawn.
+                Assert.Equal(
+                    row.Classes.Contains("active"),
+                    close.Opacity >= 1 && close.IsHitTestVisible);
+                Assert.True(close.IsVisible);
 
                 var closeRight = close.TranslatePoint(
                     new Point(close.Bounds.Width, 0),
