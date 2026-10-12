@@ -51,7 +51,7 @@ public sealed class TextScaleLayoutContractTests
         Assert.Equal("{controls:TextScaled 26}", Attribute(button, "MinHeight"));
         Assert.Equal("{controls:TextScaled 180}", Attribute(button, "MaxWidth"));
         var label = button.Descendants().First(element => element.Name.LocalName == "TextBlock");
-        Assert.Equal("{DynamicResource ShellFontSize12}", Attribute(label, "FontSize"));
+        Assert.Equal("{DynamicResource ShellBaseFontSize}", Attribute(label, "FontSize"));
     }
 
     /// <summary>
@@ -136,14 +136,13 @@ public sealed class TextScaleLayoutContractTests
 
     /// <summary>
     /// Text people read as content is at least the Subheadline size. A URL is
-    /// the page's own address, the SQL diagnostics line and the layout hint
-    /// are sentences, and a dense check box or add-row button sits beside
-    /// dense controls that are already at the secondary size. Badges,
+    /// the page's own address and reads at the body size, as field text does;
+    /// the SQL diagnostics line and the layout hint are sentences. Badges,
     /// keycaps, chips and chart axis labels stay at the Caption size.
     /// </summary>
     [Theory]
-    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressBox", "{DynamicResource ShellFontSize12}")]
-    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressDisplay", "{DynamicResource ShellFontSize12}")]
+    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressBox", "{DynamicResource ShellBaseFontSize}")]
+    [InlineData("Views/RuntimePanels/BrowserRuntimePanelView.axaml", "AddressDisplay", "{DynamicResource ShellBaseFontSize}")]
     [InlineData("Views/Components/CodeEditBox.axaml", "DiagnosticStatusText", null)]
     public void Content_text_is_not_set_at_the_caption_size(string view, string name, string? fontSize)
     {
@@ -153,6 +152,10 @@ public sealed class TextScaleLayoutContractTests
         Assert.Equal(fontSize, Attribute(element, "FontSize"));
     }
 
+    /// <summary>
+    /// A dense check box or add-row button sits beside the dense controls of
+    /// every other panel, whose labels read at the body size.
+    /// </summary>
     [Theory]
     [InlineData("Views/RuntimePanels/RedisRuntimePanelView.axaml", "CheckBox.Dense")]
     [InlineData("Views/RuntimePanels/RedisRuntimePanelView.axaml", "Button.RedisAddRow")]
@@ -164,7 +167,7 @@ public sealed class TextScaleLayoutContractTests
         var fontSize = style.Elements()
             .Single(setter => string.Equals(Attribute(setter, "Property"), "FontSize", StringComparison.Ordinal));
 
-        Assert.Equal("{DynamicResource ShellSecondaryFontSize}", Attribute(fontSize, "Value"));
+        Assert.Equal("{DynamicResource ShellBaseFontSize}", Attribute(fontSize, "Value"));
     }
 
     [Fact]

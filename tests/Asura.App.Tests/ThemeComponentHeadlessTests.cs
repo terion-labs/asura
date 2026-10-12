@@ -600,7 +600,7 @@ public sealed class ThemeComponentHeadlessTests
     /// A switch on the selected row of the focused list stands on the accent
     /// fill, where an accent track vanished and left a white knob floating
     /// on the row. There it is drawn in the selection's ink, with the knob in
-    /// the accent.
+    /// the selection's own accent fill.
     /// </summary>
     [Fact]
     public Task A_switch_stays_visible_on_an_accent_selected_row() =>
@@ -614,7 +614,9 @@ public sealed class ThemeComponentHeadlessTests
             window.UpdateLayout();
             Assert.True(list.IsKeyboardFocusWithin);
 
-            var accent = Brush(window, "ShellAccentBrush");
+            // The selection is the accent fill, darkened where needed so the
+            // row's white text reads on it.
+            var accent = Brush(window, "ShellAccentFillBrush");
             var row = item.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
                 .First(presenter => presenter.Name == "PART_ContentPresenter");
             Assert.Equal(accent, Color(row.Background));
@@ -623,6 +625,7 @@ public sealed class ThemeComponentHeadlessTests
             Assert.NotEqual(accent, Color(track.Background));
             Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(track.Background));
             Assert.NotEqual(Color(track.Background), Color(knob.Background));
+            Assert.Equal(accent, Color(knob.Background));
         });
 
     /// <summary>

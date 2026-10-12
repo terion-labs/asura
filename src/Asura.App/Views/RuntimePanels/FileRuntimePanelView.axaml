@@ -468,7 +468,7 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     </Grid>
                     <TextBlock Grid.Column="2" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" TextTrimming="CharacterEllipsis" />
                     <components:FittingTextBlock Grid.Column="4" Margin="{controls:Inset Horizontal=Sm}" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" FullText="{Binding Modified}" CompactText="{Binding ModifiedCompact}" />
@@ -500,7 +500,7 @@
                       <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                       <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                     </Panel>
-                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                     <TextBlock Grid.Column="2" VerticalAlignment="Center" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                   </Grid>
                 </DataTemplate>
@@ -534,7 +534,7 @@
                         <icons:SymbolIcon Symbol="Folder" IconVariant="Filled" Foreground="{DynamicResource ShellWarningBrush}" IsVisible="{Binding ShowsFolderGlyph}" />
                         <icons:SymbolIcon Symbol="{Binding Glyph}" Foreground="{DynamicResource ShellMutedBrush}" IsVisible="{Binding ShowsFileGlyph}" />
                       </Panel>
-                      <TextBlock FontSize="{DynamicResource ShellFontSize12}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Classes="MiddleTruncated" Text="{Binding Name}" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding Size}" />
                     </StackPanel>
                   </controls:SurfaceCard>
@@ -630,15 +630,15 @@
                 IsVisible="{Binding RequiresHostTransferForPreview}"
                 AutomationProperties.Name="Automatically preview files under the size threshold" />
             <!-- The details card and the content under it share one inset:
-                 the card keeps it on three sides and the content supplies
-                 the step between them, so card-to-content is the same Sm as
+                 the card keeps it on all four sides and the content below
+                 takes none on top, so card-to-content is the same Sm as
                  card-to-edge rather than two of them stacked. -->
-            <controls:SurfaceCard Name="PreviewDetails" Padding="0" Grid.Row="2" Margin="{controls:Inset Horizontal=Sm, Top=Sm}" IsVisible="{Binding HasSelectedMetadata}">
+            <controls:SurfaceCard Name="PreviewDetails" Padding="0" Grid.Row="2" Margin="{controls:Inset Sm}" IsVisible="{Binding HasSelectedMetadata}">
               <StackPanel>
                 <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource ShellSpaceSm}" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
-                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
-                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellFontSize12}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
+                <StackPanel Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Kind" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Kind}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Kind}" /></StackPanel>
+                <StackPanel Grid.Column="1" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Size" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Size}" TextTrimming="CharacterEllipsis" /></StackPanel>
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="{DynamicResource ShellSpaceXs}"><TextBlock Classes="Eyebrow" Text="Modified" /><TextBlock FontSize="{DynamicResource ShellBaseFontSize}" Text="{Binding SelectedMetadata.Modified}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedMetadata.Modified}" /></StackPanel>
                 </Grid>
                 <!-- A provider's version tag is a hash to most people: kept
                      behind a disclosure, and absent when there is none. -->
@@ -681,20 +681,23 @@
               </StackPanel>
             </controls:SurfaceCard>
             <Grid Grid.Row="3">
+              <!-- Every preview follows the details card at the card's own
+                   bottom margin and lines up with its sides: a top margin of
+                   its own would double the gap under the card. -->
               <components:CodePreviewView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   IsVisible="{Binding HasSourcePreview}"
                   Text="{Binding PreviewText}"
                   WordWrap="{Binding WrapPreviewText}"
                   FileName="{Binding PreviewTitle}" />
               <!-- A file shown as its bytes, a screenful at a time. -->
               <components:HexPreviewView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewHex}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasHexPreview}" />
               <!-- A delimited file is shown as the table it describes. -->
               <components:PreviewTableView
-                  Margin="{controls:Inset Sm}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   DataContext="{Binding PreviewTable}"
                   IsVisible="{Binding $parent[UserControl].DataContext.HasTablePreview}" />
               <!-- A format the shell cannot show is named and given a symbol,
@@ -719,30 +722,14 @@
                     FontSize="{DynamicResource ShellSecondaryFontSize}"
                     Text="{Binding PreviewBinary.Detail}" />
               </StackPanel>
-              <!-- An archive is listed, never unpacked. -->
-              <!-- The listing first and its pager under it, trailing, on the
-                   listing's own inset: wedged between the details card and
-                   the listing, flush with neither, the pager read as a stray
-                   button rather than the way to the rest of the archive. -->
-              <Grid Name="ArchivePreview" RowDefinitions="*,Auto" IsVisible="{Binding HasTreePreview}">
-                <components:PreviewTreeView Name="ArchiveListing" Margin="{controls:Inset Sm}" DataContext="{Binding PreviewTree}" />
-                <StackPanel
-                    Name="ArchivePager"
-                    Grid.Row="1"
-                    Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal"
-                    Spacing="{DynamicResource ShellSpaceSm}">
-                  <StackPanel.IsVisible>
-                    <MultiBinding Converter="{x:Static BoolConverters.Or}">
-                      <Binding Path="HasPreviousArchivePage" />
-                      <Binding Path="HasNextArchivePage" />
-                    </MultiBinding>
-                  </StackPanel.IsVisible>
-                  <Button Classes="Dense" Content="Previous Archive Page" Command="{Binding PreviousArchivePageCommand}" IsVisible="{Binding HasPreviousArchivePage}" />
-                  <Button Classes="Dense" Content="Next Archive Page" Command="{Binding NextArchivePageCommand}" IsVisible="{Binding HasNextArchivePage}" />
-                </StackPanel>
-              </Grid>
+              <!-- An archive is listed, never unpacked. A long one is paged
+                   from the listing's own footer, beside its summary, so the
+                   entries follow the details card directly. -->
+              <components:PreviewTreeView
+                  x:Name="ArchivePreview"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
+                  DataContext="{Binding PreviewTree}"
+                  IsVisible="{Binding $parent[UserControl].DataContext.HasTreePreview}" />
               <!-- Markdown is laid out as native controls, so its text stays
                    selectable and copyable like any other text in the shell. -->
               <ScrollViewer
@@ -751,7 +738,7 @@
                   IsVisible="{Binding HasMarkdownPreview}">
                 <components:MarkdownPreviewView
                     ContinuousSelection="True"
-                    Padding="{controls:Inset Lg}"
+                    Padding="{controls:Inset Horizontal=Lg, Bottom=Lg}"
                     Text="{Binding PreviewText}" />
               </ScrollViewer>
               <!-- A database file previews as the database viewer itself,
@@ -769,7 +756,7 @@
                    preview opens showing the whole picture, and detail is
                    reached without leaving the panel. PDF pages share it. -->
               <components:ZoomableImageView
-                  Margin="{controls:Inset Md}"
+                  Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
                   Source="{Binding PreviewImage}"
                   IsVisible="{Binding HasImagePreview}" />
 

@@ -185,7 +185,8 @@ public sealed class GitCommitMenuHeadlessTests
         }
         foreach (var header in headers)
         {
-            Assert.InRange(header.Bounds.Height, 20, 24);
+            // A sidebar row is the Finder sidebar's 28-point band.
+            Assert.InRange(header.Bounds.Height, 28, 32);
             var bounds = header.TranslatePoint(new Point(header.Bounds.Width, 0), tree)!.Value;
             Assert.InRange(bounds.X, 1, tree.Bounds.Width);
         }
@@ -195,7 +196,7 @@ public sealed class GitCommitMenuHeadlessTests
         Assert.Equal(TextTrimming.PrefixCharacterEllipsis, label.TextTrimming);
         Assert.InRange(label.Bounds.Width, 40, 120);
         var filter = view.FindControl<TextBox>("GitRefFilter")!;
-        Assert.True(filter.Bounds.Height >= 24, $"{filter.Bounds.Height}");
+        Assert.True(filter.Bounds.Height >= 28, $"{filter.Bounds.Height}");
         filter.Text = "team/";
         window.UpdateLayout();
         Assert.Equal("team/", panel.RefFilter);

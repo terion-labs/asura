@@ -60,7 +60,7 @@
           ToolTip.Tip="Show every icon"
           IsVisible="{Binding IsShowAllOffered, ElementName=Root}"
           AutomationProperties.Name="Show every icon">
-        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource ShellFontSize10}" Text="All" />
+        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="{DynamicResource ShellBaseFontSize}" Text="All" />
       </ToggleButton>
     </Grid>
 

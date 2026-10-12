@@ -43,7 +43,8 @@
     </Style>
 
     <!-- One control height for the whole panel: the connection pill's 26 at
-         body text, the same rule the database toolbar follows. The kit's push
+         body text, the same rule the database toolbar follows. Controls and
+         table text read at the body size, as everywhere else in the shell. The kit's push
          button, text field and dense variants are 32, 28 and 24 tall, and a
          row that mixes them never lines up. The height grows with the text
          size, or 22-point text at 200% clips in a 26-point box. Multi-line
@@ -54,21 +55,21 @@
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="ComboBox">
       <Setter Property="Height" Value="{controls:TextScaled 26}" />
       <Setter Property="MinHeight" Value="{controls:TextScaled 26}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="TextBox">
       <Setter Property="Height" Value="{controls:TextScaled 26}" />
       <Setter Property="MinHeight" Value="{controls:TextScaled 26}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Md}" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="TextBox[AcceptsReturn=True]">
       <Setter Property="Height" Value="NaN" />
@@ -81,7 +82,7 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Padding" Value="{controls:Inset Left=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
 
     <Style Selector="Border.KubernetesDrawer">
@@ -133,7 +134,7 @@
          pointer; forty accent cells in a column outshout the status column,
          which is the one that should carry colour. -->
     <Style Selector="Button.KubernetesTableLink">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm}" />
       <Setter Property="MinHeight" Value="0" />
@@ -1037,7 +1038,7 @@
                             BorderThickness="0"
                             Classes="LogOutput"
                             FontFamily="{DynamicResource ShellDataFontFamily}"
-                            FontSize="{DynamicResource ShellFontSize11}"
+                            FontSize="{DynamicResource ShellFontSize12}"
                             IsReadOnly="True"
                             Text="{Binding Logs}"
                             TextWrapping="NoWrap"

@@ -3533,9 +3533,14 @@ string.Equals(SelectedProfile?.Id, BuiltInFileProviders.HomeId.Value, StringComp
             var summary = offset == 0 && !_archiveHasMore
                 ? SummarizeArchive(page)
                 : $"Page {((offset / ArchivePageSize) + 1).ToString(CultureInfo.CurrentCulture)} · {SummarizeArchive(page)}";
+            // The page controls travel with the page: they sit in the
+            // listing's footer, under the entries they turn.
             var listing = new PreviewTreeViewModel(
                 PreviewTreeBuilder.FromPaths(page),
-                summary);
+                summary,
+                offset == 0 && !_archiveHasMore
+                    ? null
+                    : new PreviewTreePaging(_previousArchivePageCommand, _nextArchivePageCommand));
             PreviewTree = listing;
             // Attached in steps like every other reading; without this the
             // listing exists and nothing of it is on screen.

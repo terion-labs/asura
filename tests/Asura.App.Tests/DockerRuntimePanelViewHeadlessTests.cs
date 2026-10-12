@@ -254,6 +254,103 @@ public sealed class DockerRuntimePanelViewHeadlessTests
             }
         });
 
+    /// <summary>
+    /// A stack's containers were drawn at the same left edge as the stack
+    /// header above them, so the list read as one flat column. They sit one
+    /// indent step in, the way an open folder's rows do in a Finder list.
+    /// </summary>
+    [Fact]
+    public Task StackContainersAreIndentedUnderTheirStack() =>
+        RunHeadlessAsync(async () =>
+        {
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+
+            try
+            {
+                window.Show();
+                await WaitUntilAsync(() =>
+                {
+                    window.UpdateLayout();
+                    return view.GetVisualDescendants()
+                        .OfType<Button>()
+                        .Any(button => button.Classes.Contains("DockerResourceRow") && button.Bounds.Width > 0);
+                });
+
+                var stack = Assert.Single(
+                    view.GetVisualDescendants().OfType<Grid>(),
+                    grid => grid.Classes.Contains("DockerStack"));
+                var header = Assert.Single(
+                    stack.GetVisualDescendants().OfType<Border>(),
+                    border => border.Classes.Contains("DockerStackHeaderSurface"));
+                var row = Assert.Single(
+                    stack.GetVisualDescendants().OfType<Button>(),
+                    button => button.Classes.Contains("DockerResourceRow"));
+                var headerLeft = header.TranslatePoint(default, stack)!.Value.X;
+                var rowLeft = row.TranslatePoint(default, stack)!.Value.X;
+                var headerRight = header.TranslatePoint(new Point(header.Bounds.Width, 0), stack)!.Value.X;
+                var rowRight = row.TranslatePoint(new Point(row.Bounds.Width, 0), stack)!.Value.X;
+
+                Assert.InRange(rowLeft - headerLeft, 16, 20);
+                // Indented on the leading side only: the row still ends where
+                // its stack's header ends.
+                Assert.Equal(headerRight, rowRight, 1);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
+    /// <summary>
+    /// The resource types are a source list, and a source-list row is the
+    /// Finder sidebar's 28-point band: on their padding alone the rows came to
+    /// about 26 points, under the Git sidebar beside them.
+    /// </summary>
+    [Fact]
+    public Task ResourceTypeRowsAreFinderSidebarHeight() =>
+        RunHeadlessAsync(async () =>
+        {
+            FontManager.Current.AddFontCollection(new Asura.App.Controls.AsuraTerminalFontCollection());
+            Assert.IsType<App>(Avalonia.Application.Current).ApplyApplicationResources(
+                EffectiveAppearanceResourceMapper.Map(ThemePreference.Default.Resolve(
+                    new HostAppearance(HostOperatingSystem.MacOS, HostColorScheme.Dark, accent: null))));
+            using var panel = new DockerRuntimePanelViewModel(
+                PanelInstanceId.New(),
+                "Docker",
+                new PagedLogDockerClient(),
+                BuiltInConnections.Local);
+            await panel.Initialization;
+            var view = new DockerRuntimePanelView { DataContext = panel };
+            var window = new Window { Width = 1_200, Height = 700, Content = view };
+
+            try
+            {
+                window.Show();
+                window.UpdateLayout();
+
+                var rows = view.FindControl<ListBox>("DockerFamilyNavigation")!
+                    .GetVisualDescendants()
+                    .OfType<ListBoxItem>()
+                    .Where(item => item.Classes.Contains("DockerNav"))
+                    .ToArray();
+                Assert.Equal(4, rows.Length);
+                Assert.All(rows, row => Assert.True(
+                    row.Bounds.Height >= 28,
+                    $"A resource type row is {row.Bounds.Height} points tall."));
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+
     [Fact]
     public Task ContainerLifecycleButtonsDispatchFromPointerClicks() =>
         RunHeadlessAsync(async () =>

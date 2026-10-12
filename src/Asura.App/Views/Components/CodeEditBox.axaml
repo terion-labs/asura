@@ -11,7 +11,7 @@
         x:Name="Editor"
         Background="Transparent"
         FontFamily="{DynamicResource ShellDataFontFamily}"
-        FontSize="{DynamicResource ShellFontSize11}"
+        FontSize="{DynamicResource ShellFontSize12}"
         HorizontalScrollBarVisibility="Disabled"
         VerticalScrollBarVisibility="Auto"
         ShowLineNumbers="False"

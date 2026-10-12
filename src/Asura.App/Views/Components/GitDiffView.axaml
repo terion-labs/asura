@@ -86,8 +86,8 @@
     </Style>
     <Style Selector="Border.GitDiffLine TextBlock">
       <Setter Property="FontFamily" Value="{DynamicResource ShellDataFontFamily}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize12}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight12}" />
       <Setter Property="TextWrapping" Value="NoWrap" />
     </Style>
     <!-- Line numbers at the code's own size, so a number sits on its line's
@@ -120,7 +120,7 @@
             VerticalAlignment="Center"
             FontFamily="{DynamicResource ShellDataFontFamily}"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            LineHeight="{DynamicResource ShellLineHeight11}"
+            LineHeight="{DynamicResource ShellSecondaryLineHeight}"
             Classes="Path"
             Text="{Binding DiffFileName}" />
         <controls:StatusChip

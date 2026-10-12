@@ -544,6 +544,60 @@ public sealed class GitPanelConformanceHeadlessTests
         }
     }, BranchesAndTags());
 
+    /// <summary>
+    /// Beside a macOS 26 Finder sidebar the Git sidebar read a size and a band
+    /// smaller: 11-point names in 24-point rows. Its rows read at the body
+    /// size in 28-point bands, and only the count badge keeps the caption.
+    /// The sizes are the ones the app publishes for each desktop profile, so
+    /// a desktop whose own body is small (Breeze's 10) still never draws a
+    /// row or a badge under the 11-point caption.
+    /// </summary>
+    [Theory]
+    [InlineData(PlatformProfile.MacOsLiquidGlass)]
+    [InlineData(PlatformProfile.Gnome)]
+    [InlineData(PlatformProfile.Kde)]
+    public Task Sidebar_rows_read_at_the_body_size_in_finder_height_bands(PlatformProfile profile) => RunPanelAsync((view, panel, window) =>
+    {
+        // The data face the published ramp names, which a headless run
+        // doesn't register on its own.
+        FontManager.Current.AddFontCollection(new AsuraTerminalFontCollection());
+        Assert.IsType<App>(Avalonia.Application.Current).ApplyApplicationResources(
+            EffectiveAppearanceResourceMapper.Map(new EffectiveTheme(
+                EffectiveAppearanceMode.Dark,
+                profile,
+                RgbColor.Parse("#FF8400"),
+                AccentSource.Host,
+                HighContrast: false,
+                MotionEnabled: true,
+                AdvancedMaterialsEnabled: true,
+                TextScale: 1)));
+        window.UpdateLayout();
+        var body = Published("ShellBaseFontSize");
+        var caption = Published("ShellCaptionFontSize");
+        Assert.True(caption >= 11, $"The {profile} caption is {caption} points.");
+        Assert.True(body >= caption, $"The {profile} body ({body}) is under its caption ({caption}).");
+
+        var current = RefItem(view.FindControl<TreeView>("GitLocalBranchTree")!, "main");
+        var name = current.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "main" && text.IsEffectivelyVisible);
+        Assert.Equal(body, name.FontSize);
+        Assert.True(current.Bounds.Height >= 28, $"A ref row is {current.Bounds.Height} points tall.");
+
+        var sections = view.FindControl<ListBox>("GitSectionList")!;
+        var localChanges = sections.GetVisualDescendants().OfType<ListBoxItem>().First();
+        Assert.True(localChanges.Bounds.Height >= 28, $"A section row is {localChanges.Bounds.Height} points tall.");
+        var label = localChanges.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "Local Changes");
+        Assert.Equal(body, label.FontSize);
+        var count = localChanges.GetVisualDescendants().OfType<Border>().Single(border => border.Classes.Contains("GitCountBadge"))
+            .GetVisualDescendants().OfType<TextBlock>().Single();
+        Assert.Equal(caption, count.FontSize);
+
+        Assert.Equal(body, view.FindControl<Button>("GitBranchMenuButton")!.FontSize);
+        return Task.CompletedTask;
+
+        static double Published(string key) =>
+            Assert.IsType<double>(Avalonia.Application.Current!.Resources[key]);
+    }, BranchesAndTags());
+
     [Fact]
     public Task Stage_and_unstage_everything_say_their_verb() => RunPanelAsync((view, panel, window) =>
     {

@@ -344,7 +344,7 @@ public sealed partial class CodePreviewView : UserControl
             Editor.FontFamily = fontFamily;
         }
 
-        if (this.TryFindResource("ShellFontSize11", ActualThemeVariant, out var size)
+        if (this.TryFindResource("ShellFontSize12", ActualThemeVariant, out var size)
             && size is double fontSize)
         {
             Editor.FontSize = fontSize;

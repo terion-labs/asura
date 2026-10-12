@@ -66,10 +66,13 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="0" />
     </Style>
+    <!-- A source-list row is the Finder sidebar's 28-point band, growing with
+         the text; on its padding alone it came to about 26. -->
     <Style Selector="ListBox.DockerFamilyList ListBoxItem.DockerNav">
       <Setter Property="HorizontalAlignment" Value="Stretch" />
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="Margin" Value="0" />
+      <Setter Property="MinHeight" Value="{controls:TextScaled 28}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
     </Style>
     <Style Selector="ListBox.DockerResources ListBoxItem">
@@ -159,11 +162,11 @@
          eleven, ten and nine points, and the name no longer stood out. -->
     <Style Selector="controls|ListItem.DockerResourceListItem /template/ TextBlock#PART_Detail">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
     </Style>
     <Style Selector="controls|ListItem.DockerResourceListItem /template/ TextBlock#PART_Metadata">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
     </Style>
     <!-- A stack header is a group heading, so it is neutral: a gray plate with
          no outline. Every header used to wear an accent outline, which put
@@ -174,6 +177,12 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
       <Setter Property="Margin" Value="{controls:Inset Horizontal=Sm, Vertical=Xs}" />
+    </Style>
+    <!-- A stack's containers sit one indent step in from its header, as the
+         rows under an open folder do in a Finder list, so the nesting reads
+         at a glance instead of every row starting at the same edge. -->
+    <Style Selector="ItemsControl.DockerStackChildren">
+      <Setter Property="Margin" Value="{controls:Inset Left=Lg}" />
     </Style>
     <!-- The header's buttons are full 28-point targets: the 24-point compact
          buttons were smaller than the host's own minimum for a click. -->
@@ -286,7 +295,7 @@
             VerticalAlignment="Center"
             Classes="Muted DockerStatusSummary"
             FontSize="{DynamicResource ShellSecondaryFontSize}"
-            LineHeight="{DynamicResource ShellLineHeight11}"
+            LineHeight="{DynamicResource ShellSecondaryLineHeight}"
             Text="{Binding StatusText}"
             AutomationProperties.LiveSetting="Polite" />
         <Button
@@ -301,8 +310,8 @@
 
     <controls:PanelChrome.Footer>
       <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding EnginePlatform}" />
-        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
+        <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellSecondaryLineHeight}" Text="{Binding EnginePlatform}" />
+        <TextBlock Grid.Column="2" Classes="Muted MiddleTruncated" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellSecondaryLineHeight}" Text="{Binding ConnectionDisplayName, StringFormat=Connection · {0}}" />
       </Grid>
     </controls:PanelChrome.Footer>
 
@@ -354,7 +363,7 @@
             <StackPanel Spacing="{DynamicResource ShellSpaceXs}">
               <TextBlock Classes="Eyebrow" Text="Engine" />
               <TextBlock FontWeight="SemiBold" Text="{Binding EngineVersion, StringFormat=Docker {0}}" />
-              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding RunningContainerCount, StringFormat={}{0} running}" />
+              <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellSecondaryLineHeight}" Text="{Binding RunningContainerCount, StringFormat={}{0} running}" />
             </StackPanel>
           </controls:SurfaceCard>
         </Grid>
@@ -364,7 +373,7 @@
         <Grid Margin="{controls:Inset Horizontal=Md, Vertical=Sm}" ColumnDefinitions="*,Auto">
           <StackPanel Classes="DockerSectionHeading" Spacing="{DynamicResource ShellSpaceXs}">
             <TextBlock Classes="Headline" Text="{Binding Section}" />
-            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellLineHeight11}" Text="{Binding ResourceSummary}" />
+            <TextBlock Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" LineHeight="{DynamicResource ShellSecondaryLineHeight}" Text="{Binding ResourceSummary}" />
           </StackPanel>
           <controls:SegmentedControl
               Grid.Column="0"
@@ -435,7 +444,7 @@
                         </StackPanel>
                       </Grid>
                     </Border>
-                    <ItemsControl Grid.Row="1" Classes="StretchItems" ItemsSource="{Binding Containers}" IsVisible="{Binding IsExpanded}">
+                    <ItemsControl Grid.Row="1" Classes="StretchItems DockerStackChildren" ItemsSource="{Binding Containers}" IsVisible="{Binding IsExpanded}">
                       <ItemsControl.ItemTemplate>
                         <DataTemplate>
                           <Button
@@ -596,8 +605,8 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate>
                       <Grid MinHeight="38" Margin="{controls:Inset Horizontal=Md}" ColumnDefinitions="120,*" ColumnSpacing="{DynamicResource ShellSpaceMd}">
-                        <TextBlock Margin="{controls:Inset Vertical=Xs}" VerticalAlignment="Center" Classes="Muted" LineHeight="{DynamicResource ShellLineHeight12}" Text="{Binding Name}" />
-                        <TextBlock Grid.Column="1" Margin="{controls:Inset Vertical=Xs}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Classes="DockerPropertyValue" LineHeight="{DynamicResource ShellLineHeight12}" Text="{Binding Value}" TextAlignment="Right" TextWrapping="Wrap" />
+                        <TextBlock Margin="{controls:Inset Vertical=Xs}" VerticalAlignment="Center" Classes="Muted" LineHeight="{DynamicResource ShellLineHeight13}" Text="{Binding Name}" />
+                        <TextBlock Grid.Column="1" Margin="{controls:Inset Vertical=Xs}" HorizontalAlignment="Stretch" VerticalAlignment="Center" Classes="DockerPropertyValue" LineHeight="{DynamicResource ShellLineHeight13}" Text="{Binding Value}" TextAlignment="Right" TextWrapping="Wrap" />
                       </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
@@ -685,7 +694,7 @@
                             Classes="Muted"
                             FontFamily="{DynamicResource ShellDataFontFamily}"
                             FontSize="{DynamicResource ShellSecondaryFontSize}"
-                            LineHeight="{DynamicResource ShellLineHeight11}"
+                            LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                             Text="{Binding DisplayTimestamp}" />
                         <ItemsControl
                             Grid.Column="1"
@@ -700,8 +709,8 @@
                               <Border Classes="DockerLogMessageSegment" Classes.match="{Binding IsMatch}">
                                 <TextBlock
                                     FontFamily="{DynamicResource ShellDataFontFamily}"
-                                    FontSize="{DynamicResource ShellSecondaryFontSize}"
-                                    LineHeight="{DynamicResource ShellLineHeight11}"
+                                    FontSize="{DynamicResource ShellFontSize12}"
+                                    LineHeight="{DynamicResource ShellLineHeight12}"
                                     Text="{Binding Text}" />
                               </Border>
                             </DataTemplate>

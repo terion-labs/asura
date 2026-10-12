@@ -38,22 +38,17 @@
     </Style>
     <!-- One size for the panel's rows and the controls among them: the
          section list, the sidebar's refs, the file lists, the history and the
-         pull-downs above them all read at the row size, so no label stands a
-         size above the list it sits in. -->
+         pull-downs above them all read at the body size, as a Finder sidebar
+         does, so no label stands a size above the list it sits in. Counts and
+         badges are the only captions. -->
     <Style Selector="ListBox.GitSections ListBoxItem TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
     </Style>
     <Style Selector="ListBox.GitSections ListBoxItem Border.GitCountBadge TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
     </Style>
     <Style Selector="ListBox.GitSections ListBoxItem icons|SymbolIcon">
       <Setter Property="FontSize" Value="{DynamicResource ShellIconSizeSm}" />
-    </Style>
-    <Style Selector="Button.Dense">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-    </Style>
-    <Style Selector="Button.Dense TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
     </Style>
     <Style Selector="ListBox.GitSections:focus-within ListBoxItem:selected Border.GitCountBadge">
       <Setter Property="Background" Value="Transparent" />
@@ -88,8 +83,8 @@
     </Style>
     <!-- Ref names keep both ends, so feature/… branches stay apart. -->
     <Style Selector="TextBlock.GitSidebarRow">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellBodyLineHeight}" />
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="TextTrimming" Value="{x:Static TextTrimming.PrefixCharacterEllipsis}" />
     </Style>
@@ -103,9 +98,9 @@
       <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
     <Style Selector="TextBox.GitRefFilter">
-      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="Padding" Value="{controls:Inset Horizontal=Sm}" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
     <!-- Stashes, worktrees and submodules are flat lists in the same
@@ -152,8 +147,8 @@
       <Setter Property="Padding" Value="0" />
     </Style>
     <Style Selector="Border.GitKindBadge">
-      <Setter Property="Width" Value="18" />
-      <Setter Property="Height" Value="18" />
+      <Setter Property="Width" Value="{controls:TextScaled 20}" />
+      <Setter Property="Height" Value="{controls:TextScaled 20}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellInnerCornerRadius}" />
       <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -161,7 +156,7 @@
     <Style Selector="Border.GitKindBadge TextBlock">
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
       <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
     </Style>
@@ -197,8 +192,8 @@
       <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
     </Style>
     <Style Selector="TextBlock.GitCommitCell">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize11}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellBaseFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellBodyLineHeight}" />
     </Style>
     <!-- The author, hash and date are the commit's metadata: a step under
          its subject, as a Finder row's secondary column is. -->
@@ -226,8 +221,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
     <Style Selector="Border.GitRefTag TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellCaptionLineHeight}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellTextBrush}" />
     </Style>
     <Style Selector="Border.GitCountBadge">
@@ -238,8 +233,8 @@
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Border.GitCountBadge TextBlock">
-      <Setter Property="FontSize" Value="{DynamicResource ShellFontSize10}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight10}" />
+      <Setter Property="FontSize" Value="{DynamicResource ShellCaptionFontSize}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellCaptionLineHeight}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="HorizontalAlignment" Value="Center" />
       <Setter Property="VerticalAlignment" Value="Center" />
@@ -249,13 +244,13 @@
          subject and message below are the step up. -->
     <Style Selector="TextBlock.GitMetaLabel">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
       <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.GitMetaValue">
       <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
-      <Setter Property="LineHeight" Value="{DynamicResource ShellLineHeight11}" />
+      <Setter Property="LineHeight" Value="{DynamicResource ShellSecondaryLineHeight}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="TextBlock.GitCommitBody">
@@ -291,7 +286,7 @@
     <Style Selector="Border.GitRefRow">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="Padding" Value="0" />
-      <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+      <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
       <Setter Property="CornerRadius" Value="{DynamicResource ShellControlCornerRadius}" />
     </Style>
     <Style Selector="Border.GitRefRow:pointerover">
@@ -730,7 +725,7 @@
               <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
               <Setter Property="Padding" Value="0" />
               <Setter Property="BorderThickness" Value="0" />
-              <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+              <Setter Property="MinHeight" Value="{DynamicResource ShellRowMinHeight}" />
               <Setter Property="HorizontalAlignment" Value="Stretch" />
               <!-- A ref row says what it is to VoiceOver by its name, and the
                    current branch says so as its status, not only by its
@@ -842,7 +837,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}"
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0"
                                 Classes="GitRefRow"
                                 DoubleTapped="OnBranchRowDoubleTapped">
                               <!-- Three groups: what you do with the branch,
@@ -931,7 +926,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" Classes="GitRefRow">
                               <Border.ContextMenu>
                                 <ContextMenu Opening="OnGitMenuOpening">
                                   <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitRemoteFetch}" Click="OnGitMenuCommand" />
@@ -984,7 +979,7 @@
                           <TextBlock Text="{Binding Name}" Classes="GitSidebarRow"
                               VerticalAlignment="Center" IsVisible="{Binding IsFolder}" />
                           <Border IsVisible="{Binding HasRef}">
-                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" MinHeight="{DynamicResource ShellTreeRowMinHeight}" Classes="GitRefRow">
+                            <Border DataContext="{Binding Item}" x:DataType="vm:GitRefItemViewModel" Padding="0" Classes="GitRefRow">
                               <Border.ContextMenu>
                                 <ContextMenu Opening="OnGitMenuOpening">
                                   <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitTagCopyName}" Click="OnGitMenuCommand" />
@@ -1922,7 +1917,7 @@
                         VerticalAlignment="Center"
                         FontFamily="{DynamicResource ShellDataFontFamily}"
                         FontSize="{DynamicResource ShellSecondaryFontSize}"
-                        LineHeight="{DynamicResource ShellLineHeight11}"
+                        LineHeight="{DynamicResource ShellSecondaryLineHeight}"
                         Classes="Path"
                         Text="{Binding CommitFileName}" />
                   </Border>

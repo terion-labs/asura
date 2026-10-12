@@ -30,6 +30,31 @@ public sealed class RuntimePanelViewContractTests
             "DockerFileBrowserViewModel.cs")));
     }
 
+    /// <summary>
+    /// A Statistics card is padded like every other card, 16 on each side,
+    /// and its eyebrow, figure, detail and chart stand a 4-point step apart.
+    /// On the row padding the cards were wider inside than tall, and their
+    /// lines touched.
+    /// </summary>
+    [Fact]
+    public void Statistics_cards_take_the_card_padding_and_space_their_lines()
+    {
+        var root = Assert.IsType<XElement>(
+            XDocument.Load(RuntimePanelPath("StatisticsRuntimePanelView", ".axaml")).Root);
+        var cards = root.Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "SurfaceCard", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.Equal(6, cards.Length);
+        Assert.All(cards, card => Assert.Equal("{DynamicResource ShellCardPadding}", AttributeValue(card, "Padding")));
+        Assert.All(cards, card =>
+        {
+            var layout = Assert.Single(card.Elements());
+            var spacing = AttributeValue(layout, layout.Name.LocalName == "Grid" ? "RowSpacing" : "Spacing");
+            Assert.Equal("{DynamicResource ShellSpaceXs}", spacing);
+        });
+    }
+
     [Fact]
     public void Docker_json_uses_the_shared_highlighted_code_preview()
     {
@@ -451,8 +476,11 @@ public sealed class RuntimePanelViewContractTests
             element => string.Equals(element.Name.LocalName, "TextBlock"
 , StringComparison.Ordinal) && HasClass(element, "DockerPropertyValue"));
         Assert.Equal("Wrap", AttributeValue(propertyValue, "TextWrapping"));
+        // The value reads at the body size it inherits, so its wrapped lines
+        // take the body's line box; the 12-point box crowded 13-point lines.
+        Assert.Null(AttributeValue(propertyValue, "FontSize"));
         Assert.Equal(
-            "{DynamicResource ShellLineHeight12}",
+            "{DynamicResource ShellLineHeight13}",
             AttributeValue(propertyValue, "LineHeight"));
         Assert.Null(AttributeValue(propertyValue, "TextTrimming"));
     }
