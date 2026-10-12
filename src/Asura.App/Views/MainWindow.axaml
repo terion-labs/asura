@@ -685,5 +685,32 @@
     <components:ShellLockView
         DataContext="{CompiledBinding ApplicationSecurityEditor}"
         IsVisible="{CompiledBinding IsLocked}" />
+
+    <!-- The window's inner resize band on a Mac: the gutter between the frame
+         and the rail and panels, left, right and bottom, resizes the window
+         as the frame's own edge does. It is no wider than that gutter, so it
+         never covers a control, and it sits above everything so an overlay
+         cannot take the edge away. Shown by the code-behind; see
+         MacOsWindowEdgeResize. -->
+    <Panel x:Name="WindowResizeBand" ZIndex="10000" IsVisible="False">
+      <Border
+          x:Name="WindowResizeLeft"
+          Width="{DynamicResource ShellSpaceSm}"
+          HorizontalAlignment="Left"
+          Background="Transparent"
+          Cursor="SizeWestEast" />
+      <Border
+          x:Name="WindowResizeRight"
+          Width="{DynamicResource ShellSpaceSm}"
+          HorizontalAlignment="Right"
+          Background="Transparent"
+          Cursor="SizeWestEast" />
+      <Border
+          x:Name="WindowResizeBottom"
+          Height="{DynamicResource ShellSpaceSm}"
+          VerticalAlignment="Bottom"
+          Background="Transparent"
+          Cursor="SizeNorthSouth" />
+    </Panel>
   </Grid>
 </Window>

@@ -421,8 +421,10 @@
       <Thickness x:Key="ShellWindowEdgeInset">1,0,1,1</Thickness>
       <!-- Where the floating agent panel stands: its right edge on the
            canvas panels' content edge, plus a hairline off the top and right
-           so the glass and its glow never touch the chrome's own edges. -->
-      <Thickness x:Key="ShellFlyoutMargin">0,1,9,0</Thickness>
+           so the glass and its glow never touch the chrome's own edges. In a
+           short window it stops the same distance above the bottom, so its
+           corner grip stays clear of the window's resize gutter. -->
+      <Thickness x:Key="ShellFlyoutMargin">0,1,9,9</Thickness>
       <Thickness x:Key="ShellPreviewTileInset">3</Thickness>
       <!-- Placement zones are pointer targets before they are icons: the plate has
            to be big enough to land on mid-drag, so the size is set here rather
