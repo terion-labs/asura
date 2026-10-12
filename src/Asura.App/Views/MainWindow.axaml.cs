@@ -219,6 +219,7 @@ public sealed partial class MainWindow : Window
         Deactivated += OnWindowDeactivated;
         AttachWindowLifecycle();
         AttachSettingsPresentation();
+        AttachWindowEdges();
         base.OnOpened(e);
         RefreshWindowChromeMetrics();
         Avalonia.Threading.Dispatcher.UIThread.Post(
@@ -339,6 +340,7 @@ public sealed partial class MainWindow : Window
     {
         base.OnPropertyChanged(change);
         OnWindowLifecyclePropertyChanged(change);
+        OnWindowEdgesPropertyChanged(change);
         if (change.Property == WindowDecorationMarginProperty
             || change.Property == WindowStateProperty)
         {

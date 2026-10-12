@@ -293,10 +293,14 @@
       </Grid>
     </Border>
 
+    <!-- The row's own background does nothing with a press, so the
+         window's bottom resize grips keep the points between and below the
+         tabs; the tabs and the add button stay theirs. -->
     <Border
         Grid.Row="2"
         MinHeight="{controls:TextScaled 30}"
         Background="Transparent"
+        views:MacOsWindowResizeGrip.IsWindowBackdrop="True"
         BorderBrush="{DynamicResource ShellBorderBrush}"
         BorderThickness="0,1,0,0"
         IsVisible="{Binding IsTabStripVisibleOnBottom}">
