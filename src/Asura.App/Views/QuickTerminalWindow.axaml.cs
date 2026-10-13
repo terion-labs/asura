@@ -107,7 +107,7 @@ public sealed partial class QuickTerminalWindow : Window
                 _settings,
                 _hostPreferences))
         {
-            ApplyTransparencyHint(TransparentHint);
+            WindowTransparencyHint.Request(this, TransparentHint);
             // Keep the native backing clear when changing an already-created
             // window from material to transparent. Otherwise AppKit may leave
             // its previous windowBackgroundColor visible for this frame.
@@ -122,7 +122,7 @@ public sealed partial class QuickTerminalWindow : Window
             return;
         }
 
-        ApplyTransparencyHint(BlurHint);
+        WindowTransparencyHint.Request(this, BlurHint);
         // Avalonia pins its visual-effect view to the deprecated Light
         // material. HUDWindow proved clearer on the live desktop than Popover
         // while retaining strong blur, so Quick Terminal uses it for both the
@@ -176,27 +176,6 @@ public sealed partial class QuickTerminalWindow : Window
         QuickTerminalAgentSurface.Classes.Set(
             "nativeMaterial",
             shouldShow && hasNativeAgent);
-    }
-
-    private void ApplyTransparencyHint(IReadOnlyList<WindowTransparencyLevel> hint)
-    {
-        // Avalonia.Native 12.0.5 skips an already-active hint and selects the
-        // next fallback (or None). Avoid replaying a satisfied request, but
-        // repair the native mode if it drifted while the requested list stayed
-        // unchanged. Both lists start with a mode supported by macOS.
-        if (TransparencyLevelHint.SequenceEqual(hint))
-        {
-            if (OperatingSystem.IsMacOS()
-                && ActualTransparencyLevel != hint[0])
-            {
-                // A new list notifies Avalonia even though its values match.
-                TransparencyLevelHint = [.. hint];
-            }
-
-            return;
-        }
-
-        TransparencyLevelHint = hint;
     }
 
     /// <summary>

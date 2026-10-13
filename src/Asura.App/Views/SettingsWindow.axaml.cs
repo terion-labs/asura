@@ -48,6 +48,16 @@ public sealed partial class SettingsWindow : Window
     /// </summary>
     internal const string TranslucentClass = "settings-translucent";
 
+    private static readonly IReadOnlyList<WindowTransparencyLevel> OpaqueHint =
+        [WindowTransparencyLevel.None];
+
+    private static readonly IReadOnlyList<WindowTransparencyLevel> MaterialHint =
+    [
+        WindowTransparencyLevel.AcrylicBlur,
+        WindowTransparencyLevel.Blur,
+        WindowTransparencyLevel.Transparent,
+    ];
+
     public SettingsWindow()
     {
         InitializeComponent();
@@ -104,19 +114,22 @@ public sealed partial class SettingsWindow : Window
         if (!translucent)
         {
             Classes.Remove(TranslucentClass);
-            TransparencyLevelHint = [WindowTransparencyLevel.None];
+            WindowTransparencyHint.Request(this, OpaqueHint);
             ClearValue(BackgroundProperty);
             return;
         }
 
-        TransparencyLevelHint =
-        [
-            WindowTransparencyLevel.AcrylicBlur,
-            WindowTransparencyLevel.Blur,
-            WindowTransparencyLevel.Transparent,
-        ];
+        // This runs again on every appearance republish, and replaying a hint
+        // the window already has knocks it off the material: the request
+        // goes through the guard rather than straight to the property.
+        WindowTransparencyHint.Request(this, MaterialHint);
         var material = MacOsWindowMaterial.TrySit(this, MacOsMaterial.Sidebar);
-        var shows = material && ActualTransparencyLevel != WindowTransparencyLevel.None;
+        // Only a blur puts the material behind the sidebar. Plain
+        // Transparent has none, and a clear sidebar there shows the desktop
+        // through it unblurred; the opaque plane is the right answer then.
+        var level = ActualTransparencyLevel;
+        var shows = material
+            && (level == WindowTransparencyLevel.AcrylicBlur || level == WindowTransparencyLevel.Blur);
         Classes.Set(TranslucentClass, shows);
         if (shows)
         {
