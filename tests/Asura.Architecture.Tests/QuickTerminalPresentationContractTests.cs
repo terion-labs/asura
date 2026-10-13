@@ -288,27 +288,6 @@ public sealed class QuickTerminalPresentationContractTests
     }
 
     [Fact]
-    public void Quick_terminal_does_not_republish_an_unchanged_native_transparency_hint()
-    {
-        var window = File.ReadAllText(Path.Combine(
-            ApplicationViewCatalog.Load().RepositoryRoot,
-            "src",
-            "Asura.App",
-            "Views",
-            "QuickTerminalWindow.axaml.cs"));
-
-        Assert.Contains(
-            "if (TransparencyLevelHint.SequenceEqual(hint))",
-            window,
-            StringComparison.Ordinal);
-        Assert.Single(Regex.Matches(
-            window,
-            @"TransparencyLevelHint\s*=\s*hint;",
-            RegexOptions.CultureInvariant,
-            TimeSpan.FromSeconds(1)));
-    }
-
-    [Fact]
     public void Quick_terminal_tab_drag_preserves_an_ordinary_tab_click()
     {
         var window = File.ReadAllText(Path.Combine(

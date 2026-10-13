@@ -111,12 +111,13 @@ public sealed partial class MainWindow : Window
         // A visual-effect view is what the platform expects to be handed. It
         // masks it to the window's shape and works the shadow out from it,
         // which is why every other window gets this right without asking.
-        TransparencyLevelHint =
-        [
-            WindowTransparencyLevel.AcrylicBlur,
-            WindowTransparencyLevel.Blur,
-            WindowTransparencyLevel.Transparent,
-        ];
+        WindowTransparencyHint.Request(
+            this,
+            [
+                WindowTransparencyLevel.AcrylicBlur,
+                WindowTransparencyLevel.Blur,
+                WindowTransparencyLevel.Transparent,
+            ]);
     }
 
     /// <summary>
