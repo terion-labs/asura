@@ -23,7 +23,11 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Dock.Model;
+using Dock.Model.Controls;
+using Dock.Model.Core;
 
 namespace Asura.App.Tests;
 
@@ -252,6 +256,95 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
                 window.Close();
             }
         }, timeout.Token));
+    }
+
+    /// <summary>
+    /// Dragging a panel above its neighbour and back beside it, by either the
+    /// neighbour's own targets or the split's outer ones, leaves the layout
+    /// exactly as it was: one split of two leaves, the panels where they
+    /// started. Each round trip used to leave another single-child or
+    /// same-direction split behind.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Moving_a_panel_away_and_back_restores_the_layout(bool outerTop, bool outerRight)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var (client, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var tab = viewModel.RuntimeWorkspace!.ActiveTab!;
+            Assert.True(await viewModel.AddLocalTerminalPanelAsync(PanelSplitOrientation.LeftRight));
+            var window = new MainWindow { DataContext = viewModel, Width = 1401, Height = 900 };
+            // The real panel chrome without a native terminal renderer.
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new PanelChrome { Title = panel!.Title, DataContext = panel, Content = new TextBlock() }));
+            window.Show();
+            try
+            {
+                Settle(window);
+                var start = PanelBounds(window);
+                var split = Assert.IsAssignableFrom<IProportionalDock>(Assert.Single(tab.DockLayout.VisibleDockables!));
+                var documents = split.VisibleDockables!.OfType<IDock>().Select(leaf => leaf.VisibleDockables![0]).ToArray();
+                var (staying, moving) = (documents[0], documents[1]);
+                var manager = new DockManager(new DockService());
+                IDock Target(bool outer) => outer
+                    ? (IDock)Assert.Single(tab.DockLayout.VisibleDockables!)
+                    : (IDock)staying.Owner!;
+
+                for (var round = 0; round < 3; round++)
+                {
+                    Assert.True(manager.ValidateDockable(moving, Target(outerTop), DragAction.Move, DockOperation.Top, bExecute: true));
+                    Settle(window);
+                    AssertFlatSplit(tab.DockLayout, Dock.Model.Core.Orientation.Vertical);
+
+                    Assert.True(manager.ValidateDockable(moving, Target(outerRight), DragAction.Move, DockOperation.Right, bExecute: true));
+                    Settle(window);
+                    AssertFlatSplit(tab.DockLayout, Dock.Model.Core.Orientation.Horizontal);
+                    Assert.Equal(start, PanelBounds(window));
+                }
+
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+
+        static void Settle(Window window)
+        {
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+        }
+
+        static void AssertFlatSplit(IRootDock root, Dock.Model.Core.Orientation orientation)
+        {
+            var split = Assert.IsAssignableFrom<IProportionalDock>(Assert.Single(root.VisibleDockables!));
+            Assert.Equal(orientation, split.Orientation);
+            Assert.Collection(
+                split.VisibleDockables!,
+                leaf => Assert.IsAssignableFrom<IDocumentDock>(leaf),
+                splitter => Assert.IsAssignableFrom<IProportionalDockSplitter>(splitter),
+                leaf => Assert.IsAssignableFrom<IDocumentDock>(leaf));
+        }
+
+        static Rect[] PanelBounds(Window window) =>
+        [
+            .. window.GetVisualDescendants()
+                .OfType<RuntimePanelContentControl>()
+                .Where(control => control.IsEffectivelyVisible)
+                .Select(control => new Rect(control.TranslatePoint(new Point(0, 0), window)!.Value, control.Bounds.Size))
+                .OrderBy(bounds => bounds.X)
+                .ThenBy(bounds => bounds.Y),
+        ];
     }
 
     [Theory]

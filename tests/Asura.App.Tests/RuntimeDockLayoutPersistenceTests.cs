@@ -94,19 +94,20 @@ public sealed class RuntimeDockLayoutPersistenceTests
 
         Assert.True(tab.RemovePanel(right.Id));
 
-        var singletonDocks = Enumerate(tab.DockLayout)
-            .OfType<IProportionalDock>()
-            .Select(dock => (dock.VisibleDockables ?? [])
-                .Where(dockable => dockable is not IProportionalDockSplitter)
-                .ToArray())
-            .Where(panes => panes.Length == 1)
-            .ToArray();
-        Assert.NotEmpty(singletonDocks);
-        Assert.All(singletonDocks, panes =>
-        {
-            Assert.Equal(1d, panes[0].Proportion);
-            Assert.Equal(1d, panes[0].CollapsedProportion);
-        });
+        // The left column is all that is left of the split, so it is the split:
+        // no branch is left holding a single child.
+        var column = Assert.IsAssignableFrom<IProportionalDock>(
+            Assert.Single(tab.DockLayout.VisibleDockables!));
+        Assert.Equal(Dock.Model.Core.Orientation.Vertical, column.Orientation);
+        Assert.Equal(
+            [upperLeft.Id.Value, lowerLeft.Id.Value],
+            column.VisibleDockables!
+                .OfType<IDock>()
+                .Select(leaf => Assert.Single(leaf.VisibleDockables!).Id),
+            StringComparer.Ordinal);
+        Assert.DoesNotContain(
+            Enumerate(tab.DockLayout).OfType<IProportionalDock>(),
+            dock => (dock.VisibleDockables ?? []).Count(dockable => dockable is not IProportionalDockSplitter) == 1);
     }
 
     [Fact]

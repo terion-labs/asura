@@ -27,6 +27,7 @@ internal sealed partial class RuntimeDockLayoutController
         new(StringComparer.Ordinal);
     private bool _isInitializedForPresentation;
     private bool _isMutatingTopology;
+    private bool _isNormalizationQueued;
     private int _revision;
 
     public RuntimeDockLayoutController(LayoutDefinition? definition)
@@ -320,14 +321,15 @@ internal sealed partial class RuntimeDockLayoutController
         });
     }
 
-    private void MutateTopology(Action mutation)
+    /// <returns>Whether the repair after the mutation changed the layout.</returns>
+    private bool MutateTopology(Action mutation)
     {
         var wasMutating = _isMutatingTopology;
         _isMutatingTopology = true;
         try
         {
             mutation();
-            DockLayoutTopology.Normalize(Factory, Layout);
+            return DockLayoutTopology.Normalize(Factory, Layout);
         }
         finally
         {
@@ -767,6 +769,7 @@ internal sealed partial class RuntimeDockLayoutController
         if (!_isMutatingTopology)
         {
             Changed();
+            QueueNormalization();
         }
 
         _workspaceManager.MarkClean();
@@ -779,7 +782,34 @@ internal sealed partial class RuntimeDockLayoutController
         if (!_isMutatingTopology)
         {
             Changed();
+            QueueNormalization();
         }
+    }
+
+    /// <summary>
+    /// Repairs the tree once the rearrangement that changed it is over.
+    ///
+    /// Dock reports a drop in steps: a split moves the panel into a new leaf,
+    /// then splits the target around it. Repairing between the steps would
+    /// dissolve the branch the split is about to use, so the repair waits for
+    /// the drop to finish.
+    /// </summary>
+    private void QueueNormalization()
+    {
+        if (_isNormalizationQueued)
+        {
+            return;
+        }
+
+        _isNormalizationQueued = true;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _isNormalizationQueued = false;
+            if (MutateTopology(static () => { }))
+            {
+                Changed();
+            }
+        });
     }
 
     private void Changed()
