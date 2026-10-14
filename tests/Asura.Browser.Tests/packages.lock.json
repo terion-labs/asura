@@ -71,27 +71,27 @@
       },
       "Avalonia.Remote.Protocol": {
         "type": "Transitive",
-        "resolved": "12.0.3",
-        "contentHash": "NHvbiGC461oB3DXt8qgLNN+QfcYARcSxY7diyic9R7u6jQA4bc+ZbjEQKX8y8WyF1vOssedRmuOeTvRXlXbF9Q=="
+        "resolved": "12.1.4",
+        "contentHash": "9ajC+Ff+U9S21JJKGbJgnwp9fY+zwJG+bSEC//o/vJU2M6IEMRGp+D1+AUoqTR79FAA/iDYgf4f4EF4PZKhZsg=="
       },
       "FluentIcons.Common": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
+        "resolved": "2.1.344",
+        "contentHash": "CT7Oxzwd7b83u9fpJeF5G5cdr/Wkf++fol9Wu242aWAA7SILUKg+wlNnmjPgHgQoJ+gaTbUW5334RENa5ObU8Q=="
       },
       "FluentIcons.Resources.Avalonia": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "RaFZs1cjhW0qzUE6ir5tjLQqIxq5c2l0QhuYb1Dckp3FHleHfGsLrME2/yYVLoF6eA6SCpQ+5ki+XiiNrSgamA==",
+        "resolved": "2.1.344",
+        "contentHash": "flpY4JHyaciRKZCSjYsWXQZhh1y8sorvgfr5AuL0wPelETX1sbSofvbtFLZcRcgZc+zfDVoo/S1+iO8cP3AB+w==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.344]"
         }
       },
       "MicroCom.Runtime": {
         "type": "Transitive",
-        "resolved": "0.11.4",
-        "contentHash": "yZ8+Lgwo+KtRI29TB2mIOEMzV+csMJ+pKZg4YHReAP3vRewWLKKeYfrBDo5FS69rWnEbCfU3sbM+ZEQr+GDLtg=="
+        "resolved": "0.11.6",
+        "contentHash": "NdNWGDiZ6eS/Mf/9+QHR91cj1K7Hy+PX9yrHI/zM7xFYuj9IWT2uxtB6sCHjrnxAeLV9fut1R6zHDUGKX6f9lQ=="
       },
       "Microsoft.CodeCoverage": {
         "type": "Transitive",
@@ -152,16 +152,6 @@
           "xunit.extensibility.core": "[2.9.3]"
         }
       },
-      "exclr8cef": {
-        "type": "Project"
-      },
-      "exclr8cef.webview": {
-        "type": "Project",
-        "dependencies": {
-          "Avalonia": "[12.0.3, )",
-          "Exclr8Cef": "[0.8.0, )"
-        }
-      },
       "asura.application": {
         "type": "Project",
         "dependencies": {
@@ -171,35 +161,45 @@
       "asura.browser": {
         "type": "Project",
         "dependencies": {
-          "Exclr8Cef.WebView": "[0.8.0, )",
-          "FluentIcons.Avalonia": "[2.1.333, )",
           "Asura.Application": "[1.0.0, )",
+          "Exclr8Cef.WebView": "[0.8.0, )",
+          "FluentIcons.Avalonia": "[2.1.344, )",
           "ReverseMarkdown": "[6.2.1, )"
         }
       },
       "asura.core": {
         "type": "Project"
       },
+      "exclr8cef": {
+        "type": "Project"
+      },
+      "exclr8cef.webview": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Exclr8Cef": "[0.8.0, )"
+        }
+      },
       "Avalonia": {
         "type": "CentralTransitive",
-        "requested": "[12.0.5, )",
-        "resolved": "12.0.3",
-        "contentHash": "OVAzdZB5T/QIOEpw/WmQ0ZJM13BMmLO7RqR5z+lZtBMuStK63W68SV/Q+PNn/GdFEC3Ab8eQhH2FMb8FhNLK+w==",
+        "requested": "[12.1.4, )",
+        "resolved": "12.1.4",
+        "contentHash": "Vlz+ebY0PBVsTFXAPIpM+7ySgezMtyJ3GMMGmccHwxXXjgLF2x5+NMwO4AqrdM/lrUPZremnYNO6MSg1r1vuxw==",
         "dependencies": {
           "Avalonia.BuildServices": "11.3.2",
-          "Avalonia.Remote.Protocol": "12.0.3",
-          "MicroCom.Runtime": "0.11.4"
+          "Avalonia.Remote.Protocol": "12.1.4",
+          "MicroCom.Runtime": "0.11.6"
         }
       },
       "FluentIcons.Avalonia": {
         "type": "CentralTransitive",
-        "requested": "[2.1.333, )",
-        "resolved": "2.1.333",
-        "contentHash": "rysgTNvvjI8dlRVvt9bmSxfK06ZmPi1X8WIvo1Od+MgA3lI+QUp7mWvaD42Ni7Leh34iFKCME8dEAJdyKZWtlQ==",
+        "requested": "[2.1.344, )",
+        "resolved": "2.1.344",
+        "contentHash": "9Iwk6EmiDY/MvoW6Z80Nm+3qWQ61WBU3FN/XSBoKPRNmw2ubZlf2Z7ZAgwjLZjGfWSbx9M91ntUsuHjzlAluSA==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]",
-          "FluentIcons.Resources.Avalonia": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.344]",
+          "FluentIcons.Resources.Avalonia": "[2.1.344]"
         }
       },
       "ReverseMarkdown": {
