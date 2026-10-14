@@ -318,17 +318,18 @@
       "asura.databases": {
         "type": "Project",
         "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )",
           "ClickHouse.Client": "[7.14.0, )",
           "DuckDB.NET.Data.Full": "[1.5.5, )",
           "FirebirdSql.Data.FirebirdClient": "[10.3.1, )",
-          "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )",
           "Microsoft.Data.SqlClient": "[6.0.2, )",
           "Microsoft.Data.Sqlite.Core": "[10.0.10, )",
           "MySqlConnector": "[2.4.0, )",
           "Npgsql": "[9.0.3, )",
           "Oracle.ManagedDataAccess.Core": "[23.7.0, )",
-          "SQLite3MC.PCLRaw.bundle": "[2.4.0, )"
+          "SQLite3MC.PCLRaw.bundle": "[2.4.0, )",
+          "System.Security.Cryptography.Pkcs": "[9.0.21, )"
         }
       },
       "asura.files": {
@@ -613,9 +614,9 @@
       },
       "System.Security.Cryptography.Pkcs": {
         "type": "CentralTransitive",
-        "requested": "[9.0.4, )",
-        "resolved": "9.0.4",
-        "contentHash": "cUFTcMlz/Qw9s90b2wnWSCvHdjv51Bau9FQqhsr4TlwSe1OX+7SoXUqphis5G74MLOvMOCghxPPlEqOdCrVVGA=="
+        "requested": "[9.0.21, )",
+        "resolved": "9.0.21",
+        "contentHash": "KD+oHoYIxwNCajjVe58WVwq9cRpum+Pg3tRveDRtkcaw6w3oc7sNBoMRtb5P5OehI3bgv1ucMpgjf8lpj5J96A=="
       },
       "System.Security.Cryptography.ProtectedData": {
         "type": "CentralTransitive",

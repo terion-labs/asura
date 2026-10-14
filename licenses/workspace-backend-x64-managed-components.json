@@ -821,13 +821,13 @@
       "nuspecLicense": "MIT"
     },
     {
-      "identity": "System.Security.Cryptography.Pkcs/9.0.4",
+      "identity": "System.Security.Cryptography.Pkcs/9.0.21",
       "kind": "nuget",
       "depsType": "package",
       "licenseDeclared": "MIT",
       "nuGetId": "System.Security.Cryptography.Pkcs",
-      "contentHash": "cUFTcMlz/Qw9s90b2wnWSCvHdjv51Bau9FQqhsr4TlwSe1OX+7SoXUqphis5G74MLOvMOCghxPPlEqOdCrVVGA==",
-      "nupkgSha512": "Ut+SN3G/hZAfsg7CQxzwEbdkQGm5+XPQvmyFcgE7z+i/Ov/baNlS3dC2+z9LlqVj+Ja26mSOdA0XEu2PumGY7g==",
+      "contentHash": "KD+oHoYIxwNCajjVe58WVwq9cRpum+Pg3tRveDRtkcaw6w3oc7sNBoMRtb5P5OehI3bgv1ucMpgjf8lpj5J96A==",
+      "nupkgSha512": "OKoI4MD1xl5YsD/rHK67EzmA2bGON3lQjXJMNtWh/Z2rfWOyE+EWWddBboGgAej2fPpwNR7VIlCRVMApYfDT6g==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT"
     },
