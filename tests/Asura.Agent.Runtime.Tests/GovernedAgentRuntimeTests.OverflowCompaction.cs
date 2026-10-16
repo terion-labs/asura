@@ -69,6 +69,28 @@ public sealed partial class GovernedAgentRuntimeTests
     }
 
     [Fact]
+    public async Task A_failed_overflow_recovery_says_why_compaction_failed()
+    {
+        var provider = new ProviderRound((call, request) =>
+            request.Messages.Any(message => message.Content.StartsWith("<conversation>", StringComparison.Ordinal))
+                ? throw new TestProviderException("ai_provider_timeout", "The AI-provider request timed out.")
+                : call <= 2
+                    ? ProviderRound.Answer("Answer " + new string('a', 4_000))
+                    : throw new TestProviderException(
+                        "ai_provider_request_too_large",
+                        "The conversation is longer than this model can read. Start a new chat."));
+        await using var fixture = new RuntimeFixture(provider);
+        await fixture.Runtime.SendAsync(fixture.Prompt(LongPrompt(1)), CancellationToken.None);
+        await fixture.Runtime.SendAsync(fixture.Prompt(LongPrompt(2)), CancellationToken.None);
+
+        var result = await fixture.Runtime.SendAsync(fixture.Prompt("Latest question"), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains("could not be compacted", result.Message, StringComparison.Ordinal);
+        Assert.Contains("The AI-provider request timed out.", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task A_failed_compaction_says_why_the_provider_failed()
     {
         var provider = new ProviderRound((call, _) => call == 3

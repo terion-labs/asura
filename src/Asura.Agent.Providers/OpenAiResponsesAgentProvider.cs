@@ -31,7 +31,12 @@ internal sealed class OpenAiResponsesAgentProvider(
     {
         ArgumentNullException.ThrowIfNull(request);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        await using var enumerator = StreamCoreAsync(request, operation.Token)
+        // Every event on the wire — a heartbeat or a status the parser skips
+        // included — proves the connection alive, not only those that produce output.
+        await using var enumerator = StreamCoreAsync(
+                request,
+                () => operation.CancelAfter(limits.StreamTimeout),
+                operation.Token)
             .GetAsyncEnumerator(operation.Token);
         while (true)
         {
@@ -72,6 +77,7 @@ internal sealed class OpenAiResponsesAgentProvider(
 
     private async IAsyncEnumerable<AgentProviderEvent> StreamCoreAsync(
         AgentProviderRequest request,
+        Action receivedEvent,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var body = WriteRequest(request);
@@ -129,6 +135,7 @@ internal sealed class OpenAiResponsesAgentProvider(
                            .EnumerateAsync(cancellationToken)
                            .ConfigureAwait(false))
         {
+            receivedEvent();
             eventCount = checked(eventCount + 1);
             if (eventCount > limits.MaximumSseEvents)
             {

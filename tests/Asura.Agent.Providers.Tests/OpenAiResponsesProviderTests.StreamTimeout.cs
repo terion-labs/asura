@@ -27,6 +27,33 @@ public sealed partial class OpenAiResponsesProviderTests
     }
 
     [Fact]
+    public async Task Status_events_while_the_model_thinks_keep_the_stream_alive()
+    {
+        // Eight heartbeats a quarter-second apart: twice the silence limit
+        // without a word of output, but never silent.
+        var events = TrickleEvents(["done thinking"]).ToList();
+        var heartbeat = new StringBuilder();
+        AppendEvent(
+            heartbeat,
+            "response.in_progress",
+            "{\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp-1\",\"status\":\"in_progress\"}}");
+        events.InsertRange(1, Enumerable.Repeat(heartbeat.ToString(), 8));
+        using var vault = new InMemorySecretVault();
+        var profile = await CreateProfileAsync(vault);
+        using var handler = new TrickleHandler([.. events], TimeSpan.FromMilliseconds(250), stallAfterFirst: false);
+        using var factory = new AiProviderFactory(
+            vault,
+            handler,
+            new AiProviderRuntimeLimits(streamTimeout: SilenceLimit));
+        var session = new NativeAgentSession(new AgentRunId("heartbeat"));
+
+        var result = await session.RunTurnAsync("Think hard.", [], factory.Create(profile), CancellationToken.None);
+
+        Assert.True(result.Succeeded, result.ProviderFailure?.Message);
+        Assert.Equal("done thinking", session.Snapshot().Conversation[^1].Content);
+    }
+
+    [Fact]
     public async Task A_stream_that_falls_silent_still_times_out()
     {
         var result = await RunAgainstTrickleAsync(TimeSpan.Zero, ["first "], stallAfterFirst: true);

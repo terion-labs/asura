@@ -2277,6 +2277,20 @@ public sealed partial class GovernedAgentRuntime :
             _ => "agent_compaction_failed",
         };
 
+    /// <summary>
+    /// A turn that ended because compacting after a context overflow failed,
+    /// carrying that failure's code and message to the chat.
+    /// </summary>
+    private sealed class OverflowRecoveryFailure(string code, string message)
+        : AgentProviderException(
+            code,
+            message.Length <= MaximumFailureMessageLength
+                ? message
+                : "The conversation could not be compacted to fit the model. Start a new chat.")
+    {
+        private const int MaximumFailureMessageLength = 512;
+    }
+
     private readonly record struct ConversationCompactionOutcome(
         bool Succeeded,
         bool Compacted,
@@ -2432,7 +2446,14 @@ public sealed partial class GovernedAgentRuntime :
                 .ConfigureAwait(false);
             if (!recovery.Succeeded)
             {
-                return result;
+                // Report why compaction failed — a timeout, a refusal — not
+                // only that the conversation was too long. A cancellation
+                // keeps the original result for the caller's cancel path.
+                return turnCancellation.IsCancellationRequested
+                    ? result
+                    : AgentTurnResult.Failure(
+                        AgentTurnErrorCode.ProviderFailure,
+                        new OverflowRecoveryFailure(recovery.Code, recovery.Message));
             }
 
             result = await RunProviderOperationAsync(
