@@ -48,9 +48,7 @@ internal static class AiProviderJson
         }
         catch (JsonException exception)
         {
-            throw AiProviderClientException.Create(
-                AiProviderRuntimeErrorCode.ProtocolError,
-                innerException: exception);
+            throw AiProviderClientException.Malformed("malformed JSON", exception);
         }
     }
 
@@ -62,7 +60,7 @@ internal static class AiProviderJson
         if (!parent.TryGetProperty(propertyName, out var property)
             || property.ValueKind != JsonValueKind.String)
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         var value = property.GetString()!;
@@ -70,7 +68,7 @@ internal static class AiProviderJson
             || value.Length > maximumLength
             || value.Any(char.IsControl))
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         return value;
@@ -89,13 +87,13 @@ internal static class AiProviderJson
 
         if (property.ValueKind != JsonValueKind.String)
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         var value = property.GetString()!;
         if (value.Length > maximumLength || value.Any(char.IsControl))
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         return value;
@@ -106,7 +104,7 @@ internal static class AiProviderJson
         if (!parent.TryGetProperty(propertyName, out var property)
             || property.ValueKind != JsonValueKind.Object)
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         return property;
@@ -117,7 +115,7 @@ internal static class AiProviderJson
         if (!parent.TryGetProperty(propertyName, out var property)
             || property.ValueKind != JsonValueKind.Array)
         {
-            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+            throw AiProviderClientException.Malformed($"field {propertyName}");
         }
 
         return property;

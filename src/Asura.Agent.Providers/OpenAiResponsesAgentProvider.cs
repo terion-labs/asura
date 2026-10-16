@@ -31,11 +31,18 @@ internal sealed class OpenAiResponsesAgentProvider(
     {
         ArgumentNullException.ThrowIfNull(request);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        operation.CancelAfter(limits.StreamTimeout);
-        await using var enumerator = StreamCoreAsync(request, operation.Token)
+        // Every event on the wire — a heartbeat or a status the parser skips
+        // included — proves the connection alive, not only those that produce output.
+        await using var enumerator = StreamCoreAsync(
+                request,
+                () => operation.CancelAfter(limits.StreamTimeout),
+                operation.Token)
             .GetAsyncEnumerator(operation.Token);
         while (true)
         {
+            // The limit is on silence, not on the whole answer: a long summary
+            // or a large edit keeps streaming well past it.
+            operation.CancelAfter(limits.StreamTimeout);
             bool moved;
             try
             {
@@ -70,6 +77,7 @@ internal sealed class OpenAiResponsesAgentProvider(
 
     private async IAsyncEnumerable<AgentProviderEvent> StreamCoreAsync(
         AgentProviderRequest request,
+        Action receivedEvent,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var body = WriteRequest(request);
@@ -127,6 +135,7 @@ internal sealed class OpenAiResponsesAgentProvider(
                            .EnumerateAsync(cancellationToken)
                            .ConfigureAwait(false))
         {
+            receivedEvent();
             eventCount = checked(eventCount + 1);
             if (eventCount > limits.MaximumSseEvents)
             {
@@ -773,7 +782,13 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                     ObserveRawReasoning(root, "text");
                     break;
                 default:
-                    throw ProtocolError();
+                    // OpenAI adds stream events as models gain features, and
+                    // asks clients to skip the ones they don't know. Every
+                    // event this parser acts on is handled above, and the
+                    // output items and completion it depends on are still
+                    // validated strictly, so a new event can't change what
+                    // the run produces — it only stopped the run before.
+                    break;
             }
 
             return events;
@@ -1119,7 +1134,7 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
 
             if (!string.Equals(type, "function_call", StringComparison.Ordinal))
             {
-                throw ProtocolError();
+                throw AiProviderClientException.Unsupported("kind of output", type);
             }
 
             var itemId = RequiredIdentifier(item, "id", 256);
@@ -1237,11 +1252,12 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
 
             var details = AiProviderJson.RequiredObject(response, "incomplete_details");
             BackfillReplayItems(response, events);
-            _stopReason = AiProviderJson.RequiredBoundedString(details, "reason", 64) switch
+            var reason = AiProviderJson.RequiredBoundedString(details, "reason", 64);
+            _stopReason = reason switch
             {
                 "max_output_tokens" => AgentProviderStopReason.MaximumTokens,
                 "content_filter" => AgentProviderStopReason.ContentFiltered,
-                _ => throw ProtocolError(),
+                _ => throw AiProviderClientException.Unsupported("reason for stopping early", reason),
             };
             AppendUsage(response, events);
         }
@@ -1313,12 +1329,7 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                 usage,
                 "output_tokens_details",
                 "reasoning_tokens");
-            if (cachedInputTokens > inputTokens || reasoningTokens > outputTokens)
-            {
-                throw ProtocolError();
-            }
-
-            events.Add(new AgentProviderEvent.Usage(new AgentTokenUsage(
+            events.Add(new AgentProviderEvent.Usage(AiProviderUsage.Reconcile(
                 inputTokens,
                 outputTokens,
                 cachedInputTokens,
@@ -1834,8 +1845,9 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
         }
     }
 
-    private static AiProviderClientException ProtocolError(Exception? innerException = null) =>
-        AiProviderClientException.Create(
-            AiProviderRuntimeErrorCode.ProtocolError,
-            innerException: innerException);
+    private static AiProviderClientException ProtocolError(
+        Exception? innerException = null,
+        [CallerMemberName] string check = "",
+        [CallerLineNumber] int line = 0) =>
+        AiProviderClientException.Malformed($"Responses {check}:{line}", innerException);
 }

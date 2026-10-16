@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
@@ -128,6 +129,7 @@ public sealed partial class GovernedAgentRuntime :
     private AgentPolicy _effectivePolicy;
     private NativeAgentSession? _session;
     private NativeAgentSession? _restoredSession;
+    private readonly ConcurrentDictionary<AgentRunId, CatalogEntry> _catalogEntries = new();
     private IAgentProviderBinding? _providerBinding;
     private CancellationTokenSource? _turnCancellation;
     private ActiveActionCancellation? _activeActionCancellation;
@@ -1465,14 +1467,15 @@ public sealed partial class GovernedAgentRuntime :
         DisableYoloCoreAsync(YoloEndReason.UserDisabled, cancellationToken);
 
     public ValueTask<bool> ClearAsync(CancellationToken cancellationToken) =>
-        ResetConversationAsync(deleteStoredConversation: true, cancellationToken);
+        OffUiThreadAsync(() => ResetConversationAsync(deleteStoredConversation: true, cancellationToken));
 
     public ValueTask<bool> StartNewConversationAsync(CancellationToken cancellationToken) =>
-        ResetConversationAsync(deleteStoredConversation: false, cancellationToken);
+        OffUiThreadAsync(() => ResetConversationAsync(deleteStoredConversation: false, cancellationToken));
 
     private async ValueTask<bool> ResetConversationAsync(
         bool deleteStoredConversation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool reclaimSecrets = true)
     {
         AgentRunId? runId;
         ActorDescriptor? actor;
@@ -1566,7 +1569,11 @@ public sealed partial class GovernedAgentRuntime :
                     _draftHiddenReferences = [];
                 }
             }
-            await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
+            if (reclaimSecrets)
+            {
+                await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             NotifyChanged();
             return true;
         }
@@ -1902,7 +1909,7 @@ public sealed partial class GovernedAgentRuntime :
         CancellationTokenSource turnCancellation,
         ImmutableArray<AgentFileAttachment> files = default)
     {
-        var result = await RunProviderOperationAsync(
+        var result = await RunProviderOperationRecoveringOverflowAsync(
                 session,
                 () => session.RunTurnAsync(
                     userMessage,
@@ -2043,7 +2050,7 @@ public sealed partial class GovernedAgentRuntime :
                 : toolResults.Length == 1
                     ? "Returning the governed tool result to the provider…"
                     : "Returning the governed tool results to the provider…");
-            result = await RunProviderOperationAsync(
+            result = await RunProviderOperationRecoveringOverflowAsync(
                     session,
                     steering is null
                         ? () => session.ContinueToolTurnAsync(
@@ -2210,6 +2217,12 @@ public sealed partial class GovernedAgentRuntime :
                     compactor,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (result.ErrorCode == AgentCompactionErrorCode.InputTooLarge)
+            {
+                result = await CompactInPartsAsync(session, compactor, selection, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             if (!result.Succeeded)
             {
                 var code = result.ErrorCode is { } errorCode
@@ -2220,7 +2233,10 @@ public sealed partial class GovernedAgentRuntime :
                     SecretSafeDiagnosticKind.Unexpected);
                 return ConversationCompactionOutcome.Failure(
                     code,
-                    "The conversation could not be compacted before the next provider request. Retry.");
+                    CompactionFailureMessage(
+                        "The conversation could not be compacted before the next provider request.",
+                        compactor,
+                        "Retry."));
             }
 
             lock (_gate)
@@ -2260,6 +2276,20 @@ public sealed partial class GovernedAgentRuntime :
                 "agent_compaction_conversation_changed",
             _ => "agent_compaction_failed",
         };
+
+    /// <summary>
+    /// A turn that ended because compacting after a context overflow failed,
+    /// carrying that failure's code and message to the chat.
+    /// </summary>
+    private sealed class OverflowRecoveryFailure(string code, string message)
+        : AgentProviderException(
+            code,
+            message.Length <= MaximumFailureMessageLength
+                ? message
+                : "The conversation could not be compacted to fit the model. Start a new chat.")
+    {
+        private const int MaximumFailureMessageLength = 512;
+    }
 
     private readonly record struct ConversationCompactionOutcome(
         bool Succeeded,
@@ -2373,6 +2403,198 @@ public sealed partial class GovernedAgentRuntime :
 
         throw new InvalidOperationException(
             "Every quarantining tool outcome requires an explicit integrity handler.");
+    }
+
+    /// <summary>
+    /// The provider's word that the request is longer than the model reads —
+    /// whatever the local estimate said.
+    /// </summary>
+    internal static bool IsContextOverflow(AgentTurnResult result) =>
+        !result.Succeeded
+        && string.Equals(
+            result.ProviderFailure?.StableCode,
+            "ai_provider_request_too_large",
+            StringComparison.Ordinal);
+
+    /// <summary>
+    /// Runs a provider request, and when the provider refuses it as longer
+    /// than the model reads, compacts the conversation and asks again. A
+    /// failed request leaves the conversation as it was, so the same request
+    /// is simply repeated on the shorter history.
+    /// </summary>
+    private async ValueTask<AgentTurnResult> RunProviderOperationRecoveringOverflowAsync(
+        NativeAgentSession session,
+        Func<ValueTask<AgentTurnResult>> operation,
+        CancellationTokenSource turnCancellation,
+        bool allowSteering = false)
+    {
+        var result = await RunProviderOperationAsync(
+                session,
+                operation,
+                turnCancellation,
+                allowSteering)
+            .ConfigureAwait(false);
+        for (var attempt = 0;
+             attempt < MaximumOverflowRecoveries
+                && IsContextOverflow(result)
+                && !turnCancellation.IsCancellationRequested;
+             attempt++)
+        {
+            var recovery = await CompactAfterOverflowAsync(
+                    session,
+                    turnCancellation.Token)
+                .ConfigureAwait(false);
+            if (!recovery.Succeeded)
+            {
+                // Report why compaction failed — a timeout, a refusal — not
+                // only that the conversation was too long. A cancellation
+                // keeps the original result for the caller's cancel path.
+                return turnCancellation.IsCancellationRequested
+                    ? result
+                    : AgentTurnResult.Failure(
+                        AgentTurnErrorCode.ProviderFailure,
+                        new OverflowRecoveryFailure(recovery.Code, recovery.Message));
+            }
+
+            result = await RunProviderOperationAsync(
+                    session,
+                    operation,
+                    turnCancellation,
+                    allowSteering)
+                .ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    // Each recovery shrinks the history at least once, so a few are enough;
+    // past that the request itself, not the history, is what doesn't fit.
+    private const int MaximumOverflowRecoveries = 3;
+
+    // Smallest history worth folding per pass, and smallest recent window
+    // kept word for word.
+    private const int MinimumCompactedTokens = 4 * 1024;
+    private const int MinimumKeptRecentTokens = 2 * 1024;
+
+    /// <summary>
+    /// A compaction failure that says why when the provider did — a timeout,
+    /// a refusal — so it never reads as an unexplained dead end.
+    /// </summary>
+    internal static string CompactionFailureMessage(
+        string failure,
+        ProviderConversationCompactor compactor,
+        string advice) =>
+        compactor.FailureReason is { Length: > 0 } reason
+            ? $"{failure} {reason} {advice}"
+            : $"{failure} {advice}";
+
+    /// <summary>
+    /// Compacts after the provider refused the conversation as too long, then
+    /// shows the shorter conversation.
+    /// </summary>
+    private async ValueTask<ConversationCompactionOutcome> CompactAfterOverflowAsync(
+        NativeAgentSession session,
+        CancellationToken cancellationToken)
+    {
+        AgentModelSelection selection;
+        lock (_gate)
+        {
+            selection = _effectivePolicy.CompactionModel;
+        }
+
+        SetStreamingStatus("The conversation outgrew the model’s context. Compacting older messages…");
+        var compactor = new ProviderConversationCompactor(_providerResolver, selection, _chatSecrets);
+        AgentCompactionResult result;
+        try
+        {
+            result = await CompactInPartsAsync(session, compactor, selection, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            SecretSafeDiagnosticProjection.WriteTrace("agent.compaction.overflow-failed", exception);
+            return ConversationCompactionOutcome.Failure(
+                "agent_compaction_failed",
+                CompactionFailureMessage(
+                    "The conversation could not be compacted to fit the model.",
+                    compactor,
+                    "Start a new chat."));
+        }
+
+        if (!result.Succeeded)
+        {
+            SecretSafeDiagnosticProjection.WriteTrace(
+                "agent.compaction.overflow-failed",
+                SecretSafeDiagnosticKind.Unexpected);
+            return ConversationCompactionOutcome.Failure(
+                result.ErrorCode is { } code ? StableCompactionCode(code) : "agent_compaction_failed",
+                CompactionFailureMessage(
+                    "The conversation could not be compacted to fit the model.",
+                    compactor,
+                    "Start a new chat."));
+        }
+
+        lock (_gate)
+        {
+            _snapshot = _snapshot with
+            {
+                Messages = CopyMessages(ProjectMessages(session)),
+                ContextTokensUsed = session.EstimateContextUsage().EstimatedTokens,
+            };
+        }
+
+        NotifyChanged();
+        return ConversationCompactionOutcome.Success();
+    }
+
+    /// <summary>
+    /// Folds history into the summary a part at a time. The recent turns stay
+    /// word for word while the history before them is summarized; when that
+    /// history is too long for the compaction model to read in one request,
+    /// a smaller, older part is folded instead, halving until it fits, and
+    /// when nothing older is left the recent window narrows.
+    /// </summary>
+    private async ValueTask<AgentCompactionResult> CompactInPartsAsync(
+        NativeAgentSession session,
+        ProviderConversationCompactor compactor,
+        AgentModelSelection selection,
+        CancellationToken cancellationToken)
+    {
+        var compactionWindow = _providerResolver
+                .PinProvider(new AiProviderProfileId(selection.Provider))
+                .ContextWindowTokens(selection.Model)
+            ?? AgentContextWindowPolicy.FallbackContextWindowTokens;
+        var maximumCompacted = Math.Max(MinimumCompactedTokens, compactionWindow / 2);
+        var keepRecent = AgentContextWindowPolicy.DefaultKeepRecentTokens;
+        while (true)
+        {
+            var result = await session.CompactForOverflowAsync(
+                    keepRecent,
+                    maximumCompacted,
+                    compactor,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (result.Succeeded)
+            {
+                return result;
+            }
+
+            if (result.ErrorCode == AgentCompactionErrorCode.InputTooLarge
+                && maximumCompacted > MinimumCompactedTokens)
+            {
+                maximumCompacted = Math.Max(MinimumCompactedTokens, maximumCompacted / 2);
+                continue;
+            }
+
+            if (result.ErrorCode == AgentCompactionErrorCode.NothingToCompact
+                && keepRecent > MinimumKeptRecentTokens)
+            {
+                keepRecent = Math.Max(MinimumKeptRecentTokens, keepRecent / 2);
+                continue;
+            }
+
+            return result;
+        }
     }
 
     private async ValueTask<AgentTurnResult> RunProviderOperationAsync(

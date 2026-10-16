@@ -21,11 +21,18 @@ internal sealed class OpenAiCompatibleAgentProvider(
     {
         ArgumentNullException.ThrowIfNull(request);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        operation.CancelAfter(limits.StreamTimeout);
-        await using var enumerator = StreamCoreAsync(request, operation.Token)
+        // Every event on the wire — a heartbeat or a status the parser skips
+        // included — proves the connection alive, not only those that produce output.
+        await using var enumerator = StreamCoreAsync(
+                request,
+                () => operation.CancelAfter(limits.StreamTimeout),
+                operation.Token)
             .GetAsyncEnumerator(operation.Token);
         while (true)
         {
+            // The limit is on silence, not on the whole answer: a long summary
+            // or a large edit keeps streaming well past it.
+            operation.CancelAfter(limits.StreamTimeout);
             bool moved;
             try
             {
@@ -60,6 +67,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
 
     private async IAsyncEnumerable<AgentProviderEvent> StreamCoreAsync(
         AgentProviderRequest request,
+        Action receivedEvent,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var body = WriteRequest(request);
@@ -112,6 +120,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
                            .EnumerateAsync(cancellationToken)
                            .ConfigureAwait(false))
         {
+            receivedEvent();
             eventCount = checked(eventCount + 1);
             if (eventCount > limits.MaximumSseEvents)
             {
@@ -471,12 +480,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
                 usage,
                 "completion_tokens_details",
                 "reasoning_tokens");
-            if (cached > input || reasoning > output)
-            {
-                throw ProtocolError();
-            }
-
-            _usage = new AgentTokenUsage(input, output, cached, reasoning);
+            _usage = AiProviderUsage.Reconcile(input, output, cached, reasoning);
             return true;
         }
 
@@ -699,6 +703,8 @@ internal sealed class OpenAiCompatibleAgentProvider(
         }
     }
 
-    private static AiProviderClientException ProtocolError() =>
-        AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+    private static AiProviderClientException ProtocolError(
+        [CallerMemberName] string check = "",
+        [CallerLineNumber] int line = 0) =>
+        AiProviderClientException.Malformed($"Chat Completions {check}:{line}");
 }

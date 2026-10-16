@@ -21,6 +21,26 @@ public interface IAgentSessionCheckpointStore
     ValueTask<bool> IsChatHiddenReferenceInUseAsync(AgentConversationScopeId scope, string id, CancellationToken cancellationToken) =>
         ValueTask.FromResult(true);
 
+    // Which of these references any checkpoint still mentions. SQLite answers
+    // in one pass over the stored conversations instead of one per reference.
+    async ValueTask<IReadOnlySet<string>> FindChatHiddenReferencesInUseAsync(
+        AgentConversationScopeId scope,
+        IReadOnlyCollection<string> ids,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        var inUse = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in ids)
+        {
+            if (await IsChatHiddenReferenceInUseAsync(scope, id, cancellationToken).ConfigureAwait(false))
+            {
+                inUse.Add(id);
+            }
+        }
+
+        return inUse;
+    }
+
     ValueTask<AgentSessionCheckpointStoreResult<Unit>> SaveAsync(
         AgentSessionCheckpoint checkpoint,
         CancellationToken cancellationToken);

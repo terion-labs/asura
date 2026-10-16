@@ -61,7 +61,7 @@ public sealed class AiProviderRuntimeLimits
             discoveryTimeout ?? TimeSpan.FromSeconds(20),
             nameof(discoveryTimeout));
         StreamTimeout = RequireTimeout(
-            streamTimeout ?? TimeSpan.FromMinutes(2),
+            streamTimeout ?? TimeSpan.FromMinutes(5),
             nameof(streamTimeout));
     }
 
@@ -85,6 +85,11 @@ public sealed class AiProviderRuntimeLimits
 
     public TimeSpan DiscoveryTimeout { get; }
 
+    /// <summary>
+    /// The longest a provider stream may go without a new event. Reasoning
+    /// models can think silently for minutes, so this bounds a hung
+    /// connection, not the length of an answer.
+    /// </summary>
     public TimeSpan StreamTimeout { get; }
 
     private static int RequireInRange(
