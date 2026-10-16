@@ -93,16 +93,6 @@ public sealed class DesktopBrowserStartupTests : IDisposable
         }
     }
 
-    [Fact]
-    public void WorkspaceRecoveryNoticeDoesNotPreventBrowserStorageInitialization()
-    {
-        using var startup = new DesktopBrowserStartup(Paths(), new Encryption(), new Authentication());
-        startup.ReportRecoveryWorkspace();
-        Assert.True(startup.RequiresRestart);
-        Assert.True(startup.RecoverProfile());
-        Assert.Throws<InvalidOperationException>(() => startup.RequireRunningProfile());
-    }
-
     private BrowserProfileStoragePaths Paths() => new(Path.Combine(_root, "state"), Path.Combine(_root, "runtime"));
 
     public void Dispose() => Directory.Delete(_root, true);

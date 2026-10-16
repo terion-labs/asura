@@ -143,6 +143,11 @@ internal static class Program
         var originalArguments = args;
         var profileAlreadyExists = Directory.Exists(profile.Data.DataDirectory);
         var prepared = PrepareAsync(profile).GetAwaiter().GetResult();
+        // Why the person's own profile did not open, for the recovery notice.
+        // A recovery workspace asked for by name has no such reason.
+        var profileFailure = !profile.IsRecovery && prepared is StartupPreparation.Failed opening
+            ? opening.Message
+            : null;
         while (prepared is StartupPreparation.Failed)
         {
             // A damaged profile is preserved in place. Open another persistent
@@ -209,17 +214,19 @@ internal static class Program
                 mainWindowViewModel = services.GetRequiredService<MainWindowViewModel>();
                 if (profile.IsRecovery)
                 {
-                    // Every window says so, not just the first: the titles
-                    // follow the workspace and tab, and this rides along.
-                    services.GetRequiredService<AsuraApplication>()
-                        .WindowTitleQualifier = "Recovery Workspace";
-                    lifetime.Startup += (_, _) =>
-                    {
-                        if (!profileAlreadyExists)
+                    // Every window says so, not just the first, and every
+                    // time — a recovery workspace reused from an earlier
+                    // fall-back looks just like all the workspaces being gone.
+                    var application = services.GetRequiredService<AsuraApplication>();
+                    application.WindowTitleQualifier = "Recovery Workspace";
+                    var profileArguments = DesktopProfileConfiguration.ProfileArguments(originalArguments);
+                    application.RecoveryWorkspace = new RecoveryWorkspaceNotice(
+                        profileFailure,
+                        () =>
                         {
-                            browserStartup.ReportRecoveryWorkspace();
-                        }
-                    };
+                            restartArguments = profileArguments;
+                            updateShutdown.Request();
+                        });
                 }
                 lifetime.Exit += (_, _) =>
                     TeardownPresentationOrReport(mainWindowViewModel);

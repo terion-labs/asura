@@ -196,8 +196,14 @@ public sealed class WorkspaceViewContractTests
         var surface = Assert.Single(
             root.Elements(),
             element => string.Equals(element.Name.LocalName, "Grid", StringComparison.Ordinal));
-        // Chrome, canvas, bottom tab strip. The fourth row was a status band.
-        Assert.Equal("Auto,*,Auto", AttributeValue(surface, "RowDefinitions"));
+        // Chrome, the recovery-workspace banner, canvas, bottom tab strip. The
+        // banner has a row of its own so nothing floating over the canvas
+        // covers it; outside a recovery run it is hidden and the row is empty.
+        Assert.Equal("Auto,Auto,*,Auto", AttributeValue(surface, "RowDefinitions"));
+        var recoveryBanner = FindNamedElement(root, "RecoveryWorkspaceBanner");
+        Assert.Same(surface, recoveryBanner.Parent);
+        Assert.Equal("1", AttributeValue(recoveryBanner, "Grid.Row"));
+        Assert.Equal("2", AttributeValue(FindNamedElement(root, "WorkspaceBody"), "Grid.Row"));
 
         foreach (var extractedName in WorkspaceControlNames)
         {
@@ -543,7 +549,8 @@ public sealed class WorkspaceViewContractTests
                     AttributeValue(element, "IsVisible"),
                     "False",
                     StringComparison.Ordinal));
-        Assert.Equal("1", AttributeValue(transferManager, "Grid.Row"));
+        // The canvas row, below the recovery banner's.
+        Assert.Equal("2", AttributeValue(transferManager, "Grid.Row"));
         Assert.Equal(
             "Cycle",
             AttributeValue(

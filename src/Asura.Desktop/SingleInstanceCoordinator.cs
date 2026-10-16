@@ -604,13 +604,13 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
         new SingleInstanceStartResult.Failure(new SingleInstanceError(
             SingleInstanceErrorCode.ProfileUnavailable,
             "single_instance_profile_unavailable",
-            "The application profile is unavailable."));
+            "Asura couldn’t open the folder that holds your profile. Check that its disk is available, then try again."));
 
     private static SingleInstanceStartResult ActivationUnavailable() =>
         new SingleInstanceStartResult.Failure(new SingleInstanceError(
             SingleInstanceErrorCode.ActivationUnavailable,
             "single_instance_activation_unavailable",
-            "The existing application instance could not be activated."));
+            "Another Asura process still has your profile open and isn’t responding. Quit it in Activity Monitor, then try again."));
 
     private enum ActivationAttempt
     {

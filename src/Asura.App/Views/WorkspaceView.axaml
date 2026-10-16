@@ -92,7 +92,7 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellDangerBrush}" />
     </Style>
   </UserControl.Styles>
-  <Grid RowDefinitions="Auto,*,Auto">
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
     <Border
         Classes="TopChrome"
         MinHeight="{Binding $parent[views:MainWindow].TitleBarChromeHeight}"
@@ -297,7 +297,7 @@
          window's bottom resize grips keep the points between and below the
          tabs; the tabs and the add button stay theirs. -->
     <Border
-        Grid.Row="2"
+        Grid.Row="3"
         MinHeight="{controls:TextScaled 30}"
         Background="Transparent"
         views:MacOsWindowResizeGrip.IsWindowBackdrop="True"
@@ -331,9 +331,36 @@
           ReorderPointerReleased="OnRuntimeTabDragPointerReleased" />
     </Border>
 
+    <!-- A recovery workspace looks exactly like every workspace having
+         been lost, so it says what it is above everything else, in every
+         window, for as long as the run lasts, on a row of its own so nothing
+         floating over the canvas covers it: the workspaces are safe, why
+         they didn't open, and a way back to them. The code-behind shows it
+         only in a recovery run. -->
+    <controls:Callout
+        x:Name="RecoveryWorkspaceBanner"
+        x:DataType="vm:RecoveryWorkspaceNotice"
+        Grid.Row="1"
+        Margin="{controls:Inset Left=Sm, Right=Sm, Bottom=Sm}"
+        Tone="Warning"
+        Glyph="Warning"
+        IsVisible="False"
+        Title="{Binding Title}"
+        Text="{Binding Message}"
+        Footnote="{Binding Reason}"
+        AutomationProperties.LiveSetting="Assertive">
+      <controls:Callout.Action>
+        <Button
+            Classes="PrimaryButton"
+            VerticalAlignment="Center"
+            Content="{Binding OpenProfileLabel}"
+            Command="{Binding OpenProfileCommand}" />
+      </controls:Callout.Action>
+    </controls:Callout>
+
     <DockPanel
         x:Name="WorkspaceBody"
-        Grid.Row="1"
+        Grid.Row="2"
         Margin="{DynamicResource ShellWindowEdgeInset}"
         LastChildFill="True">
       <!-- A tile opens sideways out of the rail when it offers to close its
@@ -714,7 +741,7 @@
     -->
     <controls:LiveRegionTextBlock
         x:Name="AgentAnnouncementRegion"
-        Grid.Row="1"
+        Grid.Row="2"
         Width="1"
         Height="1"
         HorizontalAlignment="Left"
@@ -737,7 +764,7 @@
          silently deletes it. -->
     <Panel
         x:Name="AgentOverlay"
-        Grid.Row="1"
+        Grid.Row="2"
         ZIndex="90"
         ClipToBounds="False"
         Margin="{DynamicResource ShellWindowEdgeInset}"
@@ -801,7 +828,7 @@
          beside that panel instead of over the send button. -->
     <controls:SurfaceCard
         x:Name="FileTransferManager"
-        Grid.Row="1"
+        Grid.Row="2"
         ZIndex="100"
         Width="440"
         MaxHeight="400"

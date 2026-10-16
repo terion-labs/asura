@@ -174,6 +174,19 @@ public sealed class DesktopThrowawayProfileTests
     }
 
     [Fact]
+    public void A_recovery_workspace_reopens_the_persons_own_profile()
+    {
+        var reopened = DesktopProfileConfiguration.FromCommandLine(
+            DesktopProfileConfiguration.ProfileArguments([DesktopProfileConfiguration.RecoverySwitch + "=3"]), true);
+        Assert.False(reopened.IsRecovery);
+        Assert.Equal(DesktopProfileConfiguration.CreateDefault().Data, reopened.Data);
+        Assert.Equal(
+            ["--other"],
+            DesktopProfileConfiguration.ProfileArguments(["--other", DesktopProfileConfiguration.RecoverySwitch]),
+            StringComparer.Ordinal);
+    }
+
+    [Fact]
     public void AutomaticRecoveryOfDisposableProfilesStaysInsideTheirPrivateRoot()
     {
         using var root = PrivateRoot.Create();

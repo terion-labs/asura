@@ -156,6 +156,13 @@ public sealed class DesktopProfileConfiguration
         return CreateThrowaway(root, service);
     }
 
+    /// <summary>
+    /// The arguments that open the person's own profile again from a
+    /// recovery workspace: the same run, without the recovery selection.
+    /// </summary>
+    internal static string[] ProfileArguments(string[] arguments) =>
+        [.. arguments.Where(argument => !argument.StartsWith(RecoverySwitch, StringComparison.Ordinal))];
+
     internal static string[] NextRecoveryArguments(string[] arguments)
     {
         // A failure inside a recovery workspace must still offer a fresh one.
