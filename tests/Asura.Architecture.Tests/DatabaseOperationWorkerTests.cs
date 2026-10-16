@@ -5,6 +5,7 @@ using Asura.ConnectionBackend;
 using Asura.Desktop;
 using Asura.Files;
 using Asura.Infrastructure;
+using Asura.Processes;
 using Microsoft.Data.Sqlite;
 using Xunit.Abstractions;
 
@@ -140,11 +141,11 @@ public sealed class DatabaseOperationWorkerTests(ITestOutputHelper output)
             var peakParentWorkingSet = initialParentWorkingSet;
             using var worker = fixture.Worker(sample: child =>
             {
-                child.Refresh();
+                var childWorkingSet = child.ResidentMemoryBytes ?? 0;
                 parent.Refresh();
-                peakChildWorkingSet = Math.Max(peakChildWorkingSet, child.WorkingSet64);
+                peakChildWorkingSet = Math.Max(peakChildWorkingSet, childWorkingSet);
                 peakParentWorkingSet = Math.Max(peakParentWorkingSet, parent.WorkingSet64);
-                return child.WorkingSet64;
+                return childWorkingSet;
             });
             var connection = new DatabaseWorkerConnection("sqlite", target);
             var watch = Stopwatch.StartNew();
@@ -401,7 +402,7 @@ public sealed class DatabaseOperationWorkerTests(ITestOutputHelper output)
         public string Path => System.IO.Path.Combine(_directory.FullName, "fixture.db");
         public DatabaseWorkerConnection Connection => new("sqlite",
             new SqliteConnectionStringBuilder { DataSource = Path, Pooling = false }.ToString());
-        public DatabaseOperationWorker Worker(Func<DatabaseValueContentStore>? store = null, Func<Process, long>? sample = null)
+        public DatabaseOperationWorker Worker(Func<DatabaseValueContentStore>? store = null, Func<ChildProcess, long?>? sample = null)
         {
             var root = new DirectoryInfo(AppContext.BaseDirectory);
             while (root is not null && !File.Exists(System.IO.Path.Combine(root.FullName, "global.json"))) { root = root.Parent; }

@@ -4,6 +4,7 @@ using Asura.Application;
 using Asura.Databases;
 using Asura.Files;
 using Asura.Infrastructure;
+using Asura.Processes;
 
 namespace Asura.ConnectionBackend;
 
@@ -15,7 +16,7 @@ namespace Asura.ConnectionBackend;
 internal sealed partial class DatabaseOperationWorker(
     Func<DatabaseValueContentStore> createStore,
     SelfReentryLaunch? selfReentry = null,
-    Func<Process, long>? sampleMemory = null,
+    Func<ChildProcess, long?>? sampleMemory = null,
     Func<CancellationToken, Task<DatabaseWorkspaceOperationLaunch>>? workspaceLaunch = null,
     bool importHostConnectionFiles = false) : IDatabaseOperationExecutor, IDisposable
 {
@@ -100,10 +101,12 @@ internal sealed partial class DatabaseOperationWorker(
             start.RedirectStandardOutput = true;
             start.RedirectStandardError = true;
             start.CreateNoWindow = true;
-            using var process = Process.Start(start) ?? throw new IOException("The database operation worker could not start.");
+            using var process = ChildProcess.Start(start);
             using var terminate = cancellation.Token.Register(() => StopOwnedProcess(process));
             var drain = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellation.Token);
-            await using var monitor = new MemoryMonitor(process, sampleMemory);
+            await using var monitor = new MemoryMonitor(
+                () => sampleMemory?.Invoke(process) ?? process.ResidentMemoryBytes,
+                () => StopOwnedProcess(process));
             var dispatched = false;
             try
             {
@@ -241,20 +244,19 @@ internal sealed partial class DatabaseOperationWorker(
         private readonly Task _task;
         private int _disposed;
         public bool Exceeded { get; private set; }
-        public MemoryMonitor(Process process, Func<Process, long>? sample) => _task = RunAsync(process, sample);
+        public MemoryMonitor(Func<long?> sample, Action stop) => _task = RunAsync(sample, stop);
 
-        private async Task RunAsync(Process process, Func<Process, long>? sample)
+        private async Task RunAsync(Func<long?> sample, Action stop)
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
             try
             {
                 while (await timer.WaitForNextTickAsync(_stop.Token).ConfigureAwait(false))
                 {
-                    process.Refresh();
-                    if ((sample?.Invoke(process) ?? process.WorkingSet64) > MaximumWorkingSetBytes)
+                    if (sample() > MaximumWorkingSetBytes)
                     {
                         Exceeded = true;
-                        StopOwnedProcess(process);
+                        stop();
                         return;
                     }
                 }
@@ -272,7 +274,7 @@ internal sealed partial class DatabaseOperationWorker(
         }
     }
 
-    internal static void StopOwnedProcess(Process process)
+    internal static void StopOwnedProcess(ChildProcess process)
     {
         try
         {
@@ -315,7 +317,17 @@ internal sealed partial class DatabaseOperationWorker(
         using var workspaceScratch = privateWorkspace ? DatabaseWorkspaceScratch.Acquire(
             workspaceOperationId ?? throw new InvalidDataException("The workspace operation identifier is missing.")) : null;
         using var ownProcess = privateWorkspace ? Process.GetCurrentProcess() : null;
-        await using var workspaceMemory = ownProcess is null ? null : new MemoryMonitor(ownProcess, null);
+        await using var workspaceMemory = ownProcess is null
+            ? null
+            : new MemoryMonitor(
+                () =>
+                {
+                    ownProcess.Refresh();
+                    return ownProcess.WorkingSet64;
+                },
+                // Past the limit the whole workspace operation ends at once,
+                // as it always has: this process kills itself.
+                () => ownProcess.Kill(entireProcessTree: false));
         try
         {
             var request = await DatabaseOperationProtocol.ReadMetadataAsync(input,

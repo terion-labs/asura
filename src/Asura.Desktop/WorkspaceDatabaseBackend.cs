@@ -7,6 +7,7 @@ using Asura.ConnectionBackend;
 using Asura.Core;
 using Asura.Files;
 using Asura.Infrastructure;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -89,7 +90,7 @@ internal sealed class WorkspaceDatabaseBackend(IConnectionCommandRuntime command
                 var archive = await EnsureDefaultArchiveAsync(architecture, cancellationToken, descriptorPath, cacheRoot).ConfigureAwait(false);
                 var installationId = Guid.NewGuid().ToString("N");
                 var start = await PlanCommandAsync("/bin/sh", ["-c", InstallScript, "asura-backend-install", archive.Hash, installationId], cancellationToken).ConfigureAwait(false);
-                using var process = Process.Start(start) ?? throw new IOException("The workspace backend installer could not start.");
+                using var process = ChildProcess.Start(start);
                 using var stop = cancellationToken.Register(() => DatabaseOperationWorker.StopOwnedProcess(process));
                 var output = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
                 var error = process.StandardError.BaseStream.CopyToAsync(Stream.Null, cancellationToken);
@@ -174,7 +175,7 @@ internal sealed class WorkspaceDatabaseBackend(IConnectionCommandRuntime command
 
     private static async Task RunControlCommandAsync(ProcessStartInfo start, CancellationToken token)
     {
-        using var process = Process.Start(start) ?? throw new IOException("The workspace backend control process could not start.");
+        using var process = ChildProcess.Start(start);
         using var stop = token.Register(() => DatabaseOperationWorker.StopOwnedProcess(process));
         var output = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, token);
         var error = process.StandardError.BaseStream.CopyToAsync(Stream.Null, token);

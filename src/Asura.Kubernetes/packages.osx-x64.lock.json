@@ -61,6 +61,9 @@
       },
       "asura.core": {
         "type": "Project"
+      },
+      "asura.processes": {
+        "type": "Project"
       }
     },
     "net10.0/osx-x64": {}

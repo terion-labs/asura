@@ -14,15 +14,8 @@ public static class NetworkAuthenticationBrowser
             return ValueTask.FromResult(false);
         }
 
-        try
-        {
-            // Authentication must work before the workspace has a network route.
-            using var process = Process.Start(new ProcessStartInfo(address.AbsoluteUri) { UseShellExecute = true });
-            return ValueTask.FromResult(true);
-        }
-        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
-        {
-            return ValueTask.FromResult(false);
-        }
+        // Authentication must work before the workspace has a network route,
+        // so the address opens in the person's own browser, outside it.
+        return new ValueTask<bool>(PlatformLauncher.OpenAsync(address));
     }
 }

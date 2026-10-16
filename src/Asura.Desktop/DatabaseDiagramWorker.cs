@@ -4,6 +4,7 @@ using Asura.Application;
 using Asura.ConnectionBackend;
 using Asura.Databases;
 using Asura.Infrastructure;
+using Asura.Processes;
 using SkiaSharp;
 
 namespace Asura.Desktop;
@@ -47,7 +48,7 @@ internal sealed class DatabaseDiagramWorker(SelfReentryLaunch? selfReentry = nul
         WorkerSession session;
         try
         {
-            var process = Process.Start(start) ?? throw new IOException("The database schema worker could not start.");
+            var process = ChildProcess.Start(start);
             session = new WorkerSession(process);
         }
         catch
@@ -191,13 +192,13 @@ internal sealed class DatabaseDiagramWorker(SelfReentryLaunch? selfReentry = nul
         }
     }
 
-    private sealed class WorkerSession(Process process) : IDatabaseDiagramSession
+    private sealed class WorkerSession(ChildProcess process) : IDatabaseDiagramSession
     {
         private readonly SemaphoreSlim _commands = new(1, 1);
         private readonly CancellationTokenSource _lifetime = new();
         private readonly Task _stderrDrain = process.StandardError.BaseStream.CopyToAsync(Stream.Null);
         private readonly DiagramMemoryWatchdog _watchdog = new(
-            () => { process.Refresh(); return process.WorkingSet64; },
+            () => process.ResidentMemoryBytes ?? 0,
             () => { if (!process.HasExited) { process.Kill(entireProcessTree: false); } });
         private int _disposed;
         private bool _operationFailed;

@@ -66,12 +66,12 @@ public sealed partial class AiProviderProfileEditorDialog : DialogWindow
                 return;
             }
 
-            var process = Process.Start(new ProcessStartInfo
+            if (!await PlatformLauncher.OpenAsync(launch.AuthorizationUri, this))
             {
-                FileName = launch.AuthorizationUri.AbsoluteUri,
-                UseShellExecute = true,
-            });
-            process?.Dispose();
+                ShowValidationError("Couldn’t open the sign-in page. Try again.");
+                return;
+            }
+
             await launch.Completion;
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

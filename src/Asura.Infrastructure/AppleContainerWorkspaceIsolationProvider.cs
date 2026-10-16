@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -2693,14 +2694,10 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
             return AppleContainerCommandResult.Cancelled;
         }
 
-        using var process = CreateProcess(command);
+        ChildProcess started;
         try
         {
-            if (!process.Start())
-            {
-                return AppleContainerCommandResult.StartFailed(
-                    AppleContainerCommandStartFailure.Unknown);
-            }
+            started = ChildProcess.Start(CreateStartInfo(command));
         }
         catch (Win32Exception exception)
         {
@@ -2723,10 +2720,11 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
-            TryKill(process);
+            SecretSafeDiagnosticProjection.WriteTrace("workspace.apple-container.start-failed", exception);
             return AppleContainerCommandResult.ExecutionFailed;
         }
 
+        using var process = started;
         var stdoutTask = Task.FromResult(string.Empty);
         var stderrTask = Task.FromResult(string.Empty);
         try
@@ -2775,26 +2773,23 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
         }
     }
 
-    private static Process CreateProcess(AppleContainerCommand command)
+    private static ProcessStartInfo CreateStartInfo(AppleContainerCommand command)
     {
-        var process = new Process
+        var start = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = command.Executable,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
+            FileName = command.Executable,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         foreach (var argument in command.Arguments)
         {
-            process.StartInfo.ArgumentList.Add(argument);
+            start.ArgumentList.Add(argument);
         }
 
-        return process;
+        return start;
     }
 
     private static async Task<string> ReadBoundedAsync(
@@ -2846,7 +2841,7 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

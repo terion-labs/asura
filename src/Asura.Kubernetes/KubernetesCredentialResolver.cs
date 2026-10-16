@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.Kubernetes;
 
@@ -110,14 +111,10 @@ public sealed class KubernetesCredentialResolver
         }
 
         start.Environment["KUBERNETES_EXEC_INFO"] = ExecInfo(exec, connection);
-        using var process = new Process { StartInfo = start };
+        ChildProcess? process = null;
         try
         {
-            if (!process.Start())
-            {
-                throw CredentialFailure();
-            }
-
+            process = ChildProcess.Start(start);
             process.StandardInput.Close();
             Task<string> output = ReadTextAsync(process.StandardOutput.BaseStream, MaximumCredentialBytes, timeout.Token).AsTask();
             Task<string> errors = ReadTextAsync(process.StandardError.BaseStream, 65536, timeout.Token).AsTask();
@@ -145,7 +142,7 @@ public sealed class KubernetesCredentialResolver
         {
             try
             {
-                if (!process.HasExited)
+                if (process is { HasExited: false })
                 {
                     process.Kill(entireProcessTree: true);
                     await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -153,8 +150,10 @@ public sealed class KubernetesCredentialResolver
             }
             catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
             {
-                // Starting may have failed; no child was acquired in that case.
+                // The child ended or refused the signal; it is not ours to wait for.
             }
+
+            process?.Dispose();
         }
     }
 

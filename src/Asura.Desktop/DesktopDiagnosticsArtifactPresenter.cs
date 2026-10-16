@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Asura.App;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -31,10 +32,7 @@ internal sealed class DesktopDiagnosticsArtifactPresenter : IDiagnosticsArtifact
         {
             var startInfo = action switch
             {
-                DiagnosticsArtifactPresentationAction.Open => new ProcessStartInfo(path)
-                {
-                    UseShellExecute = true,
-                },
+                DiagnosticsArtifactPresentationAction.Open => CreateOpenStartInfo(path),
                 DiagnosticsArtifactPresentationAction.Reveal => CreateRevealStartInfo(path),
                 _ => throw new ArgumentOutOfRangeException(nameof(action), action, null),
             };
@@ -43,7 +41,9 @@ internal sealed class DesktopDiagnosticsArtifactPresenter : IDiagnosticsArtifact
                 return ValueTask.FromResult(DiagnosticsArtifactPresentationResult.Unsupported);
             }
 
-            _ = Process.Start(startInfo);
+            // The system's own opener hands the file to the app the person
+            // chose; it is reaped when it exits.
+            using var opener = ChildProcess.Start(startInfo);
             return ValueTask.FromResult(DiagnosticsArtifactPresentationResult.Presented);
         }
         catch (Exception exception) when (exception is InvalidOperationException
@@ -52,6 +52,22 @@ internal sealed class DesktopDiagnosticsArtifactPresenter : IDiagnosticsArtifact
         {
             return ValueTask.FromResult(DiagnosticsArtifactPresentationResult.Failed);
         }
+    }
+
+    private static ProcessStartInfo? CreateOpenStartInfo(string path)
+    {
+        var opener = OperatingSystem.IsMacOS() ? "/usr/bin/open"
+            : OperatingSystem.IsWindows() ? "explorer.exe"
+            : OperatingSystem.IsLinux() ? "xdg-open"
+            : null;
+        if (opener is null)
+        {
+            return null;
+        }
+
+        var info = DirectProcess(opener);
+        info.ArgumentList.Add(path);
+        return info;
     }
 
     private static ProcessStartInfo? CreateRevealStartInfo(string path)

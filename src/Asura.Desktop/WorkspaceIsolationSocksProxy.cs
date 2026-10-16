@@ -7,6 +7,7 @@ using System.Text;
 using Asura.App;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -548,7 +549,7 @@ internal sealed class WorkspaceIsolationSocksProxy :
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {
@@ -559,7 +560,7 @@ internal sealed class WorkspaceIsolationSocksProxy :
         }
     }
 
-    private async ValueTask<Process?> StartRelayAsync(
+    private async ValueTask<ChildProcess?> StartRelayAsync(
         string host,
         int port,
         CancellationToken cancellationToken)
@@ -601,22 +602,15 @@ internal sealed class WorkspaceIsolationSocksProxy :
             start.Environment[name] = value;
         }
 
-        var process = new Process { StartInfo = start };
         try
         {
-            if (!process.Start())
-            {
-                process.Dispose();
-                return null;
-            }
-
-            process.BeginErrorReadLine();
+            var process = ChildProcess.Start(start);
+            process.DiscardStandardError();
             return process;
         }
         catch (Exception exception) when (exception is
             InvalidOperationException or Win32Exception)
         {
-            process.Dispose();
             return null;
         }
     }

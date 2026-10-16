@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using Asura.Processes;
 
 namespace Asura.ConnectionBackend;
 
@@ -75,7 +76,7 @@ internal sealed class WorkspaceHttpMessageHandler(
     private sealed class Exchange : IAsyncDisposable
     {
         private readonly DatabaseWorkspaceOperationLaunch _owned;
-        private readonly Process _process;
+        private readonly ChildProcess _process;
         private readonly Task _errors;
         private readonly CancellationTokenSource _lifetime;
         private readonly CancellationToken _token;
@@ -94,7 +95,7 @@ internal sealed class WorkspaceHttpMessageHandler(
                 var start = owned.StartInfo;
                 start.UseShellExecute = false; start.RedirectStandardInput = true; start.RedirectStandardOutput = true;
                 start.RedirectStandardError = true; start.CreateNoWindow = true;
-                _process = Process.Start(start) ?? throw new IOException("The HTTP backend could not start.");
+                _process = ChildProcess.Start(start);
                 _errors = _process.StandardError.BaseStream.CopyToAsync(Stream.Null, CancellationToken.None);
                 _stop = _lifetime.Token.Register(() => Abort());
             }

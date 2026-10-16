@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using Asura.Application;
 using Asura.Core;
 using Asura.Files;
+using Asura.Processes;
 using ProviderId = Asura.Files.FileProviderProfileId;
 
 namespace Asura.ConnectionBackend;
@@ -134,7 +135,7 @@ internal sealed partial class WorkspaceFileProvider(FileProviderProfile profile,
         }
     }
 
-    private static async Task<FileWorkspaceMessage> ReadResultAsync(Process process, FileWorkspaceHostCredentials credentials,
+    private static async Task<FileWorkspaceMessage> ReadResultAsync(ChildProcess process, FileWorkspaceHostCredentials credentials,
         FileWorkspaceRequest request, Stream? upload, Stream? download, IProgress<FileTransferProgress>? progress, CancellationToken token)
     {
         long uploaded = 0;

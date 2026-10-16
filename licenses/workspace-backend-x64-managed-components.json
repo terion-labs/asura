@@ -223,6 +223,13 @@
       "file": "Asura.Infrastructure.dll"
     },
     {
+      "identity": "Asura.Processes/${productVersion}",
+      "kind": "project",
+      "depsType": "project",
+      "licenseDeclared": "NOASSERTION",
+      "file": "Asura.Processes.dll"
+    },
+    {
       "identity": "Asura.Redis/${productVersion}",
       "kind": "project",
       "depsType": "project",

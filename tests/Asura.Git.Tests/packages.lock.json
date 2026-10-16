@@ -162,12 +162,16 @@
         "dependencies": {
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
+          "Asura.Processes": "[1.0.0, )",
           "Microsoft.Data.Sqlite.Core": "[10.0.10, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "SQLite3MC.PCLRaw.bundle": "[2.4.0, )",
           "SSH.NET": "[2026.0.0, )",
           "System.Security.Cryptography.ProtectedData": "[10.0.10, )"
         }
+      },
+      "asura.processes": {
+        "type": "Project"
       },
       "BouncyCastle.Cryptography": {
         "type": "CentralTransitive",

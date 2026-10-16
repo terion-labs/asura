@@ -5,6 +5,7 @@ using Asura.Core;
 using Asura.Desktop;
 using Asura.Files;
 using Asura.Infrastructure;
+using Asura.Processes;
 using Xunit.Abstractions;
 
 namespace Asura.Architecture.Tests;
@@ -78,7 +79,7 @@ public sealed partial class WorkspaceDatabaseBackendNativeTests(ITestOutputHelpe
         var executable = commands.LastBackendExecutable;
         Assert.NotNull(executable);
         Assert.False(File.Exists(executable));
-        using var process = Process.Start(launch.StartInfo) ?? throw new IOException("The guest backend test process did not start.");
+        using var process = ChildProcess.Start(launch.StartInfo);
         using var stop = token.Register(() => DatabaseOperationWorker.StopOwnedProcess(process));
         var stdout = process.StandardOutput.BaseStream.CopyToAsync(Stream.Null, token);
         var stderr = process.StandardError.BaseStream.CopyToAsync(Stream.Null, token);
@@ -260,7 +261,7 @@ public sealed partial class WorkspaceDatabaseBackendNativeTests(ITestOutputHelpe
         };
         foreach (var argument in launch.Arguments) { start.ArgumentList.Add(argument); }
         foreach (var (name, value) in launch.Environment) { start.Environment[name] = value; }
-        using var process = Process.Start(start) ?? throw new IOException("The guest fixture command did not start.");
+        using var process = ChildProcess.Start(start);
         using var stop = token.Register(() => DatabaseOperationWorker.StopOwnedProcess(process));
         process.StandardInput.Close();
         var output = process.StandardOutput.ReadToEndAsync(token);

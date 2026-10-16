@@ -854,6 +854,7 @@ first_party_assemblies=(
     "Asura.Mcp.Server.dll"
     "Asura.Monitoring.dll"
     "Asura.Previews.dll"
+    "Asura.Processes.dll"
     "Asura.Protocol.dll"
     "Asura.Redis.dll"
     "Asura.SessionHost.dll"

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -543,27 +544,21 @@ public sealed class LinuxSecretServiceSecretVault : ISecretVault
         bool captureOutput,
         CancellationToken cancellationToken)
     {
-        using var process = new Process
+        var start = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = _executable,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = standardInput is not null,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
+            FileName = _executable,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = standardInput is not null,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         foreach (var argument in arguments)
         {
-            process.StartInfo.ArgumentList.Add(argument);
+            start.ArgumentList.Add(argument);
         }
 
-        if (!process.Start())
-        {
-            throw new IOException("Secret Service helper could not start.");
-        }
+        using var process = ChildProcess.Start(start);
 
         Task<BoundedOutput?>? outputTask = null;
         try

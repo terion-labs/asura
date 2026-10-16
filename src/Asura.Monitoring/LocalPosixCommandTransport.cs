@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using Asura.Processes;
 
 namespace Asura.Monitoring;
 
@@ -19,22 +20,12 @@ public sealed class LocalPosixCommandTransport : IPosixCommandTransport
             return Cancelled();
         }
 
-        using var process = CreateProcess(command);
+        // posix_spawn copies nothing of the app, so starting here does not
+        // stall the caller the way forking a large process did.
+        ChildProcess started;
         try
         {
-            // Process.Start performs fork/exec synchronously on Unix. Running it
-            // on the UI thread can stall every composited panel while the
-            // runtime and allocator prepare the child process.
-            var started = await Task.Run(process.Start, cancellationToken)
-                .ConfigureAwait(false);
-            if (!started)
-            {
-                return StartFailed();
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            return Cancelled();
+            started = ChildProcess.Start(CreateStartInfo(command));
         }
         catch (Exception exception) when (exception is
             Win32Exception or
@@ -44,6 +35,7 @@ public sealed class LocalPosixCommandTransport : IPosixCommandTransport
             return StartFailed();
         }
 
+        using var process = started;
         using var timeout = new CancellationTokenSource(command.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
@@ -78,26 +70,23 @@ public sealed class LocalPosixCommandTransport : IPosixCommandTransport
         }
     }
 
-    private static Process CreateProcess(PosixCommand command)
+    private static ProcessStartInfo CreateStartInfo(PosixCommand command)
     {
-        var process = new Process
+        var start = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = command.Executable,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
+            FileName = command.Executable,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         foreach (var argument in command.Arguments)
         {
-            process.StartInfo.ArgumentList.Add(argument);
+            start.ArgumentList.Add(argument);
         }
 
-        return process;
+        return start;
     }
 
     private static async Task<string> ReadBoundedAsync(
@@ -155,7 +144,7 @@ public sealed class LocalPosixCommandTransport : IPosixCommandTransport
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

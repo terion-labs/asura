@@ -772,24 +772,11 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnDockerInstallGuideRequested(object? sender, RoutedEventArgs e)
+    private async void OnDockerInstallGuideRequested(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = "https://docs.docker.com/engine/install/",
-                UseShellExecute = true,
-            });
-            if (process is null)
-            {
-                ViewModel.SetError("The Docker installation guide couldn’t be opened.");
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException
-            or System.ComponentModel.Win32Exception)
+        if (!await PlatformLauncher.OpenAsync(new Uri("https://docs.docker.com/engine/install/"), this))
         {
             ViewModel.SetError("The Docker installation guide couldn’t be opened.");
         }
@@ -1802,7 +1789,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OnFileOpenExternallyClick(object? sender, RoutedEventArgs e)
+    private async void OnFileOpenExternallyClick(object? sender, RoutedEventArgs e)
     {
         _ = e;
         if (sender is not Control { DataContext: FileRuntimePanelViewModel panel }
@@ -1811,21 +1798,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        try
-        {
-            var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = panel.GetSelectedLocalPath(),
-                UseShellExecute = true,
-            });
-            if (process is null)
-            {
-                panel.ReportValidationError(
-                    "No app is set to open this file.");
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException
-            or System.ComponentModel.Win32Exception)
+        if (!await PlatformLauncher.OpenFileAsync(panel.GetSelectedLocalPath(), this))
         {
             panel.ReportValidationError(
                 "The file couldn’t be opened with its default app.");

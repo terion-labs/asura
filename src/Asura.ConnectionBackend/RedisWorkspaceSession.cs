@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Channels;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.ConnectionBackend;
 
@@ -37,7 +38,7 @@ internal sealed class RedisWorkspaceSessionFactory(
 internal sealed partial class RedisWorkspaceSession : IRedisPanelSession
 {
     private readonly DatabaseWorkspaceOperationLaunch _owned;
-    private readonly Process _process;
+    private readonly ChildProcess _process;
     private readonly CancellationTokenSource _lifetime;
     private readonly CancellationTokenRegistration _termination;
     private readonly SemaphoreSlim _command = new(1, 1);
@@ -62,7 +63,7 @@ internal sealed partial class RedisWorkspaceSession : IRedisPanelSession
         start.RedirectStandardOutput = true;
         start.RedirectStandardError = true;
         start.CreateNoWindow = true;
-        _process = Process.Start(start) ?? throw new IOException("The Redis backend could not start.");
+        _process = ChildProcess.Start(start);
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(owned.Lifetime);
         _termination = _lifetime.Token.Register(() => DatabaseOperationWorker.StopOwnedProcess(_process));
         _errors = DrainErrorsAsync();

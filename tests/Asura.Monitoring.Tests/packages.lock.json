@@ -131,8 +131,12 @@
         "type": "Project",
         "dependencies": {
           "Asura.Application": "[1.0.0, )",
-          "Asura.Core": "[1.0.0, )"
+          "Asura.Core": "[1.0.0, )",
+          "Asura.Processes": "[1.0.0, )"
         }
+      },
+      "asura.processes": {
+        "type": "Project"
       }
     }
   }

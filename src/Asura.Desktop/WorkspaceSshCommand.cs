@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -52,8 +53,7 @@ internal static class WorkspaceSshCommand
             resolution.ArgumentList.Add(argument);
         }
 
-        using var resolver = new Process { StartInfo = resolution };
-        resolver.Start();
+        using var resolver = ChildProcess.Start(resolution);
         string? host = null;
         var port = 0;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -92,8 +92,7 @@ internal static class WorkspaceSshCommand
         {
             start.ArgumentList.Add(argument);
         }
-        using var ssh = new Process { StartInfo = start };
-        ssh.Start();
+        using var ssh = ChildProcess.Start(start);
         try
         {
             await ssh.WaitForExitAsync(cancellationToken).ConfigureAwait(false);

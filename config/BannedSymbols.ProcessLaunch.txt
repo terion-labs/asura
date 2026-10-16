@@ -1,0 +1,10 @@
+# Process.Start forks the whole app on macOS and Linux. In a Chromium-loaded
+# Asura the fork can deadlock before the program loads, holding every later
+# launch and the profile's locks. Start programs with Asura.Processes.ChildProcess
+# (posix_spawn), and open documents and addresses through the platform launcher.
+M:System.Diagnostics.Process.#ctor; Start programs with Asura.Processes.ChildProcess.
+M:System.Diagnostics.Process.Start; Start programs with Asura.Processes.ChildProcess.
+M:System.Diagnostics.Process.Start(System.Diagnostics.ProcessStartInfo); Start programs with Asura.Processes.ChildProcess.
+M:System.Diagnostics.Process.Start(System.String); Open documents and addresses through the platform launcher, or start programs with Asura.Processes.ChildProcess.
+M:System.Diagnostics.Process.Start(System.String,System.String); Start programs with Asura.Processes.ChildProcess.
+M:System.Diagnostics.Process.Start(System.String,System.Collections.Generic.IEnumerable{System.String}); Start programs with Asura.Processes.ChildProcess.
