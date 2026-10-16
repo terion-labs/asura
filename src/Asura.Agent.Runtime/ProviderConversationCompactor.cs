@@ -59,11 +59,37 @@ internal sealed class ProviderConversationCompactor(
                 "A valid compaction provider and model are required.",
                 nameof(selection));
 
+    /// <summary>
+    /// Why the last summary request failed, in words safe to show — the
+    /// provider's public failure message — or null when it gave none.
+    /// </summary>
+    public string? FailureReason { get; private set; }
+
     public async ValueTask<AgentMessage> CompactAsync(
         AgentCompactionRequest request,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
+        try
+        {
+            return await CompactCoreAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ConversationMaintenanceException exception)
+        {
+            FailureReason = exception.Message;
+            throw;
+        }
+        catch (AgentCompactionInputTooLargeException exception)
+        {
+            FailureReason = exception.Message;
+            throw;
+        }
+    }
+
+    private async ValueTask<AgentMessage> CompactCoreAsync(
+        AgentCompactionRequest request,
+        CancellationToken cancellationToken)
+    {
         var turnPrefix = request.TurnPrefixMessages.IsDefault
             ? []
             : request.TurnPrefixMessages;
@@ -98,8 +124,8 @@ internal sealed class ProviderConversationCompactor(
 
         if (string.IsNullOrWhiteSpace(summary))
         {
-            throw new InvalidOperationException(
-                "The configured compaction model returned an empty summary.");
+            throw new ConversationMaintenanceException(
+                "The compaction model returned an empty summary.");
         }
 
         return new AgentMessage(AgentMessageRole.Summary, summary.Trim());
@@ -203,9 +229,9 @@ internal static class ProviderConversationMaintenance
                     ?? "The history to compact exceeds the maintenance request bound.");
             }
 
-            throw new InvalidOperationException(
+            throw new ConversationMaintenanceException(
                 result.ProviderFailure?.Message
-                ?? "The configured conversation-maintenance model did not return text.");
+                ?? "The conversation-maintenance model did not return text.");
         }
 
         return session.Snapshot().Conversation
@@ -261,5 +287,26 @@ internal sealed class ProviderConversationTitleGenerator(
                 cancellationToken)
             .ConfigureAwait(false);
         return title.Trim().Trim('"', '\'', '`');
+    }
+}
+
+/// <summary>
+/// A conversation-maintenance request failed. The message is safe to show:
+/// either the provider's public failure message or fixed local text.
+/// </summary>
+internal sealed class ConversationMaintenanceException : InvalidOperationException
+{
+    public ConversationMaintenanceException()
+    {
+    }
+
+    public ConversationMaintenanceException(string message)
+        : base(message)
+    {
+    }
+
+    public ConversationMaintenanceException(string message, Exception innerException)
+        : base(message, innerException)
+    {
     }
 }

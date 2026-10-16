@@ -56,7 +56,7 @@ public sealed partial class GovernedAgentRuntime
                 // Everything before the latest turn is too long for the
                 // compaction model to read at once: fold it from the oldest
                 // end, a part at a time, keeping recent messages as they are.
-                result = await CompactInPartsAsync(session, compactionModel, operation.Token)
+                result = await CompactInPartsAsync(session, compactor, compactionModel, operation.Token)
                     .ConfigureAwait(false);
             }
 
@@ -66,7 +66,10 @@ public sealed partial class GovernedAgentRuntime
                     result.ErrorCode is { } code ? StableCompactionCode(code) : "agent_compaction_failed",
                     result.ErrorCode == AgentCompactionErrorCode.Cancelled
                         ? "Compaction canceled. Your conversation is unchanged."
-                        : "The conversation could not be compacted. Your conversation is unchanged.");
+                        : CompactionFailureMessage(
+                            "The conversation could not be compacted.",
+                            compactor,
+                            "Your conversation is unchanged."));
                 return outcome;
             }
 

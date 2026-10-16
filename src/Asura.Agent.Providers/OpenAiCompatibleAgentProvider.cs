@@ -21,11 +21,13 @@ internal sealed class OpenAiCompatibleAgentProvider(
     {
         ArgumentNullException.ThrowIfNull(request);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        operation.CancelAfter(limits.StreamTimeout);
         await using var enumerator = StreamCoreAsync(request, operation.Token)
             .GetAsyncEnumerator(operation.Token);
         while (true)
         {
+            // The limit is on silence, not on the whole answer: a long summary
+            // or a large edit keeps streaming well past it.
+            operation.CancelAfter(limits.StreamTimeout);
             bool moved;
             try
             {

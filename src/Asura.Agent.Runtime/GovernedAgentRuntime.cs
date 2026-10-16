@@ -2210,6 +2210,12 @@ public sealed partial class GovernedAgentRuntime :
                     compactor,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (result.ErrorCode == AgentCompactionErrorCode.InputTooLarge)
+            {
+                result = await CompactInPartsAsync(session, compactor, selection, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             if (!result.Succeeded)
             {
                 var code = result.ErrorCode is { } errorCode
@@ -2220,7 +2226,10 @@ public sealed partial class GovernedAgentRuntime :
                     SecretSafeDiagnosticKind.Unexpected);
                 return ConversationCompactionOutcome.Failure(
                     code,
-                    "The conversation could not be compacted before the next provider request. Retry.");
+                    CompactionFailureMessage(
+                        "The conversation could not be compacted before the next provider request.",
+                        compactor,
+                        "Retry."));
             }
 
             lock (_gate)
@@ -2440,6 +2449,18 @@ public sealed partial class GovernedAgentRuntime :
     private const int MinimumKeptRecentTokens = 2 * 1024;
 
     /// <summary>
+    /// A compaction failure that says why when the provider did — a timeout,
+    /// a refusal — so it never reads as an unexplained dead end.
+    /// </summary>
+    internal static string CompactionFailureMessage(
+        string failure,
+        ProviderConversationCompactor compactor,
+        string advice) =>
+        compactor.FailureReason is { Length: > 0 } reason
+            ? $"{failure} {reason} {advice}"
+            : $"{failure} {advice}";
+
+    /// <summary>
     /// Compacts after the provider refused the conversation as too long, then
     /// shows the shorter conversation.
     /// </summary>
@@ -2454,10 +2475,11 @@ public sealed partial class GovernedAgentRuntime :
         }
 
         SetStreamingStatus("The conversation outgrew the model’s context. Compacting older messages…");
+        var compactor = new ProviderConversationCompactor(_providerResolver, selection, _chatSecrets);
         AgentCompactionResult result;
         try
         {
-            result = await CompactInPartsAsync(session, selection, cancellationToken)
+            result = await CompactInPartsAsync(session, compactor, selection, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -2465,7 +2487,10 @@ public sealed partial class GovernedAgentRuntime :
             SecretSafeDiagnosticProjection.WriteTrace("agent.compaction.overflow-failed", exception);
             return ConversationCompactionOutcome.Failure(
                 "agent_compaction_failed",
-                "The conversation could not be compacted to fit the model. Start a new chat.");
+                CompactionFailureMessage(
+                    "The conversation could not be compacted to fit the model.",
+                    compactor,
+                    "Start a new chat."));
         }
 
         if (!result.Succeeded)
@@ -2475,7 +2500,10 @@ public sealed partial class GovernedAgentRuntime :
                 SecretSafeDiagnosticKind.Unexpected);
             return ConversationCompactionOutcome.Failure(
                 result.ErrorCode is { } code ? StableCompactionCode(code) : "agent_compaction_failed",
-                "The conversation could not be compacted to fit the model. Start a new chat.");
+                CompactionFailureMessage(
+                    "The conversation could not be compacted to fit the model.",
+                    compactor,
+                    "Start a new chat."));
         }
 
         lock (_gate)
@@ -2500,13 +2528,10 @@ public sealed partial class GovernedAgentRuntime :
     /// </summary>
     private async ValueTask<AgentCompactionResult> CompactInPartsAsync(
         NativeAgentSession session,
+        ProviderConversationCompactor compactor,
         AgentModelSelection selection,
         CancellationToken cancellationToken)
     {
-        var compactor = new ProviderConversationCompactor(
-            _providerResolver,
-            selection,
-            _chatSecrets);
         var compactionWindow = _providerResolver
                 .PinProvider(new AiProviderProfileId(selection.Provider))
                 .ContextWindowTokens(selection.Model)

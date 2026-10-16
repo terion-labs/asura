@@ -68,6 +68,25 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.Contains(next.Messages, message => message.Content == LongPrompt(20));
     }
 
+    [Fact]
+    public async Task A_failed_compaction_says_why_the_provider_failed()
+    {
+        var provider = new ProviderRound((call, _) => call == 3
+            ? throw new TestProviderException("ai_provider_timeout", "The AI-provider request timed out.")
+            : ProviderRound.Answer("Answer"));
+        await using var fixture = new RuntimeFixture(provider);
+        await fixture.Runtime.SendAsync(fixture.Prompt("First question"), CancellationToken.None);
+        await fixture.Runtime.SendAsync(fixture.Prompt("Second question"), CancellationToken.None);
+
+        var result = await fixture.Runtime.CompactAsync(CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(
+            "The conversation could not be compacted. The AI-provider request timed out. Your conversation is unchanged.",
+            result.Message);
+        Assert.Equal(result.Message, fixture.Runtime.Snapshot.Status);
+    }
+
     private static string LongPrompt(int turn) => $"Question {turn}: " + new string('q', 4_000);
 
     /// <summary>
