@@ -48,7 +48,6 @@ internal sealed class PosixChildProcess : IChildProcessBackend
         ? PosixSpawn.ResidentMemoryBytes(Id)
         : LinuxResidentMemoryBytes(Id);
 
-    public event EventHandler? Exited;
 
     public static PosixChildProcess Start(ProcessStartInfo startInfo)
     {
@@ -187,7 +186,6 @@ internal sealed class PosixChildProcess : IChildProcessBackend
             {
                 var code = PosixSpawn.WaitForExit(Id);
                 _exit.TrySetResult(code);
-                ThreadPool.QueueUserWorkItem(_ => Exited?.Invoke(this, EventArgs.Empty));
             },
             maxStackSize: 256 * 1024)
         {

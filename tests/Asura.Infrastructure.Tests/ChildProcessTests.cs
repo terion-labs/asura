@@ -175,6 +175,66 @@ public sealed class ChildProcessTests
     }
 
     [Fact]
+    public async Task Every_exit_is_announced_however_fast_the_program_ends()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // The wrapper used to subscribe after the reaper had started, so a
+        // program that ended at once could announce its exit to nobody.
+        for (var attempt = 0; attempt < 100; attempt++)
+        {
+            var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var child = ChildProcess.Start(new ProcessStartInfo("/usr/bin/true") { UseShellExecute = false });
+            child.Exited += (_, _) => exited.TrySetResult();
+            await exited.Task.WaitAsync(Patience);
+        }
+
+        // A handler added after the program has gone still runs.
+        using var ended = ChildProcess.Start(new ProcessStartInfo("/usr/bin/true") { UseShellExecute = false });
+        await ended.WaitForExitAsync().WaitAsync(Patience);
+        var late = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        ended.Exited += (_, _) => late.TrySetResult();
+        await late.Task.WaitAsync(Patience);
+    }
+
+    [Fact]
+    public async Task A_program_that_ended_before_it_was_wrapped_still_announces_its_exit()
+    {
+        // The reaper starts before the wrapper exists; a program that ends in
+        // that gap must still be announced, to handlers added at any time.
+        using var child = ChildProcess.FromBackend(new AlreadyExitedBackend());
+        var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        child.Exited += (_, _) => exited.TrySetResult();
+        await exited.Task.WaitAsync(Patience);
+        Assert.Equal(3, child.ExitCode);
+    }
+
+    [Fact]
+    public async Task A_running_program_reports_its_resident_memory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var child = ChildProcess.Start(Shell("sleep 30"));
+        try
+        {
+            Assert.True(child.ResidentMemoryBytes > 0, "The system's process information was not read.");
+        }
+        finally
+        {
+            child.Kill();
+            await child.WaitForExitAsync().WaitAsync(Patience);
+        }
+
+        Assert.Null(child.ResidentMemoryBytes);
+    }
+
+    [Fact]
     public void A_missing_program_fails_to_start_the_way_Process_does()
     {
         var start = new ProcessStartInfo("asura-no-such-program-" + Guid.NewGuid().ToString("N"))
@@ -192,6 +252,33 @@ public sealed class ChildProcessTests
             new ProcessStartInfo("https://example.com") { UseShellExecute = true }));
         Assert.Throws<NotSupportedException>(() => ChildProcess.Start(
             new ProcessStartInfo("/bin/echo", "one two") { UseShellExecute = false }));
+    }
+
+    private sealed class AlreadyExitedBackend : IChildProcessBackend
+    {
+        public int Id => 1;
+
+        public StreamWriter? StandardInput => null;
+
+        public StreamReader? StandardOutput => null;
+
+        public StreamReader? StandardError => null;
+
+        public bool HasExited => true;
+
+        public int ExitCode => 3;
+
+        public long? ResidentMemoryBytes => null;
+
+        public Task WaitForExitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public void Kill(bool entireProcessTree)
+        {
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private static ProcessStartInfo Shell(string script, params string[] arguments)

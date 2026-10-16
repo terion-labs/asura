@@ -31,18 +31,26 @@ public sealed class ChildProcess : IDisposable
     private ChildProcess(IChildProcessBackend backend)
     {
         _backend = backend;
-        _backend.Exited += (_, _) =>
-        {
-            EventHandler? handlers;
-            lock (_exitGate)
-            {
-                _exitRaised = true;
-                handlers = _exited;
-                _exited = null;
-            }
+        // The program may already have ended by now: a continuation on its
+        // exit runs even when attached afterwards, so no exit goes unseen.
+        _ = _backend.WaitForExitAsync(CancellationToken.None).ContinueWith(
+            _ => RaiseExited(),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
 
-            handlers?.Invoke(this, EventArgs.Empty);
-        };
+    private void RaiseExited()
+    {
+        EventHandler? handlers;
+        lock (_exitGate)
+        {
+            _exitRaised = true;
+            handlers = _exited;
+            _exited = null;
+        }
+
+        handlers?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>The program's process identifier.</summary>
@@ -134,6 +142,9 @@ public sealed class ChildProcess : IDisposable
     /// </summary>
     public long? ResidentMemoryBytes => _backend.HasExited ? null : _backend.ResidentMemoryBytes;
 
+    /// <summary>Wraps a started backend; tests hand it one whose program has already ended.</summary>
+    internal static ChildProcess FromBackend(IChildProcessBackend backend) => new(backend);
+
     public Task WaitForExitAsync(CancellationToken cancellationToken = default) =>
         _backend.WaitForExitAsync(cancellationToken);
 
@@ -189,8 +200,6 @@ internal interface IChildProcessBackend : IDisposable
 
     long? ResidentMemoryBytes { get; }
 
-    event EventHandler? Exited;
-
     Task WaitForExitAsync(CancellationToken cancellationToken);
 
     void Kill(bool entireProcessTree);
@@ -204,7 +213,6 @@ internal sealed class WindowsChildProcess : IChildProcessBackend
     private WindowsChildProcess(Process process)
     {
         _process = process;
-        _process.Exited += (_, _) => Exited?.Invoke(this, EventArgs.Empty);
     }
 
     public int Id => _process.Id;
@@ -234,8 +242,6 @@ internal sealed class WindowsChildProcess : IChildProcessBackend
             }
         }
     }
-
-    public event EventHandler? Exited;
 
     public static WindowsChildProcess Start(ProcessStartInfo startInfo)
     {
