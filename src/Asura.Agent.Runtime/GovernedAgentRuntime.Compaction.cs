@@ -1,5 +1,6 @@
 using Asura.Agent;
 using Asura.Application;
+using Asura.Core;
 
 namespace Asura.Agent.Runtime;
 
@@ -18,6 +19,7 @@ public sealed partial class GovernedAgentRuntime
         cancellationToken.ThrowIfCancellationRequested();
         NativeAgentSession session;
         ProviderConversationCompactor compactor;
+        AgentModelSelection compactionModel;
         CancellationTokenSource operation;
         lock (_gate)
         {
@@ -29,8 +31,9 @@ public sealed partial class GovernedAgentRuntime
             }
 
             session = (_session ?? _restoredSession)!;
+            compactionModel = _effectivePolicy.CompactionModel;
             compactor = new ProviderConversationCompactor(
-                _providerResolver, _effectivePolicy.CompactionModel, _chatSecrets);
+                _providerResolver, compactionModel, _chatSecrets);
             operation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             // Use the same exclusive operation lease as sending so history,
             // policy changes, and a second click cannot race with this summary.
@@ -48,6 +51,15 @@ public sealed partial class GovernedAgentRuntime
         try
         {
             var result = await session.CompactAsync(1, compactor, operation.Token).ConfigureAwait(false);
+            if (result.ErrorCode == AgentCompactionErrorCode.InputTooLarge)
+            {
+                // Everything before the latest turn is too long for the
+                // compaction model to read at once: fold it from the oldest
+                // end, a part at a time, keeping recent messages as they are.
+                result = await CompactInPartsAsync(session, compactionModel, operation.Token)
+                    .ConfigureAwait(false);
+            }
+
             if (!result.Succeeded)
             {
                 outcome = new(false,

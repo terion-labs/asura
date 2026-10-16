@@ -297,6 +297,7 @@ public sealed class AgentRuntimeBoundaryTests
                 nameof(NativeAgentSession.CaptureInterruptedCheckpoint),
                 nameof(NativeAgentSession.CompactAsync),
                 nameof(NativeAgentSession.CompactAsync),
+                nameof(NativeAgentSession.CompactForOverflowAsync),
                 nameof(NativeAgentSession.DescribeConversation),
                 nameof(NativeAgentSession.EstimateContextUsage),
                 nameof(NativeAgentSession.RunTurnAsync),

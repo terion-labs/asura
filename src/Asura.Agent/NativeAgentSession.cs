@@ -548,6 +548,30 @@ public sealed partial class NativeAgentSession
             cancellationToken);
     }
 
+    /// <summary>
+    /// Compacts because the provider refused the conversation as longer than
+    /// the model reads — whatever the local estimate says. The most recent
+    /// <paramref name="keepRecentTokens"/> stay word for word; older history,
+    /// the previous summary included, is folded into a new summary, but never
+    /// more than <paramref name="maximumCompactedTokens"/> of it at once, so a
+    /// history too long to summarize in one request is folded from its oldest
+    /// end, a part at a time.
+    /// </summary>
+    public ValueTask<AgentCompactionResult> CompactForOverflowAsync(
+        int keepRecentTokens,
+        int maximumCompactedTokens,
+        IAgentConversationCompactor compactor,
+        CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(keepRecentTokens);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumCompactedTokens);
+        ArgumentNullException.ThrowIfNull(compactor);
+        return CompactSelectedAsync(
+            CompactionSelection.ForOverflow(keepRecentTokens, maximumCompactedTokens),
+            compactor,
+            cancellationToken);
+    }
+
     private async ValueTask<AgentCompactionResult> CompactSelectedAsync(
         CompactionSelection selection,
         IAgentConversationCompactor compactor,
@@ -592,6 +616,10 @@ public sealed partial class NativeAgentSession
                     _conversation,
                     selection.Value,
                     selection.Settings!),
+                CompactionSelectionKind.Overflow => SelectOverflowCut(
+                    _conversation,
+                    selection.Settings!.KeepRecentTokens,
+                    selection.Value),
                 _ => null,
             };
             if (cut is null)
@@ -671,6 +699,11 @@ public sealed partial class NativeAgentSession
 
             summary = await compactionTask.ConfigureAwait(false);
             ReleaseCompaction(lease);
+        }
+        catch (AgentCompactionInputTooLargeException)
+        {
+            ReleaseCompaction(lease);
+            return AgentCompactionResult.Failure(AgentCompactionErrorCode.InputTooLarge);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -774,11 +807,72 @@ public sealed partial class NativeAgentSession
         AgentCompactionSettings settings)
     {
         var usage = EstimateContextUsage(conversation);
-        if (!usage.RequiresCompaction(contextWindowTokens, settings))
+        return usage.RequiresCompaction(contextWindowTokens, settings)
+            ? SelectRecentWindowCut(conversation, settings.KeepRecentTokens)
+            : null;
+    }
+
+    /// <summary>
+    /// The cut that keeps the recent window word for word, as automatic
+    /// compaction makes it, but bounded so the history folded into the summary
+    /// — the previous summary included — is at most
+    /// <paramref name="maximumCompactedTokens"/>. Past that, the cut moves back
+    /// to an earlier turn, so the oldest history is folded first and the rest
+    /// waits for the next pass.
+    /// </summary>
+    private static CompactionCut? SelectOverflowCut(
+        ImmutableArray<AgentMessage> conversation,
+        int keepRecentTokens,
+        int maximumCompactedTokens)
+    {
+        var cut = SelectRecentWindowCut(conversation, keepRecentTokens);
+        if (cut is null)
         {
             return null;
         }
 
+        var compactedStart = CountLeadingSystemMessages(conversation);
+        var compactedEnd = cut.TurnStartIndex ?? cut.CutIndex;
+        long compactedTokens = 0;
+        for (var index = compactedStart; index < compactedEnd; index++)
+        {
+            compactedTokens = checked(compactedTokens + EstimateMessageTokens(conversation[index]));
+        }
+
+        if (compactedTokens <= maximumCompactedTokens)
+        {
+            return cut;
+        }
+
+        // Fold only the oldest turns that fit; at least the first one, so
+        // every pass removes something.
+        var bodyStart = ConversationBodyStart(conversation);
+        long runningTokens = 0;
+        int? bounded = null;
+        int? firstTurn = null;
+        for (var index = compactedStart; index < compactedEnd; index++)
+        {
+            if (index > bodyStart && conversation[index].Role == AgentMessageRole.User)
+            {
+                firstTurn ??= index;
+                if (runningTokens <= maximumCompactedTokens)
+                {
+                    bounded = index;
+                }
+            }
+
+            runningTokens = checked(runningTokens + EstimateMessageTokens(conversation[index]));
+        }
+
+        return (bounded ?? firstTurn) is { } turnStart
+            ? new CompactionCut(turnStart, TurnStartIndex: null)
+            : cut;
+    }
+
+    private static CompactionCut? SelectRecentWindowCut(
+        ImmutableArray<AgentMessage> conversation,
+        int keepRecentTokens)
+    {
         var bodyStart = ConversationBodyStart(conversation);
         var cutPoints = conversation
             .Select((message, index) => (message, index))
@@ -800,7 +894,7 @@ public sealed partial class NativeAgentSession
             recentTokens = checked(
                 recentTokens + EstimateMessageTokens(conversation[index]));
             recentBytes = checked(recentBytes + EstimateMessageRequestBytes(conversation[index]));
-            if (recentTokens < settings.KeepRecentTokens
+            if (recentTokens < keepRecentTokens
                 && recentBytes < AgentContextWindowPolicy.KeepRecentHistoryBytes)
             {
                 continue;
@@ -1974,6 +2068,7 @@ public sealed partial class NativeAgentSession
     {
         RetainedTurns,
         TokenBudget,
+        Overflow,
     }
 
     private readonly record struct CompactionSelection(
@@ -1988,6 +2083,14 @@ public sealed partial class NativeAgentSession
             int contextWindowTokens,
             AgentCompactionSettings settings) =>
             new(CompactionSelectionKind.TokenBudget, contextWindowTokens, settings);
+
+        public static CompactionSelection ForOverflow(
+            int keepRecentTokens,
+            int maximumCompactedTokens) =>
+            new(
+                CompactionSelectionKind.Overflow,
+                maximumCompactedTokens,
+                new AgentCompactionSettings(keepRecentTokens: keepRecentTokens));
     }
 
     private sealed record PendingToolTurn(

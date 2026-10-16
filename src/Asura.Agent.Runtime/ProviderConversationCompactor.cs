@@ -193,6 +193,16 @@ internal static class ProviderConversationMaintenance
             .ConfigureAwait(false);
         if (!result.Succeeded)
         {
+            // Too long for the maintenance model, or for the local request
+            // bound: a shorter, older part of the history may still fit.
+            if (GovernedAgentRuntime.IsContextOverflow(result)
+                || result.ErrorCode == AgentTurnErrorCode.LimitExceeded)
+            {
+                throw new AgentCompactionInputTooLargeException(
+                    result.ProviderFailure?.Message
+                    ?? "The history to compact exceeds the maintenance request bound.");
+            }
+
             throw new InvalidOperationException(
                 result.ProviderFailure?.Message
                 ?? "The configured conversation-maintenance model did not return text.");
