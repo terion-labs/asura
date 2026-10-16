@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -194,13 +195,14 @@ public static class ConnectionCredentialProcessHost
                 secretEnvironment,
                 privateKeyFile?.Path,
                 askpass?.Access);
-            Process? process;
+            ChildProcess? process;
             try
             {
-                process = Process.Start(startInfo);
+                process = ChildProcess.Start(startInfo);
             }
             catch (Exception exception) when (exception is
-                InvalidOperationException or IOException or UnauthorizedAccessException)
+                InvalidOperationException or IOException or UnauthorizedAccessException
+                or System.ComponentModel.Win32Exception)
             {
                 process = null;
             }
@@ -464,7 +466,7 @@ public static class ConnectionCredentialProcessHost
         startInfo.Environment.Remove(AskpassPipeEnvironment);
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

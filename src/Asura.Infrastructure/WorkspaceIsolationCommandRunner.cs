@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -34,19 +35,17 @@ internal sealed class WorkspaceIsolationCommandRunner : IWorkspaceIsolationComma
         ArgumentNullException.ThrowIfNull(launch);
         cancellationToken.ThrowIfCancellationRequested();
 
-        using var process = new Process { StartInfo = CreateStartInfo(launch) };
+        ChildProcess started;
         try
         {
-            if (!process.Start())
-            {
-                throw new IOException("The workspace isolation command could not be started.");
-            }
+            started = ChildProcess.Start(CreateStartInfo(launch));
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
             throw new IOException("The workspace isolation command could not be started.", exception);
         }
 
+        using var process = started;
         var outputTask = ReadBoundedAsync(process.StandardOutput, cancellationToken);
         var errorTask = ReadBoundedAsync(process.StandardError, cancellationToken);
         var inputTask = WriteInputAsync(process.StandardInput, standardInput, cancellationToken);
@@ -138,7 +137,7 @@ internal sealed class WorkspaceIsolationCommandRunner : IWorkspaceIsolationComma
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

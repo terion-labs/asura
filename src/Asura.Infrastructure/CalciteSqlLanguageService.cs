@@ -124,7 +124,7 @@ internal sealed record SqlLanguageWorkerLaunch(
         "WINDIR",
     ];
 
-    public Process CreateProcess()
+    public ProcessStartInfo CreateStartInfo()
     {
         var startInfo = new ProcessStartInfo
         {
@@ -153,6 +153,6 @@ internal sealed record SqlLanguageWorkerLaunch(
             startInfo.ArgumentList.Add(argument);
         }
 
-        return new Process { StartInfo = startInfo };
+        return startInfo;
     }
 }

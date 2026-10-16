@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Asura.Application/Asura.Application.csproj" />
+    <ProjectReference Include="../../src/Asura.Processes/Asura.Processes.csproj" />
     <!-- Compile the exact production client sources in isolation. The broader
          Infrastructure assembly still contains legacy reflection-based JSON;
          that unrelated migration must not hide regressions in this new AOT

@@ -51,6 +51,12 @@
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)config/BannedSymbols.txt" Link="BannedSymbols.txt" />
   </ItemGroup>
 
+  <!-- Every first-party program launch goes through the posix_spawn launcher;
+       only the launcher itself may use the forking platform API. -->
+  <ItemGroup Condition="'$(AsuraFirstPartySourceProject)' == 'True' and '$(MSBuildProjectName)' != 'Asura.Processes'">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)config/BannedSymbols.ProcessLaunch.txt" Link="BannedSymbols.ProcessLaunch.txt" />
+  </ItemGroup>
+
   <ItemGroup Condition="$([System.String]::Copy('$(MSBuildProjectName)').EndsWith('Tests'))">
     <PackageReference
       Include="xunit.analyzers"

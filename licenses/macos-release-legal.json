@@ -12,13 +12,13 @@
     "status": "accepted-by-project-owner",
     "basis": "documented-engineering-evidence-without-independent-legal-review",
     "reviewedBy": "terion",
-    "reviewedAtUtc": "2026-09-10T22:53:14Z"
+    "reviewedAtUtc": "2026-10-16T08:41:21Z"
   },
   "dispositions": {
     "managedComponents": {
       "status": "accepted-by-owner-for-macos",
       "scope": "macos-arm64",
-      "comment": "The project owner explicitly approved publication of the current macOS dependency closure for Asura 0.1.41, including official Microsoft.Data.SqlClient 6.0.2 MIT provenance, the first-party connection backend and authenticated MCP server, ModelContextProtocol 2.2.0 packages, and the ASP.NET Core runtime. The documented SMBLibrary Native AOT replacement path, remaining Inter provenance exception, SSH.NET 2026.0.0 and SharpCompress 0.50.3 exceptions remain accepted without independent legal review. Linux ARM64 and x64 backends have separate owner-accepted records. Engineering evidence renewed for the Avalonia.Native 12.0.5 macOS accessibility lifetime repair: the upstream revision and MIT license remain unchanged; the native bridge is rebuilt with a retained patch, generated ABI header, exact source archive hash, native regression test and build receipt. The notice now records that modification; this is not a new independent legal review."
+      "comment": "The project owner explicitly approved publication of the current macOS dependency closure for Asura 0.1.41, including official Microsoft.Data.SqlClient 6.0.2 MIT provenance, the first-party connection backend and authenticated MCP server, ModelContextProtocol 2.2.0 packages, and the ASP.NET Core runtime. The documented SMBLibrary Native AOT replacement path, remaining Inter provenance exception, SSH.NET 2026.0.0 and SharpCompress 0.50.3 exceptions remain accepted without independent legal review. Linux ARM64 and x64 backends have separate owner-accepted records. Engineering evidence renewed for the Avalonia.Native 12.0.5 macOS accessibility lifetime repair: the upstream revision and MIT license remain unchanged; the native bridge is rebuilt with a retained patch, generated ABI header, exact source archive hash, native regression test and build receipt. The notice now records that modification; this is not a new independent legal review. Engineering evidence renewed for the first-party Asura.Processes launcher, which starts programs with posix_spawn instead of forking the app; it has no dependencies beyond the base library and the C library, and no third-party package changed. The project owner accepts it; this is not a new independent legal review."
     },
     "nativeTerminalAndShell": {
       "status": "accepted-by-owner-for-macos",
@@ -75,7 +75,7 @@
     },
     {
       "path": "licenses/managed-components.json",
-      "sha256": "5eb7ea276e06eae3f50daf0e42f3246caef041c4caf638fb624b7cd87842b00d"
+      "sha256": "cca3283ae88095e9038882e63dd3acdf06c86a08c50b3c6b6dae08e9ad2a2f1d"
     },
     {
       "path": "licenses/native-terminal-components.json",

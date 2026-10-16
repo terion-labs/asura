@@ -16,6 +16,12 @@ public sealed partial class WorkspaceView : UserControl
     public WorkspaceView()
     {
         InitializeComponent();
+        if (Avalonia.Application.Current is App { RecoveryWorkspace: { } recovery })
+        {
+            RecoveryWorkspaceBanner.DataContext = recovery;
+            RecoveryWorkspaceBanner.IsVisible = true;
+        }
+
         // One handler for every panel on the canvas, floating or docked. Floating
         // used to mean a second window, and an event cannot bubble across two of
         // them; now that a floated panel stays in this one, the whole canvas can

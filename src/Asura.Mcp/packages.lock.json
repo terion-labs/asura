@@ -55,6 +55,9 @@
       "asura.core": {
         "type": "Project"
       },
+      "asura.processes": {
+        "type": "Project"
+      },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",
         "requested": "[10.0.10, )",

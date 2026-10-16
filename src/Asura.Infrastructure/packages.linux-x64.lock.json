@@ -102,6 +102,9 @@
       "asura.core": {
         "type": "Project"
       },
+      "asura.processes": {
+        "type": "Project"
+      },
       "BouncyCastle.Cryptography": {
         "type": "CentralTransitive",
         "requested": "[2.7.0, )",

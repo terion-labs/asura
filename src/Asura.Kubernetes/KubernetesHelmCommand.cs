@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.Kubernetes;
 
@@ -113,13 +114,11 @@ internal static class KubernetesHelmCommand
     {
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         lifetime.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-        using var process = new Process { StartInfo = start };
-        bool started = false;
+        ChildProcess? process = null;
         try
         {
             lifetime.Token.ThrowIfCancellationRequested();
-            started = process.Start();
-            if (!started) { throw HelmFailure(); }
+            process = ChildProcess.Start(start);
             onDispatch?.Invoke();
             process.StandardInput.Close();
             return await ReadProcessAsync(process, lifetime).ConfigureAwait(false);
@@ -134,15 +133,17 @@ internal static class KubernetesHelmCommand
         }
         finally
         {
-            if (started && !process.HasExited)
+            if (process is { HasExited: false })
             {
                 process.Kill(entireProcessTree: true);
                 await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             }
+
+            process?.Dispose();
         }
     }
 
-    private static async ValueTask<byte[]> ReadProcessAsync(Process process, CancellationTokenSource lifetime)
+    private static async ValueTask<byte[]> ReadProcessAsync(ChildProcess process, CancellationTokenSource lifetime)
     {
         Task<byte[]> output = ReadOutputAsync(process.StandardOutput.BaseStream, 4 * 1024 * 1024, lifetime);
         Task<byte[]> errors = ReadOutputAsync(process.StandardError.BaseStream, 65536, lifetime);

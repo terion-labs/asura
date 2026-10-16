@@ -47,6 +47,12 @@ public sealed partial class App
     /// </summary>
     public string? WindowTitleQualifier { get; set; }
 
+    /// <summary>
+    /// Set for a run in a recovery workspace: every window shows it as a
+    /// banner, since the title bar hides the window title.
+    /// </summary>
+    public RecoveryWorkspaceNotice? RecoveryWorkspace { get; set; }
+
     private MainWindow[] OpenMainWindows() =>
         ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
             ? [.. desktop.Windows.OfType<MainWindow>()]

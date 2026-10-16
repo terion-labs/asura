@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -60,17 +61,13 @@ internal sealed class HostUserspaceVpnProcessRunner : IHostVpnProcessRunner
     {
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
-        var process = new Process { StartInfo = CreateStartInfo(request) };
+        ChildProcess process;
         try
         {
-            if (!process.Start())
-            {
-                throw new IOException("The userspace VPN process could not be started.");
-            }
+            process = ChildProcess.Start(CreateStartInfo(request));
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
-            process.Dispose();
             throw new IOException("The userspace VPN process could not be started.", exception);
         }
 
@@ -158,7 +155,7 @@ internal sealed class HostUserspaceVpnProcessRunner : IHostVpnProcessRunner
     private sealed class RunningHostVpnProcess : IHostVpnProcess
     {
         private const int MaximumDiagnosticCharacters = 32 * 1024;
-        private readonly Process _process;
+        private readonly ChildProcess _process;
         private readonly object _diagnosticGate = new();
         private readonly StringBuilder _output = new(MaximumDiagnosticCharacters);
         private readonly StringBuilder _error = new(MaximumDiagnosticCharacters);
@@ -167,7 +164,7 @@ internal sealed class HostUserspaceVpnProcessRunner : IHostVpnProcessRunner
         private readonly TaskCompletionSource<bool> _routeReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _disposed;
 
-        public RunningHostVpnProcess(Process process)
+        public RunningHostVpnProcess(ChildProcess process)
         {
             _process = process;
             _standardOutput = DrainAsync(process.StandardOutput, _output, _routeReady);

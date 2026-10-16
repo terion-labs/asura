@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -106,21 +107,14 @@ internal sealed class WorkspaceTcpConnector(
             start.Environment[name] = value;
         }
 
-        var process = new Process { StartInfo = start };
         try
         {
-            if (!process.Start())
-            {
-                throw new WorkspaceNetworkTransportException(
-                    "The workspace network relay could not be started.");
-            }
-
-            process.BeginErrorReadLine();
+            var process = ChildProcess.Start(start);
+            process.DiscardStandardError();
             return new ProcessDuplexStream(process);
         }
         catch (Exception exception) when (exception is InvalidOperationException or Win32Exception)
         {
-            process.Dispose();
             throw new WorkspaceNetworkTransportException(
                 "The workspace network relay could not be started.",
                 exception);
@@ -171,7 +165,7 @@ internal sealed class WorkspaceTcpConnector(
         }
     }
 
-    private sealed class ProcessDuplexStream(Process process) : Stream
+    private sealed class ProcessDuplexStream(ChildProcess process) : Stream
     {
         private readonly Stream _input = process.StandardInput.BaseStream;
         private readonly Stream _output = process.StandardOutput.BaseStream;

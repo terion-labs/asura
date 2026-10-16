@@ -26,7 +26,6 @@ internal sealed class DesktopBrowserStartup(
     private readonly BrowserProfileStoragePaths _originalPaths = paths;
     private BrowserProfileStoragePaths _activePaths = paths;
     private bool _usingRecoveryBrowser;
-    private bool _usingRecoveryWorkspace;
     private bool _initializationFailed;
     private bool _disposed;
 
@@ -37,13 +36,6 @@ internal sealed class DesktopBrowserStartup(
     public event EventHandler? Changed;
 
     public void ConfigureRestart(Action restart) => _restart = restart;
-
-    public void ReportRecoveryWorkspace()
-    {
-        _usingRecoveryWorkspace = true;
-        RequiresRestart = true;
-        SetError("Your saved connections and settings could not be opened. You can keep working in this recovery workspace.");
-    }
 
     public bool RecoverProfile()
     {
@@ -133,14 +125,7 @@ internal sealed class DesktopBrowserStartup(
                     _activePaths.RuntimeDirectory, options.LogFilePath, options.ProductVersion));
                 IsRunning = true;
                 RequiresRestart = _usingRecoveryBrowser;
-                if (_usingRecoveryWorkspace)
-                {
-                    ReportRecoveryWorkspace();
-                }
-                else
-                {
-                    SetError(_usingRecoveryBrowser ? Error : null);
-                }
+                SetError(_usingRecoveryBrowser ? Error : null);
                 return true;
             }
             catch (Exception error) when (error is not OutOfMemoryException)

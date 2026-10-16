@@ -7,6 +7,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -1118,17 +1119,13 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
             startInfo.ArgumentList.Add(argument);
         }
 
-        var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+        ChildProcess process;
         try
         {
-            if (!process.Start())
-            {
-                throw new IOException("The workspace gateway helper could not be started.");
-            }
+            process = ChildProcess.Start(startInfo);
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
-            process.Dispose();
             throw new IOException("The workspace gateway helper could not be started.", exception);
         }
 
@@ -1193,18 +1190,17 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
         }
 
         var startInfo = CreateStartInfo(request);
-        using var process = new Process { StartInfo = startInfo };
+        ChildProcess started;
         try
         {
-            if (!process.Start())
-            {
-                throw new IOException("The workspace gateway command could not be started.");
-            }
+            started = ChildProcess.Start(startInfo);
         }
         catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
         {
             throw new IOException("The workspace gateway command could not be started.", exception);
         }
+
+        using var process = started;
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(timeout);
@@ -1256,7 +1252,7 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
         return startInfo;
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         if (process.HasExited)
         {
@@ -1273,7 +1269,7 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
     }
 
     private static async Task WriteKeyAsync(
-        Process process,
+        ChildProcess process,
         ReadOnlyMemory<byte> key,
         CancellationToken cancellationToken)
     {
@@ -1293,7 +1289,7 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
     private sealed class RunningProcess : IWorkspaceGatewayProcess
     {
         private const int MaximumDiagnosticCharacters = 32 * 1024;
-        private readonly Process _process;
+        private readonly ChildProcess _process;
         private readonly StringBuilder _diagnostic = new(MaximumDiagnosticCharacters);
         private readonly object _diagnosticGate = new();
         private readonly CancellationTokenSource _drainLifetime = new();
@@ -1301,7 +1297,7 @@ internal sealed class WorkspaceGatewayProcessRunner : IWorkspaceGatewayProcessRu
         private Task _standardOutput = Task.CompletedTask;
         private int _disposed;
 
-        public RunningProcess(Process process)
+        public RunningProcess(ChildProcess process)
         {
             _process = process;
             _standardError = DrainAsync(process.StandardError);

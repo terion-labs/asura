@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -84,7 +85,7 @@ internal sealed class MacOsNativeNotificationService :
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo(
+            using var process = ChildProcess.Start(new ProcessStartInfo(
                 "/usr/bin/open",
                 [$"x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={ProductIdentity.BundleIdentifier}"])
             {

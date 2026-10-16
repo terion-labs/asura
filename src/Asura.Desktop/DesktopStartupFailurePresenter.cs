@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Asura.Infrastructure;
+using Asura.Processes;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -175,8 +176,9 @@ internal static class DesktopStartupFailurePresenter
 
     internal static void Launch(string[] arguments)
     {
-        using var process = Process.Start(CreateRestartStartInfo(arguments))
-            ?? throw new IOException("The new Asura process did not start.");
+        // Spawned, not forked: the new Asura inherits none of this one's
+        // descriptors, so it never holds the profile lock this run releases.
+        using var process = ChildProcess.Start(CreateRestartStartInfo(arguments));
     }
 
     internal static ProcessStartInfo CreateRestartStartInfo(string[] arguments)

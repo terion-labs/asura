@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Channels;
+using Asura.Processes;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -75,27 +76,16 @@ internal sealed class BoundedStdioClientTransport(
             startInfo.Environment.Add(pair.Key, pair.Value);
         }
 
-        Process? process = null;
-        var processStarted = false;
+        ChildProcess? process = null;
         try
         {
-            process = new Process
-            {
-                StartInfo = startInfo,
-                EnableRaisingEvents = true,
-            };
-            if (!process.Start())
-            {
-                throw new IOException("The process API did not start the MCP server.");
-            }
-
-            processStarted = true;
+            process = ChildProcess.Start(startInfo);
             _session = new BoundedStdioSessionTransport(process, options);
             return Task.FromResult<ITransport>(_session);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            if (processStarted && !TryTerminate(process))
+            if (process is not null && !TryTerminate(process))
             {
                 Volatile.Write(ref _cleanupUncertain, 1);
             }
@@ -113,7 +103,7 @@ internal sealed class BoundedStdioClientTransport(
         }
     }
 
-    private static bool TryTerminate(Process? process)
+    private static bool TryTerminate(ChildProcess? process)
     {
         try
         {
@@ -137,7 +127,7 @@ internal sealed class BoundedStdioClientTransport(
 internal sealed class BoundedStdioSessionTransport : ITransport
 {
     private static readonly byte[] Newline = [(byte)'\n'];
-    private readonly Process _process;
+    private readonly ChildProcess _process;
     private readonly McpSessionOptions _options;
     private readonly McpStderrMonitor _stderr;
     private readonly Channel<JsonRpcMessage> _messages;
@@ -150,7 +140,7 @@ internal sealed class BoundedStdioSessionTransport : ITransport
     private int _cleanupUncertain;
     private int _remainingIncomingMessages;
 
-    public BoundedStdioSessionTransport(Process process, McpSessionOptions options)
+    public BoundedStdioSessionTransport(ChildProcess process, McpSessionOptions options)
     {
         _process = process;
         _options = options;

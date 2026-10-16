@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -15,7 +16,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
     private readonly object _stderrLock = new();
     private readonly StringBuilder _stderrTail = new();
     private SqlCatalogSnapshot _catalog;
-    private Process? _process;
+    private ChildProcess? _process;
     private Task? _stderrDrain;
     private CancellationTokenSource? _stderrCancellation;
     private long _nextRequestId;
@@ -319,20 +320,15 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
             _stderrTail.Clear();
         }
 
-        var process = _launch.CreateProcess();
+        ChildProcess process;
         try
         {
-            if (!process.Start())
-            {
-                process.Dispose();
-                return false;
-            }
+            process = ChildProcess.Start(_launch.CreateStartInfo());
         }
         catch (Exception exception) when (exception is
             Win32Exception or FileNotFoundException or UnauthorizedAccessException)
         {
             SecretSafeDiagnosticProjection.WriteTrace("sql-language.worker.start-failed", exception);
-            process.Dispose();
             return false;
         }
 
@@ -624,7 +620,7 @@ internal sealed class CalciteSqlLanguageSession : ISqlLanguageSession
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

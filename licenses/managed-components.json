@@ -662,6 +662,13 @@
       "file": "Asura.Previews.dll"
     },
     {
+      "identity": "Asura.Processes/${productVersion}",
+      "kind": "project",
+      "depsType": "project",
+      "licenseDeclared": "NOASSERTION",
+      "file": "Asura.Processes.dll"
+    },
+    {
       "identity": "Asura.Protocol/${productVersion}",
       "kind": "project",
       "depsType": "project",

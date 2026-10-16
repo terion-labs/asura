@@ -467,20 +467,12 @@ public sealed class BrowserPresentationHost : ContentControl
             return;
         }
 
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = address.AbsoluteUri,
-                UseShellExecute = true,
-            });
-            if (process is null)
-            {
-                SetOperationMessage("The system browser couldn’t be opened.");
-            }
-        }
-        catch (Exception exception) when (exception is InvalidOperationException
-            or System.ComponentModel.Win32Exception)
+        _ = OpenInSystemBrowserAsync(address);
+    }
+
+    private async Task OpenInSystemBrowserAsync(Uri address)
+    {
+        if (!await PlatformLauncher.OpenAsync(address, TopLevel.GetTopLevel(this)))
         {
             SetOperationMessage("The system browser couldn’t be opened.");
         }

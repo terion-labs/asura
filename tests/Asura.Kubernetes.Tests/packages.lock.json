@@ -141,9 +141,13 @@
         "type": "Project",
         "dependencies": {
           "Asura.Application": "[1.0.0, )",
+          "Asura.Processes": "[1.0.0, )",
           "KubernetesClient.Aot": "[19.0.2, )",
           "YamlDotNet": "[16.3.0, )"
         }
+      },
+      "asura.processes": {
+        "type": "Project"
       },
       "KubernetesClient.Aot": {
         "type": "CentralTransitive",

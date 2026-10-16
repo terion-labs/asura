@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Asura.Application;
 using Asura.Infrastructure;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -32,12 +33,15 @@ internal sealed class WorkspaceIsolationRuntimeInstaller(
         }
     }
 
+    /// <summary>Opens the installer page in the person's browser, through the system's opener.</summary>
     private static bool Launch(Uri address)
     {
-        using var process = Process.Start(new ProcessStartInfo(address.AbsoluteUri)
-        {
-            UseShellExecute = true,
-        });
-        return process is not null;
+        var opener = OperatingSystem.IsMacOS() ? "/usr/bin/open"
+            : OperatingSystem.IsWindows() ? "explorer.exe"
+            : "xdg-open";
+        var start = new ProcessStartInfo(opener) { UseShellExecute = false, CreateNoWindow = true };
+        start.ArgumentList.Add(address.AbsoluteUri);
+        using var process = ChildProcess.Start(start);
+        return true;
     }
 }

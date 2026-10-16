@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using Asura.Application;
+using Asura.Processes;
 
 namespace Asura.ConnectionBackend;
 
@@ -10,7 +11,7 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
 {
     private readonly DatabaseWorkspaceOperationLaunch _owned;
     private readonly Func<CancellationToken, Task<KubernetesWorkspaceSession>> _openWatch;
-    private readonly Process _process;
+    private readonly ChildProcess _process;
     private readonly CancellationTokenSource _lifetime;
     private readonly CancellationTokenRegistration _termination;
     private readonly Task _errors;
@@ -41,7 +42,7 @@ internal sealed partial class KubernetesWorkspaceSession : IKubernetesClientSess
         owned.StartInfo.RedirectStandardOutput = true;
         owned.StartInfo.RedirectStandardError = true;
         owned.StartInfo.CreateNoWindow = true;
-        _process = Process.Start(owned.StartInfo) ?? throw new IOException("The Kubernetes backend could not start.");
+        _process = ChildProcess.Start(owned.StartInfo);
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(owned.Lifetime);
         _termination = _lifetime.Token.Register(() => DatabaseOperationWorker.StopOwnedProcess(_process));
         _errors = DrainErrorsAsync();

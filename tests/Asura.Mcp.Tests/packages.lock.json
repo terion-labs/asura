@@ -142,8 +142,12 @@
         "dependencies": {
           "Asura.Application": "[1.0.0, )",
           "Asura.Core": "[1.0.0, )",
+          "Asura.Processes": "[1.0.0, )",
           "ModelContextProtocol.Core": "[2.2.0, )"
         }
+      },
+      "asura.processes": {
+        "type": "Project"
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "CentralTransitive",

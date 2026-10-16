@@ -126,7 +126,7 @@ public sealed class ProjectDependencyTests
     }
 
     [Fact]
-    public void InfrastructureDependsOnlyOnApplicationAndCoreProjects()
+    public void InfrastructureDependsOnlyOnApplicationCoreAndTheProcessLauncher()
     {
         var projectReferences = References(
             LoadProject("src/Asura.Infrastructure/Asura.Infrastructure.csproj"),
@@ -137,7 +137,7 @@ public sealed class ProjectDependencyTests
             .ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(
-            ["Asura.Application.csproj", "Asura.Core.csproj"],
+            ["Asura.Application.csproj", "Asura.Core.csproj", "Asura.Processes.csproj"],
             references.Order(StringComparer.Ordinal), StringComparer.Ordinal);
     }
 
@@ -172,7 +172,7 @@ public sealed class ProjectDependencyTests
     }
 
     [Fact]
-    public void MonitoringBoundaryDependsOnlyOnApplicationAndCore()
+    public void MonitoringBoundaryDependsOnlyOnApplicationCoreAndTheProcessLauncher()
     {
         var references = References(
                 LoadProject("src/Asura.Monitoring/Asura.Monitoring.csproj"),
@@ -183,7 +183,7 @@ public sealed class ProjectDependencyTests
             .ToArray();
 
         Assert.Equal(
-            new[] { "Asura.Application.csproj", "Asura.Core.csproj" },
+            new[] { "Asura.Application.csproj", "Asura.Core.csproj", "Asura.Processes.csproj" },
             references);
 
         var project = LoadProject("src/Asura.Monitoring/Asura.Monitoring.csproj");
@@ -265,7 +265,20 @@ public sealed class ProjectDependencyTests
                 "Asura.Kubernetes.csproj",
                 "Asura.Files.csproj",
                 "Asura.Infrastructure.csproj",
+                "Asura.Processes.csproj",
             ], StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// The launcher everything starts programs through stands on the base
+    /// library and the C library alone, so every boundary can depend on it.
+    /// </summary>
+    [Fact]
+    public void ProcessLauncherHasNoDependencies()
+    {
+        var project = LoadProject("src/Asura.Processes/Asura.Processes.csproj");
+        Assert.Empty(References(project, "ProjectReference"));
+        Assert.Empty(References(project, "PackageReference"));
     }
 
     [Fact]

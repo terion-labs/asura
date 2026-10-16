@@ -3,6 +3,7 @@ using System.Reflection;
 using Asura.Application;
 using Asura.ConnectionBackend;
 using Asura.Files;
+using Asura.Processes;
 
 namespace Asura.Architecture.Tests;
 
@@ -61,7 +62,7 @@ public sealed class DatabaseWorkspaceScratchTests
         string scratchPath;
         using (var scratch = DatabaseWorkspaceScratch.Acquire(operationId)) { scratchPath = scratch.DirectoryPath; }
         var start = BackendStart(operationId);
-        using var process = Process.Start(start)!;
+        using var process = ChildProcess.Start(start);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         var errors = process.StandardError.ReadToEndAsync(timeout.Token);
         try

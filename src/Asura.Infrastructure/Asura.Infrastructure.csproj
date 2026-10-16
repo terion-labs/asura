@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Asura.Processes\Asura.Processes.csproj" />
     <ProjectReference Include="..\Asura.Application\Asura.Application.csproj" />
     <ProjectReference Include="..\Asura.Core\Asura.Core.csproj" />
   </ItemGroup>

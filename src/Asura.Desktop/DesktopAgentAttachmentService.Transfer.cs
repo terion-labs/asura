@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Desktop;
 
@@ -26,12 +27,12 @@ internal sealed partial class DesktopAgentAttachmentService
         foreach (var argument in launch.Arguments) { start.ArgumentList.Add(argument); }
         foreach (var (name, value) in launch.Environment) { start.Environment[name] = value; }
         if (launch.WorkingDirectory is { } directory) { start.WorkingDirectory = directory; }
-        using var process = new Process { StartInfo = start };
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(60));
+        ChildProcess? process = null;
         try
         {
-            if (!await Task.Run(process.Start, timeout.Token).ConfigureAwait(false)) { throw new IOException("Attachment transfer did not start."); }
+            process = ChildProcess.Start(start);
             var output = ReadBoundedAsync(process.StandardOutput, timeout.Token);
             var error = ReadBoundedAsync(process.StandardError, timeout.Token);
             await process.StandardInput.BaseStream.WriteAsync(bytes, timeout.Token).ConfigureAwait(false);
@@ -49,8 +50,9 @@ internal sealed partial class DesktopAgentAttachmentService
         }
         finally
         {
-            try { if (!process.HasExited) { process.Kill(entireProcessTree: true); } }
-            catch (InvalidOperationException) { /* The transfer may not have started. */ }
+            try { if (process is { HasExited: false }) { process.Kill(entireProcessTree: true); } }
+            catch (System.ComponentModel.Win32Exception) { /* The transfer ended or refused the signal. */ }
+            process?.Dispose();
         }
     }
 

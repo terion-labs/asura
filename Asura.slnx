@@ -21,6 +21,7 @@
     <Project Path="src/Asura.Mcp.Server/Asura.Mcp.Server.csproj" />
     <Project Path="src/Asura.Monitoring/Asura.Monitoring.csproj" />
     <Project Path="src/Asura.Previews/Asura.Previews.csproj" />
+    <Project Path="src/Asura.Processes/Asura.Processes.csproj" />
     <Project Path="src/Asura.Protocol/Asura.Protocol.csproj" />
     <Project Path="src/Asura.Redis/Asura.Redis.csproj" />
     <Project Path="src/Asura.SessionHost/Asura.SessionHost.csproj" />

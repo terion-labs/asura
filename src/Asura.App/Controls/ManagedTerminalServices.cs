@@ -45,11 +45,7 @@ internal sealed class SystemManagedTerminalLinkOpener : IManagedTerminalLinkOpen
     {
         ArgumentNullException.ThrowIfNull(uri);
         cancellationToken.ThrowIfCancellationRequested();
-        Process.Start(new ProcessStartInfo(uri.AbsoluteUri)
-        {
-            UseShellExecute = true,
-        });
-        return ValueTask.CompletedTask;
+        return new ValueTask(PlatformLauncher.OpenAsync(uri));
     }
 }
 

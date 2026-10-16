@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.ConnectionBackend;
 
@@ -24,7 +25,7 @@ internal sealed class FileWorkspaceSession : IAsyncDisposable
         start.RedirectStandardOutput = true;
         start.RedirectStandardError = true;
         start.CreateNoWindow = true;
-        Process = Process.Start(start) ?? throw new IOException("The file backend could not start.");
+        Process = ChildProcess.Start(start);
         _lifetime = CancellationTokenSource.CreateLinkedTokenSource(owner, owned.Lifetime);
         Lifetime = _lifetime.Token;
         _errors = DrainErrorsAsync();
@@ -35,7 +36,7 @@ internal sealed class FileWorkspaceSession : IAsyncDisposable
         });
     }
 
-    internal Process Process { get; }
+    internal ChildProcess Process { get; }
     internal BackendExecutionLocation Location => _owned.Location;
     internal FileWorkspaceHostCredentials Credentials { get; }
     internal CancellationToken Lifetime { get; }

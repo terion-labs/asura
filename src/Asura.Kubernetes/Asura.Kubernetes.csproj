@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Asura.Kubernetes.Tests" />
+    <ProjectReference Include="..\Asura.Processes\Asura.Processes.csproj" />
     <ProjectReference Include="../Asura.Application/Asura.Application.csproj" />
     <PackageReference Include="KubernetesClient.Aot" />
     <PackageReference Include="YamlDotNet" />

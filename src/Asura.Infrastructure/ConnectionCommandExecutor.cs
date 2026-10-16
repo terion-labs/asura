@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Asura.Application;
 using Asura.Core;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -51,28 +52,23 @@ public sealed class ConnectionCommandExecutor(
             request,
             executableLocator,
             commandPlan.Value.UsesRuntimeExecutable);
-        using var process = new Process { StartInfo = start };
-        try
-        {
-            // Unix process creation performs fork/exec synchronously. Connection
-            // commands include periodic monitor samples, so never perform that
-            // work on a caller that may be Avalonia's main thread.
-            var started = await Task.Run(process.Start, cancellationToken)
-                .ConfigureAwait(false);
-            if (!started)
-            {
-                return StartFailed();
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        if (cancellationToken.IsCancellationRequested)
         {
             return Cancelled();
+        }
+
+        ChildProcess started;
+        try
+        {
+            started = ChildProcess.Start(start);
         }
         catch (Exception exception) when (exception is
             Win32Exception or FileNotFoundException or UnauthorizedAccessException)
         {
             return StartFailed();
         }
+
+        using var process = started;
 
         using var timeout = new CancellationTokenSource(request.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
@@ -169,25 +165,23 @@ public sealed class ConnectionCommandExecutor(
             request,
             executableLocator,
             commandPlan.Value.UsesRuntimeExecutable);
-        using var process = new Process { StartInfo = start };
-        try
-        {
-            var started = await Task.Run(process.Start, cancellationToken)
-                .ConfigureAwait(false);
-            if (!started)
-            {
-                return StreamingStartFailed<T>();
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        if (cancellationToken.IsCancellationRequested)
         {
             return StreamingCancelled<T>();
+        }
+
+        ChildProcess started;
+        try
+        {
+            started = ChildProcess.Start(start);
         }
         catch (Exception exception) when (exception is
             Win32Exception or FileNotFoundException or UnauthorizedAccessException)
         {
             return StreamingStartFailed<T>();
         }
+
+        using var process = started;
 
         using var timeout = new CancellationTokenSource(request.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
@@ -508,7 +502,7 @@ public sealed class ConnectionCommandExecutor(
     private static string QuotePosixShellWord(string value) =>
         $"'{value.Replace("'", "'\"'\"'", StringComparison.Ordinal)}'";
 
-    private static async Task WriteInputAsync(Process process, SecretMaterial? material, CancellationToken token)
+    private static async Task WriteInputAsync(ChildProcess process, SecretMaterial? material, CancellationToken token)
     {
         if (material is null)
         {
@@ -608,7 +602,7 @@ public sealed class ConnectionCommandExecutor(
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {

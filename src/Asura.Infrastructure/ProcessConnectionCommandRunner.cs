@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using Asura.Processes;
 
 namespace Asura.Infrastructure;
 
@@ -20,13 +21,10 @@ public sealed class ProcessConnectionCommandRunner : IConnectionCommandRunner
                 string.Empty);
         }
 
-        using var process = CreateProcess(command);
+        ChildProcess started;
         try
         {
-            if (!process.Start())
-            {
-                return StartFailed(ConnectionProbeStartFailure.Unknown);
-            }
+            started = ChildProcess.Start(CreateStartInfo(command));
         }
         catch (Win32Exception exception)
         {
@@ -46,6 +44,7 @@ public sealed class ProcessConnectionCommandRunner : IConnectionCommandRunner
             return StartFailed(ConnectionProbeStartFailure.PermissionDenied);
         }
 
+        using var process = started;
         using var timeout = new CancellationTokenSource(command.Timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
@@ -88,26 +87,23 @@ public sealed class ProcessConnectionCommandRunner : IConnectionCommandRunner
         }
     }
 
-    private static Process CreateProcess(ConnectionProbeCommand command)
+    private static ProcessStartInfo CreateStartInfo(ConnectionProbeCommand command)
     {
-        var process = new Process
+        var start = new ProcessStartInfo
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = command.Executable,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-            },
+            FileName = command.Executable,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardInput = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
         };
         foreach (var argument in command.Arguments)
         {
-            process.StartInfo.ArgumentList.Add(argument);
+            start.ArgumentList.Add(argument);
         }
 
-        return process;
+        return start;
     }
 
     private static async Task<string> ReadBoundedAsync(
@@ -161,7 +157,7 @@ public sealed class ProcessConnectionCommandRunner : IConnectionCommandRunner
         }
     }
 
-    private static void TryKill(Process process)
+    private static void TryKill(ChildProcess process)
     {
         try
         {
