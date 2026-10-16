@@ -473,12 +473,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
                 usage,
                 "completion_tokens_details",
                 "reasoning_tokens");
-            if (cached > input || reasoning > output)
-            {
-                throw ProtocolError();
-            }
-
-            _usage = new AgentTokenUsage(input, output, cached, reasoning);
+            _usage = AiProviderUsage.Reconcile(input, output, cached, reasoning);
             return true;
         }
 
@@ -701,6 +696,8 @@ internal sealed class OpenAiCompatibleAgentProvider(
         }
     }
 
-    private static AiProviderClientException ProtocolError() =>
-        AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+    private static AiProviderClientException ProtocolError(
+        [CallerMemberName] string check = "",
+        [CallerLineNumber] int line = 0) =>
+        AiProviderClientException.Malformed($"Chat Completions {check}:{line}");
 }

@@ -50,6 +50,18 @@ internal sealed class AiProviderClientException : AgentProviderException
             $"The AI provider sent a {kind} Asura can’t read yet (“{safe}”). Update Asura, or choose another model.");
     }
 
+    /// <summary>
+    /// A response Asura could not read, naming the check that failed so a
+    /// report pinpoints it. The site comes from Asura's code, never from the
+    /// provider, so it is safe to show.
+    /// </summary>
+    public static AiProviderClientException Malformed(string site, Exception? innerException = null) =>
+        new(
+            AiProviderRuntimeErrorCode.ProtocolError,
+            "ai_provider_protocol_error",
+            $"The AI provider returned a response Asura couldn’t read ({site}).",
+            innerException: innerException);
+
     public static AiProviderClientException Create(
         AiProviderRuntimeErrorCode code,
         TimeSpan? retryAfter = null,

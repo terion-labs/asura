@@ -693,7 +693,7 @@ internal sealed class AnthropicAgentProvider(
 
         public AgentTokenUsage? Usage() =>
             _inputTokens is { } input && _outputTokens is { } output
-                ? new AgentTokenUsage(
+                ? AiProviderUsage.Reconcile(
                     input,
                     output,
                     _cachedInputTokens,
@@ -1388,6 +1388,8 @@ string.Equals(initialInput, "{}", StringComparison.Ordinal) ? null : initialInpu
         }
     }
 
-    private static AiProviderClientException ProtocolError() =>
-        AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+    private static AiProviderClientException ProtocolError(
+        [CallerMemberName] string check = "",
+        [CallerLineNumber] int line = 0) =>
+        AiProviderClientException.Malformed($"Messages {check}:{line}");
 }

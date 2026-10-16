@@ -1322,12 +1322,7 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                 usage,
                 "output_tokens_details",
                 "reasoning_tokens");
-            if (cachedInputTokens > inputTokens || reasoningTokens > outputTokens)
-            {
-                throw ProtocolError();
-            }
-
-            events.Add(new AgentProviderEvent.Usage(new AgentTokenUsage(
+            events.Add(new AgentProviderEvent.Usage(AiProviderUsage.Reconcile(
                 inputTokens,
                 outputTokens,
                 cachedInputTokens,
@@ -1843,8 +1838,9 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
         }
     }
 
-    private static AiProviderClientException ProtocolError(Exception? innerException = null) =>
-        AiProviderClientException.Create(
-            AiProviderRuntimeErrorCode.ProtocolError,
-            innerException: innerException);
+    private static AiProviderClientException ProtocolError(
+        Exception? innerException = null,
+        [CallerMemberName] string check = "",
+        [CallerLineNumber] int line = 0) =>
+        AiProviderClientException.Malformed($"Responses {check}:{line}", innerException);
 }
