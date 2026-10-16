@@ -7,7 +7,31 @@ namespace Asura.Agent.Runtime;
 
 public sealed partial class GovernedAgentRuntime
 {
-    public async ValueTask RestoreLatestConversationAsync(
+    public ValueTask RestoreLatestConversationAsync(CancellationToken cancellationToken) =>
+        OffUiThreadAsync(() => RestoreLatestConversationCoreAsync(cancellationToken));
+
+    public ValueTask<bool> OpenConversationAsync(AgentRunId runId, CancellationToken cancellationToken) =>
+        OffUiThreadAsync(() => OpenConversationCoreAsync(runId, cancellationToken));
+
+    public ValueTask<bool> ForkConversationAsync(
+        AgentConversationForkPoint forkPoint,
+        CancellationToken cancellationToken) =>
+        OffUiThreadAsync(() => ForkConversationCoreAsync(forkPoint, cancellationToken));
+
+    /// <summary>
+    /// Runs a conversation switch on the thread pool. SQLite and the system
+    /// keychain block the calling thread — their async methods finish
+    /// synchronously — and these calls start from a click on the UI thread,
+    /// which froze the window while conversations were saved, cleaned up,
+    /// and loaded.
+    /// </summary>
+    private static ValueTask<T> OffUiThreadAsync<T>(Func<ValueTask<T>> operation) =>
+        new(Task.Run(async () => await operation().ConfigureAwait(false)));
+
+    private static ValueTask OffUiThreadAsync(Func<ValueTask> operation) =>
+        new(Task.Run(async () => await operation().ConfigureAwait(false)));
+
+    private async ValueTask RestoreLatestConversationCoreAsync(
         CancellationToken cancellationToken)
     {
         if (_checkpointStore is null)
@@ -38,7 +62,12 @@ public sealed partial class GovernedAgentRuntime
 
         var catalog = await LoadConversationCatalogAsync(listed.Value, cancellationToken)
             .ConfigureAwait(false);
-        var restored = catalog.FirstOrDefault(item => item.Session is not null)?.Session;
+        NativeAgentSession? restored = null;
+        for (var index = 0; index < catalog.Count && restored is null; index++)
+        {
+            restored = await RestoreCatalogSessionAsync(catalog[index], listed.Value[index], cancellationToken)
+                .ConfigureAwait(false);
+        }
 
         if (restored is null)
         {
@@ -255,7 +284,7 @@ public sealed partial class GovernedAgentRuntime
         return saved.IsSuccess;
     }
 
-    public async ValueTask<bool> OpenConversationAsync(
+    private async ValueTask<bool> OpenConversationCoreAsync(
         AgentRunId runId,
         CancellationToken cancellationToken)
     {
@@ -264,7 +293,8 @@ public sealed partial class GovernedAgentRuntime
             return false;
         }
 
-        if (!await StartNewConversationAsync(cancellationToken).ConfigureAwait(false))
+        if (!await ResetConversationAsync(deleteStoredConversation: false, cancellationToken, reclaimSecrets: false)
+                .ConfigureAwait(false))
         {
             return false;
         }
@@ -342,10 +372,14 @@ public sealed partial class GovernedAgentRuntime
         }
 
         NotifyChanged();
+
+        // After the conversation is on screen: the clean-up reads every
+        // stored conversation and the keychain.
+        await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
 
-    public async ValueTask<bool> ForkConversationAsync(
+    private async ValueTask<bool> ForkConversationCoreAsync(
         AgentConversationForkPoint forkPoint,
         CancellationToken cancellationToken)
     {
@@ -403,7 +437,8 @@ public sealed partial class GovernedAgentRuntime
             return false;
         }
 
-        if (!await StartNewConversationAsync(cancellationToken).ConfigureAwait(false))
+        if (!await ResetConversationAsync(deleteStoredConversation: false, cancellationToken, reclaimSecrets: false)
+                .ConfigureAwait(false))
         {
             _ = await DeleteCheckpointAsync(fork.RunId, CancellationToken.None)
                 .ConfigureAwait(false);
@@ -441,10 +476,19 @@ public sealed partial class GovernedAgentRuntime
         }
 
         NotifyChanged();
+
+        // After the conversation is on screen: the clean-up reads every
+        // stored conversation and the keychain.
+        await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
         return true;
     }
 
-    public async ValueTask<bool> DeleteConversationAsync(
+    public ValueTask<bool> DeleteConversationAsync(
+        AgentRunId runId,
+        CancellationToken cancellationToken) =>
+        OffUiThreadAsync(() => DeleteConversationCoreAsync(runId, cancellationToken));
+
+    private async ValueTask<bool> DeleteConversationCoreAsync(
         AgentRunId runId,
         CancellationToken cancellationToken)
     {
@@ -557,6 +601,13 @@ public sealed partial class GovernedAgentRuntime
         NotifyChanged();
     }
 
+    /// <summary>
+    /// The conversation list. Each entry is read from its checkpoint once and
+    /// reused until that checkpoint is saved again: restoring every saved
+    /// conversation — megabytes each for long chats — after every turn just to
+    /// show titles made the list and chat switching crawl. Reused entries
+    /// carry no session; <see cref="RestoreCatalogSessionAsync"/> loads one.
+    /// </summary>
     private async ValueTask<IReadOnlyList<LoadedConversation>> LoadConversationCatalogAsync(
         IReadOnlyList<AgentSessionCheckpointSummary> stored,
         CancellationToken cancellationToken)
@@ -564,86 +615,126 @@ public sealed partial class GovernedAgentRuntime
         var conversations = new List<LoadedConversation>(stored.Count);
         foreach (var item in stored)
         {
-            var loaded = await LoadCheckpointAsync(item.RunId, cancellationToken)
-                .ConfigureAwait(false);
-            if (!loaded.IsSuccess || loaded.Value is null)
+            if (_catalogEntries.TryGetValue(item.RunId, out var cached)
+                && cached.Revision == item.Revision
+                && cached.UpdatedAt == item.UpdatedAt)
             {
-                conversations.Add(new LoadedConversation(
-                    null,
-                    new GovernedAgentConversationSummary(
-                        item.RunId,
-                        "Unavailable conversation",
-                        null,
-                        null,
-                        0,
-                        item.UpdatedAt,
-                        loaded.Error?.Code ==
-                            AgentSessionCheckpointStoreErrorCode.CorruptData
-                                ? GovernedAgentConversationAvailability.Corrupt
-                                : GovernedAgentConversationAvailability.Unavailable)));
+                conversations.Add(new LoadedConversation(null, cached.Summary));
                 continue;
             }
 
-            var restored = NativeAgentSession.RestoreCheckpoint(loaded.Value);
-            if (!restored.Succeeded || restored.Session is not { } session)
-            {
-                conversations.Add(new LoadedConversation(
-                    null,
-                    new GovernedAgentConversationSummary(
-                        item.RunId,
-                        "Corrupt conversation",
-                        null,
-                        null,
-                        0,
-                        item.UpdatedAt,
-                        GovernedAgentConversationAvailability.Corrupt)));
-                continue;
-            }
+            var entry = await LoadCatalogEntryAsync(item, cancellationToken).ConfigureAwait(false);
+            _catalogEntries[item.RunId] = new CatalogEntry(item.Revision, item.UpdatedAt, entry.Summary);
+            conversations.Add(entry);
+        }
 
-            var descriptor = session.DescribeConversation();
-            var history = await LoadHistoryMetadataResultAsync(
-                    item.RunId,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!history.IsSuccess
-                && history.Error?.Code
-                    != AgentSessionCheckpointStoreErrorCode.NotFound)
+        foreach (var runId in _catalogEntries.Keys)
+        {
+            if (!stored.Any(item => item.RunId == runId))
             {
-                conversations.Add(new LoadedConversation(
-                    null,
-                    new GovernedAgentConversationSummary(
-                        item.RunId,
-                        history.Error?.Code ==
-                            AgentSessionCheckpointStoreErrorCode.CorruptData
-                                ? "Corrupt conversation metadata"
-                                : descriptor.Title,
-                        descriptor.ProviderId,
-                        descriptor.Model,
-                        descriptor.MessageCount,
-                        item.UpdatedAt,
-                        history.Error?.Code ==
-                            AgentSessionCheckpointStoreErrorCode.CorruptData
-                                ? GovernedAgentConversationAvailability.Corrupt
-                                : GovernedAgentConversationAvailability.Unavailable)));
-                continue;
+                _catalogEntries.TryRemove(runId, out _);
             }
-
-            conversations.Add(new LoadedConversation(
-                session,
-                new GovernedAgentConversationSummary(
-                    item.RunId,
-                    descriptor.Title,
-                    descriptor.ProviderId,
-                    descriptor.Model,
-                    descriptor.MessageCount,
-                    item.UpdatedAt,
-                    history.IsSuccess
-                        ? GovernedAgentConversationAvailability.Available
-                        : GovernedAgentConversationAvailability.Partial)));
         }
 
         return conversations;
     }
+
+    /// <summary>The session behind a list entry, loading it when the entry was reused.</summary>
+    private async ValueTask<NativeAgentSession?> RestoreCatalogSessionAsync(
+        LoadedConversation conversation,
+        AgentSessionCheckpointSummary stored,
+        CancellationToken cancellationToken) =>
+        conversation.Session
+        ?? (conversation.Summary.Availability is GovernedAgentConversationAvailability.Available
+                or GovernedAgentConversationAvailability.Partial
+            ? (await LoadCatalogEntryAsync(stored, cancellationToken).ConfigureAwait(false)).Session
+            : null);
+
+    private async ValueTask<LoadedConversation> LoadCatalogEntryAsync(
+        AgentSessionCheckpointSummary item,
+        CancellationToken cancellationToken)
+    {
+        var loaded = await LoadCheckpointAsync(item.RunId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!loaded.IsSuccess || loaded.Value is null)
+        {
+            return new LoadedConversation(
+                null,
+                new GovernedAgentConversationSummary(
+                    item.RunId,
+                    "Unavailable conversation",
+                    null,
+                    null,
+                    0,
+                    item.UpdatedAt,
+                    loaded.Error?.Code ==
+                        AgentSessionCheckpointStoreErrorCode.CorruptData
+                            ? GovernedAgentConversationAvailability.Corrupt
+                            : GovernedAgentConversationAvailability.Unavailable));
+        }
+
+        var restored = NativeAgentSession.RestoreCheckpoint(loaded.Value);
+        if (!restored.Succeeded || restored.Session is not { } session)
+        {
+            return new LoadedConversation(
+                null,
+                new GovernedAgentConversationSummary(
+                    item.RunId,
+                    "Corrupt conversation",
+                    null,
+                    null,
+                    0,
+                    item.UpdatedAt,
+                    GovernedAgentConversationAvailability.Corrupt));
+        }
+
+        var descriptor = session.DescribeConversation();
+        var history = await LoadHistoryMetadataResultAsync(
+                item.RunId,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!history.IsSuccess
+            && history.Error?.Code
+                != AgentSessionCheckpointStoreErrorCode.NotFound)
+        {
+            return new LoadedConversation(
+                null,
+                new GovernedAgentConversationSummary(
+                    item.RunId,
+                    history.Error?.Code ==
+                        AgentSessionCheckpointStoreErrorCode.CorruptData
+                            ? "Corrupt conversation metadata"
+                            : descriptor.Title,
+                    descriptor.ProviderId,
+                    descriptor.Model,
+                    descriptor.MessageCount,
+                    item.UpdatedAt,
+                    history.Error?.Code ==
+                        AgentSessionCheckpointStoreErrorCode.CorruptData
+                            ? GovernedAgentConversationAvailability.Corrupt
+                            : GovernedAgentConversationAvailability.Unavailable));
+        }
+
+        return new LoadedConversation(
+            session,
+            new GovernedAgentConversationSummary(
+                item.RunId,
+                descriptor.Title,
+                descriptor.ProviderId,
+                descriptor.Model,
+                descriptor.MessageCount,
+                item.UpdatedAt,
+                history.IsSuccess
+                    ? GovernedAgentConversationAvailability.Available
+                    : GovernedAgentConversationAvailability.Partial));
+    }
+
+    private sealed record CatalogEntry(
+        long Revision,
+        DateTimeOffset UpdatedAt,
+        GovernedAgentConversationSummary Summary);
+
+
 
     private sealed record LoadedConversation(
         NativeAgentSession? Session,

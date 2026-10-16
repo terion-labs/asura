@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
@@ -128,6 +129,7 @@ public sealed partial class GovernedAgentRuntime :
     private AgentPolicy _effectivePolicy;
     private NativeAgentSession? _session;
     private NativeAgentSession? _restoredSession;
+    private readonly ConcurrentDictionary<AgentRunId, CatalogEntry> _catalogEntries = new();
     private IAgentProviderBinding? _providerBinding;
     private CancellationTokenSource? _turnCancellation;
     private ActiveActionCancellation? _activeActionCancellation;
@@ -1465,14 +1467,15 @@ public sealed partial class GovernedAgentRuntime :
         DisableYoloCoreAsync(YoloEndReason.UserDisabled, cancellationToken);
 
     public ValueTask<bool> ClearAsync(CancellationToken cancellationToken) =>
-        ResetConversationAsync(deleteStoredConversation: true, cancellationToken);
+        OffUiThreadAsync(() => ResetConversationAsync(deleteStoredConversation: true, cancellationToken));
 
     public ValueTask<bool> StartNewConversationAsync(CancellationToken cancellationToken) =>
-        ResetConversationAsync(deleteStoredConversation: false, cancellationToken);
+        OffUiThreadAsync(() => ResetConversationAsync(deleteStoredConversation: false, cancellationToken));
 
     private async ValueTask<bool> ResetConversationAsync(
         bool deleteStoredConversation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool reclaimSecrets = true)
     {
         AgentRunId? runId;
         ActorDescriptor? actor;
@@ -1566,7 +1569,11 @@ public sealed partial class GovernedAgentRuntime :
                     _draftHiddenReferences = [];
                 }
             }
-            await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
+            if (reclaimSecrets)
+            {
+                await ReclaimChatSecretsAsync(cancellationToken).ConfigureAwait(false);
+            }
+
             NotifyChanged();
             return true;
         }

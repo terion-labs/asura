@@ -3561,10 +3561,14 @@ public sealed partial class GovernedAgentRuntimeTests
                 AgentSessionCheckpointStoreResult<Unit>.Success(Unit.Value));
         }
 
+        /// <summary>Every load, in order, with the synchronization context it ran on.</summary>
+        public ConcurrentQueue<(AgentRunId RunId, SynchronizationContext? Context)> Loads { get; } = [];
+
         public ValueTask<AgentSessionCheckpointStoreResult<AgentSessionCheckpoint>>
             LoadAsync(AgentRunId runId, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            Loads.Enqueue((runId, SynchronizationContext.Current));
             return ValueTask.FromResult(_values.TryGetValue(runId, out var checkpoint)
                 ? AgentSessionCheckpointStoreResult<AgentSessionCheckpoint>.Success(checkpoint)
                 : AgentSessionCheckpointStoreResult<AgentSessionCheckpoint>.Failure(

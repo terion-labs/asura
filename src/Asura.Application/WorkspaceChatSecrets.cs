@@ -326,9 +326,20 @@ public sealed class WorkspaceChatSecrets(ISecretVault vault, AgentConversationSc
             staged = [.. _entries.Where(item => !item.Value.Persisted && item.Value.CheckpointReferenced
                 && !liveReferences.Contains(item.Value.Reference.Id))];
         }
+        var listed = await vault.ListMetadataAsync(new(_scope, Purpose(SecretUseKind.ChatHistoryPersistence)), cancellationToken).ConfigureAwait(false);
+        var stored = listed is SecretVaultResult<IReadOnlyList<SecretMetadata>>.Success storedEntries
+            ? storedEntries.Value.Where(entry => !liveReferences.Contains(entry.Reference.Value)).ToArray()
+            : null;
+        var inUse = await checkpoints.FindChatHiddenReferencesInUseAsync(
+                workspace,
+                [.. staged.Select(item => item.Value.Reference.Id)
+                    .Concat(stored?.Select(entry => entry.Reference.Value) ?? [])
+                    .Distinct(StringComparer.Ordinal)],
+                cancellationToken)
+            .ConfigureAwait(false);
         foreach (var item in staged)
         {
-            if (!await checkpoints.IsChatHiddenReferenceInUseAsync(workspace, item.Value.Reference.Id, cancellationToken).ConfigureAwait(false))
+            if (!inUse.Contains(item.Value.Reference.Id))
             {
                 lock (_gate)
                 {
@@ -341,18 +352,9 @@ public sealed class WorkspaceChatSecrets(ISecretVault vault, AgentConversationSc
                 }
             }
         }
-        var listed = await vault.ListMetadataAsync(new(_scope, Purpose(SecretUseKind.ChatHistoryPersistence)), cancellationToken).ConfigureAwait(false);
-        if (listed is not SecretVaultResult<IReadOnlyList<SecretMetadata>>.Success entries)
+        foreach (var entry in stored ?? [])
         {
-            return;
-        }
-        foreach (var entry in entries.Value)
-        {
-            if (liveReferences.Contains(entry.Reference.Value))
-            {
-                continue;
-            }
-            if (!await checkpoints.IsChatHiddenReferenceInUseAsync(workspace, entry.Reference.Value, cancellationToken).ConfigureAwait(false))
+            if (!inUse.Contains(entry.Reference.Value))
             {
                 var deleted = await vault.DeleteAsync(new(entry.Reference, _scope, Purpose(SecretUseKind.ChatHistoryPersistence)), cancellationToken).ConfigureAwait(false);
                 if (deleted is SecretVaultResult<Unit>.Success)
