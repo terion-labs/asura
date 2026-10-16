@@ -23,6 +23,33 @@ internal sealed class AiProviderClientException : AgentProviderException
 
     public TimeSpan? RetryAfter { get; }
 
+    /// <summary>
+    /// The provider refused the request and said why with an error code of its
+    /// own. Only that identifier is shown, never the provider's free text.
+    /// </summary>
+    public static AiProviderClientException Rejected(string providerCode) =>
+        new(
+            AiProviderRuntimeErrorCode.RequestRejected,
+            "ai_provider_request_rejected",
+            $"The AI provider rejected the request ({providerCode}).");
+
+    /// <summary>
+    /// The provider sent something this version doesn't understand — a new
+    /// kind of output, say — named so the failure says what changed. Only a
+    /// short protocol identifier is kept.
+    /// </summary>
+    public static AiProviderClientException Unsupported(string kind, string identifier)
+    {
+        var safe = identifier is { Length: > 0 and <= 64 }
+            && identifier.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '.' or '-')
+                ? identifier
+                : "unrecognized";
+        return new(
+            AiProviderRuntimeErrorCode.ProtocolError,
+            "ai_provider_protocol_error",
+            $"The AI provider sent a {kind} Asura can’t read yet (“{safe}”). Update Asura, or choose another model.");
+    }
+
     public static AiProviderClientException Create(
         AiProviderRuntimeErrorCode code,
         TimeSpan? retryAfter = null,
@@ -81,6 +108,12 @@ internal sealed class AiProviderClientException : AgentProviderException
                 code,
                 "ai_provider_protocol_error",
                 "The AI provider returned an unsupported or invalid response.",
+                retryAfter,
+                innerException),
+            AiProviderRuntimeErrorCode.RequestRejected => new(
+                code,
+                "ai_provider_request_rejected",
+                "The AI provider rejected the request.",
                 retryAfter,
                 innerException),
             AiProviderRuntimeErrorCode.RequestTooLarge => new(

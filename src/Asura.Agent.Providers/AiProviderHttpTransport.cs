@@ -213,7 +213,7 @@ internal sealed class AiProviderHttpTransport : IDisposable
 
             if (!response.IsSuccessStatusCode)
             {
-                throw CreateStatusFailure(response);
+                throw await CreateStatusFailureAsync(response, cancellationToken).ConfigureAwait(false);
             }
 
             return response;
@@ -376,9 +376,34 @@ internal sealed class AiProviderHttpTransport : IDisposable
             ? AiProviderClientException.Create(AiProviderRuntimeErrorCode.Cancelled)
             : AiProviderClientException.Create(AiProviderRuntimeErrorCode.CredentialUnavailable);
 
-    private static AiProviderClientException CreateStatusFailure(
-        HttpResponseMessage response)
+    private static async ValueTask<AiProviderClientException> CreateStatusFailureAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
     {
+        // A refused request says why in its body. Without reading it, a chat
+        // that outgrew the model's context window — a 400 with
+        // context_length_exceeded — reached the person as "an unsupported or
+        // invalid response", with nothing to tell them what to do.
+        if (response.StatusCode is HttpStatusCode.BadRequest
+            or HttpStatusCode.RequestEntityTooLarge
+            or HttpStatusCode.UnprocessableEntity)
+        {
+            var refusal = await AiProviderRequestRefusal.ReadAsync(response, cancellationToken)
+                .ConfigureAwait(false);
+            if (refusal.IsContextOverflow
+                || response.StatusCode == HttpStatusCode.RequestEntityTooLarge)
+            {
+                return AiProviderClientException.Create(AiProviderRuntimeErrorCode.RequestTooLarge);
+            }
+
+            if (refusal.Code is { } providerCode)
+            {
+                return AiProviderClientException.Rejected(providerCode);
+            }
+
+            return AiProviderClientException.Create(AiProviderRuntimeErrorCode.RequestRejected);
+        }
+
         var retryAfter = RetryAfter(response.Headers.RetryAfter);
         var errorCode = response.StatusCode switch
         {
@@ -387,8 +412,6 @@ internal sealed class AiProviderHttpTransport : IDisposable
             HttpStatusCode.PaymentRequired => AiProviderRuntimeErrorCode.QuotaExceeded,
             HttpStatusCode.NotFound => AiProviderRuntimeErrorCode.ModelUnavailable,
             HttpStatusCode.RequestTimeout => AiProviderRuntimeErrorCode.Timeout,
-            HttpStatusCode.RequestEntityTooLarge =>
-                AiProviderRuntimeErrorCode.ResponseTooLarge,
             HttpStatusCode.TooManyRequests => AiProviderRuntimeErrorCode.RateLimited,
             >= HttpStatusCode.InternalServerError =>
                 AiProviderRuntimeErrorCode.ProviderUnavailable,

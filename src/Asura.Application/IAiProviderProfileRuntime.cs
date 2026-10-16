@@ -59,6 +59,9 @@ public enum AiProviderRuntimeErrorCode
     Timeout,
     Cancelled,
     RequestTooLarge,
+
+    /// <summary>The provider refused the request itself, naming why with its own error code.</summary>
+    RequestRejected,
 }
 
 public sealed record AiProviderProfileDescriptor

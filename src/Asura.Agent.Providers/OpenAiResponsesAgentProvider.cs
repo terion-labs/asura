@@ -773,7 +773,13 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                     ObserveRawReasoning(root, "text");
                     break;
                 default:
-                    throw ProtocolError();
+                    // OpenAI adds stream events as models gain features, and
+                    // asks clients to skip the ones they don't know. Every
+                    // event this parser acts on is handled above, and the
+                    // output items and completion it depends on are still
+                    // validated strictly, so a new event can't change what
+                    // the run produces — it only stopped the run before.
+                    break;
             }
 
             return events;
@@ -1119,7 +1125,7 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
 
             if (!string.Equals(type, "function_call", StringComparison.Ordinal))
             {
-                throw ProtocolError();
+                throw AiProviderClientException.Unsupported("kind of output", type);
             }
 
             var itemId = RequiredIdentifier(item, "id", 256);
@@ -1237,11 +1243,12 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
 
             var details = AiProviderJson.RequiredObject(response, "incomplete_details");
             BackfillReplayItems(response, events);
-            _stopReason = AiProviderJson.RequiredBoundedString(details, "reason", 64) switch
+            var reason = AiProviderJson.RequiredBoundedString(details, "reason", 64);
+            _stopReason = reason switch
             {
                 "max_output_tokens" => AgentProviderStopReason.MaximumTokens,
                 "content_filter" => AgentProviderStopReason.ContentFiltered,
-                _ => throw ProtocolError(),
+                _ => throw AiProviderClientException.Unsupported("reason for stopping early", reason),
             };
             AppendUsage(response, events);
         }
