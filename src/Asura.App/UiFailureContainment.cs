@@ -11,13 +11,19 @@ namespace Asura.App;
 /// failure is recorded, without its message or stack, and the app keeps
 /// running.
 /// </summary>
-internal static class UiFailureContainment
+public static class UiFailureContainment
 {
     public static void Attach(Dispatcher dispatcher)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
         dispatcher.UnhandledException -= OnUnhandledException;
         dispatcher.UnhandledException += OnUnhandledException;
+    }
+
+    public static void Detach(Dispatcher dispatcher)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+        dispatcher.UnhandledException -= OnUnhandledException;
     }
 
     private static void OnUnhandledException(object? sender, DispatcherUnhandledExceptionEventArgs e)

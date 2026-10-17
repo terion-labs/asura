@@ -35,13 +35,24 @@ internal static class RestingToolTips
     // own show delay decides when its tooltip opens.
     private static readonly TimeSpan s_restCheck = TimeSpan.FromMilliseconds(50);
 
-    private static IDisposable? s_restCheckPending;
     private static bool s_installed;
+
+    // The pointer's state belongs to the UI thread that sees it. Asura has
+    // one, but headless test sessions each run their own, and shared state
+    // let one session close another's tooltip from the wrong thread.
+    [ThreadStatic]
+    private static IDisposable? s_restCheckPending;
+    [ThreadStatic]
     private static bool s_quiet;
+    [ThreadStatic]
     private static TopLevel? s_root;
+    [ThreadStatic]
     private static Point s_restAt;
+    [ThreadStatic]
     private static long s_restSince;
+    [ThreadStatic]
     private static Control? s_opening;
+    [ThreadStatic]
     private static WeakReference<Control>? s_open;
 
     /// <summary>Whether a scroll has put tooltips away and the pointer has not moved since.</summary>
@@ -111,7 +122,9 @@ internal static class RestingToolTips
 
     private static void CloseOpen()
     {
-        if (s_open?.TryGetTarget(out var owner) == true && ToolTip.GetIsOpen(owner))
+        if (s_open?.TryGetTarget(out var owner) == true
+            && owner.CheckAccess()
+            && ToolTip.GetIsOpen(owner))
         {
             ToolTip.SetIsOpen(owner, false);
         }
