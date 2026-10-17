@@ -20,11 +20,19 @@ public sealed class UiFailureContainmentHeadlessTests
             UiFailureContainment.Attach(Dispatcher.UIThread);
             var ranAfterward = false;
 
-            Dispatcher.UIThread.Post(() => throw new InvalidOperationException("A handler failed."));
-            Dispatcher.UIThread.Post(() => ranAfterward = true);
-            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                Dispatcher.UIThread.Post(() => throw new InvalidOperationException("A handler failed."));
+                Dispatcher.UIThread.Post(() => ranAfterward = true);
+                Dispatcher.UIThread.RunJobs();
 
-            Assert.True(ranAfterward);
+                Assert.True(ranAfterward);
+            }
+            finally
+            {
+                // Later tests in this process must still see UI exceptions.
+                UiFailureContainment.Detach(Dispatcher.UIThread);
+            }
         }, CancellationToken.None);
     }
 
@@ -37,11 +45,19 @@ public sealed class UiFailureContainmentHeadlessTests
             UiFailureContainment.Attach(Dispatcher.UIThread);
             var resumed = false;
 
-            FailAfterAwait();
-            Dispatcher.UIThread.Post(() => resumed = true);
-            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                FailAfterAwait();
+                Dispatcher.UIThread.Post(() => resumed = true);
+                Dispatcher.UIThread.RunJobs();
 
-            Assert.True(resumed);
+                Assert.True(resumed);
+            }
+            finally
+            {
+                // Later tests in this process must still see UI exceptions.
+                UiFailureContainment.Detach(Dispatcher.UIThread);
+            }
         }, CancellationToken.None);
     }
 
