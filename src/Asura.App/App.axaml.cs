@@ -218,6 +218,7 @@ public sealed partial class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        UiFailureContainment.Attach(Dispatcher.UIThread);
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;

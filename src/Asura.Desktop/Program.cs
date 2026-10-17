@@ -370,6 +370,12 @@ internal static class Program
         }
     }
 
+    // Quiescing normally finishes on Exit while the dispatcher still pumps;
+    // here it only confirms that. When the UI loop ended without Exit, work
+    // that needs the dispatcher can never finish, and waiting for it froze
+    // Asura until it was force-quit, so the wait is bounded.
+    private static readonly TimeSpan PresentationQuiescenceTimeout = TimeSpan.FromSeconds(15);
+
     private static void QuiescePresentationOrReport(IServiceProvider services)
     {
         try
@@ -378,6 +384,7 @@ internal static class Program
                     services.GetRequiredService<QuickTerminalController>(),
                     services.GetRequiredService<AsuraApplication>(),
                     CancellationToken.None)
+                .WaitAsync(PresentationQuiescenceTimeout)
                 .GetAwaiter()
                 .GetResult();
         }
