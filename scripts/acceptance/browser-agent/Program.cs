@@ -229,17 +229,23 @@ internal sealed class ProbeApp : Avalonia.Application
                 "return to form", null);
             var initialInputs = await CounterAsync(fixtureClient, "agentInputEvents", deadline.Token);
             using var stop = CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+            const int typedCharacters = 160;
             var typing = surface.FillWithinOriginAsync(
                 await ReferenceAsync(surface, "textbox", "Fixture text", deadline.Token),
-                new string('x', 160), BrowserNavigationOrigin.WorkspaceNetwork, stop.Token).AsTask();
+                new string('x', typedCharacters), BrowserNavigationOrigin.WorkspaceNetwork, stop.Token).AsTask();
             while (await CounterAsync(fixtureClient, "agentInputEvents", deadline.Token) == initialInputs)
             {
                 await Task.Delay(20, deadline.Token);
             }
             stop.Cancel();
             Require(!(await typing.WaitAsync(deadline.Token)).IsSuccess, "stopped typing", null);
-            await Task.Delay(150, deadline.Token);
-            var stoppedInputs = await CounterAsync(fixtureClient, "agentInputEvents", deadline.Token);
+            // Keystrokes handed to the renderer before the cancel still land,
+            // and each is reported by an asynchronous fetch. On a loaded runner
+            // that tail outlasted a fixed 150 ms grace (v0.1.85 release run),
+            // so wait for the count to settle, then require typing to have
+            // stopped well short of the full text and to stay stopped.
+            var stoppedInputs = await SettledCounterAsync(fixtureClient, "agentInputEvents", deadline.Token);
+            Require(stoppedInputs - initialInputs < typedCharacters, "typing stopped before the full text", null);
             await Task.Delay(400, deadline.Token);
             Require(stoppedInputs == await CounterAsync(fixtureClient, "agentInputEvents", deadline.Token),
                 "no input after cancellation", null);
@@ -293,6 +299,23 @@ internal sealed class ProbeApp : Avalonia.Application
                 exitCode = 1;
             }
             lifetime.Shutdown(exitCode);
+        }
+    }
+
+    /// <summary>The counter once it has not changed for 300 ms.</summary>
+    private static async Task<int> SettledCounterAsync(HttpClient client, string name, CancellationToken cancellationToken)
+    {
+        var current = await CounterAsync(client, name, cancellationToken);
+        while (true)
+        {
+            await Task.Delay(300, cancellationToken);
+            var next = await CounterAsync(client, name, cancellationToken);
+            if (next == current)
+            {
+                return current;
+            }
+
+            current = next;
         }
     }
 
