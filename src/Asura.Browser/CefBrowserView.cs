@@ -31,6 +31,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private readonly IBrowserUiDispatcher _titleDispatcher = AvaloniaBrowserUiDispatcher.Instance;
     private readonly Grid _view;
     private readonly CefAgentCursorOverlay _agentCursorOverlay;
+    private readonly CefMacTextNavigation _textNavigation;
     private readonly TaskCompletionSource<bool> _rendererReady = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private CefBrowser? _browser;
@@ -48,6 +49,12 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private long _lastNavigationGeneration;
     private int _titleChangeScheduled;
     private bool _ignoreInitialBlank = true;
+
+    // Every renderer starts on the about:blank it is created with, and that
+    // first history entry is not a page anyone visited: going back to it left
+    // the panel on a blank page with nowhere to go. Back is offered only when
+    // a real page is behind, which history confirms after each load.
+    private bool _backReachesOnlyInitialBlank = true;
     private bool _isAgentActive;
     private bool _disposed;
 
@@ -74,6 +81,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         _view = new Grid();
         _view.Children.Add(_webView);
         _view.Children.Add(_agentCursorOverlay);
+        _textNavigation = new CefMacTextNavigation(_view, () => _browser);
         _view.SizeChanged += (_, _) => ResizeHostedPopups();
         _webView.BrowserReady += OnBrowserReady;
     }
@@ -85,7 +93,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
     public Control View => _view;
 
-    public bool CanGoBack => _browser?.CanGoBack ?? false;
+    public bool CanGoBack => !_backReachesOnlyInitialBlank && (_browser?.CanGoBack ?? false);
 
     public bool CanGoForward => _browser?.CanGoForward ?? false;
 
@@ -145,6 +153,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
     public event EventHandler? TitleChanged;
 
+    public event EventHandler? HistoryChanged;
+
     public event EventHandler<NativeBrowserAddressChangedEventArgs>?
         AddressChanged;
 
@@ -180,7 +190,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     }
 
     public bool GoBack() => InvokeHistoryNavigation(
-        static browser => browser.CanGoBack,
+        _ => CanGoBack,
         static browser => browser.GoBack());
 
     public bool GoForward() => InvokeHistoryNavigation(
@@ -535,6 +545,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             }
 
             _browser = browser;
+            _backReachesOnlyInitialBlank = true;
             _semanticAdapter?.InvalidateDocument();
             _networkActivity?.Dispose();
             _domActivity?.Dispose();
@@ -640,6 +651,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.RenderProcessGone += OnRenderProcessGone;
         browser.ConsoleMessage += CefConsoleMessagePolicy.Handle;
         browser.KeyEvent += OnUnhandledKeyEvent;
+        browser.VirtualKeyboardRequested += OnTextInputModeChanged;
 
         // CEF has no host UI for these prompts in OSR mode. Every privileged
         // or filesystem-affecting operation therefore defaults closed until a
@@ -671,6 +683,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.RenderProcessGone -= OnRenderProcessGone;
         browser.ConsoleMessage -= CefConsoleMessagePolicy.Handle;
         browser.KeyEvent -= OnUnhandledKeyEvent;
+        browser.VirtualKeyboardRequested -= OnTextInputModeChanged;
+        _textNavigation.Reset();
         browser.BeforePopup -= OnBeforePopup;
         browser.ContextMenu -= OnContextMenu;
         browser.HostPopup -= OnHostPopup;
@@ -684,6 +698,9 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.MediaAccessRequest -= BlockMediaAccess;
         browser.CertError -= BlockCertificateError;
     }
+
+    private void OnTextInputModeChanged(object? sender, Cef.CefTextInputMode mode) =>
+        _textNavigation.OnTextInputModeChanged(mode);
 
     private static void OnUnhandledKeyEvent(object? sender, PreKeyEventArgs args)
     {
@@ -991,7 +1008,45 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             }
 
             TryCompleteSameDocumentNavigation();
+            if (sender is CefBrowser browser)
+            {
+                _ = RefreshInitialBlankBoundaryAsync(browser);
+            }
         });
+
+    /// <summary>
+    /// Whether the only entry behind the current page is the renderer's
+    /// initial about:blank, read from the browser's history once loading
+    /// settles. Back and Forward availability is republished when it changes.
+    /// </summary>
+    private async Task RefreshInitialBlankBoundaryAsync(CefBrowser browser)
+    {
+        List<NavigationEntry> entries;
+        try
+        {
+            entries = await browser.GetNavigationEntriesAsync().ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        var current = entries.FindIndex(entry => entry.IsCurrent);
+        var reachesOnlyInitialBlank = current <= 1
+            && (current < 1 || IsBlank(entries[0].Url));
+        RunOnUiThread(() =>
+        {
+            if (_disposed
+                || !ReferenceEquals(_browser, browser)
+                || _backReachesOnlyInitialBlank == reachesOnlyInitialBlank)
+            {
+                return;
+            }
+
+            _backReachesOnlyInitialBlank = reachesOnlyInitialBlank;
+            HistoryChanged?.Invoke(this, EventArgs.Empty);
+        });
+    }
 
     private void ObserveAddressChangeDuringNavigation(
         ActiveNativeNavigation navigation,

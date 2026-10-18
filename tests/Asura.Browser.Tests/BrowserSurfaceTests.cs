@@ -2022,6 +2022,29 @@ public sealed class BrowserSurfaceTests
         Assert.Null(surface.State.Failure);
     }
 
+    // Back to the renderer's initial about:blank left the panel on a blank
+    // page with nowhere to go. The native view learns from history, after the
+    // navigation event, whether a real page is behind; the panel follows.
+    [Fact]
+    public void BackAvailabilityFollowsHistoryWithoutCommittingAnotherDocument()
+    {
+        var nativeView = new RecordingEmbeddedBrowserView { CanGoBack = true };
+        var surface = Surface(nativeView);
+        var document = Address("https://example.test/first");
+        nativeView.RaiseNavigationStarted(document);
+        nativeView.RaiseNavigationCompleted(document, isSuccess: true);
+        Assert.True(surface.State.CanGoBack);
+        var revision = surface.State.DocumentRevision;
+
+        nativeView.CanGoBack = false;
+        nativeView.RaiseHistoryChanged();
+
+        Assert.False(surface.State.CanGoBack);
+        Assert.Equal(document, surface.State.Address);
+        Assert.Equal(revision, surface.State.DocumentRevision);
+        Assert.Equal(BrowserLoadState.Ready, surface.State.LoadState);
+    }
+
     [Fact]
     public void PageTitlesSurviveNavigationAndUpdateWithoutCommittingAnotherDocument()
     {

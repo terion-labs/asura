@@ -152,6 +152,25 @@ internal sealed class ProbeApp : Avalonia.Application
             surface.IsVisible = true;
             await Task.Delay(200, deadline.Token);
 
+            // The renderer's initial about:blank is not a page anyone visited:
+            // Back must not lead to it.
+            BeginStage("history starts at the first real page");
+            await RequireStateAsync(surface, state => !state.CanGoBack, "no Back to the initial blank page", deadline.Token);
+            var second = new BrowserAddress(new Uri(Program.Fixture + "/agent-form?history=2"));
+            Require((await surface.NavigateWithinOriginAsync(
+                new BrowserOriginConstrainedNavigationRequest.Navigate(second),
+                BrowserNavigationOrigin.WorkspaceNetwork,
+                BrowserNavigationStartBinding.FromState(surface.State), deadline.Token)).IsSuccess,
+                "second history page", null);
+            await RequireStateAsync(surface, state => state.CanGoBack, "Back to the first page", deadline.Token);
+            Require((await surface.GoBackAsync(deadline.Token)).IsSuccess, "go back", null);
+            await RequireStateAsync(
+                surface,
+                state => state.Address == address && !state.CanGoBack,
+                "back on the first page with no Back to blank",
+                deadline.Token);
+            Console.WriteLine("PASS history starts at the first real page, not the renderer's blank page");
+
             BeginStage("keyboard translation");
             await BrowserKeyboardAcceptance.VerifyAsync(surface, window, deadline.Token);
 
@@ -317,6 +336,21 @@ internal sealed class ProbeApp : Avalonia.Application
 
             current = next;
         }
+    }
+
+    /// <summary>Back and Forward availability settles after the load events, from history.</summary>
+    private static async Task RequireStateAsync(
+        BrowserSurface surface,
+        Func<BrowserSessionState, bool> condition,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 60 && !condition(surface.State); attempt++)
+        {
+            await Task.Delay(50, cancellationToken);
+        }
+
+        Require(condition(surface.State), label, null);
     }
 
     private static async Task<int> CounterAsync(HttpClient client, string name, CancellationToken cancellationToken)
