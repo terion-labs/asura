@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Asura.App.Controls;
 using Avalonia;
 using Avalonia.Controls;
@@ -26,9 +27,10 @@ public sealed class RestingToolTipsHeadlessTests
             var (window, first, second) = TwoTabs();
 
             // Resting on a tab shows its tooltip after the delay, not before.
+            var restingSince = Stopwatch.GetTimestamp();
             window.MouseMove(new Point(50, 15));
             await Settle(ShowDelay / 3);
-            Assert.False(ToolTip.GetIsOpen(first));
+            AssertNotOpenYet(first, restingSince);
             await Settle(ShowDelay * 2);
             Assert.True(ToolTip.GetIsOpen(first));
 
@@ -39,17 +41,19 @@ public sealed class RestingToolTipsHeadlessTests
 
             // Moving on puts it away, and the next tab's does not open at
             // once: it waits for the pointer to rest again.
+            restingSince = Stopwatch.GetTimestamp();
             window.MouseMove(new Point(150, 15));
             await Settle(10);
             Assert.False(ToolTip.GetIsOpen(first));
-            Assert.False(ToolTip.GetIsOpen(second));
+            AssertNotOpenYet(second, restingSince);
             await Settle(ShowDelay * 2);
             Assert.True(ToolTip.GetIsOpen(second));
 
             // Moving within the tab puts it away too, until the pointer stops.
+            restingSince = Stopwatch.GetTimestamp();
             window.MouseMove(new Point(170, 15));
             await Settle(10);
-            Assert.False(ToolTip.GetIsOpen(second));
+            AssertNotOpenYet(second, restingSince);
             await Settle(ShowDelay * 2);
             Assert.True(ToolTip.GetIsOpen(second));
 
@@ -115,6 +119,20 @@ public sealed class RestingToolTipsHeadlessTests
         window.Show();
         window.UpdateLayout();
         return (window, first, second);
+    }
+
+    /// <summary>
+    /// A tooltip must not open before the pointer has rested for the show
+    /// delay. That is only checkable while less than the delay has passed: a
+    /// slow machine can sleep past it (the v0.1.88 release run did), and then
+    /// the tooltip has rightly opened.
+    /// </summary>
+    private static void AssertNotOpenYet(Control owner, long restingSince)
+    {
+        if (Stopwatch.GetElapsedTime(restingSince) < TimeSpan.FromMilliseconds(ShowDelay))
+        {
+            Assert.False(ToolTip.GetIsOpen(owner));
+        }
     }
 
     /// <summary>Yields to the dispatcher, timers included, for <paramref name="milliseconds"/>.</summary>
