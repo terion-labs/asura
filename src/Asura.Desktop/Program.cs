@@ -254,6 +254,9 @@ internal static class Program
                     InitializeBrowserRuntime();
                 }
 
+                // Attached here, not in App: headless tests run App too, and
+                // they must still see a UI exception.
+                UiFailureContainment.Attach(Dispatcher.UIThread);
                 Environment.ExitCode = lifetime.Start(args);
                 // Exit normally performs this while the dispatcher still pumps.
                 // The process's STA thread is a safe fallback if the lifetime
