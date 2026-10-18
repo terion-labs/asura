@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
@@ -52,6 +53,12 @@ public sealed partial class AgentChatViewModelTests
                     await WaitUntilAsync(() => thumbnail.Source is not null);
                 }
                 var bitmap = thumbnail?.Source;
+                // Scroll away only once the first layout has settled at the
+                // end: a scroll that lands while rows are still being measured
+                // carries an extent change, doesn't count as the reader
+                // scrolling up, and the next update follows the end again (the
+                // v0.1.88 release run's slower runner).
+                await WaitForSettledTranscriptEndAsync(window, transcript);
                 transcript.Offset = new Vector(0, Math.Max(80, transcript.Offset.Y - 100));
                 await Task.Delay(80);
                 window.UpdateLayout();
@@ -97,6 +104,26 @@ public sealed partial class AgentChatViewModelTests
             }
             finally { window.Close(); }
         }, typeof(AgentAttachmentHeadlessApplication));
+
+    private static async Task WaitForSettledTranscriptEndAsync(Window window, ScrollViewer transcript)
+    {
+        var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 10;
+        while (true)
+        {
+            window.UpdateLayout();
+            var extent = transcript.Extent.Height;
+            await Task.Delay(50);
+            window.UpdateLayout();
+            var atEnd = transcript.Offset.Y
+                >= transcript.Extent.Height - transcript.Viewport.Height - 1;
+            if (atEnd && transcript.Extent.Height == extent)
+            {
+                return;
+            }
+
+            Assert.True(Stopwatch.GetTimestamp() < deadline, "The transcript never settled at its end.");
+        }
+    }
 
     [Fact]
     public Task Chat_images_preserve_aspect_ratio_and_open_a_zoomable_preview() =>
