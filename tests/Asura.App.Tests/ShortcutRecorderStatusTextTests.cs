@@ -19,8 +19,16 @@ public sealed class ShortcutRecorderStatusTextTests
         Assert.Equal(
             "Press the keys for the shortcut. Escape cancels.",
             ShortcutRecorderDialog.StatusText(strokeCount: 0, maximumStrokes: 1));
-        Assert.Equal("The shortcut is ready to use.", ShortcutRecorderDialog.StatusText(1, 1));
+        Assert.Equal(
+            "Press a new shortcut to replace this one, or choose Use Shortcut.",
+            ShortcutRecorderDialog.StatusText(1, 1));
     }
+
+    [Fact]
+    public void AnOpenedShortcutSaysTheNextPressReplacesIt() =>
+        Assert.Equal(
+            "Press a new shortcut to replace this one, or choose Use Shortcut.",
+            ShortcutRecorderDialog.StatusText(strokeCount: 2, maximumStrokes: 8, nextStrokeReplaces: true));
 
     [Fact]
     public void RecordedStrokesSayHowToContinueOrFinish()

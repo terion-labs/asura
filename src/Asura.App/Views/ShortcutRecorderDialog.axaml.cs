@@ -13,6 +13,13 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
     private readonly List<KeyStroke> _strokes = [];
     private readonly int _maximumStrokes;
 
+    // Pressing a shortcut records it anew. The shortcut the dialog opened
+    // with was kept and the new strokes appended, and for a one-stroke
+    // terminal shortcut a press was refused outright ("exactly one stroke")
+    // until Clear, so recording looked broken. Remove Last and Clear edit
+    // the strokes instead, and the next press adds to what is left.
+    private bool _replaceOnNextStroke;
+
     public ShortcutRecorderDialog()
         : this(initial: null, DefaultMaximumStrokes)
     {
@@ -38,6 +45,7 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         if (initial is not null)
         {
             _strokes.AddRange(initial.Strokes);
+            _replaceOnNextStroke = _strokes.Count > 0;
         }
 
         Refresh();
@@ -63,12 +71,16 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
             return;
         }
 
+        if (_replaceOnNextStroke || _maximumStrokes == 1)
+        {
+            _strokes.Clear();
+            _replaceOnNextStroke = false;
+        }
+
         if (_strokes.Count >= _maximumStrokes)
         {
             this.FindControl<TextBlock>("RecorderStatusText")!.Text =
-                _maximumStrokes == 1
-                    ? "A terminal shortcut has exactly one stroke."
-                    : $"A shortcut can’t have more than {_maximumStrokes} strokes.";
+                $"A shortcut can’t have more than {_maximumStrokes} strokes.";
             e.Handled = true;
             return;
         }
@@ -85,6 +97,7 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         if (_strokes.Count > 0)
         {
             _strokes.RemoveAt(_strokes.Count - 1);
+            _replaceOnNextStroke = false;
             Refresh();
         }
 
@@ -97,6 +110,7 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         _ = sender;
         _ = e;
         _strokes.Clear();
+        _replaceOnNextStroke = false;
         Refresh();
         this.FindControl<SurfaceCard>("CaptureArea")?.Focus();
     }
@@ -132,7 +146,8 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         this.FindControl<DialogShell>("Shell")!.Subtitle = _maximumStrokes == 1
             ? "Record one terminal stroke. Conflicts are checked before the profile can be saved."
             : $"Record up to {_maximumStrokes} strokes. Conflicts are checked before the profile can be saved.";
-        this.FindControl<TextBlock>("RecorderStatusText")!.Text = StatusText(_strokes.Count, _maximumStrokes);
+        this.FindControl<TextBlock>("RecorderStatusText")!.Text =
+            StatusText(_strokes.Count, _maximumStrokes, _replaceOnNextStroke);
         this.FindControl<Button>("RemoveLastButton")!.IsEnabled = hasStrokes;
         this.FindControl<Button>("ClearButton")!.IsEnabled = hasStrokes;
         this.FindControl<Button>("UseShortcutButton")!.IsEnabled =
@@ -143,7 +158,7 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
     /// The line under the capture area. Before anything is recorded it says how
     /// to start; once a stroke is in, how to add the next one or finish.
     /// </summary>
-    internal static string StatusText(int strokeCount, int maximumStrokes)
+    internal static string StatusText(int strokeCount, int maximumStrokes, bool nextStrokeReplaces = false)
     {
         if (strokeCount > maximumStrokes)
         {
@@ -154,6 +169,11 @@ public sealed partial class ShortcutRecorderDialog : DialogWindow
         if (strokeCount == 0)
         {
             return "Press the keys for the shortcut. Escape cancels.";
+        }
+
+        if (nextStrokeReplaces || maximumStrokes == 1)
+        {
+            return "Press a new shortcut to replace this one, or choose Use Shortcut.";
         }
 
         return strokeCount == maximumStrokes

@@ -42,6 +42,44 @@ public sealed class DialogContractHeadlessTests
         });
     }
 
+    // Recording a terminal shortcut over an existing one was refused ("a
+    // terminal shortcut has exactly one stroke") until Clear, and a longer
+    // shortcut appended to the old keys. A press records the shortcut anew.
+    [Fact]
+    public async Task Pressing_a_shortcut_replaces_the_one_the_recorder_opened_with()
+    {
+        await RunAsync(async () =>
+        {
+            Assert.True(ShortcutText.TryParseStroke("Ctrl+`", out var old));
+            Assert.True(ShortcutText.TryParseStroke("Ctrl+B", out var replacement));
+            var dialog = new ShortcutRecorderDialog(new KeySequence([old]), maximumStrokes: 1);
+            dialog.Show();
+            await Idle();
+
+            dialog.KeyPress(Key.LeftCtrl, RawInputModifiers.Control, PhysicalKey.ControlLeft, null);
+            dialog.KeyPress(Key.B, RawInputModifiers.Control, PhysicalKey.B, "b");
+            await Idle();
+
+            Assert.Equal(KeySequenceDisplay.Format([replacement]), dialog.FindControl<TextBlock>("RecordedShortcutText")!.Text);
+            Assert.Equal("1 of 1 stroke", dialog.FindControl<TextBlock>("StrokeCountText")!.Text);
+            dialog.Close();
+
+            Assert.True(ShortcutText.TryParseStroke("X", out var second));
+            Assert.True(ShortcutText.TryParseStroke("Y", out var y));
+            Assert.True(ShortcutText.TryParseStroke("Z", out var z));
+            var sequence = new ShortcutRecorderDialog(new KeySequence([replacement, second]));
+            sequence.Show();
+            await Idle();
+
+            sequence.KeyPress(Key.Y, RawInputModifiers.None, PhysicalKey.Y, "y");
+            sequence.KeyPress(Key.Z, RawInputModifiers.None, PhysicalKey.Z, "z");
+            await Idle();
+
+            Assert.Equal(KeySequenceDisplay.Format([y, z]), sequence.FindControl<TextBlock>("RecordedShortcutText")!.Text);
+            sequence.Close();
+        });
+    }
+
     [Fact]
     public async Task Remove_last_returns_focus_to_the_shortcut_capture_area()
     {
