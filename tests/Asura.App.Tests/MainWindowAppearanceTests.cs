@@ -19,7 +19,7 @@ public sealed class MainWindowAppearanceTests
         string secondOptionName)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(
+        await using var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>
@@ -59,7 +59,7 @@ public sealed class MainWindowAppearanceTests
     public async Task Appearance_refresh_reapplies_the_quick_terminal_backdrop()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {

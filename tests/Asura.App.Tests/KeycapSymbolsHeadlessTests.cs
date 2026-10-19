@@ -238,7 +238,7 @@ public sealed class KeycapSymbolsHeadlessTests
     private static async Task RunHeadlessAsync(Action assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(AgentAttachmentHeadlessApplication));
         var completed = await session.Dispatch(
             () =>
             {

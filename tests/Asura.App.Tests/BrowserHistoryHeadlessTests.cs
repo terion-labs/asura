@@ -21,7 +21,7 @@ public sealed class BrowserHistoryHeadlessTests
     [InlineData(true)]
     public async Task HistorySelectionNavigatesTheChosenAddress(bool pointer)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -69,7 +69,7 @@ public sealed class BrowserHistoryHeadlessTests
     [Fact]
     public async Task HistoryResultsResizeInsideTheBrowserWindow()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -111,7 +111,7 @@ public sealed class BrowserHistoryHeadlessTests
     [Fact]
     public async Task EscapeDismissesSuggestionsWithoutNavigating()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {

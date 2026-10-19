@@ -16,7 +16,7 @@ public sealed class AiProviderProfileEditorViewModelTests
     public async Task Inline_key_is_masked_and_stays_selected_when_the_live_picker_rebuilds()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(async () =>
@@ -330,7 +330,7 @@ public sealed class AiProviderProfileEditorViewModelTests
     public async Task Failed_test_labels_previous_discovery_and_preserves_the_saved_catalog()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(async () =>

@@ -1016,7 +1016,7 @@ public sealed partial class DatabaseViewerConformanceTests
         Func<HeadlessViewFixture, Task> action,
         CancellationToken cancellationToken)
     {
-        var session = HeadlessUnitTestSession.StartNew(typeof(HeadlessTestApplication));
+        var session = HeadlessSessions.StartNew(typeof(HeadlessTestApplication));
         try
         {
             var completed = await session.Dispatch(

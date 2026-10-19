@@ -45,7 +45,7 @@ public sealed class NetworkCredentialSelectorTests
         string field)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var editor = new NetworkConnectionProfileEditorViewModel();

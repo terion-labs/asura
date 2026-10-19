@@ -467,7 +467,7 @@ public sealed class MainWindowEdgeResizeHeadlessTests
 
     private static async Task RunInMainWindowAsync(Func<MainWindow, Task> assertion)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();

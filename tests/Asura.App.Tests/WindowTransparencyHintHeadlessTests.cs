@@ -15,7 +15,7 @@ public sealed class WindowTransparencyHintHeadlessTests
     public async Task A_hint_the_window_already_has_is_not_requested_again()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var window = new Window();

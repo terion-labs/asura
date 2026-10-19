@@ -25,7 +25,7 @@ public sealed class ConnectionManagementHeadlessTests
     public async Task New_connection_creates_and_selects_its_own_credential(SecretKind kind)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var vault = DispatchProxy.Create<ISecretVault, VaultProxy>();
@@ -120,7 +120,7 @@ public sealed class ConnectionManagementHeadlessTests
     public async Task Credential_selector_loads_saved_names_and_updates_the_saved_reference()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var runtime = DispatchProxy.Create<IConnectionRuntime, UnusedRuntimeProxy>();
@@ -168,7 +168,7 @@ public sealed class ConnectionManagementHeadlessTests
     public async Task Cancelling_secret_creation_clears_input_without_writing_to_the_vault()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var vault = DispatchProxy.Create<ISecretVault, VaultProxy>();
@@ -213,7 +213,7 @@ public sealed class ConnectionManagementHeadlessTests
     public async Task Return_in_the_folder_browser_chooses_the_folder_instead_of_saving()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var terminal = new ConnectionEditorViewModel(
@@ -271,7 +271,7 @@ public sealed class ConnectionManagementHeadlessTests
     public async Task Unavailable_connection_has_a_visible_working_edit_action()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var target = new PanelConnectionOptionViewModel.Target.FileProvider(new FileProviderProfileId("missing"));

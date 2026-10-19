@@ -242,7 +242,7 @@ public sealed class PanelCommandTargetHeadlessTests
     [Fact]
     public async Task Keyed_panel_items_dim_while_a_text_field_has_focus()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var field = new TextBox();
@@ -277,7 +277,7 @@ public sealed class PanelCommandTargetHeadlessTests
     [Fact]
     public async Task The_innermost_panel_that_can_run_a_command_runs_it()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var button = new Button();
@@ -316,7 +316,7 @@ public sealed class PanelCommandTargetHeadlessTests
     [Fact]
     public async Task A_hidden_panel_view_runs_no_commands()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var hidden = new FakePanel { IsVisible = false };
@@ -357,7 +357,7 @@ public sealed class PanelCommandTargetHeadlessTests
     [Fact]
     public async Task The_innermost_panel_reports_a_shared_fact()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var button = new Button();

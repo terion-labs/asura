@@ -16,7 +16,7 @@ public sealed class GitImageDiffViewHeadlessTests
     public async Task ReplacingImagePairRecalculatesPixelsWhileDifferenceModeRemainsSelected()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(AgentAttachmentHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var before = ImageVersion(SKColors.Black, "Before");

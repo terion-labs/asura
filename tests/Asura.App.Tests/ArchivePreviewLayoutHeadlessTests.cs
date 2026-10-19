@@ -255,7 +255,7 @@ public sealed class ArchivePreviewLayoutHeadlessTests
     private static async Task RunHeadlessAsync(Func<Window, Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         var completed = await session.Dispatch(async () =>
         {
             var window = new Window { Width = 1_000, Height = 700 };

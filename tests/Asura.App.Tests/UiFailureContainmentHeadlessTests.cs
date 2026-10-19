@@ -14,7 +14,7 @@ public sealed class UiFailureContainmentHeadlessTests
     [Fact]
     public async Task A_failing_UI_job_leaves_the_loop_running()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             UiFailureContainment.Attach(Dispatcher.UIThread);
@@ -39,7 +39,7 @@ public sealed class UiFailureContainmentHeadlessTests
     [Fact]
     public async Task A_failing_async_click_handler_leaves_the_loop_running()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             UiFailureContainment.Attach(Dispatcher.UIThread);

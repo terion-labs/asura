@@ -14,7 +14,7 @@ public sealed class LocalMcpServerSettingsViewModelTests
     public async Task SettingsToggleChangesServerOnceAndReturnsToSavedStateAfterInvalidInput()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var control = new Control();

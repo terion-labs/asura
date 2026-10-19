@@ -22,7 +22,7 @@ public sealed class DeleteUndoSettingsHeadlessTests
     [Fact]
     public async Task A_delete_made_in_Settings_leaves_a_focused_Undo_there()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             SettingsWindow.StateStore = null;

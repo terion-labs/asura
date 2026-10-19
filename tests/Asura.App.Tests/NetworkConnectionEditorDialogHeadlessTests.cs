@@ -20,7 +20,7 @@ public sealed class NetworkConnectionEditorDialogHeadlessTests
     public async Task A_credential_slot_opens_its_own_draft_and_takes_the_stored_result()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             var catalog = DispatchProxy.Create<

@@ -18,7 +18,7 @@ public sealed class KubernetesManifestEditorHeadlessTests
     [InlineData(true)]
     public async Task ManifestEditorShowsIndentedCodeAndRespectsEditAuthority(bool allowEditing)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {

@@ -20,7 +20,7 @@ public sealed class DatabaseDiagramClipboardHeadlessTests
     public async Task ActualCopyActionChecksViewSessionAndRequestBeforePublishing(string change)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var headless = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var headless = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await headless.Dispatch(async () =>

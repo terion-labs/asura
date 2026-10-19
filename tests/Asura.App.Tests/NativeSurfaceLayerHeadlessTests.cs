@@ -13,7 +13,7 @@ public sealed class NativeSurfaceLayerHeadlessTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         NativeSurfaceLayer? previous = null;
-        await using (var first = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication)))
+        await using (var first = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication)))
         {
             await first.Dispatch(() =>
             {
@@ -22,7 +22,7 @@ public sealed class NativeSurfaceLayerHeadlessTests
             }, timeout.Token);
         }
 
-        await using var second = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var second = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await second.Dispatch(() =>
         {
             var layer = new NativeSurfaceLayer();

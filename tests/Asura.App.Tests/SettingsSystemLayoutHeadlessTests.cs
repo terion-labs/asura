@@ -689,7 +689,7 @@ public sealed class SettingsSystemLayoutHeadlessTests
         SettingsPage page,
         Func<MainWindow, SettingsWindow, SettingsView, MainWindowViewModel, Task> assertion)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             SettingsWindow.StateStore = null;

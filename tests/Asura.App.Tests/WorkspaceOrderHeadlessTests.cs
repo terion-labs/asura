@@ -350,7 +350,7 @@ public sealed class WorkspaceOrderHeadlessTests
     private static async Task RunAsync(Func<Task> action)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(async () => { await action(); return true; }, timeout.Token));

@@ -65,7 +65,7 @@ public sealed class ErrorNoticeTests
     public async Task SharedPanelShowsRetainedErrorsAndDismissesOnlyTheChosenMessage()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             await session.Dispatch(async () =>
