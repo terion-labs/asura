@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.BrowserAgentAcceptance;
 
@@ -169,6 +170,23 @@ internal sealed class ProbeApp : Avalonia.Application
                 state => state.Address == address && !state.CanGoBack,
                 "back on the first page with no Back to blank",
                 deadline.Token);
+            // A single-page app's route is history too, without a load. A
+            // route pushed without a user gesture makes Chromium's Back skip
+            // the page that pushed it, which here is the first page.
+            var pageBrowser = surface.GetVisualDescendants().OfType<Exclr8Cef.WebView.WebView>().Single().Browser
+                ?? throw new InvalidOperationException("The fixture browser is not ready.");
+            await pageBrowser.EvaluateJavaScriptAsync("history.pushState({}, '', '?route=2')").WaitAsync(deadline.Token);
+            await RequireStateAsync(surface, state => state.CanGoBack, "Back from a pushState route", deadline.Token);
+            Require((await surface.GoBackAsync(deadline.Token)).IsSuccess, "go back from the route", null);
+            await RequireStateAsync(
+                surface,
+                state => state.Address == address && !state.CanGoBack,
+                "back from the route with no Back to blank",
+                deadline.Token);
+            // Settled: the page stays where Back left it.
+            await Task.Delay(500, deadline.Token);
+            var settledAt = await pageBrowser.EvaluateJavaScriptAsync("location.href").WaitAsync(deadline.Token);
+            Require(settledAt.Contains(address.Value.AbsoluteUri, StringComparison.Ordinal), "page settled after Back: " + settledAt, null);
             Console.WriteLine("PASS history starts at the first real page, not the renderer's blank page");
 
             BeginStage("keyboard translation");
@@ -350,7 +368,10 @@ internal sealed class ProbeApp : Avalonia.Application
             await Task.Delay(50, cancellationToken);
         }
 
-        Require(condition(surface.State), label, null);
+        Require(
+            condition(surface.State),
+            $"{label} (at {surface.State.Address.Value}, Back {surface.State.CanGoBack}, {surface.State.LoadState})",
+            null);
     }
 
     private static async Task<int> CounterAsync(HttpClient client, string name, CancellationToken cancellationToken)

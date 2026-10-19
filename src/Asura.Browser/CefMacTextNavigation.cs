@@ -1,6 +1,3 @@
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Interactivity;
 using Exclr8Cef;
 
 namespace Asura.Browser;
@@ -14,29 +11,22 @@ namespace Asura.Browser;
 /// Chrome gets these from Cocoa as editing commands (moveToBeginningOfLine:
 /// and the like); Chromium's own key table has no Command-arrow entries on
 /// macOS. An off-screen browser receives no editing commands, so the keys
-/// did nothing. While a text field has focus they are performed here, as
-/// the keys Chromium does understand: Home and End move within the line.
-/// Nothing reaches the beginning or end of the text, so those use the
-/// selection's documentboundary movement.
+/// did nothing. The page still sees the original key first; only when
+/// neither it nor Chromium used the key, and a text field has focus, is
+/// the command performed here, with what Chromium does understand: Home and
+/// End move within the line, and selecting everything and collapsing it
+/// reaches the start or end of the text, in whichever frame has focus.
 /// </summary>
 internal sealed class CefMacTextNavigation
 {
-    private readonly Func<CefBrowser?> _browser;
-    private readonly HashSet<Key> _translated = [];
+    private const int LeftKey = 0x25;
+    private const int UpKey = 0x26;
+    private const int RightKey = 0x27;
+    private const int DownKey = 0x28;
+    private const int BackspaceKey = 0x08;
+    private const int ForwardDeleteKey = 0x2E;
+
     private volatile bool _editing;
-
-    public CefMacTextNavigation(Control host, Func<CefBrowser?> browser)
-    {
-        ArgumentNullException.ThrowIfNull(host);
-        _browser = browser ?? throw new ArgumentNullException(nameof(browser));
-        if (!OperatingSystem.IsMacOS())
-        {
-            return;
-        }
-
-        host.AddHandler(InputElement.KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
-        host.AddHandler(InputElement.KeyUpEvent, OnKeyUp, RoutingStrategies.Tunnel);
-    }
 
     /// <summary>
     /// Chromium reports a text-input mode while an editable field has focus,
@@ -45,64 +35,67 @@ internal sealed class CefMacTextNavigation
     public void OnTextInputModeChanged(Cef.CefTextInputMode mode) =>
         _editing = mode != Cef.CefTextInputMode.None;
 
-    public void Reset()
-    {
-        _editing = false;
-        _translated.Clear();
-    }
+    public void Reset() => _editing = false;
 
-    private void OnKeyDown(object? sender, KeyEventArgs e)
+    /// <summary>
+    /// Performs the editing command for a key that the page and Chromium both
+    /// left unhandled. Returns whether it did.
+    /// </summary>
+    public bool TryPerform(CefBrowser browser, PreKeyEventArgs key)
     {
-        // The physical-input gate above decides first; a held Control or
-        // Option is another shortcut.
-        if (e.Handled
-            || !_editing
-            || (e.KeyModifiers & KeyModifiers.Meta) == 0
-            || (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Alt)) != 0
-            || _browser() is not { IsInitialized: true } browser)
+        ArgumentNullException.ThrowIfNull(browser);
+        ArgumentNullException.ThrowIfNull(key);
+        const Cef.CefModifiers other = Cef.CefModifiers.Control | Cef.CefModifiers.Alt;
+        if (!_editing
+            || key.Type is not (Cef.CefKeyEventType.RawKeyDown or Cef.CefKeyEventType.KeyDown)
+            || (key.Modifiers & Cef.CefModifiers.Command) == 0
+            || (key.Modifiers & other) != 0)
         {
-            return;
+            return false;
         }
 
-        var shift = (e.KeyModifiers & KeyModifiers.Shift) != 0;
-        switch (e.Key)
+        var shift = (key.Modifiers & Cef.CefModifiers.Shift) != 0;
+        switch (key.WindowsKeyCode)
         {
-            case Key.Left:
+            case LeftKey:
                 Press(browser, Home, shift);
-                break;
-            case Key.Right:
+                return true;
+            case RightKey:
                 Press(browser, End, shift);
-                break;
-            case Key.Up:
-            case Key.Down:
-                browser.ExecuteJavaScript(
-                    $"getSelection().modify('{(shift ? "extend" : "move")}', "
-                    + $"'{(e.Key == Key.Up ? "backward" : "forward")}', 'documentboundary')");
-                break;
-            case Key.Back:
+                return true;
+            case UpKey or DownKey when !shift:
+                // Selecting the field's whole text and collapsing the
+                // selection lands at its start or end, in the focused frame.
+                browser.SelectAll();
+                Press(browser, key.WindowsKeyCode == UpKey ? Left : Right, shift: false);
+                return true;
+            case UpKey or DownKey:
+                ExtendToTextBoundary(browser, backward: key.WindowsKeyCode == UpKey);
+                return true;
+            case BackspaceKey:
                 Press(browser, Home, shift: true);
                 Press(browser, Backspace, shift: false);
-                break;
-            case Key.Delete:
+                return true;
+            case ForwardDeleteKey:
                 Press(browser, End, shift: true);
                 Press(browser, ForwardDelete, shift: false);
-                break;
+                return true;
             default:
-                return;
-        }
-
-        _translated.Add(e.Key);
-        e.Handled = true;
-    }
-
-    private void OnKeyUp(object? sender, KeyEventArgs e)
-    {
-        // The release of a key performed here is not the page's to see.
-        if (_translated.Remove(e.Key))
-        {
-            e.Handled = true;
+                return false;
         }
     }
+
+    /// <summary>
+    /// Extends the selection to the start or end of the text. No key does
+    /// this on macOS, so the focused document's selection is moved, through
+    /// same-origin frames; a cross-origin frame is left alone.
+    /// </summary>
+    private static void ExtendToTextBoundary(CefBrowser browser, bool backward) =>
+        browser.ExecuteJavaScript(
+            "(() => { let d = document;"
+            + " while (d.activeElement && d.activeElement.tagName === 'IFRAME') {"
+            + " const inner = d.activeElement.contentDocument; if (!inner) return; d = inner; }"
+            + $" d.getSelection().modify('extend', '{(backward ? "backward" : "forward")}', 'documentboundary'); }})()");
 
     private static void Press(CefBrowser browser, NavigationKey key, bool shift)
     {
@@ -119,6 +112,8 @@ internal sealed class CefMacTextNavigation
 
     private static readonly NavigationKey Home = new(0x24, 0x73, '');
     private static readonly NavigationKey End = new(0x23, 0x77, '');
-    private static readonly NavigationKey Backspace = new(0x08, 0x33, '\x7F');
-    private static readonly NavigationKey ForwardDelete = new(0x2E, 0x75, '');
+    private static readonly NavigationKey Left = new(LeftKey, 0x7B, '');
+    private static readonly NavigationKey Right = new(RightKey, 0x7C, '');
+    private static readonly NavigationKey Backspace = new(BackspaceKey, 0x33, '\x7F');
+    private static readonly NavigationKey ForwardDelete = new(ForwardDeleteKey, 0x75, '');
 }

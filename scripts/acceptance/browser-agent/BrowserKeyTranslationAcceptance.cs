@@ -5,6 +5,8 @@ namespace Asura.BrowserAgentAcceptance;
 
 internal static class BrowserKeyTranslationAcceptance
 {
+    private const string FrameArea = "frame-area";
+
     public static async Task VerifyAsync(WebView view, CancellationToken cancellationToken)
     {
         var browser = view.Browser ?? throw new InvalidOperationException("The fixture browser is not ready.");
@@ -61,6 +63,33 @@ internal static class BrowserKeyTranslationAcceptance
             await CaretAsync(Key.Up, KeyModifiers.Meta, "ab\\ncd\\nef", 4, 0, 0, element: "key-translation-area");
             await CaretAsync(Key.Down, KeyModifiers.Meta, "ab\\ncd\\nef", 4, 8, 8, element: "key-translation-area");
             await CaretAsync(Key.Down, KeyModifiers.Meta | KeyModifiers.Shift, "ab\\ncd\\nef", 4, 4, 8, element: "key-translation-area");
+            // In a frame, which only the focused frame's own editing reaches.
+            // Made here: its document loads on its own schedule, and the
+            // earlier checks must not share the page with that load.
+            await browser.EvaluateJavaScriptAsync("""
+                (() => {
+                  const frame = document.createElement('iframe');
+                  frame.id = 'key-translation-frame';
+                  frame.srcdoc = '<textarea id="frame-area"></textarea>';
+                  document.body.append(frame);
+                })()
+                """).WaitAsync(cancellationToken);
+            for (var attempt = 0; attempt < 40; attempt++)
+            {
+                var loaded = await browser.EvaluateJavaScriptAsync(
+                    "!!document.getElementById('key-translation-frame').contentDocument?.getElementById('frame-area')")
+                    .WaitAsync(cancellationToken);
+                if (loaded.Contains("true", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
+                await Task.Delay(50, cancellationToken);
+            }
+
+            await CaretAsync(Key.Up, KeyModifiers.Meta, "ab\\ncd\\nef", 4, 0, 0, element: FrameArea);
+            await CaretAsync(Key.Down, KeyModifiers.Meta, "ab\\ncd\\nef", 4, 8, 8, element: FrameArea);
+            await CaretAsync(Key.Up, KeyModifiers.Meta | KeyModifiers.Shift, "ab\\ncd\\nef", 4, 0, 4, element: FrameArea);
             await CaretAsync(Key.Left, KeyModifiers.Meta, "abcdefghij", 5, 0, 0);
             await CaretAsync(Key.Right, KeyModifiers.Meta, "abcdefghij", 5, 10, 10);
             await CaretAsync(Key.Up, KeyModifiers.Meta, "abcdefghij", 5, 0, 0);
@@ -71,6 +100,38 @@ internal static class BrowserKeyTranslationAcceptance
             await CaretAsync(Key.Right, KeyModifiers.Alt, "abc def ghi", 5, 7, 7);
             await CaretAsync(Key.Back, KeyModifiers.Meta, "abc def ghi", 7, 0, 0, expectedValue: " ghi");
             await CaretAsync(Key.Back, KeyModifiers.Alt, "abc def ghi", 7, 4, 4, expectedValue: "abc  ghi");
+
+            // The page sees the original Command key, and a page that uses it
+            // keeps it: only a key nothing used is performed as navigation.
+            await browser.EvaluateJavaScriptAsync("""
+                (() => {
+                  const input = document.getElementById('key-translation-probe');
+                  input.value = 'abcdefghij'; input.focus(); input.setSelectionRange(5, 5);
+                  window.commandKeys = [];
+                  input.onkeydown = e => {
+                    if (e.metaKey) window.commandKeys.push(e.key);
+                    if (e.metaKey && e.key === 'ArrowRight') e.preventDefault();
+                  };
+                })()
+                """).WaitAsync(cancellationToken);
+            Send(Key.Left, KeyModifiers.Meta, false);
+            Send(Key.Left, KeyModifiers.Meta, true);
+            Send(Key.Right, KeyModifiers.Meta, false);
+            Send(Key.Right, KeyModifiers.Meta, true);
+            await Task.Delay(120, cancellationToken);
+            var identity = await browser.EvaluateJavaScriptAsync("""
+                (() => {
+                  const input = document.getElementById('key-translation-probe');
+                  input.onkeydown = null;
+                  const ok = JSON.stringify(window.commandKeys) === '["ArrowLeft","ArrowRight"]'
+                    && input.selectionStart === 0 && input.selectionEnd === 0;
+                  return ok ? 'PASS' : JSON.stringify({keys: window.commandKeys, start: input.selectionStart, end: input.selectionEnd});
+                })()
+                """).WaitAsync(cancellationToken);
+            if (!identity.Contains("PASS", StringComparison.Ordinal))
+            {
+                failures.Add("Command keys reach the page and a handled one stays the page's: " + identity);
+            }
 
             // A real shortcut must still work after a standalone modifier.
             Send(Key.LWin, KeyModifiers.Meta, false);
@@ -96,7 +157,7 @@ internal static class BrowserKeyTranslationAcceptance
         }
         finally
         {
-            await browser.EvaluateJavaScriptAsync("document.getElementById('key-translation-probe').remove(); document.getElementById('key-translation-area').remove(); document.getElementById('key-translation-next').remove()")
+            await browser.EvaluateJavaScriptAsync("document.getElementById('key-translation-probe').remove(); document.getElementById('key-translation-area').remove(); document.getElementById('key-translation-frame').remove(); document.getElementById('key-translation-next').remove()")
                 .WaitAsync(cancellationToken);
         }
 
@@ -140,9 +201,12 @@ internal static class BrowserKeyTranslationAcceptance
             string? expectedValue = null,
             string element = "key-translation-probe")
         {
+            var target = string.Equals(element, FrameArea, StringComparison.Ordinal)
+                ? "document.getElementById('key-translation-frame').contentDocument.getElementById('frame-area')"
+                : $"document.getElementById('{element}')";
             await browser.EvaluateJavaScriptAsync($$"""
                 (() => {
-                  const input = document.getElementById('{{element}}');
+                  const input = {{target}};
                   input.value = '{{value}}'; input.focus(); input.setSelectionRange({{caret}}, {{caret}});
                 })()
                 """).WaitAsync(cancellationToken);
@@ -151,7 +215,7 @@ internal static class BrowserKeyTranslationAcceptance
             await Task.Delay(80, cancellationToken);
             var result = await browser.EvaluateJavaScriptAsync($$"""
                 (() => {
-                  const input = document.getElementById('{{element}}');
+                  const input = {{target}};
                   const ok = input.selectionStart === {{expectedStart}} && input.selectionEnd === {{expectedEnd}}
                     && input.value === '{{expectedValue ?? value}}';
                   return ok ? 'PASS' : JSON.stringify({start: input.selectionStart, end: input.selectionEnd, value: input.value});
