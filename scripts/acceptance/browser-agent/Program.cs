@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Asura.BrowserAgentAcceptance;
 
@@ -151,6 +152,42 @@ internal sealed class ProbeApp : Avalonia.Application
             Console.WriteLine("PASS cold background navigation through the real CEF renderer");
             surface.IsVisible = true;
             await Task.Delay(200, deadline.Token);
+
+            // The renderer's initial about:blank is not a page anyone visited:
+            // Back must not lead to it.
+            BeginStage("history starts at the first real page");
+            await RequireStateAsync(surface, state => !state.CanGoBack, "no Back to the initial blank page", deadline.Token);
+            var second = new BrowserAddress(new Uri(Program.Fixture + "/agent-form?history=2"));
+            Require((await surface.NavigateWithinOriginAsync(
+                new BrowserOriginConstrainedNavigationRequest.Navigate(second),
+                BrowserNavigationOrigin.WorkspaceNetwork,
+                BrowserNavigationStartBinding.FromState(surface.State), deadline.Token)).IsSuccess,
+                "second history page", null);
+            await RequireStateAsync(surface, state => state.CanGoBack, "Back to the first page", deadline.Token);
+            Require((await surface.GoBackAsync(deadline.Token)).IsSuccess, "go back", null);
+            await RequireStateAsync(
+                surface,
+                state => state.Address == address && !state.CanGoBack,
+                "back on the first page with no Back to blank",
+                deadline.Token);
+            // A single-page app's route is history too, without a load. A
+            // route pushed without a user gesture makes Chromium's Back skip
+            // the page that pushed it, which here is the first page.
+            var pageBrowser = surface.GetVisualDescendants().OfType<Exclr8Cef.WebView.WebView>().Single().Browser
+                ?? throw new InvalidOperationException("The fixture browser is not ready.");
+            await pageBrowser.EvaluateJavaScriptAsync("history.pushState({}, '', '?route=2')").WaitAsync(deadline.Token);
+            await RequireStateAsync(surface, state => state.CanGoBack, "Back from a pushState route", deadline.Token);
+            Require((await surface.GoBackAsync(deadline.Token)).IsSuccess, "go back from the route", null);
+            await RequireStateAsync(
+                surface,
+                state => state.Address == address && !state.CanGoBack,
+                "back from the route with no Back to blank",
+                deadline.Token);
+            // Settled: the page stays where Back left it.
+            await Task.Delay(500, deadline.Token);
+            var settledAt = await pageBrowser.EvaluateJavaScriptAsync("location.href").WaitAsync(deadline.Token);
+            Require(settledAt.Contains(address.Value.AbsoluteUri, StringComparison.Ordinal), "page settled after Back: " + settledAt, null);
+            Console.WriteLine("PASS history starts at the first real page, not the renderer's blank page");
 
             BeginStage("keyboard translation");
             await BrowserKeyboardAcceptance.VerifyAsync(surface, window, deadline.Token);
@@ -317,6 +354,24 @@ internal sealed class ProbeApp : Avalonia.Application
 
             current = next;
         }
+    }
+
+    /// <summary>Back and Forward availability settles after the load events, from history.</summary>
+    private static async Task RequireStateAsync(
+        BrowserSurface surface,
+        Func<BrowserSessionState, bool> condition,
+        string label,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 60 && !condition(surface.State); attempt++)
+        {
+            await Task.Delay(50, cancellationToken);
+        }
+
+        Require(
+            condition(surface.State),
+            $"{label} (at {surface.State.Address.Value}, Back {surface.State.CanGoBack}, {surface.State.LoadState})",
+            null);
     }
 
     private static async Task<int> CounterAsync(HttpClient client, string name, CancellationToken cancellationToken)

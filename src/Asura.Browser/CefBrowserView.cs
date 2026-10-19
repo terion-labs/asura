@@ -31,6 +31,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private readonly IBrowserUiDispatcher _titleDispatcher = AvaloniaBrowserUiDispatcher.Instance;
     private readonly Grid _view;
     private readonly CefAgentCursorOverlay _agentCursorOverlay;
+    private readonly CefMacTextNavigation _textNavigation = new();
     private readonly TaskCompletionSource<bool> _rendererReady = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
     private CefBrowser? _browser;
@@ -48,6 +49,14 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private long _lastNavigationGeneration;
     private int _titleChangeScheduled;
     private bool _ignoreInitialBlank = true;
+
+    // Every renderer starts on the about:blank it is created with, and that
+    // first history entry is not a page anyone visited: going back to it left
+    // the panel on a blank page with nowhere to go. Back is offered only when
+    // a real page is behind, which history confirms after each load.
+    private bool _backReachesOnlyInitialBlank = true;
+    private long _historyReadGeneration;
+    private bool _returningFromInitialBlank;
     private bool _isAgentActive;
     private bool _disposed;
 
@@ -85,7 +94,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
     public Control View => _view;
 
-    public bool CanGoBack => _browser?.CanGoBack ?? false;
+    public bool CanGoBack => !_backReachesOnlyInitialBlank && (_browser?.CanGoBack ?? false);
 
     public bool CanGoForward => _browser?.CanGoForward ?? false;
 
@@ -145,6 +154,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
     public event EventHandler? TitleChanged;
 
+    public event EventHandler? HistoryChanged;
+
     public event EventHandler<NativeBrowserAddressChangedEventArgs>?
         AddressChanged;
 
@@ -180,7 +191,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     }
 
     public bool GoBack() => InvokeHistoryNavigation(
-        static browser => browser.CanGoBack,
+        _ => CanGoBack,
         static browser => browser.GoBack());
 
     public bool GoForward() => InvokeHistoryNavigation(
@@ -535,6 +546,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             }
 
             _browser = browser;
+            _backReachesOnlyInitialBlank = true;
+            _returningFromInitialBlank = false;
             _semanticAdapter?.InvalidateDocument();
             _networkActivity?.Dispose();
             _domActivity?.Dispose();
@@ -640,6 +653,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.RenderProcessGone += OnRenderProcessGone;
         browser.ConsoleMessage += CefConsoleMessagePolicy.Handle;
         browser.KeyEvent += OnUnhandledKeyEvent;
+        browser.VirtualKeyboardRequested += OnTextInputModeChanged;
 
         // CEF has no host UI for these prompts in OSR mode. Every privileged
         // or filesystem-affecting operation therefore defaults closed until a
@@ -671,6 +685,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.RenderProcessGone -= OnRenderProcessGone;
         browser.ConsoleMessage -= CefConsoleMessagePolicy.Handle;
         browser.KeyEvent -= OnUnhandledKeyEvent;
+        browser.VirtualKeyboardRequested -= OnTextInputModeChanged;
+        _textNavigation.Reset();
         browser.BeforePopup -= OnBeforePopup;
         browser.ContextMenu -= OnContextMenu;
         browser.HostPopup -= OnHostPopup;
@@ -685,15 +701,23 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.CertError -= BlockCertificateError;
     }
 
-    private static void OnUnhandledKeyEvent(object? sender, PreKeyEventArgs args)
+    private void OnTextInputModeChanged(object? sender, Cef.CefTextInputMode mode) =>
+        _textNavigation.OnTextInputModeChanged(mode);
+
+    private void OnUnhandledKeyEvent(object? sender, PreKeyEventArgs args)
     {
-        _ = sender;
         // KeyEvent runs AFTER Chromium and page handlers. Avalonia already
         // owns host shortcuts; do not replay CEF's synthetic NSEvent into the
         // macOS menu, where plain letters can activate dictation or emoji.
         // PreKeyEvent must stay unhandled so web inputs and shortcuts work.
         if (OperatingSystem.IsMacOS())
         {
+            // A Command text-navigation key neither the page nor Chromium used.
+            if (sender is CefBrowser browser)
+            {
+                _ = _textNavigation.TryPerform(browser, args);
+            }
+
             args.Handled = true;
         }
     }
@@ -980,6 +1004,12 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
             PublishSameDocumentAddress(address);
             _semanticAdapter?.InvalidateDocument();
+
+            // history.pushState adds an entry without a load to settle.
+            if (sender is CefBrowser browser)
+            {
+                _ = RefreshInitialBlankBoundaryAsync(browser);
+            }
         });
 
     private void OnLoadingStateChanged(object? sender, LoadingState state) =>
@@ -991,7 +1021,72 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
             }
 
             TryCompleteSameDocumentNavigation();
+            if (sender is CefBrowser browser)
+            {
+                _ = RefreshInitialBlankBoundaryAsync(browser);
+            }
         });
+
+    /// <summary>
+    /// Whether the only entry behind the current page is the renderer's
+    /// initial about:blank, read from the browser's history once loading
+    /// settles. Back and Forward availability is republished when it changes.
+    /// </summary>
+    private async Task RefreshInitialBlankBoundaryAsync(CefBrowser browser)
+    {
+        // Reads can finish out of order; only the latest describes history.
+        var generation = ++_historyReadGeneration;
+        List<NavigationEntry> entries;
+        try
+        {
+            entries = await browser.GetNavigationEntriesAsync().ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            return;
+        }
+
+        var current = entries.FindIndex(entry => entry.IsCurrent);
+        var reachesOnlyInitialBlank = current <= 1
+            && (current < 1 || IsBlank(entries[0].Url));
+
+        // Back skips an entry whose page rewrote history without a user
+        // gesture (Chromium's history intervention), so it can still land on
+        // the initial blank behind the first page. Step forward to that page:
+        // a page's own history.go is exact, where Forward would skip again.
+        var landedOnInitialBlank = current == 0
+            && entries.Count > 1
+            && IsBlank(entries[0].Url);
+        RunOnUiThread(() =>
+        {
+            if (_disposed
+                || generation != _historyReadGeneration
+                || !ReferenceEquals(_browser, browser))
+            {
+                return;
+            }
+
+            // One step per landing: a second read before the step commits
+            // would step again, past the first page.
+            if (landedOnInitialBlank && !_returningFromInitialBlank)
+            {
+                _returningFromInitialBlank = true;
+                browser.ExecuteJavaScript("history.go(1)");
+            }
+            else if (current != 0)
+            {
+                _returningFromInitialBlank = false;
+            }
+
+            if (_backReachesOnlyInitialBlank == reachesOnlyInitialBlank)
+            {
+                return;
+            }
+
+            _backReachesOnlyInitialBlank = reachesOnlyInitialBlank;
+            HistoryChanged?.Invoke(this, EventArgs.Empty);
+        });
+    }
 
     private void ObserveAddressChangeDuringNavigation(
         ActiveNativeNavigation navigation,

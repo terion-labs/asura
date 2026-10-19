@@ -185,6 +185,7 @@ public sealed partial class BrowserSurface :
         _nativeView.NavigationCompleted += OnNavigationCompleted;
         _nativeView.AddressChanged += OnAddressChanged;
         _nativeView.TitleChanged += OnTitleChanged;
+        _nativeView.HistoryChanged += OnHistoryChanged;
         _nativeView.NavigationRejected += OnNavigationRejected;
         _nativeView.RenderProcessFailed += OnRenderProcessFailed;
         _nativeView.NewTabRequested += OnNativeNewTabRequested;
@@ -360,6 +361,7 @@ public sealed partial class BrowserSurface :
         nativeView.NavigationCompleted -= OnNavigationCompleted;
         nativeView.AddressChanged -= OnAddressChanged;
         nativeView.TitleChanged -= OnTitleChanged;
+        nativeView.HistoryChanged -= OnHistoryChanged;
         nativeView.NewTabRequested -= OnNativeNewTabRequested;
         nativeView.ProductEvent -= OnNativeProductEvent;
         nativeView.NavigationRejected -= OnNavigationRejected;
@@ -3227,6 +3229,28 @@ public sealed partial class BrowserSurface :
             State.ViewportRevision, State.InputEpoch));
     }
 
+    private void OnHistoryChanged(object? sender, EventArgs args)
+    {
+        _ = args;
+        if (!ReferenceEquals(sender, _nativeView) || _disposed
+            || State.LoadState != BrowserLoadState.Ready)
+        {
+            return;
+        }
+
+        var canGoBack = _nativeView.CanGoBack;
+        var canGoForward = _nativeView.CanGoForward;
+        if (State.CanGoBack == canGoBack && State.CanGoForward == canGoForward)
+        {
+            return;
+        }
+
+        Publish(new BrowserSessionState(
+            State.Address, State.Title, State.LoadState, canGoBack, canGoForward,
+            State.DocumentRevision, State.Failure, State.Viewport,
+            State.ViewportRevision, State.InputEpoch));
+    }
+
     private void OnAddressChanged(
         object? sender,
         NativeBrowserAddressChangedEventArgs args)
@@ -3588,6 +3612,7 @@ public sealed partial class BrowserSurface :
         quarantined.NavigationCompleted -= OnNavigationCompleted;
         quarantined.AddressChanged -= OnAddressChanged;
         quarantined.TitleChanged -= OnTitleChanged;
+        quarantined.HistoryChanged -= OnHistoryChanged;
         quarantined.NewTabRequested -= OnNativeNewTabRequested;
         quarantined.ProductEvent -= OnNativeProductEvent;
         quarantined.NavigationRejected -= OnNavigationRejected;
@@ -3612,6 +3637,7 @@ public sealed partial class BrowserSurface :
             quarantined.NavigationCompleted += OnNavigationCompleted;
             quarantined.AddressChanged += OnAddressChanged;
             quarantined.TitleChanged += OnTitleChanged;
+            quarantined.HistoryChanged += OnHistoryChanged;
             quarantined.NewTabRequested += OnNativeNewTabRequested;
             quarantined.ProductEvent += OnNativeProductEvent;
             quarantined.NavigationRejected += OnNavigationRejected;
@@ -3624,6 +3650,7 @@ public sealed partial class BrowserSurface :
         _nativeView.NavigationCompleted += OnNavigationCompleted;
         _nativeView.AddressChanged += OnAddressChanged;
         _nativeView.TitleChanged += OnTitleChanged;
+        _nativeView.HistoryChanged += OnHistoryChanged;
         _nativeView.NewTabRequested += OnNativeNewTabRequested;
         _nativeView.ProductEvent += OnNativeProductEvent;
         _nativeView.NavigationRejected += OnNavigationRejected;

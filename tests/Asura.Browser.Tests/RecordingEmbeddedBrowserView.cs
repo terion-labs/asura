@@ -170,6 +170,10 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
 
     public event EventHandler? TitleChanged;
 
+    public event EventHandler? HistoryChanged;
+
+    public void RaiseHistoryChanged() => HistoryChanged?.Invoke(this, EventArgs.Empty);
+
     public void RaiseTitleChanged(string title)
     {
         Title = title;

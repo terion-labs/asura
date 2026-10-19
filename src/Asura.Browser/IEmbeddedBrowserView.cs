@@ -17,6 +17,12 @@ internal interface IEmbeddedBrowserView : IDisposable
 
     bool CanGoBack { get; }
 
+    /// <summary>
+    /// Raised when <see cref="CanGoBack"/> or <see cref="CanGoForward"/>
+    /// changes after the navigation event that reported them.
+    /// </summary>
+    event EventHandler? HistoryChanged;
+
     bool CanGoForward { get; }
 
     /// <summary>
