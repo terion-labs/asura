@@ -64,6 +64,37 @@ public sealed class ManagedTerminalAccessibilityTests
             return Task.CompletedTask;
         });
 
+    // tmux in a managed SSH session sits on the alternate screen with its
+    // mouse mode off; the wheel was dropped there. It now reaches the session,
+    // which scrolls tmux's history when Asura's tmux announced its keys.
+    [Fact]
+    public Task The_wheel_over_a_full_screen_program_without_mouse_reaches_the_session() =>
+        RunHeadlessAsync(() =>
+        {
+            Avalonia.Media.FontManager.Current.AddFontCollection(new AsuraTerminalFontCollection());
+            var sink = new RecordingSink();
+            var surface = CreateSurface(sink);
+            using var window = ShowFocused(surface);
+            surface.UpdateSnapshot(new TerminalScreenSnapshot(
+                "tmux",
+                0,
+                0,
+                4,
+                Columns,
+                IsAlternateScreen: true,
+                null,
+                DateTimeOffset.UtcNow,
+                ContentRevision: 1));
+
+            var top = (Window)TopLevel.GetTopLevel(surface)!;
+            top.MouseMove(new Point(50, 50));
+            top.MouseWheel(new Point(50, 50), new Vector(0, 1));
+
+            var scroll = Assert.Single(sink.Scrolls);
+            Assert.Equal(TerminalViewportScrollDirection.Up, scroll.Direction);
+            return Task.CompletedTask;
+        });
+
     [Fact]
     public Task New_output_is_announced_politely_in_one_throttled_message() =>
         RunHeadlessAsync(() =>

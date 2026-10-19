@@ -1310,7 +1310,12 @@ public sealed class ManagedTerminalSurface : Control
         }
         else
         {
-            e.Handled = false;
+            // No scrollback of ours here, but the session may own one: Asura's
+            // managed tmux scrolls its history for the session's scroll.
+            ObserveInputAsync(ScrollViewportAsync(
+                    new TerminalViewportScrollInput(up ? -3 : 3),
+                    default)
+                .AsValueTask());
         }
     }
 

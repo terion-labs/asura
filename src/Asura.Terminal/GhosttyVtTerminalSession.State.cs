@@ -199,15 +199,22 @@ internal sealed partial class GhosttyVtTerminalSession
     {
         ArgumentNullException.ThrowIfNull(scrollInput);
         cancellationToken.ThrowIfCancellationRequested();
+        byte[]? multiplexerKeys;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closed, this);
-            var behavior = BuildViewportScrollUnsafe(scrollInput);
-            GhosttyVtNative.TerminalScrollViewport(_terminal, behavior);
-            MarkContentChangedUnsafe();
+            multiplexerKeys = MultiplexerScrollKeysUnsafe(scrollInput);
+            if (multiplexerKeys is null)
+            {
+                var behavior = BuildViewportScrollUnsafe(scrollInput);
+                GhosttyVtNative.TerminalScrollViewport(_terminal, behavior);
+                MarkContentChangedUnsafe();
+            }
         }
 
-        return ValueTask.CompletedTask;
+        return multiplexerKeys is null
+            ? ValueTask.CompletedTask
+            : QueueInputAsync(multiplexerKeys, cancellationToken);
     }
 
     private unsafe int ReadScrollbackLineCountUnsafe()

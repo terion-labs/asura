@@ -938,6 +938,53 @@ public sealed class GhosttyVtTerminalSessionTests
         Assert.True(frame.ViewportRows[0].ContainsKittyVirtualPlaceholder);
     }
 
+    // Managed SSH sessions run tmux with its mouse mode off, so tmux sits on
+    // the alternate screen without mouse reporting and the wheel did nothing.
+    // Once Asura's startup script announces its scroll keys, a scroll there
+    // sends them; anywhere else the scroll stays local.
+    [Fact]
+    public async Task A_scroll_in_announced_tmux_sends_its_scroll_keys()
+    {
+        var harness = await CreateAsync();
+        await using var session = harness.Session;
+        var marker = "\u001b]6973;asura-multiplexer-scroll\u0007"u8.ToArray();
+        await harness.Pty.WriteOutputBytesAsync(marker.AsMemory(0, 7));
+        await harness.Pty.WriteOutputBytesAsync(marker.AsMemory(7));
+        await harness.Pty.WriteOutputAsync("\u001b[?1049h");
+        _ = await WaitForScreenAsync(session, screen => screen.IsAlternateScreen);
+
+        await session.ScrollViewportAsync(new TerminalViewportScrollInput(-3), default);
+        Assert.Equal("\u001b[9101~", harness.Pty.WrittenText);
+
+        await session.ScrollViewportAsync(new TerminalViewportScrollInput(6), default);
+        Assert.Equal("\u001b[9101~\u001b[9102~\u001b[9102~", harness.Pty.WrittenText);
+    }
+
+    [Fact]
+    public async Task A_scroll_stays_local_without_announced_tmux_or_outside_its_screen()
+    {
+        var harness = await CreateAsync();
+        await using var session = harness.Session;
+
+        // Another full-screen program: nothing is sent.
+        await harness.Pty.WriteOutputAsync("\u001b[?1049h");
+        _ = await WaitForScreenAsync(session, screen => screen.IsAlternateScreen);
+        await session.ScrollViewportAsync(new TerminalViewportScrollInput(-3), default);
+        Assert.Empty(harness.Pty.WrittenText);
+
+        // Announced, but an application inside asked for the mouse itself.
+        await harness.Pty.WriteOutputAsync("\u001b]6973;asura-multiplexer-scroll\u0007\u001b[?1000h");
+        _ = await WaitForScreenAsync(session, screen => screen.IsMouseTrackingEnabled);
+        await session.ScrollViewportAsync(new TerminalViewportScrollInput(-3), default);
+        Assert.Empty(harness.Pty.WrittenText);
+
+        // Back on the primary screen the scrollback is Asura's own.
+        await harness.Pty.WriteOutputAsync("\u001b[?1000l\u001b[?1049l");
+        _ = await WaitForScreenAsync(session, screen => !screen.IsAlternateScreen);
+        await session.ScrollViewportAsync(new TerminalViewportScrollInput(-3), default);
+        Assert.Empty(harness.Pty.WrittenText);
+    }
+
     [Fact]
     public async Task Input_bytes_are_acknowledged_only_after_the_portable_pty_flushes()
     {

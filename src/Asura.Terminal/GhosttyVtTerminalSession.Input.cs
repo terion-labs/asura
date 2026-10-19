@@ -346,6 +346,7 @@ internal sealed partial class GhosttyVtTerminalSession
                         return;
                     }
 
+                    ObserveMultiplexerScrollMarkerUnsafe(bytes.AsSpan(0, count));
                     WriteTerminalBytesUnsafe(bytes, count);
 
                     MarkContentChangedUnsafe();
