@@ -453,6 +453,7 @@ public sealed class SshConnectionRuntimeAdapterTests
         Assert.Contains("new-session -d -s \"$1\" -c \"$2\"", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" status off", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" mouse off", command, StringComparison.Ordinal);
+        AssertTmuxScrollKeysAnnouncedBeforeAttach(command);
         Assert.Contains("asura_attach screen -A -U -D -RR -S \"$1\"", command, StringComparison.Ordinal);
         Assert.True(
             command.IndexOf("command -v tmux", StringComparison.Ordinal)
@@ -461,6 +462,30 @@ public sealed class SshConnectionRuntimeAdapterTests
             "asura-multiplexer 'asura-1234abcd' '/srv/work'",
             command,
             StringComparison.Ordinal);
+    }
+
+    // tmux's mouse mode stays off so drags select in Asura; the wheel reaches
+    // tmux's history as two private keys bound to its scrolling, announced to
+    // Asura's terminal only once every binding succeeded, before attaching.
+    private static void AssertTmuxScrollKeysAnnouncedBeforeAttach(string command)
+    {
+        foreach (var binding in new[]
+        {
+            "set-option -s",
+            "user-keys[0]",
+            "user-keys[1]",
+            "bind-key -n User0 if-shell -F 1",
+            "copy-mode -e; send-keys -X -N 3 scroll-up",
+            "bind-key -T copy-mode User0 send-keys -X -N 3 scroll-up",
+            "bind-key -T copy-mode-vi User1 send-keys -X -N 3 scroll-down",
+        })
+        {
+            Assert.Contains(binding, command, StringComparison.Ordinal);
+        }
+
+        var announcement = command.IndexOf("6973;asura-multiplexer-scroll", StringComparison.Ordinal);
+        Assert.True(announcement > command.LastIndexOf("scroll-down", announcement, StringComparison.Ordinal));
+        Assert.True(announcement < command.IndexOf("asura_attach tmux", announcement, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -496,6 +521,7 @@ public sealed class SshConnectionRuntimeAdapterTests
             "set-option -t \"$1\" mouse off",
             command,
             StringComparison.Ordinal);
+        AssertTmuxScrollKeysAnnouncedBeforeAttach(command);
         Assert.Contains("asura_attach screen -A -U -D -r \"$1\"", command, StringComparison.Ordinal);
         Assert.DoesNotContain("new-session", command, StringComparison.Ordinal);
         Assert.DoesNotContain("-RR", command, StringComparison.Ordinal);

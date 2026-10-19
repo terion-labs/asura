@@ -257,6 +257,7 @@ internal static class SshConnectionArguments
         + "&& tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
         + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
         + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
+        + TmuxScrollKeysScript()
         + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
         + "if command -v screen >/dev/null 2>&1 "
         + "&& screen -S \"$1\" -X select . >/dev/null 2>&1; then "
@@ -272,19 +273,36 @@ internal static class SshConnectionArguments
             + "if tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
             + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
             + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
-            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + TmuxScrollKeysScript()
+        + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "tmux -L asura -u -2 start-server \\; "
             + "set-option -s default-terminal tmux-256color \\; "
             + "set-option -s terminal-features \"xterm*:RGB\" \\; "
             + $"new-session -d -s \"$1\"{tmuxDirectory} \\; "
             + "set-option -t \"$1\" status off || exit 1; "
             + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
-            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + TmuxScrollKeysScript()
+        + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "if command -v screen >/dev/null 2>&1; then "
             + screenDirectory
             + "asura_attach screen -A -U -D -RR -S \"$1\"; fi; "
             + MissingMultiplexerScript();
     }
+
+    // tmux runs with its mouse mode off, so the wheel reaches it as two
+    // private keys bound to scrolling its history; the marker tells Asura's
+    // terminal they are bound. Without user keys (an older tmux) nothing is
+    // printed and the wheel keeps its local behavior.
+    private static string TmuxScrollKeysScript() =>
+        "if tmux -L asura set-option -s 'user-keys[0]' \"$(printf '\\033[9101~')\" >/dev/null 2>&1 "
+        + "&& tmux -L asura set-option -s 'user-keys[1]' \"$(printf '\\033[9102~')\" >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -n User0 if-shell -F 1 'copy-mode -e; send-keys -X -N 3 scroll-up' >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -n User1 if-shell -F '#{pane_in_mode}' 'send-keys -X -N 3 scroll-down' >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -T copy-mode User0 send-keys -X -N 3 scroll-up >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -T copy-mode User1 send-keys -X -N 3 scroll-down >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -T copy-mode-vi User0 send-keys -X -N 3 scroll-up >/dev/null 2>&1 "
+        + "&& tmux -L asura bind-key -T copy-mode-vi User1 send-keys -X -N 3 scroll-down >/dev/null 2>&1; then "
+        + "printf '\\033]6973;asura-multiplexer-scroll\\007'; fi; ";
 
     private static string MissingMultiplexerScript() =>
         "printf \"%s\\n\" \"Asura terminal continuity requires tmux or GNU Screen.\" >&2; "
