@@ -184,7 +184,7 @@ public sealed class SettingsListPatternTests
         Action<MainWindowViewModel> arrange,
         Func<SettingsView, MainWindowViewModel, Task> assertion)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();

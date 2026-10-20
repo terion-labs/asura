@@ -153,7 +153,7 @@ public sealed class ContainerTypeSelectHeadlessTests
     [Fact]
     public async Task Typing_a_name_in_the_Kubernetes_navigator_shows_that_resource_type()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -200,7 +200,7 @@ public sealed class ContainerTypeSelectHeadlessTests
     [Fact]
     public async Task Typing_a_name_in_the_Kubernetes_table_selects_the_matching_row()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -252,7 +252,7 @@ public sealed class ContainerTypeSelectHeadlessTests
     private static async Task RunHeadlessAsync(Func<Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(

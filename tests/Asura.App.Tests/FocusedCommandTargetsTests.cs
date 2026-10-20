@@ -13,7 +13,7 @@ public sealed class FocusedCommandTargetsTests
     [Fact]
     public async Task Edit_commands_act_on_the_focused_text_field()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var field = new TextBox { Text = "alpha beta", AcceptsReturn = true };
@@ -47,7 +47,7 @@ public sealed class FocusedCommandTargetsTests
     [Fact]
     public async Task Find_reaches_the_search_field_of_the_focused_panel()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var search = new TextBox();
@@ -83,7 +83,7 @@ public sealed class FocusedCommandTargetsTests
     [Fact]
     public async Task A_modal_dialog_dims_commands_that_would_act_behind_it()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var owner = new Window();
@@ -117,7 +117,7 @@ public sealed class FocusedCommandTargetsTests
     [Fact]
     public async Task Use_selection_for_find_reads_the_terminal_cells_that_are_selected()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var surface = new ManagedTerminalSurface();
@@ -142,7 +142,7 @@ public sealed class FocusedCommandTargetsTests
     [Fact]
     public async Task Use_selection_for_find_reads_a_web_page_selection_when_chosen()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var page = new FakeBrowserPage { Focusable = true };

@@ -23,7 +23,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
     public async Task SpoilersRevealLiteralTextOnlyAfterClickAndHideAgain(string kind)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(AgentAttachmentHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var reference = new ChatHiddenReference(Guid.NewGuid().ToString("N"));
@@ -101,7 +101,7 @@ public sealed class MarkdownChatSecretsHeadlessTests
     public async Task DelayedRevealCannotPopulateDetachedWorkspace()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(AgentAttachmentHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(AgentAttachmentHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var reference = new ChatHiddenReference(Guid.NewGuid().ToString("N"));

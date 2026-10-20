@@ -339,7 +339,7 @@ public sealed class MonitorPanelHigConformanceTests
     private static async Task RunAsync(Action action)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(

@@ -840,7 +840,7 @@ public sealed class DialogContractHeadlessTests
     private static async Task RunAsync(Func<Task> test)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(async () =>
         {
             await test();

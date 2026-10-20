@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Asura.HeadlessDispatch.Tests" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +23,8 @@
              Link="Shared\SecurityCampaignCanaries.cs" />
     <Compile Include="..\HeadlessDispatchContractTests.cs"
              Link="Shared\HeadlessDispatchContractTests.cs" />
+    <Compile Include="..\HeadlessSessions.cs"
+             Link="Shared\HeadlessSessions.cs" />
     <!-- Shared by link rather than copied: a second hand-written terminal fake
          would be a second set of rules to drift from the first, and these two
          files depend on nothing else in their own project. -->

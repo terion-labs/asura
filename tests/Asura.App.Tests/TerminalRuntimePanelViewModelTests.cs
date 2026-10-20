@@ -1127,7 +1127,7 @@ public sealed class TerminalRuntimePanelViewModelTests
     public async Task Continuity_fallback_button_starts_plain_session(bool embedded)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var connection = SshAgentConnection();

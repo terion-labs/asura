@@ -19,7 +19,7 @@ public sealed class PanelCollapseHeadlessTests
     public async Task Nested_panels_reclaim_space_and_restore_original_bounds_without_replacing_documents()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var tab = new RuntimeTabViewModel(TabInstanceId.New(), "Panels", "test");
@@ -98,7 +98,7 @@ public sealed class PanelCollapseHeadlessTests
     public async Task Floating_panel_fits_after_single_event_parent_resize()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var panel = new FloatingRuntimePanelViewModel(NewPanel("Float"), new Document(), 0);

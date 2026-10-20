@@ -21,7 +21,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
             path,
             EncodedImage(SKEncodedImageFormat.Jpeg, width: 3_456, height: 2_234));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(
@@ -68,7 +68,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
             $"asura-ordinary-image-{Guid.NewGuid():N}.bmp");
         await File.WriteAllBytesAsync(path, Bitmap24(1_000, 1_600));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {
@@ -121,7 +121,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
         }
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {
@@ -168,7 +168,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
         Assert.Equal(SKEncodedOrigin.RightTop, codec!.EncodedOrigin);
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {
@@ -206,7 +206,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
         }
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {

@@ -222,7 +222,7 @@ public sealed class GitCommitMenuHeadlessTests
         FakeGitRepositoryClient? client = null)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
 
         // Returning a value picks the overload that awaits the test body; a
         // body that returns nothing binds to Dispatch<Task>, which hands back

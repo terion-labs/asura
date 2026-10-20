@@ -20,6 +20,8 @@
   <ItemGroup>
     <Compile Include="..\HeadlessDispatchContractTests.cs"
              Link="Shared\HeadlessDispatchContractTests.cs" />
+    <Compile Include="..\HeadlessSessions.cs"
+             Link="Shared\HeadlessSessions.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +33,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Asura.HeadlessDispatch.Tests" />
   </ItemGroup>
 
 </Project>

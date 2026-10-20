@@ -23,7 +23,7 @@ public sealed class GitDiffSelectionHeadlessTests
     public async Task A_selected_diff_line_in_a_focused_diff_keeps_its_text_colour()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         // Returning a value picks the overload that awaits the test body; a
         // bare async lambda would be dispatched as a Task<Task> and its
         // failures dropped.

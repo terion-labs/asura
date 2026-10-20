@@ -20,7 +20,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Settings_opens_in_one_window_titled_by_its_pane_and_reopens_where_it_was_left()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState();
@@ -84,7 +84,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Settings_search_filters_the_sidebar_instead_of_opening_the_palette()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState();
@@ -130,7 +130,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Closing_the_main_window_settings_belongs_to_hands_the_open_window_to_another()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState();
@@ -184,7 +184,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Settings_goes_to_the_most_recently_active_main_window_when_its_own_closes()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState();
@@ -231,7 +231,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Saved_workspaces_are_deleted_by_selection_the_minus_button_the_delete_key_or_the_context_menu()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -300,7 +300,7 @@ public sealed class SettingsWindowHeadlessTests
         string listName,
         string minusName)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -384,7 +384,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Browser_profile_popover_closes_only_once_the_profile_exists()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -447,7 +447,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Settings_search_finds_rows_a_list_draws_and_says_when_the_page_has_none()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -499,7 +499,7 @@ public sealed class SettingsWindowHeadlessTests
         string found,
         string other)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -540,7 +540,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task A_saved_frame_off_every_screen_is_brought_back_at_its_saved_size()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var store = new MemorySettingsWindowStateStore(
@@ -590,7 +590,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task A_saved_frame_taller_than_the_screen_fits_the_screen()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState(new MemorySettingsWindowStateStore(
@@ -635,7 +635,7 @@ public sealed class SettingsWindowHeadlessTests
     [Fact]
     public async Task Settings_keeps_one_size_and_every_page_scrolls_to_its_end()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             ForgetSettingsWindowState();

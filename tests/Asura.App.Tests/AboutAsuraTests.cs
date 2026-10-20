@@ -28,7 +28,7 @@ public sealed class AboutAsuraTests
     public async Task About_shows_identity_not_diagnostics_and_sizes_to_its_content()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var window = new AboutWindow();
@@ -65,7 +65,7 @@ public sealed class AboutAsuraTests
     public async Task The_bundled_icon_loads_on_every_host()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             using var icon = MacOsApplicationIconImage.Bundled();

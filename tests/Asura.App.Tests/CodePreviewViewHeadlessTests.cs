@@ -137,7 +137,7 @@ public sealed class CodePreviewViewHeadlessTests
     private static async Task RunHeadlessAsync(Func<Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             var completed = await session.Dispatch(

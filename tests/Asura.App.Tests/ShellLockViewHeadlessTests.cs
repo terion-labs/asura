@@ -16,7 +16,7 @@ public sealed class ShellLockViewHeadlessTests
     public async Task A_window_that_starts_locked_puts_the_caret_in_the_PIN_box()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var lockView = new ShellLockView();
@@ -42,7 +42,7 @@ public sealed class ShellLockViewHeadlessTests
     public async Task Locking_an_open_window_moves_the_caret_to_the_PIN_box()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var other = new TextBox();

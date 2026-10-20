@@ -620,7 +620,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Items_a_window_cannot_run_are_dimmed_not_removed()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost { Unavailable = { BuiltInCommands.SplitPanel } };
@@ -640,7 +640,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Items_follow_state_titles_check_marks_and_shortcuts()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost();
@@ -664,7 +664,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Choosing_an_item_runs_its_command_and_close_tab_falls_back_to_close_window()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost { Unavailable = { BuiltInCommands.CloseTab } };
@@ -683,7 +683,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Command_equals_runs_bigger_alongside_its_command_plus_shortcut()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost();
@@ -706,7 +706,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Standard_shortcuts_run_items_whose_keymap_shows_another_stroke()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost
@@ -733,7 +733,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Edit_items_dim_without_the_focused_element_able_to_act()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var host = new RecordingMenuHost();
@@ -751,7 +751,7 @@ public sealed class ApplicationMenuBarTests
     [Fact]
     public async Task Standard_application_items_are_named_for_macOS()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             var menu = new NativeMenu

@@ -147,7 +147,7 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
 
     private static async Task RunAsync(Func<MainWindow, MainWindowViewModel, Task> assertion)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();

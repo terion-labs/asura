@@ -81,7 +81,7 @@ public sealed class QuickTerminalRevealHeadlessTests
     private static async Task RunHeadlessAsync(Action assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>
             {

@@ -166,7 +166,7 @@ public sealed class LauncherLabelsHeadlessTests
     private static async Task RunAsync(Action<Window> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>
             {

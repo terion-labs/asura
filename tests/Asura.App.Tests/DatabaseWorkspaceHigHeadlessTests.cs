@@ -638,7 +638,7 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
     private static async Task RunAsync(Func<DatabaseRuntimePanelViewModel, Window, Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        var headless = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var headless = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             Assert.True(await headless.Dispatch(

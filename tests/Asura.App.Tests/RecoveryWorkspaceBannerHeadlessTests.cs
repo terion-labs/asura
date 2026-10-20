@@ -21,7 +21,7 @@ public sealed class RecoveryWorkspaceBannerHeadlessTests
     public async Task A_recovery_run_says_so_in_every_window_and_offers_the_way_back()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var app = Assert.IsType<App>(Avalonia.Application.Current);
@@ -71,7 +71,7 @@ public sealed class RecoveryWorkspaceBannerHeadlessTests
     public async Task The_persons_own_profile_shows_no_recovery_banner()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var workspace = new WorkspaceView();

@@ -118,16 +118,25 @@ internal static class BrowserKeyTranslationAcceptance
             Send(Key.Left, KeyModifiers.Meta, true);
             Send(Key.Right, KeyModifiers.Meta, false);
             Send(Key.Right, KeyModifiers.Meta, true);
-            await Task.Delay(120, cancellationToken);
-            var identity = await browser.EvaluateJavaScriptAsync("""
+            const string identityScript = """
                 (() => {
                   const input = document.getElementById('key-translation-probe');
-                  input.onkeydown = null;
                   const ok = JSON.stringify(window.commandKeys) === '["ArrowLeft","ArrowRight"]'
                     && input.selectionStart === 0 && input.selectionEnd === 0;
                   return ok ? 'PASS' : JSON.stringify({keys: window.commandKeys, start: input.selectionStart, end: input.selectionEnd});
                 })()
-                """).WaitAsync(cancellationToken);
+                """;
+            var identity = await ReadUntilPassAsync(identityScript);
+            if (identity.Contains("PASS", StringComparison.Ordinal))
+            {
+                // The page kept Cmd+Right, so nothing may move the caret
+                // afterwards: give a wrongly performed one time to land.
+                await Task.Delay(150, cancellationToken);
+                identity = await browser.EvaluateJavaScriptAsync(identityScript).WaitAsync(cancellationToken);
+            }
+
+            await browser.EvaluateJavaScriptAsync("document.getElementById('key-translation-probe').onkeydown = null")
+                .WaitAsync(cancellationToken);
             if (!identity.Contains("PASS", StringComparison.Ordinal))
             {
                 failures.Add("Command keys reach the page and a handled one stays the page's: " + identity);
@@ -138,14 +147,15 @@ internal static class BrowserKeyTranslationAcceptance
             Send(Key.A, KeyModifiers.Meta, false);
             Send(Key.A, KeyModifiers.Meta, true);
             Send(Key.LWin, KeyModifiers.None, true);
-            await Task.Delay(80, cancellationToken);
-            var selected = await browser.EvaluateJavaScriptAsync("""
+            var selected = await ReadUntilPassAsync("""
                 (() => {
                   const input = document.getElementById('key-translation-probe');
-                  return input.selectionStart === 0 && input.selectionEnd === input.value.length;
+                  return input.selectionStart === 0 && input.selectionEnd === input.value.length
+                    ? 'PASS'
+                    : JSON.stringify({start: input.selectionStart, end: input.selectionEnd});
                 })()
-                """).WaitAsync(cancellationToken);
-            if (!string.Equals(selected, "true", StringComparison.Ordinal))
+                """);
+            if (!selected.Contains("PASS", StringComparison.Ordinal))
             {
                 failures.Add("Cmd+A did not select the fixture text: " + selected);
             }
@@ -173,10 +183,7 @@ internal static class BrowserKeyTranslationAcceptance
                 """).WaitAsync(cancellationToken);
             Send(key, modifiers, false);
             Send(key, KeyModifiers.None, true);
-            // SendKeyEvent is asynchronous; allow the renderer to consume both
-            // messages before reading its actual selection and DOM event log.
-            await Task.Delay(80, cancellationToken);
-            var result = await browser.EvaluateJavaScriptAsync($$"""
+            var result = await ReadUntilPassAsync($$"""
                 (() => {
                   const input = document.getElementById('key-translation-probe');
                   const expected = [['keydown', '{{domKey}}', '{{domCode}}'], ['keyup', '{{domKey}}', '{{domCode}}']];
@@ -184,7 +191,7 @@ internal static class BrowserKeyTranslationAcceptance
                     && JSON.stringify(window.keyProbeEvents) === JSON.stringify(expected);
                   return ok ? 'PASS' : JSON.stringify({start: input.selectionStart, end: input.selectionEnd, events: window.keyProbeEvents});
                 })()
-                """).WaitAsync(cancellationToken);
+                """);
             if (!result.Contains("PASS", StringComparison.Ordinal))
             {
                 failures.Add(key + ": " + result);
@@ -212,18 +219,36 @@ internal static class BrowserKeyTranslationAcceptance
                 """).WaitAsync(cancellationToken);
             Send(key, modifiers, false);
             Send(key, modifiers, true);
-            await Task.Delay(80, cancellationToken);
-            var result = await browser.EvaluateJavaScriptAsync($$"""
+            var result = await ReadUntilPassAsync($$"""
                 (() => {
                   const input = {{target}};
                   const ok = input.selectionStart === {{expectedStart}} && input.selectionEnd === {{expectedEnd}}
                     && input.value === '{{expectedValue ?? value}}';
                   return ok ? 'PASS' : JSON.stringify({start: input.selectionStart, end: input.selectionEnd, value: input.value});
                 })()
-                """).WaitAsync(cancellationToken);
+                """);
             if (!result.Contains("PASS", StringComparison.Ordinal))
             {
                 failures.Add(element + " " + modifiers + "+" + key + ": " + result);
+            }
+        }
+
+        // Key events reach the renderer asynchronously, and a Command key the
+        // page leaves unhandled returns to the browser process before its
+        // navigation is sent back. A fixed pause read the caret too early on
+        // a slow release runner, so each check waits for its expected state.
+        async Task<string> ReadUntilPassAsync(string script)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while (true)
+            {
+                var result = await browser.EvaluateJavaScriptAsync(script).WaitAsync(cancellationToken);
+                if (result.Contains("PASS", StringComparison.Ordinal) || DateTime.UtcNow >= deadline)
+                {
+                    return result;
+                }
+
+                await Task.Delay(50, cancellationToken);
             }
         }
 

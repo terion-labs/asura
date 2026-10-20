@@ -17,7 +17,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     public async Task File_transfers_sit_beside_the_agent_panel_instead_of_over_its_composer()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var workspace = new WorkspaceView();
@@ -59,7 +59,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     public async Task Error_notices_make_room_for_the_agent_panel_in_the_bottom_corner()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var workspace = new WorkspaceView();
@@ -109,7 +109,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     public async Task An_unbound_error_notice_list_takes_no_space()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var notices = new Asura.App.Views.Components.ErrorNoticesView();
@@ -132,7 +132,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     public async Task File_transfers_stack_above_the_composer_when_there_is_no_room_beside_the_agent_panel()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var workspace = new WorkspaceView();
@@ -180,7 +180,7 @@ public sealed class WorkspaceAgentOverlayHeadlessTests
     public async Task Agent_panel_grows_with_the_text_size_setting()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var workspace = new WorkspaceView();

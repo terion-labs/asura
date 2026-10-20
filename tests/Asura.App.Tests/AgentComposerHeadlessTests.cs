@@ -2304,7 +2304,7 @@ public sealed partial class AgentChatViewModelTests
     private static async Task RunAgentComposerHeadlessAsync(Func<Task> assertion, Type? applicationType = null)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             applicationType ?? typeof(SqlEditorHeadlessApplication));
         try
         {

@@ -21,7 +21,7 @@ public sealed class LayoutDesignerCanvasHeadlessTests
     [Fact]
     public async Task The_canvas_draws_one_card_per_designed_panel()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
@@ -56,7 +56,7 @@ public sealed class LayoutDesignerCanvasHeadlessTests
     [Fact]
     public async Task The_open_saved_layout_is_marked_for_assistive_technology_too()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();

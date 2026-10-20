@@ -79,7 +79,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Panel_header_drop_moves_live_terminal_to_another_tab(bool launcherTarget, bool omitMoveButtons)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             await using var host = new InMemorySessionHostClient(
@@ -186,7 +186,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Panel_header_drag_can_still_rearrange_panels_in_the_same_tab()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             await using var host = new InMemorySessionHostClient(
@@ -273,7 +273,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Moving_a_panel_away_and_back_restores_the_layout(bool outerTop, bool outerRight)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var (client, _) = CreateSessionClient();
@@ -353,7 +353,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Dragging_a_single_panel_without_a_tab_drop_keeps_it_docked(bool escape)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var (client, _) = CreateSessionClient();
@@ -629,7 +629,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Catalog_refresh_keeps_the_manually_selected_host_network_attached()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var uiSession = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var uiSession = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         var completed = await uiSession.Dispatch(async () =>
         {
             var connection = NetworkProfile("host-network", "Host VPN");
@@ -753,7 +753,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task QueuedCatalogRefreshDoesNotTouchDisposedSettings()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var uiSession = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var uiSession = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await uiSession.Dispatch(async () =>
         {
             var (client, _) = CreateSessionClient();
@@ -779,7 +779,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         PhysicalKey? modifierPhysicalKey)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var prefix = new KeyStroke("B", Asura.Core.KeyModifiers.Control);
@@ -4143,7 +4143,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Attached_agent_view_renders_late_workspace_chat_at_its_end()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(
+        var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         try
         {
@@ -5307,7 +5307,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Empty_dock_launcher_tracks_floating_panels_and_launches_into_the_same_tab()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var (client, recorder) = CreateSessionClient();
@@ -7392,7 +7392,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Density_click_saves_automatically_and_survives_leaving_settings(bool leaveBeforeSaveCompletes)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var catalog = DispatchProxy.Create<IDefinitionCatalog, AppearanceSettingsViewModelTests.RecordingCatalogProxy>();
@@ -7444,7 +7444,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Failed_appearance_autosave_offers_retry_and_clears_the_draft_after_success()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var catalog = DispatchProxy.Create<IDefinitionCatalog, AppearanceSettingsViewModelTests.RecordingCatalogProxy>();
@@ -7621,7 +7621,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task Quick_terminal_menu_deletes_the_conversation_its_agent_panel_shows()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         try
         {
             var completed = await session.Dispatch(
@@ -9296,7 +9296,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task A_window_at_its_minimum_size_keeps_the_title_band_on_screen()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             await using var host = new InMemorySessionHostClient(
@@ -9345,7 +9345,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     public async Task An_isolated_workspace_start_covers_only_its_canvas()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var provider = new RecordingWorkspaceIsolationProvider

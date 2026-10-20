@@ -24,7 +24,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [InlineData(true)]
     public async Task NamespaceSelectionRemainsVisibleWhenDiscoveryCompletesAfterViewAttachment(bool startWithNodes)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -84,7 +84,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task TableSortSurvivesRowsReplacedByFilteringAndWatch()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -141,7 +141,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task DetailsDrawerSlidesOpenAndShut()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -178,7 +178,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task NavigatorSlidesRatherThanSnaps()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -206,7 +206,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task ResourceInspectorBecomesASinglePaneInNarrowSplits()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -302,7 +302,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task InspectorViewsAreFiveStableSegmentsThatDimInsteadOfDisappearing()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -362,7 +362,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task ResourceTableSelectsSeveralRowsAndOffersAContextMenu()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {
@@ -456,7 +456,7 @@ public sealed class KubernetesRuntimePanelHeadlessTests
     [Fact]
     public async Task ConnectionStatusMarkGainsAGlyphWithoutColor()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(async () =>
         {

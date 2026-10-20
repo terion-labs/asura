@@ -21,7 +21,7 @@ public sealed class BrowserPopupRoutingHeadlessTests
         Cef.WindowOpenDisposition disposition, string targetFrameName, string targetUrl)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(
+        await using var session = HeadlessSessions.StartNew(
             typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>

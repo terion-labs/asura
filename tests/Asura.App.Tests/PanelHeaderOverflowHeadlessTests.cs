@@ -32,7 +32,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [InlineData("Main development server")]
     public async Task BrowserHeaderKeepsAddressReadableAcrossNarrowAndWideLayouts(string connection)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -82,7 +82,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [InlineData(200)]
     public async Task OverflowMenuListsTheHiddenActionsAndRestoresTheWideHeader(int width)
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -165,7 +165,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [Fact]
     public async Task OverflowMenuOpensFromTheKeyboard()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -199,7 +199,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [Fact]
     public async Task OverflowActionsReachTheOriginalPanelAndBrowser()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {
@@ -252,7 +252,7 @@ public sealed class PanelHeaderOverflowHeadlessTests
     [Fact]
     public async Task HeaderActionsSetBeforeTheWindowTakeTheApplicationStyles()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         Assert.True(await session.Dispatch(() =>
         {

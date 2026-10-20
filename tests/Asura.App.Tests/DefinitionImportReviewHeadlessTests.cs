@@ -14,7 +14,7 @@ public sealed class DefinitionImportReviewHeadlessTests
     public async Task Execution_review_starts_unchecked_and_does_not_carry_approval_to_another_dialog()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var plan = new DefinitionBundleImportPlan("/tmp/review.json", new(new(1, DateTimeOffset.UtcNow, []),

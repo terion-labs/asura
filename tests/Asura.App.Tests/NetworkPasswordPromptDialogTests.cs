@@ -11,7 +11,7 @@ public sealed class NetworkPasswordPromptDialogTests
     public async Task Replacement_prompt_masks_password_and_does_not_offer_premature_persistence()
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         await session.Dispatch(() =>
         {
             const string description = "The stored password was rejected. Enter a replacement to retry.";

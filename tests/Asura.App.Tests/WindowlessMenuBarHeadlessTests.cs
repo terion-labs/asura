@@ -22,7 +22,7 @@ public sealed class WindowlessMenuBarHeadlessTests
             return;
         }
 
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>
             {
@@ -45,7 +45,7 @@ public sealed class WindowlessMenuBarHeadlessTests
     [Fact]
     public async Task Windowless_menus_show_only_while_no_window_is_open()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
             () =>
             {

@@ -21,7 +21,7 @@ public sealed class FloatingPanelHeadlessTests
     public async Task Passive_status_regions_move_a_floating_panel(string handleName)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(() =>
         {
             var panel = new UnavailableRuntimePanelViewModel(

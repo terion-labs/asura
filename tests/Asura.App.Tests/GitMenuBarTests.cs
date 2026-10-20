@@ -444,7 +444,7 @@ public sealed class GitPanelMenuBarHeadlessTests
         Func<GitRuntimePanelView, GitRuntimePanelViewModel, Window, FakeGitRepositoryClient, Task> assertion)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
 
         // Returning a value picks the overload that awaits the test body.
         var completed = await session.Dispatch(async () =>

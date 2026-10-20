@@ -81,7 +81,7 @@ public sealed class BlurBehindSurfaceResizeHeadlessTests
     private static async Task RunAsync(Func<Task> action)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             await action();

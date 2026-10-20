@@ -21,7 +21,7 @@ public sealed class SettingsAutoApplyTests
     [Fact]
     public async Task A_quick_terminal_change_made_during_a_save_is_stored_and_kept_on_screen()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var catalog = SlowCatalogProxy.Create(Snapshot());
@@ -56,7 +56,7 @@ public sealed class SettingsAutoApplyTests
     [Fact]
     public async Task A_terminal_change_made_during_a_save_is_stored_and_kept_on_screen()
     {
-        await using var session = HeadlessUnitTestSession.StartNew(typeof(SqlEditorHeadlessApplication));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(async () =>
         {
             var catalog = SlowCatalogProxy.Create(Snapshot());
