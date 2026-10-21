@@ -219,6 +219,25 @@ public sealed class ConnectionCommandExecutor(
         }
     }
 
+    /// <summary>
+    /// The locator finds a local tool in the folders its installer uses, such
+    /// as OrbStack's or Docker Desktop's, which an app opened from the Finder
+    /// does not have on PATH. A command run directly is found there, but a
+    /// shell script that calls the same tool searched PATH and failed with
+    /// "docker: not found". Local commands search what the locator searches.
+    /// </summary>
+    private static void SearchLikeTheLocator(
+        ProcessStartInfo start,
+        ConnectionProfile connection,
+        IConnectionExecutableLocator executableLocator)
+    {
+        if (connection.ConnectionKind == ConnectionKind.Local
+            && executableLocator.SearchPath is { Length: > 0 } searchPath)
+        {
+            start.Environment["PATH"] = searchPath;
+        }
+    }
+
     private static ProcessStartInfo CreateStartInfo(
         TerminalLaunchRequest launch,
         ConnectionCommand request,
@@ -245,6 +264,7 @@ public sealed class ConnectionCommandExecutor(
             start.ArgumentList.Add(argument);
         }
 
+        SearchLikeTheLocator(start, request.Connection, executableLocator);
         foreach (var (name, value) in launch.Environment)
         {
             start.Environment[name] = value;
@@ -279,6 +299,7 @@ public sealed class ConnectionCommandExecutor(
             start.ArgumentList.Add(argument);
         }
 
+        SearchLikeTheLocator(start, request.Connection, executableLocator);
         foreach (var (name, value) in launch.Environment)
         {
             start.Environment[name] = value;

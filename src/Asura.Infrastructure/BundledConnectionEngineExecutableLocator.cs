@@ -44,6 +44,8 @@ public sealed class BundledConnectionEngineExecutableLocator : IConnectionExecut
         _useBundle = useBundle;
     }
 
+    public string? SearchPath => _fallback.SearchPath;
+
     public string? Find(string executable)
     {
         if (!_useBundle || !EngineNames.Contains(executable))

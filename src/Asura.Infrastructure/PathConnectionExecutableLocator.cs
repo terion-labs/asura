@@ -51,6 +51,8 @@ public sealed class PathConnectionExecutableLocator : IConnectionExecutableLocat
         return null;
     }
 
+    public string? SearchPath => string.Join(Path.PathSeparator, SearchDirectories());
+
     private IEnumerable<string> SearchDirectories()
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
