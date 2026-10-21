@@ -330,6 +330,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         {
             if (SetProperty(ref _snapshot, value))
             {
+                ForgetFileBrowsersOfIdleContainers();
                 PublishSnapshotState();
             }
         }
@@ -1821,9 +1822,36 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         NotifyShellPresentation();
     }
 
+    /// <summary>
+    /// A container that stopped while another resource was selected kept its
+    /// file listing, and choosing it after a restart showed that listing, or
+    /// the error from reading it stopped, instead of reading it afresh. Each
+    /// snapshot drops the listings of containers that are not running. The
+    /// selected one's listing is still shown, and the selection drops it.
+    /// </summary>
+    private void ForgetFileBrowsersOfIdleContainers()
+    {
+        var running = (_snapshot?.Containers ?? [])
+            .Where(container => container.IsRunning)
+            .Select(container => FileBrowserKey(DockerResourceKind.Container, container.Id))
+            .ToHashSet(StringComparer.Ordinal);
+        var idle = _fileBrowsers
+            .Where(entry => entry.Key.StartsWith(FileBrowserKey(DockerResourceKind.Container, string.Empty), StringComparison.Ordinal)
+                && !running.Contains(entry.Key)
+                && !ReferenceEquals(entry.Value, FileBrowser))
+            .ToArray();
+        foreach (var (key, browser) in idle)
+        {
+            _fileBrowsers.Remove(key);
+            browser.Dispose();
+        }
+    }
+
+    private static string FileBrowserKey(DockerResourceKind kind, string id) => $"{kind}:{id}";
+
     private void ForgetFileBrowser(DockerResourceReference resource)
     {
-        if (_fileBrowsers.Remove($"{resource.Kind}:{resource.Id}", out var browser))
+        if (_fileBrowsers.Remove(FileBrowserKey(resource.Kind, resource.Id), out var browser))
         {
             browser.Dispose();
         }
@@ -1832,7 +1860,7 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     private FileRuntimePanelViewModel GetOrCreateFileBrowser(
         DockerResourceReference resource)
     {
-        var key = $"{resource.Kind}:{resource.Id}";
+        var key = FileBrowserKey(resource.Kind, resource.Id);
         if (_fileBrowsers.TryGetValue(key, out var browser))
         {
             return browser;
