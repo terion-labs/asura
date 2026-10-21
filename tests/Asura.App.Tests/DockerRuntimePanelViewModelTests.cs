@@ -146,6 +146,38 @@ public sealed class DockerRuntimePanelViewModelTests
         Assert.NotSame(before, panel.FileBrowser);
     }
 
+    /// <summary>
+    /// The listing on screen was spared when its container went away, and
+    /// kept after the selection moved on to another resource.
+    /// </summary>
+    [Fact]
+    public async Task A_selected_container_that_goes_away_does_not_keep_its_file_listing()
+    {
+        var client = new FakeDockerEngineClient(Snapshot());
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        DockerResourceItemViewModel Item(string id) =>
+            panel.Resources.Single(item => string.Equals(item.Resource.Id, id, StringComparison.Ordinal));
+        panel.SelectResource(Item("abc"));
+        panel.SelectDetail(DockerPanelDetail.Files);
+        var before = panel.FileBrowser;
+        Assert.NotNull(before);
+
+        client.NextSnapshot = Snapshot() with { Containers = [.. Snapshot().Containers.Skip(1)] };
+        await panel.RefreshAsync();
+        Assert.False(string.Equals("abc", panel.SelectedResource?.Resource.Id, StringComparison.Ordinal));
+        client.NextSnapshot = Snapshot();
+        await panel.RefreshAsync();
+        panel.SelectResource(Item("abc"));
+
+        Assert.NotNull(panel.FileBrowser);
+        Assert.NotSame(before, panel.FileBrowser);
+    }
+
     [Fact]
     public async Task PausedContainerUsesStopAndResumeLifecycleStates()
     {

@@ -273,12 +273,9 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             FileBrowser = value is not null && CanBrowseFiles
                 ? GetOrCreateFileBrowser(value.Resource)
                 : null;
-            if (value is { IsContainer: true } && !CanBrowseFiles)
-            {
-                // Listed again from the start once the container runs, not
-                // from what was shown before it stopped.
-                ForgetFileBrowser(value.Resource);
-            }
+            // The listing that was on screen is no longer spared, so one of a
+            // container that stopped or went away is dropped now.
+            ForgetFileBrowsersOfIdleContainers();
 
             ResetShellState();
             Inspection = null;
@@ -1826,8 +1823,9 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     /// A container that stopped while another resource was selected kept its
     /// file listing, and choosing it after a restart showed that listing, or
     /// the error from reading it stopped, instead of reading it afresh. Each
-    /// snapshot drops the listings of containers that are not running. The
-    /// selected one's listing is still shown, and the selection drops it.
+    /// snapshot and each selection drop the listings of containers that are
+    /// not running or no longer exist, except the one on screen: the
+    /// selection that follows a snapshot replaces it, then drops it.
     /// </summary>
     private void ForgetFileBrowsersOfIdleContainers()
     {
@@ -1848,14 +1846,6 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     private static string FileBrowserKey(DockerResourceKind kind, string id) => $"{kind}:{id}";
-
-    private void ForgetFileBrowser(DockerResourceReference resource)
-    {
-        if (_fileBrowsers.Remove(FileBrowserKey(resource.Kind, resource.Id), out var browser))
-        {
-            browser.Dispose();
-        }
-    }
 
     private FileRuntimePanelViewModel GetOrCreateFileBrowser(
         DockerResourceReference resource)
