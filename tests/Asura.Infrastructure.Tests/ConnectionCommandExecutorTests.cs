@@ -163,6 +163,53 @@ public sealed class ConnectionCommandExecutorTests
         }
     }
 
+    /// <summary>
+    /// Container logs failed with "exec: docker: not found" in an app opened
+    /// from the Finder: the log script ran docker through PATH, which lacked
+    /// the folder where the locator had found it.
+    /// </summary>
+    [Fact]
+    public async Task Local_shell_scripts_find_tools_in_supplemental_executable_directories()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var directory = Directory.CreateTempSubdirectory(
+            "asura-command-executor-");
+        try
+        {
+            var docker = Path.Combine(directory.FullName, "docker");
+            await File.WriteAllTextAsync(docker, "#!/bin/sh\nprintf supplemental");
+            File.SetUnixFileMode(
+                docker,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            var profile = ConnectionRuntimeTestSupport.Profile(new ConnectionEndpoint.Local());
+            var locator = new PathConnectionExecutableLocator(
+                "/usr/bin:/bin:/usr/sbin:/sbin",
+                [directory.FullName]);
+            var executor = new ConnectionCommandExecutor(new FixedRuntime(profile), locator);
+            string[] script = ["-c", "exec docker container logs \"$1\"", "asura-docker-logs", "container"];
+
+            var text = await executor.ExecuteAsync(
+                new ConnectionCommand(profile, "/bin/sh", script, TimeSpan.FromSeconds(5), 1024),
+                CancellationToken.None);
+            var download = await executor.ExecuteBinaryAsync(
+                new ConnectionBinaryCommand(profile, "/bin/sh", script, TimeSpan.FromSeconds(5), 1024),
+                CancellationToken.None);
+
+            Assert.Equal(0, text.ExitCode);
+            Assert.Equal("supplemental", text.StandardOutput);
+            Assert.Equal(0, download.ExitCode);
+            Assert.Equal("supplemental", System.Text.Encoding.UTF8.GetString(download.StandardOutput.Span));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     [Fact]
     public void ControlConnectionIdentityChangesWithAuthenticationConfiguration()
     {

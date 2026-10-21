@@ -270,9 +270,16 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
             InlineShell = value?.Container is { } container
                 ? _inlineShells.GetValueOrDefault(container.Id)
                 : null;
-            FileBrowser = value is { Resource.Kind: not DockerResourceKind.Network }
+            FileBrowser = value is not null && CanBrowseFiles
                 ? GetOrCreateFileBrowser(value.Resource)
                 : null;
+            if (value is { IsContainer: true } && !CanBrowseFiles)
+            {
+                // Listed again from the start once the container runs, not
+                // from what was shown before it stopped.
+                ForgetFileBrowser(value.Resource);
+            }
+
             ResetShellState();
             Inspection = null;
             ResetLogs();
@@ -670,10 +677,31 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
     { IsContainer: true, IsRunning: true }
             or { IsContainer: true, IsPaused: true };
 
+    /// <summary>
+    /// A container's files are read through docker exec, so like its shell
+    /// they need it running: a stopped one answered with the daemon's
+    /// "container … is not running" as a failed file operation. Images and
+    /// volumes are read through a throwaway container and are always
+    /// browsable.
+    /// </summary>
     public bool CanBrowseFiles =>
-        SelectedResource?.Resource.Kind is DockerResourceKind.Container
-            or DockerResourceKind.Image
-            or DockerResourceKind.Volume;
+        SelectedResource is { IsContainer: true, IsRunning: true }
+        || SelectedResource?.Resource.Kind is DockerResourceKind.Image or DockerResourceKind.Volume;
+
+    /// <summary>Why a dimmed view is dimmed, where starting the container would help.</summary>
+    public string ShellTabToolTip => SelectedResource switch
+    {
+        { IsContainer: true, IsPaused: true } => "Resume the container to open a shell",
+        { IsContainer: true, IsRunning: false } => "Start the container to open a shell",
+        _ => "Shell",
+    };
+
+    public string FilesTabToolTip => SelectedResource switch
+    {
+        { IsContainer: true, IsPaused: true } => "Resume the container to browse its files",
+        { IsContainer: true, IsRunning: false } => "Start the container to browse its files",
+        _ => "Files",
+    };
 
     /// <summary>
     /// Whether each view applies to the selection. The views stay in place
@@ -1793,6 +1821,14 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         NotifyShellPresentation();
     }
 
+    private void ForgetFileBrowser(DockerResourceReference resource)
+    {
+        if (_fileBrowsers.Remove($"{resource.Kind}:{resource.Id}", out var browser))
+        {
+            browser.Dispose();
+        }
+    }
+
     private FileRuntimePanelViewModel GetOrCreateFileBrowser(
         DockerResourceReference resource)
     {
@@ -1862,6 +1898,8 @@ public sealed class DockerRuntimePanelViewModel : RuntimePanelViewModel
         OnPropertyChanged(nameof(CanShowShell));
         OnPropertyChanged(nameof(CanShowFiles));
         OnPropertyChanged(nameof(CanShowJson));
+        OnPropertyChanged(nameof(ShellTabToolTip));
+        OnPropertyChanged(nameof(FilesTabToolTip));
         OnPropertyChanged(nameof(ShowEmptyState));
         PublishContainerActionState();
         RaiseContainerActionCanExecuteChanged();
