@@ -111,6 +111,41 @@ public sealed class DockerRuntimePanelViewModelTests
         Assert.DoesNotContain(client.FileListResourceIds, id => string.Equals(id, "paused", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// A container that stopped and started again while another resource was
+    /// selected kept the file listing from before it stopped.
+    /// </summary>
+    [Fact]
+    public async Task A_container_seen_stopped_in_a_refresh_lists_its_files_afresh()
+    {
+        var client = new FakeDockerEngineClient(Snapshot());
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        DockerResourceItemViewModel Item(string id) =>
+            panel.Resources.Single(item => string.Equals(item.Resource.Id, id, StringComparison.Ordinal));
+        panel.SelectResource(Item("abc"));
+        panel.SelectDetail(DockerPanelDetail.Files);
+        var before = panel.FileBrowser;
+        Assert.NotNull(before);
+        panel.SelectResource(Item("ghi"));
+
+        client.NextSnapshot = Snapshot() with
+        {
+            Containers = [Container("abc", "api", "exited"), .. Snapshot().Containers.Skip(1)],
+        };
+        await panel.RefreshAsync();
+        client.NextSnapshot = Snapshot();
+        await panel.RefreshAsync();
+        panel.SelectResource(Item("abc"));
+
+        Assert.NotNull(panel.FileBrowser);
+        Assert.NotSame(before, panel.FileBrowser);
+    }
+
     [Fact]
     public async Task PausedContainerUsesStopAndResumeLifecycleStates()
     {
@@ -934,7 +969,7 @@ string.Equals(state, "running", StringComparison.Ordinal) ? "Up 2 hours" : "Exit
 
     private sealed class FakeDockerEngineClient : IDockerEngineClient
     {
-        private readonly DockerEngineSnapshot? _snapshot;
+        private DockerEngineSnapshot? _snapshot;
         private readonly DockerError? _error;
 
         public IReadOnlyList<DockerVolumeUsage> VolumeUsage { get; init; } = [];
@@ -967,6 +1002,12 @@ string.Equals(state, "running", StringComparison.Ordinal) ? "Up 2 hours" : "Exit
                 "2026-08-10T12:00:00Z");
 
         public FakeDockerEngineClient(DockerEngineSnapshot snapshot) => _snapshot = snapshot;
+
+        /// <summary>What the next snapshot read returns, as the engine changes.</summary>
+        public DockerEngineSnapshot NextSnapshot
+        {
+            set => _snapshot = value;
+        }
 
         public FakeDockerEngineClient(DockerError error) => _error = error;
 
