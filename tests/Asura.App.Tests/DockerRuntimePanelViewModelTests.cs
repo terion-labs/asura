@@ -66,6 +66,51 @@ public sealed class DockerRuntimePanelViewModelTests
         Assert.False(panel.CanStopSelectedContainer);
     }
 
+    /// <summary>
+    /// Files on a stopped container showed the daemon's "container … is not
+    /// running" as a failed file operation: its files are read through
+    /// docker exec. Files is dimmed like Shell instead, says why, and is
+    /// never asked of a container that is not running.
+    /// </summary>
+    [Fact]
+    public async Task Files_are_dimmed_and_never_read_for_a_stopped_or_paused_container()
+    {
+        var snapshot = Snapshot() with
+        {
+            Containers = [.. Snapshot().Containers, Container("paused", "paused-api", "paused")],
+        };
+        var client = new FakeDockerEngineClient(snapshot);
+        using var panel = new DockerRuntimePanelViewModel(
+            PanelInstanceId.New(),
+            "Docker",
+            client,
+            BuiltInConnections.Local);
+        await panel.Initialization;
+        DockerResourceItemViewModel Item(string id) =>
+            panel.Resources.Single(item => string.Equals(item.Resource.Id, id, StringComparison.Ordinal));
+
+        panel.SelectResource(Item("abc"));
+        panel.SelectDetail(DockerPanelDetail.Files);
+        Assert.True(panel.IsFilesDetail);
+        Assert.Equal("Files", panel.FilesTabToolTip);
+        await WaitUntilAsync(() => client.FileListResourceIds.Contains("abc", StringComparer.Ordinal));
+
+        panel.SelectResource(Item("ghi"));
+        Assert.False(panel.CanShowFiles);
+        Assert.True(panel.IsInfoDetail);
+        Assert.Null(panel.FileBrowser);
+        Assert.Equal("Start the container to browse its files", panel.FilesTabToolTip);
+        Assert.Equal("Start the container to open a shell", panel.ShellTabToolTip);
+        panel.SelectDetail(DockerPanelDetail.Files);
+        Assert.True(panel.IsInfoDetail);
+
+        panel.SelectResource(Item("paused"));
+        Assert.False(panel.CanShowFiles);
+        Assert.Equal("Resume the container to browse its files", panel.FilesTabToolTip);
+        Assert.DoesNotContain(client.FileListResourceIds, id => string.Equals(id, "ghi", StringComparison.Ordinal));
+        Assert.DoesNotContain(client.FileListResourceIds, id => string.Equals(id, "paused", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task PausedContainerUsesStopAndResumeLifecycleStates()
     {
@@ -987,14 +1032,19 @@ string.Equals(state, "running", StringComparison.Ordinal) ? "Up 2 hours" : "Exit
             ValueTask.FromResult<DockerResult<string>>(
                 new DockerResult<string>.Success("/bin/sh"));
 
+        public List<string> FileListResourceIds { get; } = [];
+
         public ValueTask<DockerResult<DockerFileListing>> ListFilesAsync(
             ConnectionProfile connection,
             DockerResourceReference resource,
             string path,
-            CancellationToken cancellationToken) =>
-            ValueTask.FromResult<DockerResult<DockerFileListing>>(
+            CancellationToken cancellationToken)
+        {
+            FileListResourceIds.Add(resource.Id);
+            return ValueTask.FromResult<DockerResult<DockerFileListing>>(
                 new DockerResult<DockerFileListing>.Success(
                     new DockerFileListing(resource, path, [])));
+        }
 
         public ValueTask<DockerResult<bool>> RunContainerActionAsync(
             ConnectionProfile connection,
