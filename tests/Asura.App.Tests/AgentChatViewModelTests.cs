@@ -2084,6 +2084,35 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(1, runtime.SendCount);
     }
 
+    /// <summary>
+    /// A message sent after Stop vanished: the send threw after the composer
+    /// had been emptied, and nothing put the text back or said why.
+    /// </summary>
+    [Fact]
+    public async Task A_send_that_throws_keeps_the_message_and_says_so()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        var failing = new TaskCompletionSource<GovernedAgentSendResult>();
+        failing.SetException(new ArgumentException("The initial conversation is not a valid bounded stable transcript."));
+        using var runtime = new StubGovernedRuntime { PendingSend = failing };
+        using var profiles = new StubProfileRuntime
+        {
+            Profiles = [provider],
+        };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance)
+        {
+            Prompt = "Try again.",
+        };
+
+        await viewModel.SendAsync(Target(), Policy(provider), CancellationToken.None);
+
+        Assert.Equal("Try again.", viewModel.Prompt);
+        Assert.Equal("Asura couldn't send this message. Try again.", viewModel.Status);
+    }
+
     [Fact]
     public void Failed_empty_run_exposes_one_recovery_surface()
     {

@@ -1938,13 +1938,17 @@ public sealed partial class NativeAgentSession
     {
         lock (_gate)
         {
+            // A turn stopped while the model was answering a settled tool
+            // batch ends in that batch's results, and no new turn may follow
+            // them: the continuation threw, and the message sent after Stop
+            // was lost. It is closed the way an interrupted checkpoint is.
             var continuation = new NativeAgentSession(
                 runId,
-                _conversation,
+                ClosedAfterToolResults(_conversation),
                 _limits,
                 _timeProvider)
             {
-                _transcript = _transcript,
+                _transcript = ClosedAfterToolResults(_transcript),
                 _conversationTitle = _conversationTitle,
                 _conversationProviderId = _conversationProviderId,
                 _conversationModel = _conversationModel,
@@ -1953,6 +1957,12 @@ public sealed partial class NativeAgentSession
             return continuation;
         }
     }
+
+    private static ImmutableArray<AgentMessage> ClosedAfterToolResults(
+        ImmutableArray<AgentMessage> conversation) =>
+        conversation.Length > 0 && conversation[^1].Role == AgentMessageRole.Tool
+            ? conversation.Add(InterruptedAssistantMessage())
+            : conversation;
 
     private void AppendEventUnsafe(
         AgentRunEventKind kind,

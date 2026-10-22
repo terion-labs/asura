@@ -651,8 +651,18 @@ public sealed partial class GovernedAgentRuntime :
                         "The stopped conversation could not be resumed safely.");
                 }
 
-                _restoredSession = stoppedSession.CreateReadyContinuation(
-                    AgentRunId.New());
+                try
+                {
+                    _restoredSession = stoppedSession.CreateReadyContinuation(
+                        AgentRunId.New());
+                }
+                catch (ArgumentException)
+                {
+                    // Thrown out of the send, it lost the message unseen.
+                    return Failure(
+                        "agent_run_stopped",
+                        "The stopped conversation could not be resumed safely.");
+                }
                 _session = null;
                 _externalRun = false;
                 _agent = null;

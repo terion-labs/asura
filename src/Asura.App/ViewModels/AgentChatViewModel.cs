@@ -2890,7 +2890,23 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         string? failureStatus = null;
         try
         {
-            var result = await _runtime.SendAsync(request, cancellationToken);
+            GovernedAgentSendResult result;
+            try
+            {
+                result = await _runtime.SendAsync(request, cancellationToken);
+            }
+            catch (Exception exception)
+                when (exception is not (OperationCanceledException or OutOfMemoryException))
+            {
+                // A send that threw had already emptied the composer, so the
+                // message vanished with no word of why. It is kept instead.
+                SecretSafeDiagnosticProjection.WriteStandardError("desktop.agent.send-failed", exception);
+                result = new GovernedAgentSendResult(
+                    false,
+                    "agent_send_failed",
+                    "Asura couldn't send this message. Try again.");
+            }
+
             if (!result.IsSuccess)
             {
                 var recoverableDrafts = new List<string>();
