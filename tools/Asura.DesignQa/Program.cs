@@ -235,15 +235,25 @@ internal static class Program
             {
                 UseHeadlessDrawing = false,
             });
-        if (!IsWebsiteExport)
+        if (IsWebsiteExport)
+        {
+            // Website artwork must show the face the real app gets from macOS.
+            // The headless platform cannot ask the host for it, so the export
+            // reads SF Pro Text from disk and makes it the default family that
+            // the app's "$Default" font resolves to.
+            builder = builder
+                .With(new FontManagerOptions
+                {
+                    DefaultFamilyName = WebsiteUiFontCollection.FamilyReference,
+                })
+                .ConfigureFonts(fontManager =>
+                    fontManager.AddFontCollection(new WebsiteUiFontCollection()));
+        }
+        else
         {
             builder = builder.WithInterFont();
         }
 
-        // Website artwork is generated on macOS and must inherit the same native
-        // default UI font as the real app. WithInterFont replaces that default;
-        // matching density tokens then still look roomier because Inter's text
-        // metrics are wider and taller than the system UI face.
         return builder
             .ConfigureFonts(fontManager =>
                 fontManager.AddFontCollection(new AsuraTerminalFontCollection()))
@@ -563,10 +573,26 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleProcessMonitorPanel(vm);
         }),
+        // Four terminals in a grid, one per host kind: what the site shows for
+        // the Terminal panel. Website-only content; elsewhere the tab holds
+        // the same unavailable panels as the default workspace.
+        new("workspace-terminals", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleTerminalGrid(vm);
+        }),
         new("workspace-browser", vm =>
         {
             vm.ShowWorkspace();
             AddSampleBrowserPanel(vm);
+        }),
+        // The browser bound to an SSH connection, on that host's own
+        // localhost: the page the site's remote-localhost argument shows.
+        // Outside website mode it is the same unavailable panel as above.
+        new("workspace-browser-remote", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleBrowserPanel(vm, WebsiteDummyPanelContent.RemoteDevServer);
         }),
         new("workspace-browser-narrow", vm => vm.ShowWorkspace(),
             PrepareCapture: window => PrepareBrowserHeader(window, 470, open: false)),
@@ -583,6 +609,20 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             AddSampleKubernetesPanel(vm, narrow: false);
         }, Width: 1840, Height: 1196),
+        // The agent docked beside the cluster with a reviewed mutation waiting
+        // for approval: the site's "decide what it may change" argument.
+        new("workspace-kubernetes-agent", vm =>
+        {
+            vm.ShowWorkspace();
+            AddSampleKubernetesPanel(vm, narrow: false);
+            vm.ToggleAgentPanel();
+            if (!vm.IsAgentPanelDocked)
+            {
+                _ = vm.ToggleAgentPanelPinAsync(CancellationToken.None);
+            }
+            AgentProfiles.PublishSampleProfile();
+            AgentRuntime.PublishSampleKubernetesApproval();
+        }),
         new("workspace-kubernetes-detail", vm =>
         {
             vm.ShowWorkspace();
@@ -1217,6 +1257,17 @@ internal sealed class QaApplication : Avalonia.Application
     private static void DragLastTabToTop(MainWindow mainWindow)
     {
         var window = WorkspaceEditorWindowOf(mainWindow);
+        // The tab list virtualizes its rows, so a row below the fold has no
+        // handle yet. Scrolling the list into view realizes them all; it is
+        // below the fold whenever the editor is narrower or shorter than the
+        // route's 1200-pixel review frame, as it is in website artwork.
+        var entries = window.GetVisualDescendants()
+            .OfType<ListBox>()
+            .FirstOrDefault(list => string.Equals(list.Name, "EntryList", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("The workspace editor has no tab list.");
+        entries.BringIntoView();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
         var handles = window.GetVisualDescendants()
             .OfType<Control>()
             .Where(control => string.Equals(
@@ -1404,7 +1455,7 @@ internal sealed class QaApplication : Avalonia.Application
         {
             foreach (var sampleTab in workspace.Tabs
                          .Where(tab => tab.Id.Value is
-                             "qa-tab-browser" or "qa-tab-database" or "qa-tab-docker" or "qa-tab-file-viewer"
+                             "qa-tab-browser" or "qa-tab-terminals" or "qa-tab-database" or "qa-tab-docker" or "qa-tab-file-viewer"
                              or "qa-tab-git" or "qa-tab-process-monitor" or "qa-tab-statistics"
                              || tab.Id.Value.StartsWith("qa-tab-redis-", StringComparison.Ordinal))
                          .ToArray())
@@ -2977,7 +3028,45 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         ActivateTab(workspace, tab);
     }
 
-    private static void AddSampleBrowserPanel(MainWindowViewModel viewModel)
+    /// <summary>
+    /// A tab of four terminals in a two-by-two grid: an SSH host, a second
+    /// SSH host mid-deploy, the local shell, and a Docker container. Each is
+    /// the same panel with a different host, which is the point of the shot.
+    /// </summary>
+    private static void AddSampleTerminalGrid(MainWindowViewModel viewModel)
+    {
+        if (viewModel.RuntimeWorkspace is not { } workspace)
+        {
+            throw new InvalidOperationException(
+                "The terminal grid route needs a runtime workspace.");
+        }
+
+        var tab = new RuntimeTabViewModel(
+            new TabInstanceId("qa-tab-terminals"),
+            "Terminals",
+            "production-api");
+        static RuntimePanelViewModel Terminal(string id, string title, string kindLabel, WebsiteDummyPanelContent content) =>
+            Program.IsWebsiteExport
+                ? new WebsiteDummyRuntimePanelViewModel(new PanelInstanceId(id), PanelKind.Terminal, title, kindLabel, content)
+                : new UnavailableRuntimePanelViewModel(new PanelInstanceId(id), PanelKind.Terminal, title, kindLabel,
+                    "This harness renders panel chrome without a live session.");
+        var api = Terminal("qa-panel-terminal-api", "production-api", "SSH", WebsiteDummyPanelContent.Terminal);
+        var web = Terminal("qa-panel-terminal-web", "staging-web", "SSH", WebsiteDummyPanelContent.TerminalDeploy);
+        var local = Terminal("qa-panel-terminal-local", "local-dev", "LOCAL", WebsiteDummyPanelContent.TerminalLocal);
+        var container = Terminal("qa-panel-terminal-container", "edge-proxy", "DOCKER", WebsiteDummyPanelContent.TerminalContainer);
+        tab.AddPanel(api);
+        _ = tab.SplitWithPanel(api.Id, PanelSplitOrientation.LeftRight, web);
+        _ = tab.SplitWithPanel(api.Id, PanelSplitOrientation.TopBottom, local);
+        _ = tab.SplitWithPanel(web.Id, PanelSplitOrientation.TopBottom, container);
+        _ = tab.ActivatePanel(api.Id);
+        tab.NotifyPanelLayoutChanged();
+        workspace.Tabs.Add(tab);
+        ActivateTab(workspace, tab);
+    }
+
+    private static void AddSampleBrowserPanel(
+        MainWindowViewModel viewModel,
+        WebsiteDummyPanelContent page = WebsiteDummyPanelContent.Browser)
     {
         if (viewModel.RuntimeWorkspace is not { } workspace)
         {
@@ -2995,7 +3084,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                 PanelKind.Browser,
                 "Browser",
                 "Browser",
-                WebsiteDummyPanelContent.Browser)
+                page)
             : new UnavailableRuntimePanelViewModel(
                 new PanelInstanceId("qa-panel-browser-full"),
                 PanelKind.Browser,
@@ -4852,15 +4941,30 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         // A secondary window is captured at its own size; a route that asks
         // for more height gets it, so a long page or editor is reviewable
         // whole.
+        // Website artwork frames the main window at its one size and shows a
+        // window of its own (Settings, an editor) floating over it at the size
+        // a person would give it, which for Settings is wider than its default.
         int CaptureWidth() => Program.IsWebsiteExport
-            ? WebsiteScreenshotExport.LogicalWidth
+            ? secondaryWindow switch
+            {
+                SettingsWindow => WebsiteScreenshotExport.SettingsWidth,
+                not null => (int)secondaryWindow.Width,
+                null => WebsiteScreenshotExport.LogicalWidth,
+            }
             : secondaryWindow is SettingsWindow
                 ? SettingsCaptureWidth
                 : secondaryWindow is not null
                     ? (int)secondaryWindow.Width
                     : route.Width;
         int CaptureHeight() => Program.IsWebsiteExport
-            ? WebsiteScreenshotExport.LogicalHeight
+            ? secondaryWindow switch
+            {
+                SettingsWindow => WebsiteScreenshotExport.SettingsHeight,
+                not null when route.Height != DefaultCaptureHeight =>
+                    Math.Min(route.Height, WebsiteScreenshotExport.MaxFloatingHeight),
+                not null => (int)secondaryWindow.Height,
+                null => WebsiteScreenshotExport.LogicalHeight,
+            }
             : secondaryWindow is not null && route.Height == DefaultCaptureHeight
                 ? secondaryWindow is SettingsWindow
                     ? SettingsCaptureHeight
@@ -4948,11 +5052,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
             FreezeNondeterministicPresentation(dialog);
             if (Program.IsWebsiteExport)
             {
-                WebsiteScreenshotExport.WriteDialogFrame(
-                    window,
-                    dialog,
-                    new PixelSize((int)dialog.Width, (int)dialog.Height),
-                    path);
+                WebsiteScreenshotExport.WriteDialogFrame(window, dialog, path);
             }
             else if (route.Name.StartsWith("design-system-scale", StringComparison.Ordinal))
             {
@@ -4977,11 +5077,7 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         {
             if (secondaryWindow is not null)
             {
-                WebsiteScreenshotExport.WriteDialogFrame(
-                    window,
-                    secondaryWindow,
-                    new PixelSize((int)secondaryWindow.Width, (int)secondaryWindow.Height),
-                    path);
+                WebsiteScreenshotExport.WriteDialogFrame(window, secondaryWindow, path);
             }
             else
             {

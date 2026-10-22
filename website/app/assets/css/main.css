@@ -207,3 +207,135 @@ html.has-reveal [data-reveal].in {
 html.has-reveal .grid > [data-reveal]:nth-child(2) { --rd: 1; }
 html.has-reveal .grid > [data-reveal]:nth-child(3) { --rd: 2; }
 html.has-reveal .grid > [data-reveal]:nth-child(4) { --rd: 3; }
+
+/* shared page sections (home and use-case landings) */
+.quad {
+  grid-template-columns: repeat(2, 1fr);
+  margin-top: 44px;
+}
+
+@media (max-width: 720px) {
+  .quad { grid-template-columns: 1fr; }
+}
+
+.trio {
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 44px;
+}
+
+@media (max-width: 900px) {
+  .trio { grid-template-columns: 1fr; }
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.split--flip .split__text { order: 2; }
+.split--flip .split__shot { order: 1; }
+
+@media (max-width: 980px) {
+  .split { grid-template-columns: 1fr; gap: 36px; }
+  .split--flip .split__text { order: 1; }
+  .split--flip .split__shot { order: 2; }
+}
+
+.checks {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.checks li {
+  position: relative;
+  padding-left: 26px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.checks li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 12px;
+  height: 8px;
+  border-left: 2px solid var(--accent);
+  border-bottom: 2px solid var(--accent);
+  transform: rotate(-45deg);
+}
+
+.chips {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips li {
+  font-size: 12.5px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.chips li.chips__soon { color: var(--faint); border-style: dashed; }
+
+/* faq */
+.faq__list {
+  margin-top: 40px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.faq__item { border-bottom: 1px solid var(--line-soft); }
+
+.faq__item summary {
+  cursor: pointer;
+  padding: 20px 0;
+  font-weight: 600;
+  font-size: 16px;
+  list-style: none;
+  position: relative;
+  padding-right: 36px;
+}
+
+.faq__item summary::-webkit-details-marker { display: none; }
+
+.faq__item summary::after {
+  content: '+';
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--accent);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.faq__item[open] summary::after { content: '−'; }
+
+.faq__item p {
+  color: var(--muted);
+  font-size: 15px;
+  padding-bottom: 22px;
+  max-width: 76ch;
+}
+
+/* hero ctas, shared with the download section */
+.ctas {
+  display: flex;
+  gap: 12px;
+  margin-top: 34px;
+  flex-wrap: wrap;
+  justify-content: center;
+}

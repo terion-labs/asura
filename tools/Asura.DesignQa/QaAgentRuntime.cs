@@ -209,6 +209,62 @@ internal sealed class QaOfflineAgentRuntime : IGovernedAgentRuntime
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// A reviewed Kubernetes mutation waiting for approval, as the product
+    /// presents a kubernetes.commit: the cluster is the target and the
+    /// arguments are what the preview showed.
+    /// </summary>
+    public void PublishSampleKubernetesApproval()
+    {
+        var target = new AgentTarget.Panel(
+            new WindowInstanceId("01a0df93c28d7f37b282257dc68511d84"),
+            new WorkspaceInstanceId("01a0df93cae07372bf3c3f7e1de115cf"),
+            new TabInstanceId("01a0df93caed7642b128c7f1f894eb3eb"),
+            new PanelInstanceId("01a0df93caed736baaa598b6c213744e"));
+        _snapshot = Offline with
+        {
+            State = GovernedAgentState.AwaitingApproval,
+            Target = target,
+            TargetTitle = "Kubernetes",
+            ContextItems =
+            [
+                new GovernedAgentContextItem(
+                    target.WindowId,
+                    target.WorkspaceId,
+                    target.TabId,
+                    target.PanelId,
+                    new SessionId("01a0df93caed71e99e7d2b4623b40c4a"),
+                    PanelKind.Kubernetes,
+                    workspaceTitle: "Operations",
+                    tabTitle: "Demo cluster",
+                    panelTitle: "Kubernetes",
+                    connectionBoundary: null,
+                    workingDirectory: null,
+                    SessionLifecycle.Active,
+                    SessionHealth.Healthy,
+                    isVisible: true,
+                    isFocused: true,
+                    hasActiveWork: false,
+                    [BuiltInAgentTools.KubernetesPreview, BuiltInAgentTools.KubernetesCommit]),
+            ],
+            PendingApproval = new GovernedAgentApproval(
+                new AgentApprovalId("qa-kubernetes-approval"),
+                BuiltInAgentTools.KubernetesCommit, "Commit reviewed Kubernetes mutation",
+                AgentActionRisk.Destructive, AgentPermission.Ask,
+                target,
+                new AgentApprovalPresentation(
+                    "Kubernetes · Demo cluster",
+                    "demo-eu-west · production", null,
+                    [new("resource", "deployment/api"),
+                     new("change", "scale 2 → 3 replicas"),
+                     new("preview", "+1 pod, no other diff")]),
+                new DateTimeOffset(2026, 12, 31, 12, 0, 0, TimeSpan.Zero),
+                TemporarilyYieldsTerminalInput: false),
+            Status = "Waiting for your approval.",
+        };
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public void PublishSampleFailure()
     {
         _snapshot = Offline with

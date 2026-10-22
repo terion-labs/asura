@@ -4,9 +4,10 @@ using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
+using Avalonia.Headless;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using ImageMagick;
 using ImageMagick.Drawing;
 using Ellipse = Avalonia.Controls.Shapes.Ellipse;
@@ -18,6 +19,14 @@ namespace Asura.DesignQa;
 /// supplies the pixels inside the frame; this boundary supplies only chrome
 /// that the headless platform cannot draw and the alpha mask a browser needs.
 /// </summary>
+/// <remarks>
+/// Every frame is the headless compositor's own output at a render scaling of
+/// 2, the density of the Retina display the real app is judged on. Text and
+/// strokes are therefore rasterized once at 2x, the way the screen draws them.
+/// An earlier pass redrew the 1x tree through a <c>VisualBrush</c> onto a 2x
+/// surface; that upscaled glyphs already rasterized at 1x and left every
+/// label soft.
+/// </remarks>
 internal static class WebsiteScreenshotExport
 {
     public const int LogicalWidth = 1440;
@@ -25,7 +34,6 @@ internal static class WebsiteScreenshotExport
     public const int Scale = 2;
     public const int PixelWidth = LogicalWidth * Scale;
     public const int PixelHeight = LogicalHeight * Scale;
-    private const int RasterDpi = 96;
 
     // The product enum calls the middle density "Cozy"; the UI calls it
     // "Normal". Website artwork always uses that exact setting, never the
@@ -37,7 +45,23 @@ internal static class WebsiteScreenshotExport
     private const double TrafficLightTop = 16;
     private const double TrafficLightFirstLeft = 18;
     private const double TrafficLightSpacing = 20;
-    private const int DialogInset = 72;
+    /// <summary>The Settings window's frame in artwork: wider than its 850 × 800 default.</summary>
+    public const int SettingsWidth = 1180;
+    public const int SettingsHeight = 760;
+
+    private const int DialogInset = 48;
+
+    /// <summary>
+    /// The tallest a floating window can be and still fit the frame with its
+    /// inset. A route that asks for a taller editor (to reach rows below the
+    /// fold) gets this much; taller would only be scaled back down.
+    /// </summary>
+    public const int MaxFloatingHeight = LogicalHeight - (DialogInset * 2);
+    private const int WindowShadowOffset = 18;
+    private const double WindowShadowSigma = 24;
+    private const int BackdropBlurSigma = 36;
+
+    private const string TrafficLightsName = "WebsiteTrafficLights";
 
     private static readonly double CornerRadius =
         DensityCornerScale.WindowRadius(NormalDensity);
@@ -89,15 +113,38 @@ internal static class WebsiteScreenshotExport
         window.Background = Brushes.Transparent;
         window.Width = LogicalWidth;
         window.Height = LogicalHeight;
+        window.SetRenderScaling(Scale);
 
+        AddTrafficLights(window);
+    }
+
+    /// <summary>
+    /// The headless platform draws no title-bar controls, so artwork adds the
+    /// standard macOS traffic lights to the windows it frames. The main window
+    /// must take them; an editor window with a non-panel root is a sheet-like
+    /// surface that has none in the product either, and is left as it is.
+    /// </summary>
+    private static void AddTrafficLights(Window window)
+    {
         if (window.Content is not Panel shell)
         {
-            throw new InvalidOperationException(
-                "Website export requires the MainWindow panel root.");
+            if (window is MainWindow)
+            {
+                throw new InvalidOperationException(
+                    "Website export requires the MainWindow panel root.");
+            }
+
+            return;
+        }
+
+        if (shell.Children.Any(child => string.Equals(child.Name, TrafficLightsName, StringComparison.Ordinal)))
+        {
+            return;
         }
 
         var trafficLights = new Canvas
         {
+            Name = TrafficLightsName,
             Width = 82,
             Height = 44,
             HorizontalAlignment = HorizontalAlignment.Left,
@@ -111,14 +158,12 @@ internal static class WebsiteScreenshotExport
         shell.Children.Add(trafficLights);
     }
 
-    public static void WriteFrame(Control target, string path)
+    public static void WriteFrame(Window target, string path)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var bytes = RenderScaled(
-            target,
-            new PixelSize(LogicalWidth, LogicalHeight));
+        using var bytes = CaptureFrame(target);
         using var frame = new MagickImage(bytes);
         ApplyWindowShape(frame);
         frame.Format = MagickFormat.Png;
@@ -127,25 +172,23 @@ internal static class WebsiteScreenshotExport
 
     public static void WriteDialogFrame(
         MainWindow backdrop,
-        Control dialog,
-        PixelSize logicalDialogSize,
+        Window dialog,
         string path)
     {
         ArgumentNullException.ThrowIfNull(backdrop);
         ArgumentNullException.ThrowIfNull(dialog);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var backdropBytes = RenderScaled(
-            backdrop,
-            new PixelSize(LogicalWidth, LogicalHeight));
-        using var dialogBytes = RenderScaled(dialog, logicalDialogSize);
+        AddTrafficLights(dialog);
+        using var backdropBytes = CaptureFrame(backdrop);
+        using var dialogBytes = CaptureFrame(dialog);
         using var frame = new MagickImage(backdropBytes);
         using var dialogImage = new MagickImage(dialogBytes);
 
         FitDialog(dialogImage);
         var x = ((int)frame.Width - (int)dialogImage.Width) / 2;
         var y = ((int)frame.Height - (int)dialogImage.Height) / 2;
-        frame.Composite(dialogImage, x, y, CompositeOperator.Over);
+        CompositeFloatingWindow(frame, dialogImage, x, y);
         ApplyWindowShape(frame);
         frame.Format = MagickFormat.Png;
         frame.Write(path);
@@ -197,37 +240,65 @@ internal static class WebsiteScreenshotExport
         return light;
     }
 
-    private static MemoryStream Render(Control target, PixelSize size, Vector dpi)
+    /// <summary>
+    /// The window's last composited frame at 2x, as PNG bytes. A window that
+    /// still renders at 1x (a dialog opened by a route) is switched first; the
+    /// scaling change runs a layout pass, which settles before the capture.
+    /// </summary>
+    private static MemoryStream CaptureFrame(TopLevel target)
     {
+        if (target.RenderScaling != Scale)
+        {
+            target.SetRenderScaling(Scale);
+            Dispatcher.UIThread.RunJobs();
+            target.UpdateLayout();
+        }
+
+        using var frame = target.CaptureRenderedFrame()
+            ?? throw new InvalidOperationException(
+                $"The headless compositor rendered no frame for {target.GetType().Name}.");
         var bytes = new MemoryStream();
-        using var bitmap = new RenderTargetBitmap(size, dpi);
-        bitmap.Render(target);
-        bitmap.Save(bytes);
+        frame.Save(bytes);
         bytes.Position = 0;
         return bytes;
     }
 
-    private static MemoryStream RenderScaled(Control target, PixelSize logicalSize)
+    /// <summary>
+    /// Draws a window over the backdrop the way macOS shows it: with the
+    /// window's rounded silhouette, a soft shadow, and the backdrop blurred
+    /// behind the window's translucent material, which the capture leaves as
+    /// alpha. A vibrant Settings sidebar then reads as vibrancy rather than
+    /// as a hole showing the sharp terminal behind it.
+    /// </summary>
+    private static void CompositeFloatingWindow(
+        MagickImage frame,
+        MagickImage window,
+        int x,
+        int y)
     {
-        var pixelSize = new PixelSize(
-            logicalSize.Width * Scale,
-            logicalSize.Height * Scale);
-        // Rendering the 1x visual tree straight into a 192-DPI bitmap makes
-        // Avalonia apply some centered-child offsets twice. A VisualBrush
-        // instead redraws that already-laid-out tree onto a true 2x surface,
-        // preserving both geometry and vector-quality text and strokes.
-        var scaledFrame = new Border
-        {
-            Width = pixelSize.Width,
-            Height = pixelSize.Height,
-            Background = new VisualBrush(target)
-            {
-                Stretch = Stretch.Fill,
-            },
-        };
-        scaledFrame.Measure(new Size(pixelSize.Width, pixelSize.Height));
-        scaledFrame.Arrange(new Rect(0, 0, pixelSize.Width, pixelSize.Height));
-        return Render(scaledFrame, pixelSize, new Vector(RasterDpi, RasterDpi));
+        using var silhouette = CreateRoundedMask(window.Width, window.Height);
+
+        using var shadow = silhouette.Clone();
+        shadow.BackgroundColor = MagickColors.Black;
+        shadow.Shadow(0, WindowShadowOffset, WindowShadowSigma, new Percentage(60));
+        // Shadow() grows the canvas by the blur; its page offset says by how much.
+        frame.Composite(
+            shadow,
+            x + shadow.Page.X,
+            y + shadow.Page.Y,
+            CompositeOperator.Over);
+
+        using var behind = frame.Clone();
+        behind.Crop(new MagickGeometry(x, y, window.Width, window.Height));
+        behind.ResetPage();
+        behind.Blur(0, BackdropBlurSigma);
+        behind.Alpha(AlphaOption.Set);
+        behind.Composite(silhouette, CompositeOperator.DstIn);
+        frame.Composite(behind, x, y, CompositeOperator.Over);
+
+        window.Alpha(AlphaOption.Set);
+        window.Composite(silhouette, CompositeOperator.DstIn);
+        frame.Composite(window, x, y, CompositeOperator.Over);
     }
 
     private static void FitDialog(MagickImage dialog)
@@ -259,17 +330,19 @@ internal static class WebsiteScreenshotExport
         image.Composite(mask, CompositeOperator.DstIn);
     }
 
-    private static MagickImage CreateWindowMask()
+    private static MagickImage CreateWindowMask() => CreateRoundedMask(PixelWidth, PixelHeight);
+
+    private static MagickImage CreateRoundedMask(uint width, uint height)
     {
-        var mask = new MagickImage(MagickColors.Transparent, PixelWidth, PixelHeight);
+        var mask = new MagickImage(MagickColors.Transparent, width, height);
         new Drawables()
             .FillColor(MagickColors.White)
             .StrokeColor(MagickColors.Transparent)
             .RoundRectangle(
                 0,
                 0,
-                PixelWidth - 1,
-                PixelHeight - 1,
+                width - 1,
+                height - 1,
                 CornerRadius * Scale,
                 CornerRadius * Scale)
             .Draw(mask);

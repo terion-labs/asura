@@ -24,8 +24,8 @@ The agent is designed to work alongside you rather than running uncontrolled in 
 - **Approval for every mutation.** The agent proposes typed actions for terminal commands, browser clicks, file edits, database queries, and Kubernetes cluster operations. Every action requires your click to approve, or an explicit, time-bounded run window you choose to grant.
 - **Immediate manual override.** The agent types directly into the terminal. The moment you press any key on your keyboard, the agent's input lease is revoked immediately. You always retain control.
 - **Semantic browser navigation.** The agent inspects pages through accessibility tree snapshots and element references rather than guessed screen coordinates. Stale element references are rejected automatically.
-- **Credentials stay in your OS vault.** Passwords, SSH keys, and API tokens are stored in the macOS Keychain, Windows Credential Manager, or Linux Secret Service. The agent receives only opaque session handles, never raw secrets.
-- **Bring your own model.** Asura supports Anthropic Claude, OpenAI, Google Gemini, Ollama, DeepSeek, xAI Grok, Moonshot AI, OpenRouter, GitHub Copilot, Amazon Bedrock, or any custom OpenAI-compatible endpoint.
+- **Credentials stay in your OS vault.** Passwords, SSH keys, and API tokens are stored in the macOS Keychain, under Windows DPAPI, or in the Linux Secret Service. The agent receives only opaque session handles, never raw secrets.
+- **Bring your own model.** Asura supports Anthropic, OpenAI, xAI, DeepSeek, Moonshot AI, OpenRouter, GitHub Copilot, Ollama, or any custom OpenAI-compatible endpoint. Google and Amazon Bedrock are in the provider catalog but not usable yet.
 - **MCP support.** Connects to Model Context Protocol servers over stdio or Streamable HTTP. External harnesses can also access Asura tools via an opt-in localhost MCP server. See [tool sequences and MCP setup](./docs/agent-tool-sequences-and-mcp.md).
 
 ## Built-in panels
@@ -40,7 +40,7 @@ Every panel can be docked, split, stacked, and saved into workspace layouts that
 - **Kubernetes.** Browse clusters, namespaces, and workloads. Inspect streaming pod logs, launch interactive container exec terminals, manage port forwards, inspect Prometheus metrics and resource history, view and edit manifests, track Helm releases and rollbacks, and handle node maintenance.
 - **Files.** File manager supporting local disks, SFTP, FTP, S3, WebDAV, and SMB with queued background file transfers.
 - **Git.** Visual commit history graph, branch management, staged hunk review, and diff viewer.
-- **Processes and stats.** Live process monitor with search and kill commands, alongside CPU, memory, disk, and network charts. Operates locally or over plain SSH.
+- **Processes and statistics.** Live, sortable, searchable process list, alongside CPU, process memory, and network charts. Operates locally or over plain SSH.
 
 ## Tech stack
 
@@ -57,7 +57,7 @@ The terminal is rendered directly through Avalonia on macOS, Windows, and Linux.
 Asura is in early alpha.
 
 - **macOS (Apple Silicon):** Download signed and notarized application builds from [GitHub Releases](https://github.com/terion-labs/asura/releases/latest).
-- **Linux and Windows:** Build from source using the steps below.
+- **Linux and Windows:** On the way. The build steps below are for development on those platforms.
 
 ## Build from source
 
@@ -108,7 +108,7 @@ To run the full suite of unit, integration, and architecture contract tests:
 | `src/Asura.Application` | Session operations, lifecycle management, and input lease handling |
 | `src/Asura.Protocol` | Versioned communication envelopes and event streams |
 | `src/Asura.Agent` | Provider-neutral agent loop, tool dispatch, and conversation history |
-| `src/Asura.Agent.Providers` | LLM adapters for Anthropic, OpenAI, Ollama, Gemini, and others |
+| `src/Asura.Agent.Providers` | LLM adapters for Anthropic, OpenAI, Ollama, OpenRouter, and others |
 | `src/Asura.Agent.Runtime` | Workspace-level tool execution and panel orchestration |
 | `src/Asura.SessionHost` | In-process runtime registry, event coordination, and action guards |
 | `src/Asura.Terminal` | `libghostty-vt` terminal integration and PTY transport |

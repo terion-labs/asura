@@ -95,28 +95,43 @@ review. Never approve a reference merely to make the gate green.
 
 ## Website assets
 
-Website mode exports every coherent app screen at a 1440 × 900 CSS size into a
-Retina 2880 × 1800 PNG. It locks the interface to Normal density and 100% text
+Website mode exports every coherent app screen as a Retina 2880 × 1800 PNG of
+a 1440 × 900 window. It locks the interface to Normal density and 100% text
 scale (not Spacious), forces the runtime tabs to the top, and uses Asura
-bronze instead of the host accent. On macOS the website path keeps the native
-system UI font instead of replacing it with the headless Inter default, so the
-same density tokens have the same text metrics as the real application.
-Low-level component probes and alternate-density QA comparisons are omitted.
-The shell backdrop keeps its PNG alpha so a site can place its own blurred
-background underneath it. Because the headless platform has no native
-decorations, this mode adds the standard macOS traffic lights and applies the
-same rounded window silhouette to every frame.
+bronze instead of the host accent. Low-level component probes and
+alternate-density QA comparisons are omitted. The shell backdrop keeps its PNG
+alpha so a site can place its own blurred background underneath it. Because
+the headless platform has no native decorations, this mode adds the standard
+macOS traffic lights and applies the same rounded window silhouette to every
+frame.
+
+Each frame is the headless compositor's own output with the window's render
+scaling set to 2, so text and strokes are rasterized once at the density of a
+Retina display. (Redrawing a 1x tree onto a 2x surface through a
+`VisualBrush`, as an earlier version did, upscales glyphs that were already
+rasterized at 1x and leaves every label soft.)
+
+The interface font is SF Pro Text, read from `SF-Pro-Text-*.otf` files rather
+than asked of the host, since the headless platform has no system font to
+answer with and Skia's own macOS default is Helvetica. The export looks in
+`ASURA_WEBSITE_FONT_DIR`, then the repository root (where those files are
+ignored by Git; Apple's license allows the font on Apple platforms but not in a
+repository), then `~/Library/Fonts` and `/Library/Fonts`, where Font Book
+installs Apple's [SF Pro download](https://developer.apple.com/fonts/). The
+export fails rather than fall back to another face.
 
 Default workspace panels use deterministic terminal and browser previews in
 website mode. The general QA set keeps the real unavailable-adapter state, but
-marketing artwork never substitutes a harness warning for product content.
-The full-window adapter routes are `workspace-browser`,
-`workspace-file-viewer`, `workspace-statistics`, and
-`workspace-process-monitor`.
+marketing artwork never substitutes a harness warning for product content. The
+browser preview is example.com as Chromium draws it for a dark color scheme.
+The full-window adapter routes are `workspace-browser`, `workspace-file-viewer`,
+`workspace-statistics`, and `workspace-process-monitor`.
 
-The Retina pass scales the laid-out visual tree onto a 2× surface. Do not render
-the 1× tree directly at 192 DPI: centered overlays and dialogs receive doubled
-offsets in Avalonia's headless renderer and produce clipped, oversized artwork.
+A surface that opens in a window of its own (Settings, the workspace editor,
+the Layout Designer) is captured as that window floating over the workspace:
+its own rounded silhouette and shadow, traffic lights where the product shows
+them, and the workspace blurred behind its translucent material. Settings is
+framed at 1180 × 760, wider than its 850 × 800 default.
 
 ```sh
 ./.dotnet/dotnet run --project tools/Asura.DesignQa -- --website artifacts/design-qa/website
@@ -125,6 +140,8 @@ offsets in Avalonia's headless renderer and produce clipped, oversized artwork.
 The directory also contains `window-chrome-mask.png`, a white alpha silhouette
 at the exact screenshot dimensions for CSS masking. Route names may follow the
 output directory to generate a subset while iterating.
+`scripts/export-website-shots.sh` runs the export for the routes the site uses
+and writes the downscaled WebP copies the site serves.
 
 ## Why it exists
 
