@@ -11,6 +11,11 @@
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.ok">
+      <Setter Property="Foreground" Value="{DynamicResource ShellSuccessBrush}" />
+    </Style>
+  </UserControl.Styles>
   <Grid>
     <controls:PanelChrome
         HasAttention="{Binding HasAttention}"
@@ -25,23 +30,26 @@
       </controls:PanelChrome.Status>
 
       <Grid Background="{DynamicResource ShellBackgroundBrush}" RowDefinitions="*,Auto">
-        <StackPanel Margin="{controls:Inset Xl}" Spacing="{DynamicResource ShellSpaceSm}">
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellMutedBrush}" Text="Last login: Thu Aug 20 22:38:14 on ttys004" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Text="deploy@production-api:~$ systemctl status asura-api" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellSuccessBrush}" Text="● asura-api.service — Asura production API" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Text="     Loaded: loaded (/etc/systemd/system/asura-api.service; enabled)" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Text="     Active: active (running) since Thu 2026-08-20 21:04:18 UTC" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellMutedBrush}" Text="   Main PID: 1842 (dotnet) · Tasks: 24 · Memory: 186.4M" />
-          <TextBlock Margin="{controls:Inset Top=Md}" FontFamily="{DynamicResource ShellDataFontFamily}" Text="deploy@production-api:~$ tail -n 4 /var/log/asura/api.log" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellMutedBrush}" Text="22:41:03 INF request completed  GET /health             200  12ms" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellMutedBrush}" Text="22:41:07 INF deployment healthy  release=2026.08.20.4" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Foreground="{DynamicResource ShellMutedBrush}" Text="22:41:12 INF request completed  GET /api/workspaces     200  31ms" />
-          <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" Text="deploy@production-api:~$ _" />
-        </StackPanel>
+        <ItemsControl Margin="{controls:Inset Xl}" ItemsSource="{Binding TerminalLines}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="{DynamicResource ShellSpaceSm}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="local:WebsiteTerminalLine">
+              <TextBlock
+                  Classes.Muted="{Binding IsMuted}"
+                  Classes.ok="{Binding IsSuccess}"
+                  FontFamily="{DynamicResource ShellDataFontFamily}"
+                  Text="{Binding Text}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
         <Border Grid.Row="1" Padding="{controls:Inset Horizontal=Md, Vertical=Sm}" BorderBrush="{DynamicResource ShellBorderBrush}" BorderThickness="0,1,0,0">
           <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="SSH · deploy@10.0.1.42" />
-            <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="Connected · UTF-8" />
+            <TextBlock Classes="Muted" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TerminalFooterLeft}" />
+            <TextBlock Grid.Column="1" Classes="Muted" FontSize="{DynamicResource ShellSecondaryFontSize}" Text="{Binding TerminalFooterRight}" />
           </Grid>
         </Border>
       </Grid>
@@ -94,33 +102,160 @@
             Text="Ready" />
       </controls:PanelChrome.Footer>
 
-      <Border Margin="{DynamicResource ShellHairline}" Background="#D0D0D0">
-        <StackPanel
-            MaxWidth="700"
-            Margin="0,120,0,0"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Top"
-            Spacing="{DynamicResource ShellSpaceMd}">
-          <TextBlock
-              FontFamily="Arial, sans-serif"
-              FontSize="24"
-              FontWeight="Bold"
-              Foreground="#282828"
-              Text="Example Domain" />
-          <TextBlock
-              FontFamily="Arial, sans-serif"
-              FontSize="15"
-              Foreground="#282828"
-              Text="This domain is for use in documentation examples without needing permission. Avoid use in operations."
-              TextWrapping="Wrap" />
-          <TextBlock
-              FontFamily="Arial, sans-serif"
-              FontSize="15"
-              Foreground="#42558C"
-              Text="Learn more"
-              TextDecorations="Underline" />
-        </StackPanel>
+      <Grid>
+      <!-- example.com as Chromium draws it for a dark color scheme: a #222
+           page, a 26em column, the IANA book mark, one paragraph per
+           language, and the "Learn more" link. Colors and metrics are the
+           page's own stylesheet; the top inset is its 25vh body padding. -->
+      <Border Margin="{DynamicResource ShellHairline}" Background="#222222" ClipToBounds="True" IsVisible="{Binding ShowsExamplePage}">
+        <Grid RowDefinitions="1*,3*">
+          <StackPanel
+              Grid.Row="1"
+              Width="416"
+              Margin="0,-44,0,0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top">
+            <Viewbox Width="44" Height="44" HorizontalAlignment="Center" Opacity="0.55">
+              <Canvas Width="20" Height="20">
+                <Path
+                    Data="M6 4H3v12q4 0 7 1.5-1-3.5-4-4.5V2q3.5 1 4 3v12.5q3-1.5 7-1.5V4q-4.5 0-7 1"
+                    Stroke="White"
+                    StrokeJoin="Round"
+                    StrokeThickness="1.3" />
+                <Canvas RenderTransformOrigin="0,0">
+                  <Canvas.RenderTransform>
+                    <RotateTransform Angle="-6" CenterX="13.6" CenterY="8.3" />
+                  </Canvas.RenderTransform>
+                  <Path Data="M11.5 6.6h1.8v1.8l-1 1.6-.6-.3.8-1.3h-1z" Fill="White" />
+                  <Path Data="M13.9 6.6h1.8v1.8l-1 1.6-.6-.3.8-1.3h-1z" Fill="White" />
+                </Canvas>
+              </Canvas>
+            </Viewbox>
+            <TextBlock
+                Margin="0,16,0,0"
+                FontSize="16"
+                Foreground="White"
+                LineHeight="25.6"
+                Text="This domain is for use in documentation examples without needing permission. This is not a service; avoid relying on it for testing and monitoring purposes."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,14,0,0"
+                FlowDirection="RightToLeft"
+                FontSize="14"
+                Foreground="White"
+                LineHeight="22.4"
+                Opacity="0.6"
+                Text="هذا النطاق مُخصص للاستخدام في أمثلة التوثيق دون الحاجة إلى إذن. هذه ليست خدمة، يُرجى تجنب الاعتماد عليها لأغراض الاختبار والمراقبة."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,14,0,0"
+                FontSize="14"
+                Foreground="White"
+                LineHeight="22.4"
+                Opacity="0.6"
+                Text="该域名仅用于文档示例，无需获得许可。这并非一项服务，请勿将其用于测试和监控目的。"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,14,0,0"
+                FontSize="14"
+                Foreground="White"
+                LineHeight="22.4"
+                Opacity="0.6"
+                Text="L’usage de ce domaine est réservé à des exemples de documentation, sans autorisation préalable. Il ne s’agit pas d’un service ; son utilisation à des fins de test ou de surveillance est à éviter."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,14,0,0"
+                FontSize="14"
+                Foreground="White"
+                LineHeight="22.4"
+                Opacity="0.6"
+                Text="Данный домен предназначен для использования в примерах документации без необходимости получения предварительного разрешения. Это не сервис; не рекомендуется его использование для тестирования и мониторинга."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,14,0,0"
+                FontSize="14"
+                Foreground="White"
+                LineHeight="22.4"
+                Opacity="0.6"
+                Text="Este dominio está destinado al uso en ejemplos de documentación sin necesidad de permiso. Esto no es un servicio; evitar utilizarlo para realizar pruebas o monitoreos."
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
+            <TextBlock
+                Margin="0,16,0,0"
+                FontSize="16"
+                Foreground="#9E9EFF"
+                LineHeight="25.6"
+                Text="Learn more"
+                TextAlignment="Center"
+                TextDecorations="Underline" />
+          </StackPanel>
+        </Grid>
       </Border>
+      <!-- A dev server's own page on the host's localhost, reached through
+           the panel's SSH connection. Plain, as a scaffolded app's first
+           page is; the text says where it is served and how it got here. -->
+      <Border Margin="{DynamicResource ShellHairline}" Background="#F6F7F9" ClipToBounds="True" IsVisible="{Binding ShowsDevServerPage}">
+        <Grid RowDefinitions="1*,4*">
+          <StackPanel
+              Grid.Row="1"
+              Width="560"
+              Margin="0,-24,0,0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Top"
+              Spacing="18">
+            <Border
+                Padding="10,4"
+                HorizontalAlignment="Left"
+                Background="#E8F0FE"
+                CornerRadius="999">
+              <TextBlock
+                  FontFamily="{DynamicResource ShellDataFontFamily}"
+                  FontSize="11"
+                  Foreground="#1A56DB"
+                  Text="DEV SERVER · production-api" />
+            </Border>
+            <TextBlock
+                FontSize="30"
+                FontWeight="SemiBold"
+                Foreground="#111827"
+                LineHeight="36"
+                Text="Hello from the dev server's localhost"
+                TextWrapping="Wrap" />
+            <TextBlock
+                FontSize="15"
+                Foreground="#4B5563"
+                LineHeight="24"
+                Text="This page is served on production-api at localhost:3000. You are reading it through the workspace's SSH connection, with no port forwarding set up on either side."
+                TextWrapping="Wrap" />
+            <Border
+                Padding="18,14"
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="10">
+              <Grid ColumnDefinitions="110,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                <TextBlock FontSize="13" Foreground="#6B7280" Text="Host" />
+                <TextBlock Grid.Column="1" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="13" Foreground="#111827" Text="production-api · 10.0.1.42" />
+                <TextBlock Grid.Row="1" FontSize="13" Foreground="#6B7280" Text="Listening on" />
+                <TextBlock Grid.Row="1" Grid.Column="1" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="13" Foreground="#111827" Text="127.0.0.1:3000" />
+                <TextBlock Grid.Row="2" FontSize="13" Foreground="#6B7280" Text="Reached via" />
+                <TextBlock Grid.Row="2" Grid.Column="1" FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="13" Foreground="#111827" Text="SSH · deploy@production-api" />
+                <TextBlock Grid.Row="3" FontSize="13" Foreground="#6B7280" Text="Health" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                  <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="#16A34A" />
+                  <TextBlock FontFamily="{DynamicResource ShellDataFontFamily}" FontSize="13" Foreground="#111827" Text="GET /api/health → 200 OK · 12 ms" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </StackPanel>
+        </Grid>
+      </Border>
+      </Grid>
     </controls:PanelChrome>
   </Grid>
 </UserControl>

@@ -16,6 +16,8 @@ const icons: Record<string, string> = {
     'M4.5 3C3.11929 3 2 4.11929 2 5.5V14.5C2 15.8807 3.11929 17 4.5 17H15.5C16.8807 17 18 15.8807 18 14.5V7.5C18 6.11929 16.8807 5 15.5 5H9.70711L8.21967 3.51256C7.89148 3.18437 7.44636 3 6.98223 3H4.5ZM3 5.5C3 4.67157 3.67157 4 4.5 4H6.98223C7.18115 4 7.37191 4.07902 7.51256 4.21967L8.79289 5.5L7.43934 6.85355C7.34557 6.94732 7.21839 7 7.08579 7H3V5.5ZM3 8H7.08579C7.48361 8 7.86514 7.84196 8.14645 7.56066L9.70711 6H15.5C16.3284 6 17 6.67157 17 7.5V14.5C17 15.3284 16.3284 16 15.5 16H4.5C3.67157 16 3 15.3284 3 14.5V8Z',
   gauge:
     'M12.4659 5.05664C12.3656 5.31394 12.0758 5.44125 11.8185 5.34099C10.0251 4.64221 7.91131 5.0177 6.46447 6.46454C4.51185 8.41716 4.51185 11.583 6.46447 13.5356C6.65974 13.7309 6.65974 14.0475 6.46447 14.2427C6.26921 14.438 5.95263 14.438 5.75737 14.2427C3.41422 11.8996 3.41422 8.10058 5.75737 5.75743C7.49478 4.02002 10.0318 3.5716 12.1815 4.40923C12.4388 4.50948 12.5661 4.79934 12.4659 5.05664ZM14.9435 7.53421C15.2008 7.43396 15.4906 7.56127 15.5909 7.81857C16.4285 9.96831 15.9801 12.5053 14.2426 14.2427C14.0474 14.438 13.7308 14.438 13.5355 14.2427C13.3403 14.0475 13.3403 13.7309 13.5355 13.5356C14.9824 12.0888 15.3579 9.97504 14.6591 8.18162C14.5588 7.92432 14.6862 7.63447 14.9435 7.53421ZM14.0852 5.81922C13.9034 5.66396 13.6371 5.65914 13.4498 5.80771L13.2734 5.94787C13.1611 6.03724 13.0002 6.16534 12.8061 6.32036C12.418 6.63035 11.8964 7.04822 11.3635 7.4794C10.831 7.91028 10.2854 8.35575 9.84968 8.72053C9.63205 8.90274 9.4397 9.06659 9.28926 9.19929C9.14937 9.3227 9.01831 9.44276 8.94631 9.52707C8.40834 10.1571 8.48293 11.1039 9.11291 11.6418C9.74289 12.1798 10.6897 12.1052 11.2277 11.4752C11.2997 11.3909 11.3977 11.2427 11.4977 11.0852C11.6052 10.9158 11.7369 10.7002 11.8828 10.4567C12.1749 9.9693 12.5294 9.3607 12.8716 8.76726C13.214 8.17339 13.5451 7.5929 13.7905 7.16099C13.9132 6.945 14.0146 6.76609 14.0852 6.64114L14.1961 6.44499C14.3135 6.23672 14.267 5.97448 14.0852 5.81922ZM10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18ZM10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10C17 13.866 13.866 17 10 17Z',
+  kube:
+    'M3 4.5A1.5 1.5 0 0 1 4.5 3h3A1.5 1.5 0 0 1 9 4.5v3A1.5 1.5 0 0 1 7.5 9h-3A1.5 1.5 0 0 1 3 7.5v-3Zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3ZM11 4.5A1.5 1.5 0 0 1 12.5 3h3A1.5 1.5 0 0 1 17 4.5v3A1.5 1.5 0 0 1 15.5 9h-3A1.5 1.5 0 0 1 11 7.5v-3Zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3ZM3 12.5A1.5 1.5 0 0 1 4.5 11h3A1.5 1.5 0 0 1 9 12.5v3A1.5 1.5 0 0 1 7.5 17h-3A1.5 1.5 0 0 1 3 15.5v-3Zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3ZM11 12.5a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3a1.5 1.5 0 0 1-1.5-1.5v-3Zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3Z',
   pulse:
     'M14 3C15.6569 3 17 4.34315 17 6V14C17 15.6569 15.6569 17 14 17H6C4.34315 17 3 15.6569 3 14V6C3 4.34315 4.34315 3 6 3H14ZM6 4C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H14C15.1046 16 16 15.1046 16 14V6C16 4.89543 15.1046 4 14 4H6ZM8.50391 6C8.71376 6.00165 8.90012 6.13439 8.9707 6.33203L11.0771 12.2285L12.0527 10.2764C12.1374 10.107 12.3106 10 12.5 10H14.5C14.7761 10 15 10.2239 15 10.5C15 10.7761 14.7761 11 14.5 11H12.8086L11.4473 13.7236C11.3577 13.9028 11.1697 14.0111 10.9697 13.999C10.7699 13.9869 10.5966 13.8566 10.5293 13.668L8.48828 7.9541L7.46777 10.6758C7.39451 10.8708 7.20831 11 7 11H5.5C5.22386 11 5 10.7761 5 10.5C5 10.2239 5.22386 10 5.5 10H6.65332L8.03223 6.32422C8.106 6.12791 8.29418 5.99836 8.50391 6Z',
 }
@@ -25,9 +27,9 @@ const panels = [
     id: 'terminal',
     label: 'Terminal',
     icon: 'terminal',
-    shot: 'workspace.webp',
-    alt: 'Asura window with an SSH terminal running systemctl next to a browser panel',
-    text: 'The Ghostty engine, rendered natively. Inline images, clickable links, scrollback that knows where each command starts and ends. A local shell and a remote SSH session are the same panel with a different host.',
+    shot: 'workspace-terminals.webp',
+    alt: 'Four terminal panels in a grid: two SSH hosts, a local shell, and a Docker container',
+    text: 'The Ghostty engine, rendered natively. Inline images, clickable links, scrollback that knows where each command starts and ends. A local shell, an SSH session, a Docker container, and a WSL distribution are the same panel with a different host.',
   },
   {
     id: 'browser',
@@ -35,15 +37,15 @@ const panels = [
     icon: 'globe',
     shot: 'workspace-browser.webp',
     alt: 'Embedded Chromium browser panel inside an Asura workspace',
-    text: 'Embedded Chromium as an ordinary panel. Bind it to an SSH connection and it routes through that tunnel, so remote localhost ports and private subnet addresses load like local pages.',
+    text: 'Embedded Chromium as an ordinary panel, with developer tools and WebAuthn. Bind it to an SSH connection and it routes through that tunnel, so remote localhost ports and private subnet addresses load like local pages. Profiles are per workspace and encrypted.',
   },
   {
     id: 'database',
-    label: 'Databases',
+    label: 'Database',
     icon: 'database',
     shot: 'workspace-database.webp',
     alt: 'Database panel showing a table grid and SQL editor',
-    text: 'Postgres, MySQL, MariaDB, SQLite, SQL Server, ClickHouse, DuckDB, Oracle, Firebird, CockroachDB, Redshift. Browse tables, edit rows inline, write SQL with an editor that understands your schema. Remote databases connect through the same SSH tunnels.',
+    text: 'PostgreSQL, MySQL, MariaDB, SQLite, SQL Server, ClickHouse, DuckDB, Oracle, Firebird, CockroachDB, Amazon Redshift. Browse tables, edit rows inline, draw the schema, export a page, and write SQL with completion that knows your schema. Remote databases connect through the same SSH tunnels.',
   },
   {
     id: 'redis',
@@ -51,7 +53,7 @@ const panels = [
     icon: 'database',
     shot: 'workspace-redis.webp',
     alt: 'Redis panel with a key tree and JSON value view',
-    text: 'A key browser with type-aware views, search, TTLs, and pub/sub. JSON values render as trees, not strings.',
+    text: 'A key browser with type-aware views, search, TTLs, and pub/sub. JSON values render as trees, not strings. Standalone, Sentinel, and Cluster.',
   },
   {
     id: 'docker',
@@ -59,7 +61,15 @@ const panels = [
     icon: 'box',
     shot: 'workspace-docker-logs.webp',
     alt: 'Docker panel streaming and searching container logs',
-    text: 'Containers, images, volumes, and networks for a local daemon or a remote engine. Stream logs, search them, exec a shell, watch per-container stats.',
+    text: 'Containers, images, volumes, and networks for a local daemon or a remote engine. Start, stop, restart, pause, remove. Stream and search logs, open a shell, browse the files inside a container or a volume.',
+  },
+  {
+    id: 'kubernetes',
+    label: 'Kubernetes',
+    icon: 'kube',
+    shot: 'workspace-kubernetes.webp',
+    alt: 'Kubernetes panel listing pods across namespaces with CPU and memory',
+    text: 'Contexts from your kubeconfig, namespaces, and workloads with live updates. Streaming pod logs, exec terminals, port forwards that open in a browser or database panel, manifests you can apply after review, Helm releases, and node drains.',
   },
   {
     id: 'git',
@@ -67,31 +77,31 @@ const panels = [
     icon: 'branch',
     shot: 'workspace-git.webp',
     alt: 'Git panel with staged files and a diff view',
-    text: 'Stage hunks, write commits, walk history with a commit graph. It works against the repository, not a bundled copy of it.',
+    text: 'Stage hunks, write commits, walk history on a commit graph. Branches, stash, rebase, cherry-pick, bisect, blame, conflicts, submodules, and signing. It works against the repository, not a bundled copy of it.',
   },
   {
     id: 'files',
     label: 'Files',
     icon: 'folder',
     shot: 'workspace-file-viewer.webp',
-    alt: 'File viewer panel listing a remote directory',
-    text: 'One file panel for local disks, SFTP, FTP, S3, WebDAV, and SMB. Transfers run with progress and survive panel moves.',
+    alt: 'File panel listing a remote directory',
+    text: 'One file panel for local disks, SFTP, FTP, S3, WebDAV, and SMB. Previews for text, images, PDFs, hex, and archives. Transfers queue in the background and survive panel moves.',
   },
   {
     id: 'monitor',
     label: 'Processes',
     icon: 'gauge',
     shot: 'workspace-process-monitor.webp',
-    alt: 'Process monitor panel with CPU and memory per process',
-    text: 'Live process lists with CPU, memory, and PID, plus search and kill. Point it at a remote host and it watches over plain SSH. No agent on the box.',
+    alt: 'Processes panel with CPU and memory per process',
+    text: 'A live process list with CPU, memory, and PID, sortable and searchable. Point it at a remote host and it watches over plain SSH. No agent on the box.',
   },
   {
     id: 'stats',
     label: 'Statistics',
     icon: 'pulse',
     shot: 'workspace-statistics.webp',
-    alt: 'Statistics panel charting CPU, memory, disk, and network',
-    text: 'CPU, memory, disk, and network charts for the machine you pick, local or remote. Nothing gets installed on the server to make it happen.',
+    alt: 'Statistics panel charting CPU, process memory, and network traffic',
+    text: 'CPU, process memory, and network receive and send charts for the machine you pick, local or remote. Nothing gets installed on the server to make it happen.',
   },
 ]
 
@@ -110,7 +120,7 @@ const active = ref(panels[0]!)
         @click="active = p"
       >
         <svg viewBox="0 0 20 20" aria-hidden="true">
-          <path :d="icons[p.icon]" />
+          <path :d="icons[p.icon]" :fill-rule="p.icon === 'kube' ? 'evenodd' : undefined" />
         </svg>
         {{ p.label }}
       </button>
@@ -124,8 +134,8 @@ const active = ref(panels[0]!)
           :key="active.id"
           :src="`${base}shots/${active.shot}`"
           :alt="active.alt"
-          width="2880"
-          height="1800"
+          width="1760"
+          height="1100"
           loading="lazy"
         />
       </Transition>
