@@ -3464,6 +3464,35 @@ public sealed partial class AgentChatViewModelTests
         await Task.WhenAll(send, quiesce);
     }
 
+    /// <summary>
+    /// An update restart failed with "Asura couldn't restart to finish the
+    /// update": shutdown quiesces each chat, which rethrew the outcome of a
+    /// send that had ended badly long before.
+    /// </summary>
+    [Fact]
+    public async Task Quiescing_after_a_send_that_ended_badly_does_not_throw()
+    {
+        var provider = Provider("provider", "Provider", order: 0);
+        var cancelled = new TaskCompletionSource<GovernedAgentSendResult>();
+        cancelled.SetCanceled();
+        using var runtime = new StubGovernedRuntime { PendingSend = cancelled };
+        using var profiles = new StubProfileRuntime
+        {
+            Profiles = [provider],
+        };
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance)
+        {
+            Prompt = "Send this.",
+        };
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => viewModel.SendAsync(Target(), Policy(provider), CancellationToken.None));
+
+        await viewModel.QuiesceAsync(CancellationToken.None);
+    }
+
     [Fact]
     public void Profile_change_preserves_available_selection()
     {
