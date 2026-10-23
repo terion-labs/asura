@@ -411,6 +411,121 @@ public sealed class HostUserspaceVpnTransportTests
         Assert.False(processes.Processes[0].IsDisposed);
     }
 
+    /// <summary>
+    /// A browser signed in to an account whose tailnet could not take the
+    /// device, and the connection waited in silence. After a while the status
+    /// says what to check, and every report keeps the sign-in page to reopen.
+    /// </summary>
+    [Fact]
+    public async Task Tailscale_sign_in_that_waits_says_what_to_check_and_keeps_the_page()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        RecordingHostVpnProcess? login = null;
+        var processes = new RecordingHostVpnProcessRunner
+        {
+            OnLoginStarted = process =>
+            {
+                login = process;
+                process.Output = "{\"AuthURL\":\"https://login.tailscale.com/a/test\"}\n";
+            },
+        };
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, "{\"BackendState\":\"Running\"}"));
+        var transport = new HostUserspaceVpnTransport(NetworkConnectionKind.Tailscale, vault,
+            new DictionaryExecutableLocator([("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale")]),
+            processes, state.Path, (_, _) => ValueTask.FromResult(true))
+        {
+            SignInPatience = TimeSpan.FromMilliseconds(300),
+        };
+        var reports = new RecordingProgress();
+
+        var connecting = transport.ConnectAsync(
+            Request(new NetworkConnectionConfiguration.Tailscale("exit-node")), reports, deadline.Token).AsTask();
+        while (!reports.Items.Any(report => report.Status.StartsWith("Still waiting", StringComparison.Ordinal)))
+        {
+            await Task.Delay(50, deadline.Token);
+        }
+
+        login!.Exit(0);
+        await using var session = Success(await connecting);
+        var signIn = reports.Items.Where(report => report.SignInAddress is not null).ToArray();
+        Assert.Equal(2, signIn.Length);
+        Assert.All(signIn, report => Assert.Equal("https://login.tailscale.com/a/test", report.SignInAddress!.AbsoluteUri));
+        Assert.Contains("plan has ended", signIn[1].Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Tailscale_sign_in_that_times_out_names_the_account_and_plan()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        var processes = new RecordingHostVpnProcessRunner
+        {
+            OnLoginStarted = process => process.Output = "{\"AuthURL\":\"https://login.tailscale.com/a/test\"}",
+        };
+        var transport = new HostUserspaceVpnTransport(NetworkConnectionKind.Tailscale, vault,
+            new DictionaryExecutableLocator([("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale")]),
+            processes, state.Path, (_, _) => ValueTask.FromResult(true))
+        {
+            SignInTimeout = TimeSpan.FromMilliseconds(300),
+        };
+
+        var result = await transport.ConnectAsync(
+            Request(new NetworkConnectionConfiguration.Tailscale("exit-node")), null, CancellationToken.None);
+
+        var failure = Assert.IsType<NetworkConnectionResult<INetworkConnectionSession>.Failure>(result);
+        Assert.Equal("tailscale_login_timed_out", failure.Error.StableCode);
+        Assert.Contains("account", failure.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("auth key", failure.Error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The browser signs in with whatever Tailscale account it holds, so the
+    /// connected status names the tailnet and says when it is not the one
+    /// this connection used before.
+    /// </summary>
+    [Fact]
+    public async Task Tailscale_names_its_tailnet_and_says_when_it_changed()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        var authKey = new SecretRef("tailscale-auth-key");
+        await StoreSecretAsync(vault, authKey, "tskey-auth-secret");
+        var request = Request(new NetworkConnectionConfiguration.Tailscale("exit-node", authKeySecret: authKey));
+
+        async Task<string?> ConnectToAsync(string tailnet)
+        {
+            var processes = new RecordingHostVpnProcessRunner();
+            processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+            processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+            processes.CommandResults.Enqueue(new HostVpnCommandResult(0,
+                "{\"BackendState\":\"Running\",\"CurrentTailnet\":{\"Name\":\"" + tailnet + "\"}}"));
+            await using var session = Success(await Create(NetworkConnectionKind.Tailscale, vault, processes, state.Path,
+                ("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale"))
+                .ConnectAsync(request, null, CancellationToken.None));
+            return session.RouteNote;
+        }
+
+        Assert.Equal("Signed in to tailnet “personal@example.com”.", await ConnectToAsync("personal@example.com"));
+        Assert.Equal("Signed in to tailnet “personal@example.com”.", await ConnectToAsync("personal@example.com"));
+        Assert.Equal(
+            "Signed in to tailnet “example-org”, not “personal@example.com”, which this connection used before.",
+            await ConnectToAsync("example-org"));
+    }
+
+    [Theory]
+    [InlineData("{\"BackendState\":\"Running\"}", null)]
+    [InlineData("{\"CurrentTailnet\":{\"Name\":\"  team.example \"}}", "team.example")]
+    [InlineData("{\"CurrentTailnet\":{\"Name\":\"\"}}", null)]
+    [InlineData("not json", null)]
+    public void Tailnet_name_is_read_only_from_the_structured_status(string status, string? expected) =>
+        Assert.Equal(expected, HostUserspaceVpnTransport.ReadTailnetName(status));
+
     [Theory]
     [InlineData("file:///tmp/untrusted", true, "tailscale_login_url_invalid")]
     [InlineData("https://untrusted.example/a/test", true, "tailscale_login_url_invalid")]
@@ -762,6 +877,15 @@ public sealed class HostUserspaceVpnTransportTests
         Assert.Equal(
             [(IPAddress.Parse("1.1.1.1"), 443), (IPAddress.Parse("1.0.0.1"), 443)],
             destinations);
+    }
+
+    private sealed class RecordingProgress : IProgress<NetworkConnectionProgress>
+    {
+        private readonly System.Collections.Concurrent.ConcurrentQueue<NetworkConnectionProgress> _items = new();
+
+        public IReadOnlyList<NetworkConnectionProgress> Items => [.. _items];
+
+        public void Report(NetworkConnectionProgress value) => _items.Enqueue(value);
     }
 
     private static HostUserspaceVpnTransport Create(
