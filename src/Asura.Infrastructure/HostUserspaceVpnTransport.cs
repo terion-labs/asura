@@ -693,6 +693,7 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
                     "Tailscale reports a running session, but its local SOCKS listener is unavailable.", retryable: true);
             }
 
+            var routeNote = RecordTailnet(request.Connection.Id, ReadTailnetName(status.StandardOutput));
             var directory = temporary.TransferOwnership();
             var connected = Succeed(
                 request.Connection.Id,
@@ -701,7 +702,8 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
                 [daemon],
                 directory,
                 [IPAddress.Parse("100.100.100.100")],
-                supportsUdpAssociate: true);
+                supportsUdpAssociate: true,
+                routeNote: routeNote);
             daemon = null;
             return connected;
         }
@@ -949,7 +951,8 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
         string temporaryDirectory,
         IReadOnlyList<IPAddress>? dnsServers = null,
         HostVpnProcessRequest? cleanup = null,
-        bool supportsUdpAssociate = false) =>
+        bool supportsUdpAssociate = false,
+        string? routeNote = null) =>
         NetworkConnectionResult<INetworkConnectionSession>.Succeed(
             new HostUserspaceVpnSession(
                 connectionId,
@@ -960,7 +963,8 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
                 dnsServers ?? [],
                 cleanup,
                 _processRunner,
-                supportsUdpAssociate));
+                supportsUdpAssociate,
+                routeNote));
 
     private const string OpenConnectDnsCaptureScript = """
         #!/bin/sh
@@ -1188,9 +1192,11 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
             IReadOnlyList<IPAddress> dnsServers,
             HostVpnProcessRequest? cleanup,
             IHostVpnProcessRunner processRunner,
-            bool supportsUdpAssociate)
+            bool supportsUdpAssociate,
+            string? routeNote)
         {
             _processes = processes;
+            RouteNote = routeNote;
             _temporaryDirectory = temporaryDirectory;
             _cleanup = cleanup;
             _processRunner = processRunner;
@@ -1205,6 +1211,8 @@ internal sealed partial class HostUserspaceVpnTransport : IHostUserspaceVpnTrans
                 address => new IPAddress(address.GetAddressBytes()))];
             _processMonitor = MonitorProcessesAsync();
         }
+
+        public string? RouteNote { get; }
 
         public NetworkConnectionSnapshot Snapshot
         {

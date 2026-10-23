@@ -324,6 +324,8 @@ public sealed partial class WorkspaceView : UserControl
 
     public event EventHandler<RoutedEventArgs>? WorkspaceNetworkToggleRequested;
 
+    public event EventHandler<RoutedEventArgs>? WorkspaceNetworkSignInReopenRequested;
+
     /// <summary>The network flyout asked for the page where connections are made.</summary>
     public event EventHandler<RoutedEventArgs>? NetworkingSettingsRequested;
 

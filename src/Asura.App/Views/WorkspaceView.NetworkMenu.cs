@@ -18,6 +18,7 @@ namespace Asura.App.Views;
 public sealed partial class WorkspaceView
 {
     internal const string ManageNetworkConnectionsHeader = "Manage Connections…";
+    internal const string ReopenSignInHeader = "Open Sign-In Page Again";
 
     private void OnWorkspaceNetworkMenuOpening(object? sender, EventArgs e)
     {
@@ -49,6 +50,15 @@ public sealed partial class WorkspaceView
         };
         AutomationProperties.SetName(status, "Workspace network status: " + network.StatusText);
         items.Add(status);
+        if (network.CanReopenSignIn)
+        {
+            // After switching accounts on the page, the same sign-in can be
+            // finished without starting the connection over.
+            var reopen = new MenuItem { Header = ReopenSignInHeader };
+            AutomationProperties.SetName(reopen, "Open the network sign-in page again");
+            reopen.Click += OnReopenNetworkSignInClick;
+            items.Add(reopen);
+        }
         if (network.IsKillSwitchEnabled)
         {
             var killSwitch = new MenuItem
@@ -112,4 +122,7 @@ public sealed partial class WorkspaceView
         items.Add(manage);
         return items;
     }
+
+    private void OnReopenNetworkSignInClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        WorkspaceNetworkSignInReopenRequested?.Invoke(sender, e);
 }

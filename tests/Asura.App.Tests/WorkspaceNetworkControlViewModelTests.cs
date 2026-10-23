@@ -246,6 +246,65 @@ public sealed class WorkspaceNetworkControlViewModelTests
     }
 
     [Fact]
+    public async Task A_connection_waiting_for_sign_in_can_open_the_page_again()
+    {
+        var signIn = new Uri("https://login.tailscale.com/a/test");
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var session = new FakeWorkspaceNetworkSession(WorkspaceNetworkSnapshot.Direct)
+        {
+            StartProgress = new NetworkConnectionProgress("Complete sign-in in your browser.", signIn),
+            BeforeApply = (_, token) => release.Task.WaitAsync(token),
+        };
+        var opened = new List<Uri>();
+        await using var viewModel = new WorkspaceNetworkControlViewModel(
+            Update(enabled: false, killSwitch: false, FirstId),
+            session,
+            new ImmediateDispatcher(),
+            openSignInPage: (address, _) =>
+            {
+                opened.Add(address);
+                return ValueTask.FromResult(true);
+            });
+        Assert.False(viewModel.CanReopenSignIn);
+
+        var connecting = viewModel.SelectAsync(FirstId, CancellationToken.None);
+        for (var attempt = 0; attempt < 200 && !viewModel.CanReopenSignIn; attempt++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(viewModel.CanReopenSignIn);
+        Assert.True(await viewModel.ReopenSignInAsync(CancellationToken.None));
+        Assert.Equal(signIn, Assert.Single(opened));
+        release.SetResult();
+        await connecting.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(viewModel.CanReopenSignIn);
+    }
+
+    [Fact]
+    public async Task The_connected_status_names_what_the_route_reports()
+    {
+        var session = new FakeWorkspaceNetworkSession(WorkspaceNetworkSnapshot.Direct)
+        {
+            Apply = update => new WorkspaceNetworkSnapshot(
+                WorkspaceNetworkState.Connected,
+                WorkspaceNetworkEgress.Attached,
+                update.Policy.SelectedConnectionId,
+                routeNote: "Signed in to tailnet “example-org”."),
+        };
+        await using var viewModel = new WorkspaceNetworkControlViewModel(
+            Update(enabled: false, killSwitch: false, FirstId),
+            session,
+            new ImmediateDispatcher());
+
+        await viewModel.SelectAsync(FirstId, CancellationToken.None);
+
+        Assert.Equal(
+            "Workspace traffic uses First. Signed in to tailnet “example-org”.",
+            viewModel.StatusText);
+    }
+
+    [Fact]
     public async Task Turning_networking_off_keeps_the_selected_connection()
     {
         var session = new FakeWorkspaceNetworkSession(new WorkspaceNetworkSnapshot(
@@ -404,6 +463,9 @@ public sealed class WorkspaceNetworkControlViewModelTests
         /// <summary>Holds an apply open, as a browser sign-in does.</summary>
         public Func<WorkspaceNetworkPolicyUpdate, CancellationToken, Task>? BeforeApply { get; init; }
 
+        /// <summary>Reported as the apply starts, as a connection waiting for sign-in does.</summary>
+        public NetworkConnectionProgress? StartProgress { get; init; }
+
         public WorkspaceNetworkPolicyUpdate? LastUpdate { get; private set; }
 
         public event EventHandler<WorkspaceNetworkSnapshot>? Changed;
@@ -414,6 +476,11 @@ public sealed class WorkspaceNetworkControlViewModelTests
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (StartProgress is { } startProgress)
+            {
+                progress?.Report(startProgress);
+            }
+
             if (BeforeApply is { } beforeApply)
             {
                 await beforeApply(update, cancellationToken);
