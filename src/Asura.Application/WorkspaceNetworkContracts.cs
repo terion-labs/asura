@@ -126,7 +126,11 @@ public sealed record NetworkConnectionSnapshot
 
 public sealed record NetworkConnectionProgress
 {
-    public NetworkConnectionProgress(string status)
+    /// <param name="signInAddress">
+    /// A page the person can open again to finish signing in, while the
+    /// connection still waits for it.
+    /// </param>
+    public NetworkConnectionProgress(string status, Uri? signInAddress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(status);
         if (status.Contains('\0', StringComparison.Ordinal))
@@ -136,10 +140,23 @@ public sealed record NetworkConnectionProgress
                 nameof(status));
         }
 
+        if (signInAddress is not null
+            && (!signInAddress.IsAbsoluteUri
+                || !string.Equals(signInAddress.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)
+                || signInAddress.UserInfo.Length != 0))
+        {
+            throw new ArgumentException(
+                "A sign-in address must be an https address without credentials.",
+                nameof(signInAddress));
+        }
+
         Status = status.Trim();
+        SignInAddress = signInAddress;
     }
 
     public string Status { get; }
+
+    public Uri? SignInAddress { get; }
 }
 
 public enum NetworkConnectionErrorCode
@@ -313,6 +330,12 @@ public interface INetworkConnectionSession : IAsyncDisposable
     IReadOnlyList<IPAddress> DnsServers => [];
 
     /// <summary>
+    /// A short fact about the route this session joined, such as the tailnet
+    /// a Tailscale connection signed in to, shown with the connected status.
+    /// </summary>
+    string? RouteNote => null;
+
+    /// <summary>
     /// The owned provider supports SOCKS5 UDP association. The packet gateway must still
     /// verify the loopback association before publishing UDP route capabilities.
     /// </summary>
@@ -349,7 +372,8 @@ public sealed record WorkspaceNetworkSnapshot
         NetworkConnectionId? selectedConnectionId,
         NetworkConnectionError? error = null,
         WorkspacePacketRouteCapabilities? routeCapabilities = null,
-        string? authenticationRouteIdentity = null)
+        string? authenticationRouteIdentity = null,
+        string? routeNote = null)
     {
         if (!Enum.IsDefined(state))
         {
@@ -373,6 +397,9 @@ public sealed record WorkspaceNetworkSnapshot
         Error = error;
         RouteCapabilities = routeCapabilities;
         AuthenticationRouteIdentity = state == WorkspaceNetworkState.Direct ? "local" : authenticationRouteIdentity;
+        RouteNote = state == WorkspaceNetworkState.Connected && !string.IsNullOrWhiteSpace(routeNote)
+            ? routeNote.Trim()
+            : null;
     }
 
     public WorkspaceNetworkState State { get; }
@@ -386,6 +413,9 @@ public sealed record WorkspaceNetworkSnapshot
     public WorkspacePacketRouteCapabilities? RouteCapabilities { get; }
 
     public string? AuthenticationRouteIdentity { get; }
+
+    /// <summary>What the connected route's provider says about it; see <see cref="INetworkConnectionSession.RouteNote"/>.</summary>
+    public string? RouteNote { get; }
 
     public static WorkspaceNetworkSnapshot Direct { get; } = new(
         WorkspaceNetworkState.Direct,

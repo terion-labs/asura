@@ -15,6 +15,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     private readonly IUiThreadDispatcher _dispatcher;
     private readonly Action<WorkspaceNetworkSnapshot>? _applyEgress;
     private readonly IWorkspaceNetworkConnector? _networkConnector;
+    private readonly Func<Uri, CancellationToken, ValueTask<bool>> _openSignInPage;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ObservableCollection<WorkspaceNetworkConnectionOptionViewModel> _connections = [];
     private readonly SemaphoreSlim _operationGate = new(1, 1);
@@ -24,6 +25,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     private WorkspaceNetworkPolicyUpdate _catalogPolicy;
     private WorkspaceNetworkSnapshot _snapshot;
     private string? _progressStatus;
+    private Uri? _signInAddress;
     private bool _isApplying;
     private bool _disposed;
 
@@ -32,7 +34,8 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         IWorkspaceNetworkSession? session,
         IUiThreadDispatcher dispatcher,
         Action<WorkspaceNetworkSnapshot>? applyEgress = null,
-        IWorkspaceNetworkConnector? networkConnector = null)
+        IWorkspaceNetworkConnector? networkConnector = null,
+        Func<Uri, CancellationToken, ValueTask<bool>>? openSignInPage = null)
     {
         _policy = policy ?? throw new ArgumentNullException(nameof(policy));
         _catalogPolicy = policy;
@@ -40,6 +43,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _applyEgress = applyEgress;
         _networkConnector = networkConnector;
+        _openSignInPage = openSignInPage ?? NetworkAuthenticationBrowser.OpenAsync;
         networkConnector?.BrowserAuthenticationRouteFailed += OnBrowserAuthenticationRouteFailed;
         _snapshot = session?.Snapshot ?? UnavailableSnapshot(policy.Policy);
         Connections = new ReadOnlyObservableCollection<WorkspaceNetworkConnectionOptionViewModel>(
@@ -79,6 +83,13 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     public bool CanToggle => _session is not null && HasConnections;
 
     public string ToggleAction => IsNetworkingEnabled ? "Turn off" : "Connect";
+
+    /// <summary>
+    /// A connection waits for a browser sign-in. After switching accounts on
+    /// the page, the person can open the same sign-in again without starting
+    /// the connection over.
+    /// </summary>
+    public bool CanReopenSignIn => _signInAddress is not null && IsConnecting;
 
     /// <summary>What the title bar names: the route, or the absence of one.</summary>
     public string RouteLabel => _snapshot.State == WorkspaceNetworkState.Direct
@@ -144,11 +155,11 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                 WorkspaceNetworkState.Connecting => $"Connecting to {SelectedName}.",
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.Udp)
-                    => $"Workspace TCP traffic and DNS use {SelectedName}. This route doesn't support other UDP traffic or ping.",
+                    => WithRouteNote($"Workspace TCP traffic and DNS use {SelectedName}. This route doesn't support other UDP traffic or ping."),
                 WorkspaceNetworkState.Connected when _snapshot.RouteCapabilities is { } capabilities
                     && !capabilities.Protocols.HasFlag(WorkspaceIpProtocolCapabilities.ControlMessages)
-                    => $"Workspace TCP and UDP traffic use {SelectedName}. This route doesn't support ping or other IP protocols.",
-                WorkspaceNetworkState.Connected => $"Workspace traffic uses {SelectedName}.",
+                    => WithRouteNote($"Workspace TCP and UDP traffic use {SelectedName}. This route doesn't support ping or other IP protocols."),
+                WorkspaceNetworkState.Connected => WithRouteNote($"Workspace traffic uses {SelectedName}."),
                 WorkspaceNetworkState.Failed =>
                     _snapshot.Error?.Message ?? "The network connection failed.",
                 WorkspaceNetworkState.Blocked when _snapshot.Error is { } error =>
@@ -161,6 +172,17 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     }
 
     public string AutomationLabel => $"Workspace network. {CompactStatus}. {StatusText}";
+
+    /// <summary>Opens the pending sign-in page again in the person's browser.</summary>
+    public async Task<bool> ReopenSignInAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _signInAddress is { } address
+            && await _openSignInPage(address, cancellationToken).ConfigureAwait(false);
+    }
+
+    private string WithRouteNote(string status) =>
+        _snapshot.RouteNote is { } note ? $"{status} {note}" : status;
 
     public async Task SelectAsync(
         NetworkConnectionId connectionId,
@@ -350,6 +372,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
             var progress = new Progress<NetworkConnectionProgress>(value =>
             {
                 _progressStatus = value.Status;
+                _signInAddress = value.SignInAddress;
                 NotifyStatusChanged();
             });
             var result = await session.ApplyAsync(update, progress, operation.Token)
@@ -383,7 +406,9 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                         () =>
                         {
                             _progressStatus = null;
+                            _signInAddress = null;
                             SetApplying(false);
+                            NotifyStatusChanged();
                         },
                         CancellationToken.None)
                     .ConfigureAwait(false);
@@ -488,6 +513,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         OnPropertyChanged(nameof(RouteSymbol));
         OnPropertyChanged(nameof(CanToggle));
         OnPropertyChanged(nameof(ToggleAction));
+        OnPropertyChanged(nameof(CanReopenSignIn));
         OnPropertyChanged(nameof(RouteLabel));
         OnPropertyChanged(nameof(StateLabel));
         OnPropertyChanged(nameof(CompactStatus));

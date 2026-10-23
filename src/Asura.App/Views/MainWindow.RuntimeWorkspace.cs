@@ -92,6 +92,21 @@ public sealed partial class MainWindow
         }
     }
 
+    private async void OnWorkspaceNetworkSignInReopenRequested(
+        object? sender,
+        RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        try
+        {
+            _ = await ViewModel.WorkspaceNetwork.ReopenSignInAsync(_lifetime.Token);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+    }
+
     private async void OnWorkspaceNetworkToggleRequested(
         object? sender,
         RoutedEventArgs e)
