@@ -2846,7 +2846,16 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             activeSend = _activeSend;
         }
 
-        await activeSend.WaitAsync(cancellationToken);
+        try
+        {
+            await activeSend.WaitAsync(cancellationToken);
+        }
+        catch (Exception) when (activeSend.IsFaulted || activeSend.IsCanceled)
+        {
+            // Quiescence waits for the send to end, not for it to succeed.
+            // A send that had failed earlier rethrew here and aborted every
+            // update restart: "Asura couldn't restart to finish the update".
+        }
     }
 
     public void Cancel()
