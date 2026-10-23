@@ -193,6 +193,59 @@ public sealed class WorkspaceNetworkControlViewModelTests
     }
 
     [Fact]
+    public async Task Choosing_another_connection_cancels_one_waiting_for_sign_in()
+    {
+        var signingIn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var session = new FakeWorkspaceNetworkSession(WorkspaceNetworkSnapshot.Direct)
+        {
+            BeforeApply = async (update, token) =>
+            {
+                if (update.Policy.SelectedConnectionId == FirstId)
+                {
+                    signingIn.TrySetResult();
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                }
+            },
+        };
+        await using var viewModel = new WorkspaceNetworkControlViewModel(
+            Update(enabled: false, killSwitch: false, FirstId, SecondId),
+            session,
+            new ImmediateDispatcher());
+        var first = viewModel.SelectAsync(FirstId, CancellationToken.None);
+        await signingIn.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(viewModel.CanToggle);
+
+        await viewModel.SelectAsync(SecondId, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Equal(SecondId, session.LastUpdate!.Policy.SelectedConnectionId);
+        Assert.Equal("Second · Connected", viewModel.CompactStatus);
+        Assert.False(viewModel.IsApplying);
+    }
+
+    [Fact]
+    public async Task Turning_off_cancels_a_connection_waiting_for_sign_in()
+    {
+        var session = new FakeWorkspaceNetworkSession(WorkspaceNetworkSnapshot.Direct)
+        {
+            BeforeApply = (update, token) => update.Policy.IsEnabled
+                ? Task.Delay(Timeout.InfiniteTimeSpan, token)
+                : Task.CompletedTask,
+        };
+        await using var viewModel = new WorkspaceNetworkControlViewModel(
+            Update(enabled: false, killSwitch: false, FirstId),
+            session,
+            new ImmediateDispatcher());
+        var connecting = viewModel.SelectAsync(FirstId, CancellationToken.None);
+
+        await viewModel.ToggleAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+        await connecting.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.False(session.LastUpdate!.Policy.IsEnabled);
+        Assert.Equal("Direct", viewModel.CompactStatus);
+    }
+
+    [Fact]
     public async Task Turning_networking_off_keeps_the_selected_connection()
     {
         var session = new FakeWorkspaceNetworkSession(new WorkspaceNetworkSnapshot(
@@ -348,16 +401,24 @@ public sealed class WorkspaceNetworkControlViewModelTests
 
         public NetworkConnectionError? ReturnFailure { get; init; }
 
+        /// <summary>Holds an apply open, as a browser sign-in does.</summary>
+        public Func<WorkspaceNetworkPolicyUpdate, CancellationToken, Task>? BeforeApply { get; init; }
+
         public WorkspaceNetworkPolicyUpdate? LastUpdate { get; private set; }
 
         public event EventHandler<WorkspaceNetworkSnapshot>? Changed;
 
-        public ValueTask<NetworkConnectionResult<WorkspaceNetworkSnapshot>> ApplyAsync(
+        public async ValueTask<NetworkConnectionResult<WorkspaceNetworkSnapshot>> ApplyAsync(
             WorkspaceNetworkPolicyUpdate update,
             IProgress<NetworkConnectionProgress>? progress,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (BeforeApply is { } beforeApply)
+            {
+                await beforeApply(update, cancellationToken);
+            }
+
             LastUpdate = update;
             Snapshot = Apply?.Invoke(update)
                 ?? (update.Policy.IsEnabled
@@ -367,9 +428,9 @@ public sealed class WorkspaceNetworkControlViewModelTests
                         update.Policy.SelectedConnectionId)
                     : WorkspaceNetworkSnapshot.Direct);
             Changed?.Invoke(this, Snapshot);
-            return ValueTask.FromResult(ReturnFailure is null
+            return ReturnFailure is null
                 ? NetworkConnectionResult<WorkspaceNetworkSnapshot>.Succeed(Snapshot)
-                : NetworkConnectionResult<WorkspaceNetworkSnapshot>.Fail(ReturnFailure));
+                : NetworkConnectionResult<WorkspaceNetworkSnapshot>.Fail(ReturnFailure);
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

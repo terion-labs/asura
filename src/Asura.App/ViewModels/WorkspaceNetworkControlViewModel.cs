@@ -18,6 +18,8 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     private readonly CancellationTokenSource _lifetime = new();
     private readonly ObservableCollection<WorkspaceNetworkConnectionOptionViewModel> _connections = [];
     private readonly SemaphoreSlim _operationGate = new(1, 1);
+    private readonly Lock _supersedeGate = new();
+    private CancellationTokenSource? _supersede;
     private WorkspaceNetworkPolicyUpdate _policy;
     private WorkspaceNetworkPolicyUpdate _catalogPolicy;
     private WorkspaceNetworkSnapshot _snapshot;
@@ -72,7 +74,9 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
 
     public bool IsBlocked => _snapshot.State == WorkspaceNetworkState.Blocked;
 
-    public bool CanToggle => _session is not null && HasConnections && !_isApplying;
+    // Turning off stays available while a connection is applied, which can
+    // wait minutes for a browser sign-in: it cancels that attempt.
+    public bool CanToggle => _session is not null && HasConnections;
 
     public string ToggleAction => IsNetworkingEnabled ? "Turn off" : "Connect";
 
@@ -163,6 +167,12 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
         CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_policy.Policy is not { IsEnabled: true, SelectedConnectionId: { } current }
+            || current != connectionId)
+        {
+            SupersedeApply();
+        }
+
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -236,6 +246,7 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     public async Task ToggleAsync(CancellationToken cancellationToken)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        SupersedeApply();
         await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -321,9 +332,16 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
     {
         var session = _session
             ?? throw new InvalidOperationException("The workspace network session is unavailable.");
+        var supersede = new CancellationTokenSource();
+        lock (_supersedeGate)
+        {
+            _supersede = supersede;
+        }
+
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
-            _lifetime.Token);
+            _lifetime.Token,
+            supersede.Token);
         _progressStatus = progressStatus;
         SetApplying(true);
 
@@ -341,8 +359,24 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                     operation.Token)
                 .ConfigureAwait(false);
         }
+        catch (OperationCanceledException)
+            when (supersede.IsCancellationRequested
+                && !cancellationToken.IsCancellationRequested
+                && !_lifetime.IsCancellationRequested)
+        {
+            // A newer choice replaced this one; it applies its own route.
+        }
         finally
         {
+            lock (_supersedeGate)
+            {
+                if (ReferenceEquals(_supersede, supersede))
+                {
+                    _supersede = null;
+                }
+            }
+
+            supersede.Dispose();
             if (!_disposed)
             {
                 await _dispatcher.InvokeAsync(
@@ -354,6 +388,20 @@ public sealed class WorkspaceNetworkControlViewModel : ObservableObject, IAsyncD
                         CancellationToken.None)
                     .ConfigureAwait(false);
             }
+        }
+    }
+
+    /// <summary>
+    /// A connection waiting for a browser sign-in held every other choice
+    /// behind it for up to five minutes, so picking another connection or
+    /// turning networking off did nothing, then started a fresh sign-in once
+    /// the first gave up. A new choice cancels the attempt in progress.
+    /// </summary>
+    private void SupersedeApply()
+    {
+        lock (_supersedeGate)
+        {
+            _supersede?.Cancel();
         }
     }
 
