@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Asura.Application;
 using Exclr8Cef;
@@ -20,6 +21,7 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
     private long _documentGeneration;
     private bool _isActive;
     private bool _isObservable;
+    private bool _refreshInProgress;
     private bool _disposed;
 
     public CefBrowserDomActivityTracker(CefBrowser browser)
@@ -165,14 +167,18 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
     {
         try
         {
-            using var document = JsonDocument.Parse(json);
-            if (!document.RootElement.TryGetProperty("method", out var methodValue)
-                || methodValue.ValueKind != JsonValueKind.String)
+            // Chromium emits method before params. Read only that bounded header;
+            // page-controlled event bodies never need a JSON DOM allocation here.
+            var header = Encoding.UTF8.GetBytes(json.AsSpan(0, Math.Min(json.Length, 1024)).ToString());
+            var reader = new Utf8JsonReader(header, isFinalBlock: false, state: default);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject
+                || !reader.Read() || reader.TokenType != JsonTokenType.PropertyName
+                || !reader.ValueTextEquals("method")
+                || !reader.Read() || reader.TokenType != JsonTokenType.String)
             {
                 return null;
             }
-
-            var method = methodValue.GetString();
+            var method = reader.GetString();
             return method is
                 "DOM.attributeModified"
                 or "DOM.attributeRemoved"
@@ -200,6 +206,10 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
         DevToolsMessageEventArgs eventArgs)
     {
         _ = sender;
+        lock (_gate)
+        {
+            if (_disposed || !_isActive) { return; }
+        }
         if (!eventArgs.IsEvent
             || ReadDomActivityMethod(eventArgs.Json) is not { } method)
         {
@@ -221,7 +231,12 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
             if (documentUpdated)
             {
                 _isObservable = false;
-                documentGeneration = ++_documentGeneration;
+                _documentGeneration++;
+                if (!_refreshInProgress)
+                {
+                    _refreshInProgress = true;
+                    documentGeneration = _documentGeneration;
+                }
             }
 
             RecordActivityLocked();
@@ -237,22 +252,36 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
     {
         try
         {
-            await RefreshDocumentAsync(documentGeneration).ConfigureAwait(false);
+            while (true)
+            {
+                await RefreshDocumentAsync(documentGeneration).ConfigureAwait(false);
+                lock (_gate)
+                {
+                    if (_disposed || !_isActive || documentGeneration == _documentGeneration)
+                    {
+                        _refreshInProgress = false;
+                        return;
+                    }
+                    documentGeneration = _documentGeneration;
+                }
+            }
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
             SecretSafeDiagnosticProjection.WriteTrace(
                 "browser.dom-observation.refresh-failed",
                 exception);
+            lock (_gate) { _refreshInProgress = false; }
         }
     }
 
     private async Task<bool> RefreshDocumentAsync(long documentGeneration)
     {
-        await _browser.ExecuteDevToolsMethodAsync(
+        var reply = await _browser.ExecuteDevToolsMethodAsync(
                 "DOM.getDocument",
                 "{\"depth\":-1,\"pierce\":true}")
             .ConfigureAwait(false);
+        if (!IsSuccessfulDocumentReply(reply)) { return false; }
         lock (_gate)
         {
             if (_disposed
@@ -266,6 +295,24 @@ internal sealed class CefBrowserDomActivityTracker : IDisposable
             RecordActivityLocked();
             return true;
         }
+    }
+
+    internal static bool IsSuccessfulDocumentReply(string reply)
+    {
+        // Only the top-level CDP envelope matters. The DOM result can be deeply
+        // nested, so never construct a JSON tree just to detect a protocol error.
+        var header = Encoding.UTF8.GetBytes(reply.AsSpan(0, Math.Min(reply.Length, 1024)).ToString());
+        try
+        {
+            var reader = new Utf8JsonReader(header, isFinalBlock: false, state: default);
+            if (!reader.Read() || reader.TokenType != JsonTokenType.StartObject || !reader.Read()) { return false; }
+            if (reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("id"))
+            {
+                if (!reader.Read() || reader.TokenType != JsonTokenType.Number || !reader.Read()) { return false; }
+            }
+            return reader.TokenType == JsonTokenType.PropertyName && reader.ValueTextEquals("result");
+        }
+        catch (JsonException) { return false; }
     }
 
     private DomActivitySnapshot Snapshot()

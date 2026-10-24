@@ -123,7 +123,7 @@ public sealed class KubernetesConfigurationTests
             await Assert.ThrowsAsync<KubernetesRequestException>(() =>
                 new KubernetesCredentialResolver(plan, findExecutable: Find).ResolveAsync(CancellationToken.None).AsTask());
             Assert.Equal(0, lookups);
-            var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, Find);
+            var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, Find, plan.AuthorityFingerprint);
             var connection = await resolver.ResolveAsync(CancellationToken.None);
             Assert.Equal("fixture-token", connection.BearerToken);
             Assert.Equal(1, lookups);
@@ -141,12 +141,53 @@ public sealed class KubernetesConfigurationTests
               interactiveMode: Never
               args: [private-argument]
             """)));
-        var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, _ => null);
+        var resolver = new KubernetesCredentialResolver(plan, plan.Exec!.Fingerprint, _ => null, plan.AuthorityFingerprint);
         var error = await Assert.ThrowsAsync<KubernetesRequestException>(() => resolver.ResolveAsync(CancellationToken.None).AsTask());
         Assert.Equal(KubernetesErrorCode.InvalidConfiguration, error.Code);
         Assert.Contains("install its CLI", error.Message, StringComparison.Ordinal);
         Assert.Contains("Isolated workspaces", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("private-", error.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CredentialFileAuthorityRequiresExactReviewBeforeFilesAreRead()
+    {
+        var directory = Directory.CreateTempSubdirectory("asura-kube-authority-");
+        try
+        {
+            var path = Path.Combine(directory.FullName, "credential");
+            await File.WriteAllTextAsync(path, "opaque-credential");
+            var plan = Assert.Single(KubernetesKubeconfigReader.Read(Config("tokenFile: " + path)));
+            var untrusted = new KubernetesCredentialResolver(plan);
+            var rejected = await Assert.ThrowsAsync<KubernetesRequestException>(() => untrusted.ResolveAsync(CancellationToken.None).AsTask());
+            Assert.Equal(KubernetesErrorCode.Unauthorized, rejected.Code);
+            var approved = new KubernetesCredentialResolver(plan, trustedAuthorityFingerprint: plan.AuthorityFingerprint);
+            Assert.Equal("opaque-credential", (await approved.ResolveAsync(CancellationToken.None)).BearerToken);
+            foreach (var changed in new[]
+            {
+                plan with { TokenFilePath = path + ".missing" },
+                plan with { Connection = plan.Connection with { ApiServer = new Uri("https://other.test") } },
+                plan with { Connection = plan.Connection with { AllowInsecureTls = true } },
+            })
+            {
+                var resolver = new KubernetesCredentialResolver(changed, trustedAuthorityFingerprint: plan.AuthorityFingerprint);
+                var error = await Assert.ThrowsAsync<KubernetesRequestException>(() => resolver.ResolveAsync(CancellationToken.None).AsTask());
+                Assert.Equal(KubernetesErrorCode.Unauthorized, error.Code);
+            }
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
+    [Theory]
+    [InlineData("http://cluster.test")]
+    [InlineData("http://10.1.2.3")]
+    [InlineData("http://localhost.example.test")]
+    public void AuthenticatedNonLoopbackHttpIsRejectedBeforeTransport(string endpoint)
+    {
+        var error = Assert.Throws<KubernetesRequestException>(() => new KubernetesClientSession(
+            new KubernetesResolvedConnection(new Uri(endpoint), BearerToken: "opaque-credential")));
+        Assert.Equal(KubernetesErrorCode.InvalidConfiguration, error.Code);
+        Assert.DoesNotContain("opaque-credential", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

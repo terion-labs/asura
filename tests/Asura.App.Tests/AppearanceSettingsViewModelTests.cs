@@ -8,15 +8,36 @@ namespace Asura.App.Tests;
 public sealed class AppearanceSettingsViewModelTests
 {
     [Fact]
+    public async Task Queued_save_rejects_a_concurrent_edit_instead_of_adopting_its_revision()
+    {
+        using var settings = new AppearanceSettingsViewModel(Catalog(Snapshot(Theme(), 7), out var recording));
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        recording.BeforeSave = pending.Task;
+        using var preview = new AppearancePreviewCoordinator().TryAcquire("settings", 7, null).Lease!;
+        var first = settings.SaveThemeChangeAsync(Theme(showTabBar: false), preview, CancellationToken.None);
+        var second = settings.SaveThemeChangeAsync(Theme(showWorkspacesPanel: false), preview, CancellationToken.None);
+        var concurrent = Theme(workspacePanelPlacement: WorkspacePanelPlacement.Right);
+        recording.AfterSave = () => recording.Snapshot = Snapshot(concurrent, 9);
+        pending.SetResult();
+
+        Assert.True((await first).IsSuccess);
+        var result = await second;
+        Assert.False(result.IsSuccess);
+        Assert.Equal(DefinitionStoreErrorCode.RevisionConflict, result.Error?.Code);
+        Assert.Equal(concurrent, recording.Snapshot.Themes.Single().Value);
+    }
+
+    [Fact]
     public async Task Automatic_saves_serialize_rapid_changes_and_use_the_latest_revision()
     {
         var original = Theme();
         using var settings = new AppearanceSettingsViewModel(Catalog(Snapshot(original, 7), out var recording));
         var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         recording.BeforeSave = pending.Task;
-        var first = settings.SaveThemeChangeAsync(Theme(showTabBar: false), CancellationToken.None);
+        using var preview = new AppearancePreviewCoordinator().TryAcquire("settings", 7, null).Lease!;
+        var first = settings.SaveThemeChangeAsync(Theme(showTabBar: false), preview, CancellationToken.None);
         var latest = Theme(showWorkspacesPanel: false);
-        var second = settings.SaveThemeChangeAsync(latest, CancellationToken.None);
+        var second = settings.SaveThemeChangeAsync(latest, preview, CancellationToken.None);
         Assert.Equal(1, recording.SaveCount);
         pending.SetResult();
 
@@ -30,16 +51,37 @@ public sealed class AppearanceSettingsViewModelTests
     }
 
     [Fact]
+    public async Task A_new_preview_does_not_inherit_an_earlier_preview_write_revision()
+    {
+        using var settings = new AppearanceSettingsViewModel(Catalog(Snapshot(Theme(), 7), out var recording));
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        recording.BeforeSave = pending.Task;
+        var coordinator = new AppearancePreviewCoordinator();
+        using var firstPreview = coordinator.TryAcquire("settings", 7, null).Lease!;
+        var firstTheme = Theme(showTabBar: false);
+        var first = settings.SaveThemeChangeAsync(firstTheme, firstPreview, CancellationToken.None);
+        firstPreview.Dispose();
+        using var secondPreview = coordinator.TryAcquire("settings", 7, null).Lease!;
+        var second = settings.SaveThemeChangeAsync(Theme(showWorkspacesPanel: false), secondPreview, CancellationToken.None);
+        pending.SetResult();
+
+        Assert.True((await first).IsSuccess);
+        Assert.Equal(DefinitionStoreErrorCode.RevisionConflict, (await second).Error?.Code);
+        Assert.Equal(firstTheme, recording.Snapshot.Themes.Single().Value);
+    }
+
+    [Fact]
     public async Task Automatic_save_failure_preserves_saved_settings_and_allows_a_later_retry()
     {
         var original = Theme();
         using var settings = new AppearanceSettingsViewModel(Catalog(Snapshot(original, 7), out var recording));
         recording.SaveError = new DefinitionStoreError(DefinitionStoreErrorCode.StorageFailure, "Write failed.");
         var changed = Theme(showTabBar: false);
-        Assert.False((await settings.SaveThemeChangeAsync(changed, CancellationToken.None)).IsSuccess);
+        using var preview = new AppearancePreviewCoordinator().TryAcquire("settings", 7, null).Lease!;
+        Assert.False((await settings.SaveThemeChangeAsync(changed, preview, CancellationToken.None)).IsSuccess);
         Assert.Equal(original, recording.Snapshot.Themes.Single().Value);
         recording.SaveError = null;
-        Assert.True((await settings.SaveThemeChangeAsync(changed, CancellationToken.None)).IsSuccess);
+        Assert.True((await settings.SaveThemeChangeAsync(changed, preview, CancellationToken.None)).IsSuccess);
         Assert.Equal(changed, recording.Snapshot.Themes.Single().Value);
     }
     [Fact]
@@ -250,6 +292,7 @@ public sealed class AppearanceSettingsViewModelTests
 
         public int SaveCount { get; private set; }
         public Task BeforeSave { get; set; } = Task.CompletedTask;
+        public Action? AfterSave { get; set; }
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
@@ -280,6 +323,11 @@ public sealed class AppearanceSettingsViewModelTests
             ExpectedRevision = (long?)args[1];
             SaveCount++;
             await BeforeSave.WaitAsync(cancellationToken);
+            if (Snapshot.Themes.FirstOrDefault(item => item.Value.Id == SavedTheme.Id)?.Revision != ExpectedRevision)
+            {
+                return DefinitionStoreResult<StoredDefinition<ThemePreference>>.Failure(new(
+                    DefinitionStoreErrorCode.RevisionConflict, "The theme changed before it could be saved."));
+            }
             var result = SaveError is null
                 ? DefinitionStoreResult<StoredDefinition<ThemePreference>>.Success(
                     new StoredDefinition<ThemePreference>(
@@ -292,6 +340,7 @@ public sealed class AppearanceSettingsViewModelTests
             {
                 Snapshot = Snapshot with { Themes = [result.Value!] };
                 _changed?.Invoke(this, EventArgs.Empty);
+                AfterSave?.Invoke();
             }
             return result;
         }

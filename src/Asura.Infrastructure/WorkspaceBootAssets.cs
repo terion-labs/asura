@@ -34,19 +34,21 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
             var pins = Names.ToDictionary(name => name,
                 name => ReadPin(descriptor.RootElement.GetProperty("files").GetProperty(name), 1024L * 1024 * 1024), StringComparer.Ordinal);
             var directory = Path.Combine(cacheRoot, archivePin.Hash);
-            CreatePrivateDirectory(directory);
+            using var cache = new WorkspaceBootCacheDirectory(directory);
             // A filesystem lock also serializes independent windows/processes. No
             // completion marker can outlive a corrupt or partially written image.
-            await using var lease = await LockAsync(Path.Combine(directory, "provision.lock"), cancellationToken).ConfigureAwait(false);
+            await using var lease = await cache.LockAsync(cancellationToken).ConfigureAwait(false);
             progress?.Report(new WorkspaceIsolationProgress("Verifying cached workspace boot images…"));
-            if (await ValidImagesAsync(directory, pins, cancellationToken).ConfigureAwait(false))
+            if (await ValidImagesAsync(cache, pins, cancellationToken).ConfigureAwait(false))
             {
+                cache.RequireUnchangedPath();
                 return directory;
             }
 
-            var pending = Path.Combine(directory, "download.partial");
+            var pendingName = $"download-{Guid.NewGuid():N}.partial";
             try
             {
+                await using var pending = cache.CreateNew(pendingName);
                 if (localArchive is not null)
                 {
                     await using var source = File.OpenRead(localArchive);
@@ -65,13 +67,14 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
                     await CopyAsync(source, pending, archivePin.Size, progress, timeout.Token).ConfigureAwait(false);
                 }
 
-                if (!await ValidAsync(pending, archivePin, cancellationToken).ConfigureAwait(false))
+                if (!await ValidStreamAsync(pending, archivePin, cancellationToken).ConfigureAwait(false))
                 {
                     throw new WorkspaceEnvironmentRefusalException("The workspace's boot images failed their integrity check after downloading. Try again to download a fresh copy.");
                 }
 
                 progress?.Report(new WorkspaceIsolationProgress("Installing verified workspace boot images…"));
-                using var archive = ZipFile.OpenRead(pending);
+                pending.Position = 0;
+                using var archive = new ZipArchive(pending, ZipArchiveMode.Read, leaveOpen: true);
                 if (archive.Entries.Count != Names.Length)
                 {
                     throw new IOException("The workspace boot archive has unexpected contents.");
@@ -79,28 +82,29 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
                 foreach (var name in Names)
                 {
                     var entry = archive.GetEntry(name) ?? throw new IOException("The workspace boot archive is incomplete.");
-                    var path = Path.Combine(directory, name);
-                    var temporary = path + ".partial";
+                    var temporary = $"{name}-{Guid.NewGuid():N}.partial";
                     try
                     {
+                        await using var target = cache.CreateNew(temporary);
                         await using var source = entry.Open();
-                        await CopyAsync(source, temporary, pins[name].Size, null, cancellationToken).ConfigureAwait(false);
-                        if (!await ValidAsync(temporary, pins[name], cancellationToken).ConfigureAwait(false))
+                        await CopyAsync(source, target, pins[name].Size, null, cancellationToken).ConfigureAwait(false);
+                        if (!await ValidStreamAsync(target, pins[name], cancellationToken).ConfigureAwait(false))
                         {
                             throw new IOException("A workspace boot image failed its integrity check.");
                         }
-                        File.Move(temporary, path, overwrite: true);
+                        cache.Install(temporary, name, target);
                     }
                     finally
                     {
-                        File.Delete(temporary);
+                        cache.Delete(temporary);
                     }
                 }
+                cache.RequireUnchangedPath();
                 return directory;
             }
             finally
             {
-                File.Delete(pending);
+                cache.Delete(pendingName);
             }
         }
         catch (Exception exception) when (exception is HttpRequestException
@@ -126,12 +130,13 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         return (hash, size);
     }
 
-    private static async Task<bool> ValidImagesAsync(string directory,
+    private static async Task<bool> ValidImagesAsync(WorkspaceBootCacheDirectory directory,
         Dictionary<string, (string Hash, long Size)> pins, CancellationToken cancellationToken)
     {
         foreach (var name in Names)
         {
-            if (!await ValidAsync(Path.Combine(directory, name), pins[name], cancellationToken).ConfigureAwait(false))
+            await using var stream = directory.Read(name);
+            if (stream is null || !await ValidStreamAsync(stream, pins[name], cancellationToken).ConfigureAwait(false))
             {
                 return false;
             }
@@ -139,25 +144,17 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         return true;
     }
 
-    private static async Task<bool> ValidAsync(string path, (string Hash, long Size) pin, CancellationToken cancellationToken)
+    private static async Task<bool> ValidStreamAsync(FileStream stream, (string Hash, long Size) pin, CancellationToken cancellationToken)
     {
-        if (!File.Exists(path) || new FileInfo(path).Length != pin.Size)
-        {
-            return false;
-        }
-        await using var stream = File.OpenRead(path);
+        if (stream.Length != pin.Size) { return false; }
+        stream.Position = 0;
         return string.Equals(Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false)),
             pin.Hash, StringComparison.Ordinal);
     }
 
-    private static async Task CopyAsync(Stream source, string path, long size,
+    private static async Task CopyAsync(Stream source, FileStream target, long size,
         IProgress<WorkspaceIsolationProgress>? progress, CancellationToken cancellationToken)
     {
-        await using var target = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        }
         var buffer = new byte[128 * 1024];
         long total = 0;
         var lastPercent = -1;
@@ -187,31 +184,21 @@ internal sealed class WorkspaceBootAssets(string descriptorPath, string cacheRoo
         await target.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<FileStream> LockAsync(string path, CancellationToken cancellationToken)
+    internal static void ValidateDirectoryPath(string path)
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromMinutes(16));
-        while (true)
+        for (var directory = new DirectoryInfo(Path.GetFullPath(path)); directory is not null; directory = directory.Parent)
         {
-            timeout.Token.ThrowIfCancellationRequested();
-            try
+            if (directory.LinkTarget is null) { continue; }
+            // macOS exposes its root-owned temporary directories through these
+            // fixed system links. No user-controlled ancestor receives an exception.
+            if (OperatingSystem.IsMacOS()
+                && ((string.Equals(directory.FullName, "/var", StringComparison.Ordinal) && string.Equals(directory.ResolveLinkTarget(true)?.FullName, "/private/var", StringComparison.Ordinal))
+                    || (string.Equals(directory.FullName, "/tmp", StringComparison.Ordinal) && string.Equals(directory.ResolveLinkTarget(true)?.FullName, "/private/tmp", StringComparison.Ordinal))))
             {
-                return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                continue;
             }
-            catch (IOException)
-            {
-                await Task.Delay(200, timeout.Token).ConfigureAwait(false);
-            }
+            throw new IOException("Workspace storage directories must not contain symbolic links.");
         }
     }
 
-    private static void CreatePrivateDirectory(string directory)
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            Directory.CreateDirectory(directory);
-            return;
-        }
-        Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
 }

@@ -220,9 +220,14 @@ public sealed class ChildProcessTests
             return;
         }
 
-        using var child = ChildProcess.Start(Shell("sleep 30"));
+        var start = Shell("echo ready; read -r signal");
+        start.RedirectStandardInput = true;
+        using var child = ChildProcess.Start(start);
         try
         {
+            // Sampling while the shell execs sleep can observe a transient zero
+            // resident set. This shell announces readiness and then stays in read.
+            Assert.Equal("ready", await child.StandardOutput.ReadLineAsync().WaitAsync(Patience));
             Assert.True(child.ResidentMemoryBytes > 0, "The system's process information was not read.");
         }
         finally

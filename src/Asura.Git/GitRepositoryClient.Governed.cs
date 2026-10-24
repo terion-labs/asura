@@ -142,7 +142,8 @@ public sealed partial class GitRepositoryClient
         GitRepositoryHandle repository,
         string remoteName,
         string destinationBranch,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? expectedRemoteUrl = null)
     {
         ArgumentNullException.ThrowIfNull(repository);
         ValidateRemoteOperand(remoteName, nameof(remoteName));
@@ -174,6 +175,12 @@ public sealed partial class GitRepositoryClient
         }
 
         var safeRemoteUrl = ((GitResult<string>.Success)remoteUrl).Value;
+        if (expectedRemoteUrl is not null && !string.Equals(safeRemoteUrl, expectedRemoteUrl, StringComparison.Ordinal))
+        {
+            return Failure<GitGovernedRemoteRef>(GitErrorCode.InvalidResponse,
+                "The configured Git remote changed after it was observed.");
+        }
+
         var finalConfiguration = await ValidateGovernedConfigurationAsync(
                 repository,
                 cancellationToken)
@@ -1112,7 +1119,9 @@ public sealed partial class GitRepositoryClient
 
             if (seen.Add(name))
             {
-                remotes.Add(new GitRemoteItem(name, string.Empty));
+                var destination = await ResolveGovernedRemoteUrlAsync(repository, name, cancellationToken).ConfigureAwait(false);
+                // Keep unsupported remotes visible but never dispatchable by a governed network read.
+                remotes.Add(new GitRemoteItem(name, destination is GitResult<string>.Success resolved ? resolved.Value : string.Empty));
             }
         }
 

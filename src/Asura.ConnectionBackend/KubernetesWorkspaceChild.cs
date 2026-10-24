@@ -141,13 +141,13 @@ internal static partial class KubernetesWorkspaceChild
         if (configuration.HostConnection is { } hostConnection)
         {
             if (configuration.KubeconfigPath is not null || configuration.ManagedKubeconfig is not null
-                || configuration.TrustedExecFingerprint is not null) { throw InvalidRequest(); }
+                || configuration.TrustedExecFingerprint is not null || configuration.TrustedAuthorityFingerprint is not null) { throw InvalidRequest(); }
             return new KubernetesClientSession(hostConnection, refresh);
         }
         var plans = await KubernetesWorkspaceConfiguration.ReadAsync(configuration, token).ConfigureAwait(false);
         var plan = plans.SingleOrDefault(item => string.Equals(item.ContextName, configuration.ContextName, StringComparison.Ordinal))
             ?? throw InvalidRequest();
-        var resolver = new KubernetesCredentialResolver(plan, configuration.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find);
+        var resolver = new KubernetesCredentialResolver(plan, configuration.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find, configuration.TrustedAuthorityFingerprint);
         var connection = await resolver.ResolveAsync(token).ConfigureAwait(false);
         return new KubernetesClientSession(connection with { Namespace = configuration.Namespace }, resolver.ResolveAsync);
     }

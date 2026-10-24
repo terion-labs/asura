@@ -1170,7 +1170,21 @@ public sealed partial class CefBrowser : IDisposable
                 if (p != null) Marshal.FreeCoTaskMem((IntPtr)p);
             }
         }
-        return tcs.Task;
+        return AwaitDevToolsReplyAsync(messageId, tcs.Task);
+    }
+
+    internal async Task<string> AwaitDevToolsReplyAsync(int messageId, Task<string> reply)
+    {
+        try
+        {
+            // A stalled renderer must not leave the host's snapshot/navigation
+            // fence or the pending-reply dictionary alive indefinitely.
+            return await reply.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        }
+        finally
+        {
+            _devtoolsPending.TryRemove(messageId, out _);
+        }
     }
 
     // ---- JavaScript -----------------------------------------------------

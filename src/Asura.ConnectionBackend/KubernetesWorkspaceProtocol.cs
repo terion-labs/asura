@@ -17,7 +17,8 @@ internal sealed record KubernetesWorkspaceOpen(
     string? KubeconfigPath,
     string? ManagedKubeconfig,
     string? TrustedExecFingerprint,
-    KubernetesResolvedConnection? HostConnection = null)
+    KubernetesResolvedConnection? HostConnection = null,
+    string? TrustedAuthorityFingerprint = null)
 {
     public override string ToString() => "Kubernetes backend configuration [redacted]";
 }

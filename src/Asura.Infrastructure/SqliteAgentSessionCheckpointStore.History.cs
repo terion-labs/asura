@@ -31,6 +31,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
 
         try
         {
+            using var retentionGate = await EnterRetentionAsync(cancellationToken).ConfigureAwait(false);
             var baselineJson = WritePolicy(metadata.BaselinePolicy);
             var runJson = WritePolicy(metadata.RunPolicy);
             var effectiveJson = WritePolicy(metadata.EffectivePolicy);
@@ -263,6 +264,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
 
         try
         {
+            using var retentionGate = await EnterRetentionAsync(cancellationToken).ConfigureAwait(false);
             await using var connection = await _database.OpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
             await using var transaction = connection.BeginTransaction(deferred: false);
@@ -514,7 +516,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         return retention;
     }
 
-    private static async ValueTask PruneHistoryAsync(
+    private async ValueTask PruneHistoryAsync(
         SqliteConnection connection,
         SqliteTransaction transaction,
         AgentRunHistoryRetention retention,
@@ -523,6 +525,11 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         CancellationToken cancellationToken)
     {
         var cutoff = now.ToUniversalTime() - retention.MaximumAge;
+        var protectedRuns = new HashSet<AgentRunId>(_activeRuns.Keys);
+        if (protectedRunId is { } protectedId)
+        {
+            protectedRuns.Add(protectedId);
+        }
         await using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = """
@@ -541,7 +548,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore
                     ROW_NUMBER() OVER (
                         ORDER BY updated_utc DESC, run_id) AS position
                 FROM latest
-                WHERE $protectedRunId IS NULL OR run_id <> $protectedRunId
+                WHERE run_id NOT IN (SELECT value FROM json_each($protectedRuns))
             )
             SELECT run_id
             FROM ranked
@@ -550,11 +557,12 @@ public sealed partial class SqliteAgentSessionCheckpointStore
             """;
         command.Parameters.AddWithValue(
             "$maximumUnprotectedRuns",
-            retention.MaximumRuns - (protectedRunId is null ? 0 : 1));
+            Math.Max(0, retention.MaximumRuns - protectedRuns.Count));
         command.Parameters.AddWithValue("$cutoffUtc", FormatTimestamp(cutoff));
         command.Parameters.AddWithValue(
-            "$protectedRunId",
-            protectedRunId is { } protectedId ? protectedId.Value : DBNull.Value);
+            "$protectedRuns",
+            JsonSerializer.Serialize([.. protectedRuns.Select(run => run.Value)],
+                InfrastructureJsonContext.Default.StringArray));
         var runIds = new List<string>();
         await using (var reader = await command.ExecuteReaderAsync(cancellationToken)
                          .ConfigureAwait(false))

@@ -7476,6 +7476,83 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task Retained_appearance_draft_cannot_adopt_a_concurrent_revision_on_retry()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var catalog = DispatchProxy.Create<IDefinitionCatalog, AppearanceSettingsViewModelTests.RecordingCatalogProxy>();
+            var recording = (AppearanceSettingsViewModelTests.RecordingCatalogProxy)(object)catalog;
+            recording.Snapshot = CreateCatalogSnapshot() with { Themes = [Store(ThemePreference.Default)] };
+            var (client, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, catalog, appearancePreview: new AppearancePreviewCoordinator());
+            viewModel.ShowSettings(SettingsPage.Appearance);
+            var draft = new ThemePreference(ThemePreference.Default.Id, ThemePreference.Default.Name,
+                AppearanceMode.Dark, PlatformProfile.Automatic, AccentPreference.FollowHost);
+            Assert.True(viewModel.PreviewAppearanceTheme(draft));
+            recording.SaveError = new(DefinitionStoreErrorCode.StorageFailure, "Write failed.");
+            Assert.False((await viewModel.SaveAppearanceThemeChangeAsync(draft, timeout.Token)).IsSuccess);
+
+            recording.SaveError = null;
+            var concurrent = new ThemePreference(ThemePreference.Default.Id, ThemePreference.Default.Name,
+                AppearanceMode.System, PlatformProfile.Automatic, AccentPreference.FollowHost, showWorkspacesPanel: false);
+            Assert.True((await catalog.SaveThemeAsync(concurrent, 1, timeout.Token)).IsSuccess);
+            Assert.Equal(2, viewModel.AppearanceSettings.ActiveThemeRevision);
+            Assert.True(viewModel.PreviewAppearanceTheme(draft));
+
+            var retried = await viewModel.SaveAppearanceThemeChangeAsync(draft, timeout.Token);
+
+            Assert.Equal(DefinitionStoreErrorCode.RevisionConflict, retried.Error?.Code);
+            Assert.Equal(concurrent, recording.Snapshot.Themes.Single().Value);
+            Assert.True(viewModel.CanRetryAppearanceSave);
+            return true;
+        }, timeout.Token));
+    }
+
+    [Fact]
+    public async Task Refreshed_appearance_controls_use_the_displayed_revision_for_a_new_draft()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var catalog = DispatchProxy.Create<IDefinitionCatalog, AppearanceSettingsViewModelTests.RecordingCatalogProxy>();
+            var recording = (AppearanceSettingsViewModelTests.RecordingCatalogProxy)(object)catalog;
+            recording.Snapshot = CreateCatalogSnapshot() with { Themes = [Store(ThemePreference.Default)] };
+            var (client, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, catalog, appearancePreview: new AppearancePreviewCoordinator());
+            var window = new MainWindow { DataContext = viewModel };
+            window.Show();
+            try
+            {
+                window.NavigateToSettings(SettingsPage.Appearance);
+                var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+                var concurrent = new ThemePreference(ThemePreference.Default.Id, ThemePreference.Default.Name,
+                    AppearanceMode.System, PlatformProfile.Automatic, AccentPreference.FollowHost, showWorkspacesPanel: false);
+                Assert.True((await catalog.SaveThemeAsync(concurrent, 1, timeout.Token)).IsSuccess);
+                window.RefreshAppearanceControlsFromStoredProfile();
+                settings.UpdateLayout();
+                var density = settings.GetVisualDescendants().OfType<SegmentedControl>()
+                    .Single(picker => picker.Name == "DensityPicker");
+                var compact = density.GetVisualDescendants().OfType<RadioButton>()
+                    .Single(segment => Equals(segment.Content, "Compact"));
+
+                compact.IsChecked = true;
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+
+                Assert.Equal(3, recording.Snapshot.Themes.Single().Revision);
+                Assert.Equal(InterfaceDensity.Compact, recording.Snapshot.Themes.Single().Value.Density);
+                Assert.False(recording.Snapshot.Themes.Single().Value.ShowWorkspacesPanel);
+                Assert.False(viewModel.CanRetryAppearanceSave);
+                settings.Close();
+                return true;
+            }
+            finally { window.Close(); }
+        }, timeout.Token));
+    }
+
+    [Fact]
     public void Disposed_window_cannot_reacquire_the_process_appearance_preview()
     {
         var coordinator = new AppearancePreviewCoordinator();
@@ -8323,6 +8400,28 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Equal(viewModel.WindowId, target.WindowId);
         Assert.Equal(workspace.Id, target.WorkspaceId);
         Assert.Equal(tab.Id, target.TabId);
+    }
+
+    [Fact]
+    public async Task RecreatingSavedScreenTargetRevokesPreviousAuthorizationOnCancellation()
+    {
+        var policy = Policy("agent-provider", "saved-target-model", _ => AgentPermission.Ask);
+        var snapshot = CreateAgentPolicyCatalogSnapshot(policy, policy);
+        using var agentRuntime = new RecordingGovernedAgentRuntime();
+        using var aiProfiles = new FixedAiProfileRuntime([CreateAgentProvider()]);
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, CreateFixedCatalog(snapshot), agentRuntime: agentRuntime, aiProfiles: aiProfiles);
+        viewModel.SelectedAgentSavedScreenTemplate = viewModel.Screens[0];
+        await viewModel.CreateAgentSavedScreenTargetAsync();
+        Assert.True(viewModel.TryAuthorizeAgentSavedScreenTarget(out _));
+        using var canceled = new CancellationTokenSource();
+        await canceled.CancelAsync();
+        try { await viewModel.CreateAgentSavedScreenTargetAsync(canceled.Token); }
+        catch (OperationCanceledException) { }
+        Assert.False(viewModel.HasAuthorizedAgentSavedScreenTarget);
+        viewModel.AgentChat!.Prompt = "Do not reuse the previous authorization.";
+        await viewModel.SendAgentPromptAsync();
+        Assert.Null(agentRuntime.LastRequest);
     }
 
     [Fact]

@@ -11,27 +11,44 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
 {
     private readonly IDefinitionCatalog _catalog;
     private ThemePreference _activeTheme;
+    private long? _activeThemeRevision;
     private bool _disposed;
-    private Task _pendingThemeSave = Task.CompletedTask;
+    private Task<DefinitionStoreResult<StoredDefinition<ThemePreference>>>? _pendingThemeSave;
+    private AppearancePreviewLease? _pendingThemePreviewLease;
 
-    /// <summary>Serializes live selections and reads the revision after earlier writes finish.</summary>
+    /// <summary>Serializes selections without adopting revisions written by another editor.</summary>
     public Task<DefinitionStoreResult<StoredDefinition<ThemePreference>>> SaveThemeChangeAsync(
-        ThemePreference theme, CancellationToken cancellationToken)
+        ThemePreference theme, AppearancePreviewLease previewLease, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
-        var save = SaveThemeChangeAfterAsync(_pendingThemeSave, theme, cancellationToken);
+        ArgumentNullException.ThrowIfNull(previewLease);
+        var save = SaveThemeChangeAfterAsync(_pendingThemeSave, theme, previewLease.BaselineThemeRevision,
+            ReferenceEquals(_pendingThemePreviewLease, previewLease), cancellationToken);
         _pendingThemeSave = save;
+        _pendingThemePreviewLease = previewLease;
         return save;
     }
 
     private async Task<DefinitionStoreResult<StoredDefinition<ThemePreference>>> SaveThemeChangeAfterAsync(
-        Task precedingSave, ThemePreference theme, CancellationToken cancellationToken)
+        Task<DefinitionStoreResult<StoredDefinition<ThemePreference>>>? precedingSave,
+        ThemePreference theme, long? expectedRevision, bool samePreview, CancellationToken cancellationToken)
     {
         try
         {
-            await precedingSave;
-            var stored = _catalog.Snapshot.Themes.FirstOrDefault(item => item.Value.Id == theme.Id);
-            return await SaveThemeAsync(theme, stored?.Revision, cancellationToken);
+            if (precedingSave is not null)
+            {
+                var preceding = await precedingSave;
+                // Only our own preceding write can advance the captured fence.
+                // Reading the catalog here would bless a stale value with a
+                // concurrent editor's revision and silently overwrite its work.
+                if (samePreview && preceding.IsSuccess && preceding.Value is { } saved
+                    && saved.Value.Id == theme.Id
+                    && (expectedRevision is null || saved.Revision > expectedRevision))
+                {
+                    expectedRevision = saved.Revision;
+                }
+            }
+            return await SaveThemeAsync(theme, expectedRevision, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -48,7 +65,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
     public AppearanceSettingsViewModel(IDefinitionCatalog catalog)
     {
         _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
-        _activeTheme = ResolveActiveTheme(_catalog.Snapshot);
+        (_activeTheme, _activeThemeRevision) = ResolveActiveTheme(_catalog.Snapshot);
     }
 
     public event EventHandler? BackgroundSaveStarting;
@@ -56,6 +73,8 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
     public event EventHandler<AppearanceSaveCompletedEventArgs>? BackgroundSaveCompleted;
 
     public ThemePreference ActiveTheme => _activeTheme;
+
+    public long? ActiveThemeRevision => _activeThemeRevision;
 
     public string ThemeMode => ModeLabel(ActiveTheme.Appearance);
 
@@ -160,7 +179,7 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(snapshot);
-        _activeTheme = ResolveActiveTheme(snapshot);
+        (_activeTheme, _activeThemeRevision) = ResolveActiveTheme(snapshot);
         PublishThemeProperties();
     }
 
@@ -276,11 +295,12 @@ public sealed class AppearanceSettingsViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SideTabIconPickerPlacement));
     }
 
-    private static ThemePreference ResolveActiveTheme(
-        DefinitionCatalogSnapshot snapshot) =>
-        snapshot.Themes
-            .FirstOrDefault(item => item.Value.Id == ThemePreference.Default.Id)?.Value
-        ?? ThemePreference.Default;
+    private static (ThemePreference Theme, long? Revision) ResolveActiveTheme(
+        DefinitionCatalogSnapshot snapshot)
+    {
+        var stored = snapshot.Themes.FirstOrDefault(item => item.Value.Id == ThemePreference.Default.Id);
+        return (stored?.Value ?? ThemePreference.Default, stored?.Revision);
+    }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 }

@@ -91,7 +91,14 @@ internal sealed class WorkspaceConnectionBackendFactory(
             }
             if (hop?.Endpoint is not ConnectionEndpoint.Ssh)
             {
-                if (_workspaceDatabases is not null) { return _workspaceDatabases; }
+                if (_workspaceDatabases is not null)
+                {
+                    // Server credentials must never reach executable files owned
+                    // by interactive guest workloads. The mount-free service VM
+                    // retains the captured workspace route (including loopback).
+                    if (driver.IsFileBased) { return _workspaceDatabases; }
+                    return (await GetServiceAsync(null, linked.Token).ConfigureAwait(false)).Databases;
+                }
                 // SQLite cannot open network sockets or extensions. Every other
                 // host driver borrows an immutable Direct generation instead.
                 if (driver.IsFileBased && string.Equals(driver.Id, "sqlite", StringComparison.Ordinal))
@@ -224,7 +231,7 @@ internal sealed class WorkspaceConnectionBackendFactory(
                     isolate = await WorkspaceConnectionServiceIsolate.OpenAsync(provider, _owner._gateways,
                         _workspaceId, new WorkspacePacketGatewayServiceProxy(endpoint,
                             credentials ?? throw new InvalidOperationException("The captured connection route has no private proxy authority.")), serviceLifetime.Token, startup.Token).ConfigureAwait(false);
-                    service = new Service(hop, route.RouteLifetime, isolate, tunnel, serviceLifetime, _owner._contentStores);
+                    service = new Service(hop, route.RouteLifetime, isolate, tunnel, serviceLifetime, _owner._contentStores, importHostConnectionFiles: _workspace is null || hop is not null);
                     // Retain ownership before the final setup step. If setup and
                     // teardown both fail, a later close can retry this exact lease.
                     _services.Add(service);
@@ -341,11 +348,12 @@ internal sealed class WorkspaceConnectionBackendFactory(
 
             internal Service(ConnectionProfile? hop, CancellationToken route, WorkspaceConnectionServiceIsolate isolate,
                 SshNetBrowserTunnelFactory.SshBrowserTunnel? tunnel, CancellationTokenSource authority,
-                Func<DatabaseValueContentStore> stores)
+                Func<DatabaseValueContentStore> stores, bool importHostConnectionFiles = true)
             {
                 Hop = hop; Route = route; _isolate = isolate; _tunnel = tunnel; _authority = authority;
                 _backend = new(isolate.Commands, architecture: isolate.Binding.Network?.RelayAttachment?.Architecture ?? "arm64");
-                Databases = new(stores, workspaceLaunch: token => PlanAsync("database", token), importHostConnectionFiles: true);
+                Databases = new(stores, workspaceLaunch: token => PlanAsync("database", token), connectionFiles: importHostConnectionFiles
+                    ? DatabaseConnectionFileAccess.ImportHost : DatabaseConnectionFileAccess.RefuseWorkspaceFiles);
             }
 
             internal ConnectionProfile? Hop { get; }

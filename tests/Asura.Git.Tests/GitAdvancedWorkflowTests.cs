@@ -494,7 +494,14 @@ public sealed class GitAdvancedWorkflowTests
             Success(await repo.Client.StageAsync(repo.Handle, ["signed.txt"], CancellationToken.None));
 
             Success(await repo.Client.CommitAsync(repo.Handle, new("Signed fixture", "", false), CancellationToken.None));
-            var signature = Success(await repo.Client.ReadSignatureAsync(repo.Handle, "HEAD", CancellationToken.None));
+            // The verifier may use trusted process environment, never repository-selected code.
+            var verification = new GitRepositoryClient(new ConnectionCommandExecutor(new Runtime(
+                new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["GNUPGHOME"] = directory,
+                    ["PATH"] = Path.GetDirectoryName(gpg) + Path.PathSeparator + Environment.GetEnvironmentVariable("PATH"),
+                }), new PathConnectionExecutableLocator()), TimeProvider.System);
+            var signature = Success(await verification.ReadSignatureAsync(repo.Handle, "HEAD", CancellationToken.None));
 
             Assert.Equal("Signature valid", signature.Status);
             Assert.Equal("Asura Fixture <fixture@example.test>", signature.Signer);
@@ -538,6 +545,57 @@ public sealed class GitAdvancedWorkflowTests
             Success(await repo.Client.ReadHistoricalFilePathAsync(repo.Handle, current, "資料 final.txt", current, CancellationToken.None)));
     }
 
+    [Fact]
+    public async Task SignatureInspectionCannotExecuteRepositorySelectedVerifier()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        await using var repo = await Repository.CreateAsync();
+        var marker = Path.Combine(repo.Root, "verifier-ran");
+        var verifier = Path.Combine(repo.Root, "malicious-verifier");
+        await File.WriteAllTextAsync(verifier, "#!/bin/sh\ntouch '" + marker + "'\nexit 1\n");
+        File.SetUnixFileMode(verifier, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        await repo.GitAsync("config", "gpg.program", verifier);
+        await repo.GitAsync("config", "gpg.openpgp.program", verifier);
+        var tree = (await repo.GitAsync("rev-parse", "HEAD^{tree}")).Trim();
+        var commitPath = Path.Combine(repo.Root, "signed-commit");
+        await File.WriteAllTextAsync(commitPath, $"tree {tree}\nauthor Example <example@example.test> 1 +0000\ncommitter Example <example@example.test> 1 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n malformed\n -----END PGP SIGNATURE-----\n\nSigned fixture\n");
+        var commit = (await repo.GitAsync("hash-object", "-t", "commit", "-w", commitPath)).Trim();
+        _ = await repo.Client.ReadSignatureAsync(repo.Handle, commit, CancellationToken.None);
+        Assert.False(File.Exists(marker));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImagePreviewRefusesLeafAndAncestorSymlinks(bool ancestor)
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        await using var repo = await Repository.CreateAsync();
+        var outside = Directory.CreateTempSubdirectory("asura-image-outside-");
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(outside.FullName, "private.png"), "private-image-content");
+            var path = ancestor ? "linked/private.png" : "private.png";
+            await repo.WriteAsync(path, "original image");
+            await repo.CommitAsync("Image before symlink");
+            if (ancestor)
+            {
+                Directory.Delete(Path.Combine(repo.Root, "linked"), recursive: true);
+                Directory.CreateSymbolicLink(Path.Combine(repo.Root, "linked"), outside.FullName);
+            }
+            else
+            {
+                File.Delete(Path.Combine(repo.Root, "private.png"));
+                File.CreateSymbolicLink(Path.Combine(repo.Root, "private.png"), Path.Combine(outside.FullName, "private.png"));
+            }
+            var result = await repo.Client.ReadImagesAsync(repo.Handle,
+                new(GitDiffArea.Worktree, path, IsUntracked: true), CancellationToken.None);
+            var failure = Assert.IsType<GitResult<GitImagePair>.Failure>(result);
+            Assert.DoesNotContain("private-image-content", failure.Error.Message, StringComparison.Ordinal);
+        }
+        finally { outside.Delete(recursive: true); }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -567,6 +625,26 @@ public sealed class GitAdvancedWorkflowTests
             Assert.Equal(oid, version.LfsObjectId);
             Assert.Equal(cached ? image : Encoding.UTF8.GetBytes(pointer), version.Bytes.ToArray());
         }
+    }
+
+    [Fact]
+    public async Task ImagePreviewDoesNotFollowLfsCacheSymlinks()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        await using var repo = await Repository.CreateAsync();
+        var oid = new string('a', 64);
+        var pointer = $"version https://git-lfs.github.com/spec/v1\noid sha256:{oid}\nsize 1\n";
+        await repo.WriteAsync("image.png", pointer);
+        await repo.CommitAsync("LFS pointer");
+        var secret = Path.Combine(repo.Root, "private-image");
+        await File.WriteAllTextAsync(secret, "private-image-content");
+        var cache = Path.Combine(repo.Root, ".git", "lfs", "objects", "aa", "aa", oid);
+        Directory.CreateDirectory(Path.GetDirectoryName(cache)!);
+        File.CreateSymbolicLink(cache, secret);
+        var pair = Success(await repo.Client.ReadImagesAsync(repo.Handle, new(GitDiffArea.Worktree, "image.png"), CancellationToken.None));
+        Assert.True(pair.Before.IsLfsPointer);
+        Assert.True(pair.After.IsLfsPointer);
+        Assert.Equal(Encoding.UTF8.GetBytes(pointer), pair.After.Bytes.ToArray());
     }
 
     [Fact]
@@ -1204,12 +1282,12 @@ public sealed class GitAdvancedWorkflowTests
         }
     }
 
-    private sealed class Runtime : IConnectionRuntime
+    private sealed class Runtime(IReadOnlyDictionary<string, string>? environment = null) : IConnectionRuntime
     {
         public ValueTask<ConnectionRuntimeResult<ConnectionOpenPlan>> PlanOpenAsync(ConnectionProfile profile,
             IProgress<ConnectionProgress>? progress, CancellationToken cancellationToken) => ValueTask.FromResult(
                 ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(new(profile.Id, ConnectionKind.Local,
-                    new TerminalLaunchRequest(null), ConnectionAuthenticationMode.None, SshHostKeyPolicy.NotApplicable, ConnectionReconnectMode.NotApplicable)));
+                    new TerminalLaunchRequest(null, environment: environment), ConnectionAuthenticationMode.None, SshHostKeyPolicy.NotApplicable, ConnectionReconnectMode.NotApplicable)));
 
         public ValueTask<ConnectionRuntimeResult<ConnectionTestReport>> TestAsync(ConnectionProfile profile,
             IProgress<ConnectionProgress>? progress, CancellationToken cancellationToken) => throw new NotSupportedException();

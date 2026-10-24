@@ -1693,18 +1693,21 @@ public sealed partial class NativeAgentSessionTests
         Assert.Equal(initial.ToArray(), session.Snapshot().Conversation.ToArray());
         await blocking.Finished.Task.WaitAsync(TimeSpan.FromSeconds(1));
 
-        AgentCompactionResult failed;
-        var attempts = 0;
-        do
+        // The compactor's finally runs before the background observer releases
+        // its lease. Wait for the session's idle boundary before reusing it.
+        using var cleanupTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        var checkpoint = session.CaptureCheckpoint();
+        while (!checkpoint.Succeeded)
         {
-            await Task.Yield();
-            failed = await session.CompactAsync(
-                1,
-                new FailingCompactor(),
-                CancellationToken.None);
-            attempts++;
+            Assert.Equal(AgentCheckpointCaptureErrorCode.SessionNotIdle, checkpoint.ErrorCode);
+            await Task.Delay(TimeSpan.FromMilliseconds(10), cleanupTimeout.Token);
+            checkpoint = session.CaptureCheckpoint();
         }
-        while (failed.ErrorCode == AgentCompactionErrorCode.Busy && attempts < 100);
+
+        var failed = await session.CompactAsync(
+            1,
+            new FailingCompactor(),
+            CancellationToken.None);
 
         Assert.Equal(AgentCompactionErrorCode.CompactorFailure, failed.ErrorCode);
         Assert.Equal(initial.ToArray(), session.Snapshot().Conversation.ToArray());

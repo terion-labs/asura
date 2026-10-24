@@ -19,18 +19,26 @@ public sealed class KubernetesCredentialResolver
     private readonly KubernetesKubeconfigPlan _plan;
     private readonly string? _trustedExecFingerprint;
     private readonly Func<string, string?>? _findExecutable;
+    private readonly string? _trustedAuthorityFingerprint;
 
     public KubernetesCredentialResolver(KubernetesKubeconfigPlan plan, string? trustedExecFingerprint = null,
-        Func<string, string?>? findExecutable = null)
+        Func<string, string?>? findExecutable = null, string? trustedAuthorityFingerprint = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         _plan = plan;
         _trustedExecFingerprint = trustedExecFingerprint;
         _findExecutable = findExecutable;
+        _trustedAuthorityFingerprint = trustedAuthorityFingerprint;
     }
 
     public async ValueTask<KubernetesResolvedConnection> ResolveAsync(CancellationToken cancellationToken)
     {
+        // Validate before opening any credential file or launching a helper.
+        if (!string.Equals(_plan.AuthorityFingerprint, _trustedAuthorityFingerprint, StringComparison.Ordinal))
+        {
+            throw new KubernetesRequestException(KubernetesErrorCode.Unauthorized,
+                "Review and trust this context's endpoint, TLS settings and credential files before connecting.");
+        }
         KubernetesResolvedConnection connection = _plan.Connection with
         {
             CertificateAuthorityPem = await ReadMaterialAsync(_plan.CertificateAuthorityPath, _plan.Connection.CertificateAuthorityPem, cancellationToken).ConfigureAwait(false),

@@ -40,6 +40,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     private CefHumanizedInput? _humanizedInput;
     private CefBrowserNetworkActivityTracker? _networkActivity;
     private CefBrowserDomActivityTracker? _domActivity;
+    private AgentWebResponseBudget? _responseBudget;
     private volatile ActiveNativeNavigation? _activeNavigation;
     private Func<BrowserAddress, CancellationToken, ValueTask<bool>>?
         _resourceRequestPolicy;
@@ -564,6 +565,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
                 humanizedInput);
             _networkActivity = new CefBrowserNetworkActivityTracker(browser);
             _domActivity = new CefBrowserDomActivityTracker(browser);
+            _responseBudget?.Register(browser.Id);
             Subscribe(browser);
             if (_isAgentActive)
             {
@@ -625,6 +627,12 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
 
         return started
             && await _rendererReady.Task.ConfigureAwait(false);
+    }
+
+    internal void SetResponseBudget(AgentWebResponseBudget budget)
+    {
+        _responseBudget = budget;
+        if (_webView.Browser is { } browser) { budget.Register(browser.Id); }
     }
 
     private bool TryStartHeadlessRenderer()

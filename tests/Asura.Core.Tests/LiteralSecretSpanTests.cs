@@ -37,10 +37,8 @@ public sealed class LiteralSecretSpanTests
     }
 
     [Theory]
-    [InlineData("multica login --token\nmultica daemon start\nexit")]
     [InlineData("password=null, token=false, api_key=\"\"")]
     [InlineData("Set an API key in settings")]
-    [InlineData("terrariumctl cluster join --token '<token>' --wireguard '<bundle>' --yes")]
     [InlineData("Generated Cockpit root password: `/etc/terrarium/secrets/cockpit_root_password`.\nNext instruction")]
     [InlineData("Choose a password:\n  - Generate one\n  - Store it")]
     [InlineData("Set a random `password:`, and `cert: false`.")]
@@ -55,6 +53,62 @@ public sealed class LiteralSecretSpanTests
     [InlineData("https://ordinary.example/path https://alice:fixture-password@host/path")]
     public void RealCredentialUrlsStillProtectTheirValues(string text) =>
         Assert.NotEmpty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+
+    [Theory]
+    [InlineData("--token\nliteral-secret-value")]
+    [InlineData("--password\r\nliteral-secret-value")]
+    [InlineData("password=<ghp_abcdefghijklmnop>")]
+    [InlineData("--token '<actual_token>'")]
+    [InlineData("{\"body\":\"password=<actual_token>\"}")]
+    [InlineData("{\"body\":\"--token\\nliteral-secret-value\"}")]
+    public void CredentialFormattingCannotBypassProtection(string text)
+    {
+        Assert.True(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        Assert.NotEmpty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+    }
+
+    [Theory]
+    [InlineData("sh", "\n")]
+    [InlineData("bash", "\r\n")]
+    [InlineData("shell", "\n")]
+    public void BareOptionInSimpleShellExampleDoesNotConsumeTheNextCommand(string language, string newline)
+    {
+        var text = string.Join(newline, "Enter the token privately at the prompt:",
+            "```" + language, "service login --token", "service daemon start", "exit", "```");
+
+        Assert.False(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        Assert.Empty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+    }
+
+    [Fact]
+    public void BareOptionAtTheEndOfASimpleShellExampleHasNoValue()
+    {
+        const string text = "```sh\nservice login --token\n```";
+
+        Assert.False(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        Assert.Empty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+    }
+
+    [Theory]
+    [InlineData("```sh\nservice login --token fixture-secret\nexit\n```")]
+    [InlineData("```sh\nservice login --token\nservice daemon --password fixture-secret\n```")]
+    [InlineData("```sh\nservice login --token\npassword=\nfixture-secret\n```")]
+    [InlineData("```sh\nservice login --token=\nfixture-secret\n```")]
+    [InlineData("```sh\nservice login --token \\\nfixture-secret\n```")]
+    [InlineData("```sh\necho \"\nservice login --token\nfixture-secret\n\"\n```")]
+    [InlineData("```sh\nservice login --token\n'<actual_token>'\n```")]
+    [InlineData("```sh\nservice login --token\nservice start")]
+    [InlineData("```text\nservice login --token\nfixture-secret\n```")]
+    [InlineData("```sh\n--token\nfixture-secret\n```")]
+    [InlineData("```sh\nservice login --token\nfixture-secret\n```")]
+    [InlineData("```sh\nservice login --token\nservice-credential\n```")]
+    [InlineData("```sh\nservice login --token\nservice\n```")]
+    [InlineData("```sh\nservice login --token\nservice start\n```\n--token\nfixture-secret")]
+    public void ShellExampleRecognitionCannotHideCredentialValues(string text)
+    {
+        Assert.True(LiteralSecretValidator.ContainsLikelyLiteralSecret(text));
+        Assert.NotEmpty(LiteralSecretValidator.FindLikelyLiteralSecretSpans(text));
+    }
 
     [Fact]
     public void LongOrdinarySchemaValueRemainsReadable()

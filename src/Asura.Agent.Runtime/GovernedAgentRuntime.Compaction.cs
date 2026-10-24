@@ -107,7 +107,7 @@ public sealed partial class GovernedAgentRuntime
                 }
             }
 
-            ReleaseTurn(operation);
+            await ReleaseTurnAsync(operation).ConfigureAwait(false);
             NotifyChanged();
         }
     }

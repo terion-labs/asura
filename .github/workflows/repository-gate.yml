@@ -1,24 +1,48 @@
 name: Repository gate
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vMAJOR.MINOR.PATCH tag at the selected main commit
+        required: true
+        type: string
 
 permissions:
   actions: read
   contents: read
 
 concurrency:
-  group: repository-gate-${{ github.ref }}
+  group: repository-gate-release
   cancel-in-progress: true
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
   DOTNET_NOLOGO: "1"
+  ASURA_RELEASE_TAG: ${{ inputs.tag }}
 
 jobs:
+  authorize-release:
+    name: Verify release tag against main
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require the requested tag to identify this main commit
+        shell: bash
+        run: |
+          if [[ ! "${ASURA_RELEASE_TAG}" =~ ^v[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]]; then
+            echo "Release tag must be vMAJOR.MINOR.PATCH." >&2
+            exit 64
+          fi
+          git fetch --no-tags --depth=1 origin "refs/tags/${ASURA_RELEASE_TAG}"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "${GITHUB_SHA}"
+
   terminal-native-assets:
     name: Build macOS terminal runtime
+    needs: authorize-release
     runs-on: macos-15
     # Cold toolchain downloads and native verification can exceed 30 minutes.
     timeout-minutes: 60
@@ -182,6 +206,7 @@ jobs:
 
   dependency-security-evidence:
     name: Exact dependency security evidence
+    needs: authorize-release
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -270,6 +295,9 @@ jobs:
 
   macos-early-release:
     name: macOS arm64 early release
+    # Configure main-only deployments and required reviewers; keep Apple keys
+    # exclusively in this environment, never repository-wide secrets.
+    environment: release
     needs: [managed-conformance, macos-release-build, format-and-boundaries, dependency-security-evidence]
     runs-on: macos-26
     timeout-minutes: 180
@@ -279,6 +307,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
@@ -290,6 +319,7 @@ jobs:
       - name: Seal exact tagged source before any release build
         shell: bash
         run: |
+          test "$(git rev-parse "refs/tags/${ASURA_RELEASE_TAG}^{commit}")" = "${GITHUB_SHA}"
           sealed_source="${RUNNER_TEMP}/asura-sealed-source"
           campaign_tool="${RUNNER_TEMP}/asura-security-campaign-tool"
           campaign_build="${RUNNER_TEMP}/asura-security-campaign-build"
@@ -313,7 +343,7 @@ jobs:
             --source-root "${sealed_source}" \
             --source-commit "${GITHUB_SHA}" \
             --source-tree "${source_tree}" \
-            --tag "${GITHUB_REF_NAME}" \
+            --tag "${ASURA_RELEASE_TAG}" \
             --output "${source_seal}"
           mkdir -p \
             "${sealed_source}/.deps" \
@@ -331,7 +361,7 @@ jobs:
             echo "ASURA_DOTNET=$(command -v dotnet)"
             echo "ASURA_RELEASE_SOURCE_COMMIT=${GITHUB_SHA}"
             echo "ASURA_RELEASE_SOURCE_TREE=${source_tree}"
-            echo "ASURA_RELEASE_SOURCE_TAG=${GITHUB_REF_NAME}"
+            echo "ASURA_RELEASE_SOURCE_TAG=${ASURA_RELEASE_TAG}"
             echo "NUGET_PACKAGES=${nuget_packages}"
           } >> "${GITHUB_ENV}"
       - name: Set up the pinned Native Image toolchain
@@ -343,13 +373,36 @@ jobs:
           native-image-job-reports: true
       - name: Set up the Native AOT linker
         run: |
-          brew install lld@22
-          echo "ASURA_NATIVE_AOT_LINKER=$(brew --prefix lld@22)/bin/ld64.lld" >> "${GITHUB_ENV}"
+          # Formula and every dependency bottle checksum come from this reviewed
+          # immutable tap revision, never the mutable Homebrew JSON API.
+          core_revision=7d510097b9e6d86c103d22054ec80d74b5d70e9a
+          core_tap="$(brew --repository)/Library/Taps/homebrew/homebrew-core"
+          if [[ ! -d "${core_tap}/.git" ]]; then
+            mkdir -p "${core_tap}"
+            git -C "${core_tap}" init
+            git -C "${core_tap}" remote add origin https://github.com/Homebrew/homebrew-core.git
+          fi
+          git -C "${core_tap}" fetch --depth=1 origin "${core_revision}"
+          git -C "${core_tap}" checkout --detach "${core_revision}"
+          test "$(git -C "${core_tap}" rev-parse HEAD)" = "${core_revision}"
+          if brew list --versions lld@22 >/dev/null 2>&1; then
+            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22
+          else
+            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew install lld@22
+          fi
+          linker="$(brew --prefix lld@22)/bin/ld64.lld"
+          linker_version="$("${linker}" --version)"
+          [[ "${linker_version}" =~ ^LLD[[:space:]]+22\.1\.8([[:space:]]|$) ]]
+          {
+            printf '%s\n' "homebrew-core ${core_revision}" "${linker_version}"
+            shasum -a 256 "${linker}"
+          } > "${ASURA_RELEASE_ARTIFACTS}/linker-source.txt"
+          echo "ASURA_NATIVE_AOT_LINKER=${linker}" >> "${GITHUB_ENV}"
       - name: Resolve release version
         id: release
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${ASURA_RELEASE_TAG#v}"
           if [[ ! "${version}" =~ ^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}$ ]]; then
             echo "Release version must contain exactly three unsigned integer parts." >&2
             exit 64
@@ -360,7 +413,6 @@ jobs:
           fi
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
       - name: Verify macOS legal publication clearance
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           cd "${ASURA_RELEASE_SOURCE_ROOT}"
           python3 ./scripts/package-workspace-backend.py verify-release-clearance .
@@ -437,12 +489,12 @@ jobs:
           path: ${{ runner.temp }}/asura-release-artifacts/dependency-security-evidence
       - name: Configure Developer ID signing and notarization
         env:
-          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION }}
-          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
-          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
-          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.RELEASE_APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.RELEASE_APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION: ${{ secrets.RELEASE_APPLE_DEVELOPER_ID_APPLICATION }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.RELEASE_APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.RELEASE_APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.RELEASE_APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
         run: |
           for required in \
             APPLE_CERTIFICATE_P12_BASE64 \
@@ -544,7 +596,7 @@ jobs:
             --repository "${ASURA_RELEASE_SOURCE_ROOT}" \
             --source-commit "${GITHUB_SHA}" \
             --source-tree "${ASURA_RELEASE_SOURCE_TREE}" \
-            --tag "${GITHUB_REF_NAME}" \
+            --tag "${ASURA_RELEASE_TAG}" \
             --run-id "${GITHUB_RUN_ID}" \
             --run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --source-seal "${ASURA_RELEASE_SOURCE_SEAL}" \
@@ -562,7 +614,7 @@ jobs:
             --repository "${ASURA_RELEASE_SOURCE_ROOT}" \
             --source-commit "${GITHUB_SHA}" \
             --source-tree "${ASURA_RELEASE_SOURCE_TREE}" \
-            --tag "${GITHUB_REF_NAME}" \
+            --tag "${ASURA_RELEASE_TAG}" \
             --run-id "${GITHUB_RUN_ID}" \
             --run-attempt "${GITHUB_RUN_ATTEMPT}" \
             --source-seal "${ASURA_RELEASE_SOURCE_SEAL}" \
@@ -584,18 +636,22 @@ jobs:
             ${{ runner.temp }}/asura-release-artifacts/security-campaign/receipt.md
             ${{ runner.temp }}/asura-release-artifacts/dependency-security-evidence/evidence.json
             ${{ runner.temp }}/asura-release-artifacts/release-evidence/release-build-identity.json
+            ${{ runner.temp }}/asura-release-artifacts/linker-source.txt
             ${{ runner.temp }}/asura-source-seal/source-seal.json
             ${{ runner.temp }}/asura-source-seal/source-seal.json.sha256
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \
+          # Recheck after the build; protected v* tags must prevent changes during
+          # publication and afterward. --verify-tag only checks tag existence.
+          git fetch --no-tags --depth=1 origin "refs/tags/${ASURA_RELEASE_TAG}"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "${GITHUB_SHA}"
+          gh release create "${ASURA_RELEASE_TAG}" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/Asura-workspace-boot-arm64.zip" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/Asura-workspace-boot-arm64.zip.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/Asura-workspace-backend-arm64.tar.gz" \
@@ -615,6 +671,7 @@ jobs:
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.md" \
             "${ASURA_RELEASE_ARTIFACTS}/dependency-security-evidence/evidence.json" \
             "${ASURA_RELEASE_ARTIFACTS}/release-evidence/release-build-identity.json" \
+            "${ASURA_RELEASE_ARTIFACTS}/linker-source.txt" \
             "${ASURA_RELEASE_SOURCE_SEAL}/source-seal.json" \
             "${ASURA_RELEASE_SOURCE_SEAL}/source-seal.json.sha256" \
             --fail-on-no-commits \

@@ -54,7 +54,7 @@ public sealed class SqliteBrowserHistoryTests
     }
 
     [Fact]
-    public async Task UpgradeEnablesHistoryForDurableProfilesAndKeepsPrivateProfilesUnrecorded()
+    public async Task UpgradePreservesHistoryOptOutForDurableAndPrivateProfiles()
     {
         await using var temporary = TemporaryDatabase.Create();
         await HistoricalDatabaseFixture.CreateAsync(temporary.DatabasePath, 20);
@@ -84,9 +84,7 @@ public sealed class SqliteBrowserHistoryTests
         {
             var profile = Assert.IsType<BrowserProfileDefinition>(
                 DefinitionJson.Deserialize(DefinitionKind.BrowserProfile, reader.GetString(0)));
-            Assert.Equal(profile.Persistence == BrowserProfilePersistence.PrivateSession
-                ? BrowserActivityRetention.DoNotRecord : BrowserActivityRetention.BoundedLocalHistory,
-                profile.Privacy.History);
+            Assert.Equal(BrowserActivityRetention.DoNotRecord, profile.Privacy.History);
             count++;
         }
         Assert.Equal(2, count);

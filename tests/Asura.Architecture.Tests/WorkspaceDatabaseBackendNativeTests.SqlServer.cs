@@ -81,7 +81,7 @@ public sealed partial class WorkspaceDatabaseBackendNativeTests
                 binding.Network?.RelayAttachment?.Architecture ?? "arm64");
             using var worker = new DatabaseOperationWorker(() => new DatabaseResultContentStore(Path.Combine(directory.FullName, "results")),
                 workspaceLaunch: async token => (await backend.PlanAsync(token)) with { Lifetime = authority.Token },
-                importHostConnectionFiles: true);
+                connectionFiles: DatabaseConnectionFileAccess.ImportHost);
 
             var options = SqlClientLoopbackServer.Options("origin.synthetic.invalid");
             options.ApplicationIntent = ApplicationIntent.ReadOnly;

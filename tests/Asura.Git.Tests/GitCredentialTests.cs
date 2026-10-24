@@ -68,6 +68,9 @@ public sealed class GitCredentialTests
     [InlineData("fatal: unable to access 'https://git.example': Could not resolve host")]
     [InlineData("fatal: Permission denied (publickey).")]
     [InlineData("fatal: could not read Username for 'file:///tmp/repo'")]
+    [InlineData("fatal: could not read Username for 'http://git.example/repo'")]
+    [InlineData("fatal: could not read Username for 'http://10.1.2.3/repo'")]
+    [InlineData("fatal: could not read Username for 'http://localhost.example.test/repo'")]
     public async Task OtherFailuresDoNotPrompt(string error)
     {
         var executor = new Executor(new ConnectionCommandResult(ConnectionCommandOutcome.Exited, 128, "", error));
@@ -76,6 +79,7 @@ public sealed class GitCredentialTests
             .PushAsync(Repository, CancellationToken.None);
         Assert.IsType<GitResult<GitUnit>.Failure>(result);
         Assert.Empty(prompt.Requests);
+        Assert.Single(executor.Commands);
     }
 
     [Theory]

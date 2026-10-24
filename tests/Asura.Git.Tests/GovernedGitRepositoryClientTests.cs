@@ -419,6 +419,22 @@ public sealed class GovernedGitRepositoryClientTests
     }
 
     [Fact]
+    public async Task GovernedRemoteReadRejectsDestinationDriftBeforeNetworkDispatch()
+    {
+        await using var repository = await LocalRepository.CreateAsync();
+        await repository.RunGitAsync("remote", "add", "origin", "https://approved.example/repository.git");
+        var initial = await repository.ReadStateAsync();
+        var remote = Assert.Single(initial.Snapshot.Remotes);
+        Assert.Equal("https://approved.example/repository.git", remote.FetchUrl);
+        await repository.RunGitAsync("config", "remote.origin.pushurl", "https://changed.example/repository.git");
+        var transport = new HttpsRemoteExecutor(repository.Executor, Assert.IsType<string>(initial.Guard.HeadSha));
+        var client = new GitRepositoryClient(transport, TimeProvider.System);
+        var result = await client.ReadGovernedRemoteRefAsync(repository.Handle, "origin", "main", CancellationToken.None, remote.FetchUrl);
+        Assert.IsType<GitResult<GitGovernedRemoteRef>.Failure>(result);
+        Assert.Empty(transport.RemoteCommands);
+    }
+
+    [Fact]
     public async Task GovernedHttpsReadIsSealedAndPushIsWithheld()
     {
         await using var repository = await LocalRepository.CreateAsync();

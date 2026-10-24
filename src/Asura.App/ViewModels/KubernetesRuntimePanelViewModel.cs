@@ -187,6 +187,7 @@ public sealed partial class KubernetesRuntimePanelViewModel : RuntimePanelViewMo
     {
         if (_disposed || IsBusy || _connect is null || HasUnsavedChanges) { return; }
         StopWatching();
+        _providerDiscoverySucceeded = false;
         _loadedRequest = null;
         _continuation = null;
         OnPropertyChanged(nameof(HasMore));

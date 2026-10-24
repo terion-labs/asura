@@ -95,6 +95,14 @@ public sealed partial class KubernetesClientSession : IKubernetesClientSession
             throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, "The Kubernetes API server URL is invalid.");
         }
 
+        if (connection.ApiServer.Scheme is "http"
+            && (connection.BearerToken is not null || connection.ClientCertificatePem is not null || connection.ClientKeyPem is not null)
+            && (!IPAddress.TryParse(connection.ApiServer.IdnHost, out var address) || !IPAddress.IsLoopback(address)))
+        {
+            throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration,
+                "Authenticated Kubernetes connections require HTTPS outside the local loopback interface.");
+        }
+
         if (connection.BearerToken is { } token && (token.Length == 0 || token.Any(static character => character <= ' ' || character > '~')))
         {
             throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, "The Kubernetes bearer token contains invalid characters.");

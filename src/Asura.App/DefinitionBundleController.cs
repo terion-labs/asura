@@ -387,7 +387,7 @@ public sealed class DefinitionBundleController
                 var payload = property.Value.GetString();
                 if (!string.IsNullOrWhiteSpace(payload))
                 {
-                    _ = DockLayoutPayloadCodec.Decode(payload);
+                    DockLayoutSerializer.Validate(DockLayoutPayloadCodec.Decode(payload));
                 }
 
                 break;

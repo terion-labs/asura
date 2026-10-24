@@ -856,6 +856,32 @@ public sealed class GhosttyVtTerminalSessionTests
             await session.CloseAsync(PanelCloseMode.Graceful, default));
     }
 
+    [Theory]
+    [InlineData("$ ", 0)]
+    [InlineData("\u001b]133;A\u0007$ \u001b]133;B\u0007", 2)]
+    public async Task PodOutputCannotEstablishIdleState(string output, int markerCount)
+    {
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        var launch = new TerminalLaunchRequest(null,
+            kubernetesTarget: new(new(new("cluster"), 1, "Cluster", "/config", "context"),
+                new(new("", "v1", "pods", "team", "pod", "pod-uid", "1"), "app", ["/bin/sh"])));
+        var pty = new FakePortablePtyConnection();
+        await using var session = new GhosttyVtTerminalSession(
+            SessionId.New(), launch, pty, initialColumns: 80, initialRows: 24, shellIntegrationApplied: false);
+        await pty.WriteOutputAsync(output);
+        _ = await WaitForScreenAsync(session,
+            current => current.PlainText.Contains('$', StringComparison.Ordinal)
+                && current.ShellIntegrationEvents.Count == markerCount);
+
+        var snapshot = await session.SnapshotAsync(default);
+
+        Assert.True(snapshot.HasActiveWork);
+        Assert.Equal(
+            PanelCloseOutcome.ConfirmationRequired,
+            await session.CloseAsync(PanelCloseMode.Graceful, default));
+        Assert.Equal(0, pty.KillCount);
+    }
+
     [Fact]
     public async Task Kitty_image_content_and_placement_follow_the_terminal_storage_lifecycle()
     {

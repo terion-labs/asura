@@ -795,7 +795,7 @@ done
 
 # Install the patched, namespaced native bridge before managed evidence and
 # package fingerprints are generated, so the inspected payload is shipped.
-"${prepare_avalonia_native}" \
+ASURA_AVALONIA_FRESH_BUILD=1 "${prepare_avalonia_native}" \
     "${publish_dir}/libAvaloniaNative.dylib"
 cp "${publish_dir}/libAvaloniaNative.dylib" \
     "${managed_evidence_dir}/libAvaloniaNative.dylib"

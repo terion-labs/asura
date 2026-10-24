@@ -3137,8 +3137,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         // A restored transcript has messages and a provider, but no live broker run.
         // Keep approval-mode selection pending until the next prompt creates that run.
         var isRunBound = snapshot.RunId is not null;
+        // Restored history keeps its provider boundary even before a live run
+        // exists. A missing profile requires an explicit replacement selection.
         var boundProviderMissing = snapshot.ProviderId is not null
-            && isRunBound
             && selectedProvider is null;
         SelectedProvider = selectedProvider
             ?? (boundProviderMissing ? null : Providers.FirstOrDefault());

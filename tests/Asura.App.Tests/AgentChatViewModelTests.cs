@@ -3382,6 +3382,26 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
+    public void Restored_history_does_not_fall_back_to_another_provider_when_its_profile_is_missing()
+    {
+        var removed = Provider("removed", "Removed", order: 0);
+        var replacement = Provider("replacement", "Replacement", order: 1);
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: removed.Id, messages:
+                [new AgentChatMessage(AgentChatMessageRole.User, "Private history")]) with
+            { RunId = null },
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [replacement] };
+        using var viewModel = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+
+        Assert.Null(viewModel.SelectedProvider);
+        Assert.False(viewModel.CanSend);
+        viewModel.SelectedProvider = replacement;
+        Assert.Equal(replacement, viewModel.SelectedProvider);
+    }
+
+    [Fact]
     public void Missing_bound_provider_requires_clear_instead_of_selecting_another()
     {
         var removed = Provider("removed", "Removed", order: 0);

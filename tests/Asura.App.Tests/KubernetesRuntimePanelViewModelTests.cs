@@ -143,17 +143,22 @@ public sealed class KubernetesRuntimePanelViewModelTests
     public async Task ReviewingContextsNeverGrantsTrustAndEditingSourceClearsIt()
     {
         var context = new KubernetesContextReview("production", "restricted", "https://cluster.test", "Exec", false,
-            "credential-helper", ["login"], ["TENANT"], new string('a', 64));
+            "credential-helper", ["login"], ["TENANT"], new string('a', 64), new string('b', 64), ["/reviewed/token"]);
         var editor = new KubernetesConnectionEditorViewModel(review: (_, _) =>
             ValueTask.FromResult(new KubernetesConfigurationReview([context])))
         { Name = "Cluster" };
         await editor.ReviewAsync();
         editor.SelectedContext = Assert.Single(editor.Contexts);
         Assert.False(editor.TrustCredentialCommand);
+        Assert.False(editor.TrustConfiguration);
+        Assert.Contains("/reviewed/token", editor.CredentialFilesDescription, StringComparison.Ordinal);
         editor.TrustCredentialCommand = true;
+        editor.TrustConfiguration = true;
         Assert.Equal(context.ExecFingerprint, editor.CreateProfile().TrustedExecFingerprint);
+        Assert.Equal(context.AuthorityFingerprint, editor.CreateProfile().TrustedAuthorityFingerprint);
         editor.KubeconfigPath = "/other/config";
         Assert.Null(editor.CreateProfile().TrustedExecFingerprint);
+        Assert.Null(editor.CreateProfile().TrustedAuthorityFingerprint);
     }
 
     [Fact]

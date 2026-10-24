@@ -10,7 +10,7 @@ public sealed class KubernetesDefinitionPersistenceTests
     {
         await using var source = TemporaryDatabase.Create();
         var profile = new KubernetesConnectionProfile(new("cluster"), 1, "Cluster", null, "production",
-            managedKubeconfigSecret: new("private-config-ref"), trustedExecFingerprint: new string('a', 64));
+            managedKubeconfigSecret: new("private-config-ref"), trustedExecFingerprint: new string('a', 64), trustedAuthorityFingerprint: new string('b', 64));
         var repository = new SqliteDefinitionRepository<KubernetesConnectionProfile>(source.Database, TimeProvider.System);
         Assert.True((await repository.SaveAsync(profile, null, default)).IsSuccess);
         var loaded = await repository.GetAsync(profile.Key, default);
@@ -24,6 +24,7 @@ public sealed class KubernetesDefinitionPersistenceTests
         Assert.False(portable.IsEnabled);
         Assert.Null(portable.ManagedKubeconfigSecret);
         Assert.Null(portable.TrustedExecFingerprint);
+        Assert.Null(portable.TrustedAuthorityFingerprint);
 
         await using var destination = TemporaryDatabase.Create();
         var bundles = new SqliteDefinitionBundleStore(destination.Database, TimeProvider.System);

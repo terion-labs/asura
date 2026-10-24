@@ -6,7 +6,11 @@ public sealed partial class GitRepositoryClient
         string revision, CancellationToken cancellationToken)
     {
         ValidateRevision(revision);
-        var result = await ExecuteAsync(repository, ["show", "--no-patch", "--format=%G?%n%GS%n%GK%n%GF", revision],
+        var result = await ExecuteAsync(repository, [
+                // Verification is passive inspection; repository configuration cannot select executable code.
+                "-c", "gpg.program=gpg", "-c", "gpg.openpgp.program=gpg",
+                "-c", "gpg.x509.program=gpgsm", "-c", "gpg.ssh.program=ssh-keygen",
+                "show", "--no-patch", "--format=%G?%n%GS%n%GK%n%GF", revision],
             DiffTimeout, ReadOutputLimit, cancellationToken).ConfigureAwait(false);
         if (result is GitResult<CommandOutput>.Failure failure)
         {

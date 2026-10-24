@@ -41,7 +41,7 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
     private readonly ISessionHostClient _sessionClient;
     private readonly ConnectionProfile _connection;
     private readonly ClientId _clientId;
-    private readonly SessionOwner _owner;
+    private SessionOwner _owner;
     private readonly IUiThreadDispatcher _dispatcher;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly CancellationTokenSource _lifetime = new();
@@ -115,6 +115,12 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
             () => !_disposed
                 && !IsRefreshing
                 && (HasHostedSession || State == SystemMonitorPanelState.Failed));
+    }
+
+    internal override void UpdateSessionOwner(SessionOwner owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owner = owner;
     }
 
     public SessionId SessionId { get; }
@@ -481,6 +487,12 @@ public sealed class StatisticsRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Failure failure)
             {
+                if (failure.Error.Code == HostErrorCode.RevisionConflict)
+                {
+                    // Ownership transfer advances the host revision. Refreshes
+                    // are read-only, so the next poll can safely use that fence.
+                    _hostRevision = failure.CurrentRevision;
+                }
                 // The session host's message is written for its log ("Expected revision 3,
                 // but the current revision is 4."), so the panel says what to check instead.
                 SecretSafeDiagnosticProjection.WriteTrace(
@@ -644,7 +656,7 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     private readonly ISessionHostClient _sessionClient;
     private readonly ConnectionProfile _connection;
     private readonly ClientId _clientId;
-    private readonly SessionOwner _owner;
+    private SessionOwner _owner;
     private readonly IUiThreadDispatcher _dispatcher;
     private readonly Func<TimeSpan, CancellationToken, Task> _delay;
     private readonly CancellationTokenSource _lifetime = new();
@@ -725,6 +737,12 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
     }
 
     public ObservableCollection<ProcessMonitorEntryViewModel> Processes { get; } = [];
+
+    internal override void UpdateSessionOwner(SessionOwner owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        _owner = owner;
+    }
 
     public SessionId SessionId { get; }
 
@@ -1152,6 +1170,12 @@ public sealed class ProcessMonitorRuntimePanelViewModel : RuntimePanelViewModel
 
             if (result is HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Failure failure)
             {
+                if (failure.Error.Code == HostErrorCode.RevisionConflict)
+                {
+                    // Ownership transfer advances the host revision. Refreshes
+                    // are read-only, so the next poll can safely use that fence.
+                    _hostRevision = failure.CurrentRevision;
+                }
                 // The session host's message is written for its log ("Expected revision 3,
                 // but the current revision is 4."), so the panel says what to check instead.
                 SecretSafeDiagnosticProjection.WriteTrace(

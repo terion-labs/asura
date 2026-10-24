@@ -62,7 +62,8 @@ internal static class ManagedTerminalInput
 
     /// <summary>
     /// Formats dropped files as shell words separated by spaces: backslash-escaped
-    /// on macOS and Linux, double-quoted on Windows.
+    /// on macOS and Linux, double-quoted on Windows. Windows shell expansion
+    /// characters are refused because the active shell is not known.
     /// </summary>
     public static string FormatDroppedPaths(IEnumerable<string> paths) =>
         FormatDroppedPaths(paths, OperatingSystem.IsWindows());
@@ -70,10 +71,18 @@ internal static class ManagedTerminalInput
     internal static string FormatDroppedPaths(IEnumerable<string> paths, bool windowsQuoting)
     {
         ArgumentNullException.ThrowIfNull(paths);
+        var selectedPaths = paths.Where(path => !string.IsNullOrEmpty(path)).ToArray();
+        // cmd.exe and PowerShell disagree on escaping expansion characters even
+        // inside double quotes. Refuse the entire drop instead of inserting a
+        // shell program or silently changing which files the user selected.
+        if (windowsQuoting && selectedPaths.Any(path => path.Any(character =>
+                char.IsControl(character) || "$`%!\"".Contains(character))))
+        {
+            return string.Empty;
+        }
         return string.Join(
             ' ',
-            paths
-                .Where(path => !string.IsNullOrEmpty(path))
+            selectedPaths
                 .Select(path => windowsQuoting ? QuoteWindowsPath(path) : EscapePosixPath(path)));
     }
 

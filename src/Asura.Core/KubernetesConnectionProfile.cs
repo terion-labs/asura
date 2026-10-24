@@ -32,7 +32,8 @@ public sealed record KubernetesConnectionProfile : IDurableDefinition, IPanelLau
         ConnectionId? tunnelConnectionId = null,
         SecretRef? managedKubeconfigSecret = null,
         bool isEnabled = true,
-        string? trustedExecFingerprint = null)
+        string? trustedExecFingerprint = null,
+        string? trustedAuthorityFingerprint = null)
     {
         Id = id;
         SchemaVersion = schemaVersion;
@@ -44,6 +45,7 @@ public sealed record KubernetesConnectionProfile : IDurableDefinition, IPanelLau
         ManagedKubeconfigSecret = managedKubeconfigSecret;
         IsEnabled = isEnabled;
         TrustedExecFingerprint = trustedExecFingerprint;
+        TrustedAuthorityFingerprint = trustedAuthorityFingerprint;
     }
 
     public static DefinitionKind Kind => DefinitionKind.KubernetesConnection;
@@ -60,6 +62,8 @@ public sealed record KubernetesConnectionProfile : IDurableDefinition, IPanelLau
     public bool IsEnabled { get; }
     /// <summary>Trust for one exact executable specification; never portable.</summary>
     public string? TrustedExecFingerprint { get; }
+    /// <summary>Trust for the reviewed endpoint, TLS identity and credential sources; never portable.</summary>
+    public string? TrustedAuthorityFingerprint { get; }
     [JsonIgnore]
     public PanelLaunchCapabilities PanelLaunchCapabilities => LaunchCapabilities;
 
@@ -100,6 +104,11 @@ public sealed record KubernetesConnectionProfile : IDurableDefinition, IPanelLau
             && (fingerprint.Length != 64 || !fingerprint.All(char.IsAsciiHexDigit)))
         {
             issues.Add(new(DefinitionValidationCode.InvalidEntry, "Credential executable trust must be a SHA-256 fingerprint.", Id.Value));
+        }
+        if (TrustedAuthorityFingerprint is { } authority
+            && (authority.Length != 64 || !authority.All(char.IsAsciiHexDigit)))
+        {
+            issues.Add(new(DefinitionValidationCode.InvalidEntry, "Kubernetes configuration trust must be a SHA-256 fingerprint.", Id.Value));
         }
         return new(issues);
     }

@@ -556,7 +556,8 @@ public partial interface IGitRepositoryClient
         GitRepositoryHandle repository,
         string remoteName,
         string destinationBranch,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        string? expectedRemoteUrl = null) =>
         ValueTask.FromResult<GitResult<GitGovernedRemoteRef>>(
             new GitResult<GitGovernedRemoteRef>.Failure(new GitError(
                 GitErrorCode.Unsupported,

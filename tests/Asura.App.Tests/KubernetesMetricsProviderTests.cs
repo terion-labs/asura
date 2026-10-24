@@ -28,13 +28,20 @@ public sealed class KubernetesMetricsProviderTests
     }
 
     [Fact]
-    public async Task UniqueProviderAutomaticallyPopulatesUsageAndSelectedHistory()
+    public async Task UniqueProviderRequiresChoiceBeforeUsageAndSelectedHistory()
     {
         var metrics = new List<KubernetesMetricsRequest>();
         var history = new List<KubernetesMetricHistoryRequest>();
         var session = Session([Service("prometheus-operated")], metrics, history);
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        Assert.DoesNotContain(metrics, request => request.Provider is not null);
+        panel.SelectedResource = panel.Resources[0];
+        await panel.SelectionLoading;
+        Assert.Empty(history);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         await panel.RefreshResourceUsageAsync();
         Assert.Equal("monitoring/prometheus-operated:9090", panel.SelectedPrometheusProvider!.DisplayName);
         Assert.Contains(metrics, request => request.Provider?.Service == "prometheus-operated");
@@ -50,12 +57,17 @@ public sealed class KubernetesMetricsProviderTests
     }
 
     [Fact]
-    public async Task MultiplePrometheusServicesAutomaticallyUseAPreferredProvider()
+    public async Task MultiplePrometheusServicesRequireExplicitChoice()
     {
         var metrics = new List<KubernetesMetricsRequest>();
         var history = new List<KubernetesMetricHistoryRequest>();
         using var panel = Create(Session([Service("prometheus-operated"), Service("prometheus-server")], metrics, history));
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        Assert.DoesNotContain(metrics, request => request.Provider is not null);
+        Assert.Empty(history);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         await panel.RefreshResourceUsageAsync();
         Assert.Equal("prometheus-operated", panel.SelectedPrometheusProvider!.Service.Service);
         Assert.Contains(metrics, request => request.Provider?.Service == "prometheus-operated");
@@ -65,7 +77,7 @@ public sealed class KubernetesMetricsProviderTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task AutomaticSelectionSkipsEmptyOrBrokenProviders(bool broken)
+    public async Task ExplicitSelectionDoesNotProbeOtherProviders(bool broken)
     {
         var requests = new List<KubernetesMetricsRequest>();
         var session = new KubernetesUiSession
@@ -85,9 +97,12 @@ public sealed class KubernetesMetricsProviderTests
         };
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-server");
+        await panel.ProviderSelectionLoading;
         Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
         Assert.Equal(1m, Assert.Single(panel.Usage).Entry.CpuCores);
-        Assert.Contains(requests, request => request.Provider?.Service == "prometheus-operated");
+        Assert.DoesNotContain(requests, request => request.Provider?.Service == "prometheus-operated");
 
         // A deliberate user choice remains selected, even if it is unavailable.
         panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
@@ -108,13 +123,16 @@ public sealed class KubernetesMetricsProviderTests
         };
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         var row = Assert.Single(panel.Rows);
         Assert.Equal(0.5m, row.CpuValue);
         Assert.Equal(1048576m, row.MemoryValue);
     }
 
     [Fact]
-    public async Task AutomaticSelectionPrefersCompleteMeasurementsOverAPartialProvider()
+    public async Task ExplicitSelectionUsesChosenProviderForCompleteMeasurements()
     {
         var session = new KubernetesUiSession
         {
@@ -128,6 +146,9 @@ public sealed class KubernetesMetricsProviderTests
         };
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-server");
+        await panel.ProviderSelectionLoading;
         Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
         Assert.Equal(1048576m, Assert.Single(panel.Rows).MemoryValue);
     }
@@ -153,8 +174,37 @@ public sealed class KubernetesMetricsProviderTests
         Assert.Null(panel.SelectedPrometheusProvider);
         serviceRevision = 2;
         await panel.RefreshAsync();
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-server");
+        await panel.ProviderSelectionLoading;
         Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
         Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
+    }
+
+    [Fact]
+    public async Task ReplacingAServiceRequiresAnewExplicitChoice()
+    {
+        var service = Service("prometheus-operated");
+        var requests = new List<KubernetesMetricsRequest>();
+        var session = new KubernetesUiSession
+        {
+            ExtraFeatures = KubernetesSessionFeatures.Metrics,
+            ListItems = request => request.ApiResource.Resource == "services" ? [service] : [KubernetesUiSession.Pod],
+            Metrics = request =>
+            {
+                requests.Add(request);
+                return ValueTask.FromResult(new KubernetesMetricsSnapshot(KubernetesDataAvailability.Unavailable, []));
+            },
+        };
+        using var panel = Create(session);
+        await panel.Initialization;
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
+        requests.Clear();
+        service = service with { Reference = service.Reference with { Uid = "replacement" } };
+        await panel.RefreshAsync();
+        Assert.Null(panel.SelectedPrometheusProvider);
+        Assert.DoesNotContain(requests, request => request.Provider is not null);
     }
 
     [Fact]
@@ -171,6 +221,9 @@ public sealed class KubernetesMetricsProviderTests
         };
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
     }
 
@@ -200,17 +253,23 @@ public sealed class KubernetesMetricsProviderTests
         await panel.Initialization;
         Assert.Null(panel.SelectedPrometheusProvider);
         await panel.RefreshAsync();
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         Assert.NotNull(panel.SelectedPrometheusProvider);
         Assert.Equal(0.5m, Assert.Single(panel.Rows).CpuValue);
     }
 
     [Fact]
-    public async Task VictoriaMetricsTenantZeroIsAutomaticallyUsedForUsageAndHistory()
+    public async Task VictoriaMetricsTenantZeroRequiresSelectionForUsageAndHistory()
     {
         var metrics = new List<KubernetesMetricsRequest>();
         var history = new List<KubernetesMetricHistoryRequest>();
         using var panel = Create(Session([LabelledService("vmselect-monitoring", "vmselect", 8481)], metrics, history));
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         Assert.Equal("0", panel.SelectedPrometheusProvider!.Service.VictoriaMetricsTenant);
         Assert.Contains(metrics, request => request.Provider is { Port: 8481, VictoriaMetricsTenant: "0" });
         Assert.Equal(0.25m, Assert.Single(panel.Rows).CpuValue);
@@ -221,7 +280,7 @@ public sealed class KubernetesMetricsProviderTests
     }
 
     [Fact]
-    public async Task LateAutomaticProviderResultCannotOverwriteAManualChoice()
+    public async Task LateProviderResultCannotOverwriteANewerChoice()
     {
         var delayed = new TaskCompletionSource<KubernetesMetricsSnapshot>();
         var started = new TaskCompletionSource();
@@ -239,11 +298,14 @@ public sealed class KubernetesMetricsProviderTests
             },
         };
         using var panel = Create(session);
+        await panel.Initialization;
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-operated");
+        var initialSelection = panel.ProviderSelectionLoading;
         await started.Task;
         panel.SelectedPrometheusProvider = panel.PrometheusProviders.Single(item => item.Service.Service == "prometheus-server");
         await panel.ProviderSelectionLoading;
         delayed.SetResult(new(KubernetesDataAvailability.Available, [new("app-123", "restricted", "app", null, "5m", 99m, 99m)]));
-        await panel.Initialization;
+        await initialSelection;
         Assert.Equal("prometheus-server", panel.SelectedPrometheusProvider!.Service.Service);
         Assert.Equal(2m, Assert.Single(panel.Rows).CpuValue);
     }
@@ -263,6 +325,9 @@ public sealed class KubernetesMetricsProviderTests
         };
         using var panel = Create(session);
         await panel.Initialization;
+        Assert.Null(panel.SelectedPrometheusProvider);
+        panel.SelectedPrometheusProvider = panel.PrometheusProviders[0];
+        await panel.ProviderSelectionLoading;
         var row = Assert.Single(panel.Rows);
         Assert.Equal(0.5m, row.CpuValue);
         Assert.Equal("25%", row.Disk);
@@ -302,16 +367,21 @@ public sealed class KubernetesMetricsProviderTests
     public async Task LateHistoryCannotPopulateAnotherSelection()
     {
         var completion = new TaskCompletionSource<KubernetesMetricHistory>();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var session = new KubernetesUiSession
         {
             ExtraFeatures = KubernetesSessionFeatures.MetricHistory,
             ListItems = request => request.ApiResource.Resource == "services" ? [Service("prometheus-operated")] : [KubernetesUiSession.Pod],
-            History = _ => new(completion.Task),
+            History = _ => { started.TrySetResult(); return new(completion.Task); },
         };
         using var panel = Create(session);
         await panel.Initialization;
+        await panel.DiscoverMetricsProvidersAsync();
+        panel.SelectedPrometheusProvider = Assert.Single(panel.PrometheusProviders);
+        await panel.ProviderSelectionLoading;
         panel.SelectedResource = panel.Resources[0];
         var loading = panel.SelectionLoading;
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         panel.SelectedResource = null;
         completion.SetResult(new(KubernetesDataAvailability.Available, [new("stale", [])]));
         await loading;

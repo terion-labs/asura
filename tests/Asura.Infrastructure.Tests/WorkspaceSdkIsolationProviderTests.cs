@@ -19,6 +19,50 @@ public sealed partial class WorkspaceSdkIsolationProviderTests : IDisposable
         File.WriteAllText(Path.Combine(BootDirectory, "initfs.ext4"), "boot filesystem before app update");
     }
 
+    [Fact]
+    public async Task Linked_state_ancestor_is_refused_before_any_workspace_write_or_process()
+    {
+        var outside = Path.Combine(_directory, "outside");
+        Directory.CreateDirectory(outside);
+        var parent = Path.Combine(_directory, "linked-parent");
+        Directory.CreateSymbolicLink(parent, outside);
+        var provider = new WorkspaceSdkIsolationProvider("/app/workspace-runtime", Path.Combine(parent, "state"),
+            "/app/workspace-network-gateway", _runner, 501, 20, (_, _) => Task.FromResult(BootDirectory));
+
+        var result = await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None);
+
+        Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(result);
+        Assert.Empty(Directory.GetFileSystemEntries(outside));
+        Assert.Empty(_runner.Starts);
+    }
+
+    [Fact]
+    public async Task Replacing_state_directory_during_boot_preparation_cannot_overwrite_outside_runtime_metadata()
+    {
+        var outside = Path.Combine(_directory, "outside");
+        Directory.CreateDirectory(outside);
+        var victim = Path.Combine(outside, "runtime.json");
+        await File.WriteAllTextAsync(victim, "preserve host data", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(outside, "rootfs.ext4"), "outside disk", CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(outside, "disk.ready"), string.Empty, CancellationToken.None);
+        var before = Directory.GetFileSystemEntries(outside).Order(StringComparer.Ordinal).ToArray();
+        var stateDirectory = Path.Combine(_directory, "state", AppleContainerWorkspaceIsolationProvider.ResourceName(_workspace));
+        var provider = Provider((_, _) =>
+        {
+            Directory.Move(stateDirectory, Path.Combine(_directory, "moved-state"));
+            Directory.CreateSymbolicLink(stateDirectory, outside);
+            return Task.FromResult(BootDirectory);
+        });
+
+        var result = await provider.PrepareAsync(new WorkspaceIsolationPrepareRequest(_workspace), CancellationToken.None);
+
+        Assert.IsType<WorkspaceIsolationResult<WorkspaceIsolationBinding>.Failure>(result);
+        Assert.Equal("preserve host data", await File.ReadAllTextAsync(victim, CancellationToken.None));
+        Assert.Equal(before, Directory.GetFileSystemEntries(outside).Order(StringComparer.Ordinal), StringComparer.Ordinal);
+        Assert.Empty(_runner.Starts);
+        Assert.Empty(_runner.Commands);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(WorkspaceIsolationImages.Default)]

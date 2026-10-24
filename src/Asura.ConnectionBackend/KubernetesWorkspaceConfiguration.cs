@@ -14,7 +14,9 @@ internal static class KubernetesWorkspaceConfiguration
                 : plan.Connection.ClientCertificatePem is not null || plan.ClientCertificatePath is not null ? "Client certificate"
                 : plan.Connection.BearerToken is not null || plan.TokenFilePath is not null ? "Bearer token" : "Anonymous",
             plan.Connection.AllowInsecureTls, plan.Exec?.Command, plan.Exec?.Arguments ?? [],
-            plan.Exec?.Environment.Keys.ToArray() ?? [], plan.Exec?.Fingerprint))]);
+            plan.Exec?.Environment.Keys.ToArray() ?? [], plan.Exec?.Fingerprint, plan.AuthorityFingerprint,
+            [.. new[] { plan.CertificateAuthorityPath, plan.ClientCertificatePath, plan.ClientKeyPath, plan.TokenFilePath }
+                .OfType<string>()]))]);
     }
 
     internal static async Task<IReadOnlyList<KubernetesKubeconfigPlan>> ReadAsync(KubernetesWorkspaceOpen configuration, CancellationToken token)

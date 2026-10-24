@@ -294,6 +294,28 @@ public sealed class AsuraDatabase : IAsyncDisposable
                 await using var migrationCommand = connection.CreateCommand();
                 migrationCommand.Transaction = transaction;
                 migrationCommand.CommandText = migration.Sql;
+                if (migration.Version == 21
+                    && string.Equals(migration.Name, "browser-address-history", StringComparison.Ordinal))
+                {
+                    // Keep the shipped migration and its checksum immutable. Its
+                    // default change also rewrote explicit privacy opt-outs, so
+                    // preserve those values within the same upgrade transaction.
+                    // Already-upgraded databases cannot recover the old choice.
+                    migrationCommand.CommandText = """
+                        CREATE TEMP TABLE preserved_browser_history_opt_out AS
+                        SELECT id FROM definitions
+                        WHERE kind = 'browser-profile' AND schema_version = 1
+                            AND lower(json_extract(payload_json, '$.privacy.history')) = 'donotrecord';
+
+                        """ + migration.Sql + """
+
+                        UPDATE definitions
+                        SET payload_json = json_set(payload_json, '$.privacy.history', 'DoNotRecord')
+                        WHERE kind = 'browser-profile'
+                            AND id IN (SELECT id FROM preserved_browser_history_opt_out);
+                        DROP TABLE preserved_browser_history_opt_out;
+                        """;
+                }
                 await migrationCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
 
                 await using var recordCommand = connection.CreateCommand();

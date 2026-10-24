@@ -15,6 +15,7 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
     private string _context;
     private string _namespace;
     private string? _trustedFingerprint;
+    private string? _trustedAuthorityFingerprint;
     private IReadOnlyList<KubernetesContextReview> _contexts = [];
     private KubernetesContextReview? _selectedContext;
     private string _reviewStatus = "Review the file to choose a context and inspect its authentication.";
@@ -30,6 +31,7 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
         _context = existing?.ContextName ?? string.Empty;
         _namespace = existing?.DefaultNamespace ?? "default";
         _trustedFingerprint = existing?.TrustedExecFingerprint;
+        _trustedAuthorityFingerprint = existing?.TrustedAuthorityFingerprint;
         _reviewCommand = new(ReviewAsync, () => _review is not null && !IsReviewing);
     }
 
@@ -44,7 +46,7 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
     public string ContextName
     {
         get => _context;
-        set { if (SetProperty(ref _context, value)) { _trustedFingerprint = null; if (!string.Equals(_selectedContext?.ContextName, value, StringComparison.Ordinal)) { SelectedContext = null; } OnPropertyChanged(nameof(TrustCredentialCommand)); } }
+        set { if (SetProperty(ref _context, value)) { _trustedFingerprint = null; _trustedAuthorityFingerprint = null; if (!string.Equals(_selectedContext?.ContextName, value, StringComparison.Ordinal)) { SelectedContext = null; } OnPropertyChanged(nameof(TrustCredentialCommand)); } }
     }
     public string Namespace { get => _namespace; set => SetProperty(ref _namespace, value); }
     public ICommand ReviewCommand => _reviewCommand;
@@ -61,10 +63,18 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
             Namespace = value?.DefaultNamespace ?? Namespace;
             OnPropertyChanged(nameof(HasCredentialCommand)); OnPropertyChanged(nameof(CredentialCommandDescription));
             OnPropertyChanged(nameof(TrustCredentialCommand)); OnPropertyChanged(nameof(ContextDescription));
+            OnPropertyChanged(nameof(CredentialFilesDescription)); OnPropertyChanged(nameof(TrustConfiguration));
         }
     }
     public string ContextDescription => SelectedContext is { } context
         ? $"{context.ApiServer} · {context.Authentication}{(context.InsecureTls ? " · TLS verification disabled in configuration" : "")}" : string.Empty;
+    public string CredentialFilesDescription => SelectedContext?.CredentialFilePaths is { Count: > 0 } paths
+        ? "Credential files read when connecting:\n" + string.Join('\n', paths) : "No external credential files.";
+    public bool TrustConfiguration
+    {
+        get => SelectedContext?.AuthorityFingerprint is { } fingerprint && string.Equals(_trustedAuthorityFingerprint, fingerprint, StringComparison.Ordinal);
+        set { _trustedAuthorityFingerprint = value ? SelectedContext?.AuthorityFingerprint : null; OnPropertyChanged(); }
+    }
     public bool HasCredentialCommand => SelectedContext?.ExecFingerprint is not null;
     public string CredentialCommandDescription => SelectedContext is { ExecFingerprint: not null } context
         ? $"{context.ExecCommand} {string.Join(' ', context.ExecArguments)}\nEnvironment names: {string.Join(", ", context.ExecEnvironmentNames)}\nFingerprint: {context.ExecFingerprint}" : string.Empty;
@@ -105,13 +115,14 @@ public sealed class KubernetesConnectionEditorViewModel : ObservableObject
     private KubernetesConnectionProfile BuildProfile() => new(_existing?.Id ?? KubernetesConnectionProfileId.New(),
         KubernetesConnectionProfile.CurrentSchemaVersion, Name.Trim(), string.IsNullOrWhiteSpace(KubeconfigPath) ? null : KubeconfigPath.Trim(),
         ContextName.Trim(), Namespace.Trim(), _existing?.TunnelConnectionId,
-        string.IsNullOrWhiteSpace(KubeconfigPath) ? _existing?.ManagedKubeconfigSecret : null, trustedExecFingerprint: _trustedFingerprint);
+        string.IsNullOrWhiteSpace(KubeconfigPath) ? _existing?.ManagedKubeconfigSecret : null, trustedExecFingerprint: _trustedFingerprint, trustedAuthorityFingerprint: _trustedAuthorityFingerprint);
 
     private void ClearReview()
     {
         _trustedFingerprint = null;
+        _trustedAuthorityFingerprint = null;
         Contexts = [];
         SelectedContext = null;
-        ReviewStatus = "Configuration changed. Review it before trusting a credential command.";
+        ReviewStatus = "Configuration changed. Review its endpoint, TLS settings and credential sources before connecting.";
     }
 }

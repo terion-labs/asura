@@ -247,9 +247,12 @@ public sealed partial class MainWindowViewModel
                     }
 
                     StopTrackingRecovery(movedPanel);
+                    movedPanel.UpdateSessionOwner(new SessionOwner(
+                        HostMode.Desktop, WindowId, destination.Id, destinationTab.Id, movedPanel.Id));
                     destinationTab.AddPanel(movedPanel);
                     destinationTab.ActivatePanel(movedPanel.Id);
                     destination.ActiveTab = destinationTab;
+                    StartTrackingRecovery(destination);
                     WorkspaceTransferStatus =
                         $"Moved panel “{movedPanel.Title}” from “{source.Name}” "
                         + $"to “{destination.Name}”.";

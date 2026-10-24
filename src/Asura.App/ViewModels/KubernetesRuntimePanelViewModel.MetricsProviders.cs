@@ -10,7 +10,6 @@ public sealed partial class KubernetesRuntimePanelViewModel
     private string _metricsProviderStatus = "Looking for an in-cluster metrics service.";
     private Task? _providerDiscovery;
     private bool _providerDiscoverySucceeded;
-    private bool _metricsProviderChosenByUser;
     public IReadOnlyList<KubernetesMetricsProviderOption> PrometheusProviders
     {
         get => _prometheusProviders;
@@ -30,7 +29,6 @@ public sealed partial class KubernetesRuntimePanelViewModel
         {
             if (value is null || !PrometheusProviders.Contains(value)) { return; }
             if (!SetProperty(ref _selectedPrometheusProvider, value)) { return; }
-            _metricsProviderChosenByUser = true;
             OnPropertyChanged(nameof(HasSelectedMetricsProvider));
             MetricsProviderStatus = $"{value.Product} · {value.DisplayName}";
             ProviderSelectionLoading = RefreshProviderSelectionAsync();
@@ -48,14 +46,6 @@ public sealed partial class KubernetesRuntimePanelViewModel
         return _providerDiscovery = DiscoverMetricsProvidersCoreAsync();
     }
 
-    private void SelectAutomaticMetricsProvider(KubernetesMetricsProviderOption provider)
-    {
-        // Discovery and usage loading await each other. Publish the choice without
-        // entering the public setter, which starts a fresh usage/history request.
-        SetProperty(ref _selectedPrometheusProvider, provider, nameof(SelectedPrometheusProvider));
-        OnPropertyChanged(nameof(HasSelectedMetricsProvider));
-        MetricsProviderStatus = $"{provider.Product} · {provider.DisplayName}";
-    }
     private async Task DiscoverMetricsProvidersCoreAsync()
     {
         if (_session is null || _disposed) { return; }
@@ -76,10 +66,13 @@ public sealed partial class KubernetesRuntimePanelViewModel
             _providerDiscoverySucceeded = PrometheusProviders.Count > 0;
             if (PrometheusProviders.Count > 0)
             {
-                // Operator-managed clusters commonly expose several Services for
-                // the same Prometheus. Usage loading verifies the preferred one
-                // and tries the others if it cannot supply measurements.
-                SelectAutomaticMetricsProvider(PrometheusProviders[0]);
+                // Cluster Service labels identify candidates, not authority to proxy requests.
+                if (_selectedPrometheusProvider is null || !PrometheusProviders.Contains(_selectedPrometheusProvider))
+                {
+                    SetProperty(ref _selectedPrometheusProvider, null, nameof(SelectedPrometheusProvider));
+                    OnPropertyChanged(nameof(HasSelectedMetricsProvider));
+                    MetricsProviderStatus = "Choose a metrics service to allow usage and history queries.";
+                }
             }
             else
             {
@@ -117,13 +110,13 @@ public sealed partial class KubernetesRuntimePanelViewModel
             int defaultPort = vmselect ? 8481 : vmsingle ? 8428 : 9090;
             if (value != defaultPort && name is not ("http" or "https" or "web" or "http-web")) { continue; }
             options.Add(new(new(service.Reference.Namespace, service.Reference.Name, value, string.Equals(name, "https", StringComparison.Ordinal),
-                VictoriaMetricsTenant: vmselect ? "0" : null), preferred, vmselect || vmsingle ? "VictoriaMetrics" : "Prometheus"));
+                VictoriaMetricsTenant: vmselect ? "0" : null), preferred, vmselect || vmsingle ? "VictoriaMetrics" : "Prometheus", service.Reference.Uid));
         }
         return options;
     }
 }
 
-public sealed record KubernetesMetricsProviderOption(KubernetesPrometheusService Service, bool Preferred, string Product = "Prometheus")
+public sealed record KubernetesMetricsProviderOption(KubernetesPrometheusService Service, bool Preferred, string Product = "Prometheus", string? ServiceUid = null)
 {
     public string DisplayName => $"{Service.Namespace}/{Service.Service}:{Service.Port}"
         + (Service.VictoriaMetricsTenant is { } tenant ? $" · tenant {tenant}" : "");

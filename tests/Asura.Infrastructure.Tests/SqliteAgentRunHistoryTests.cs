@@ -11,6 +11,27 @@ public sealed class SqliteAgentRunHistoryTests
         new(2026, 8, 29, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public async Task GlobalRetentionProtectsEveryLiveRunUntilItsLeaseEnds()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        var store = new SqliteAgentSessionCheckpointStore(temporary.Database, new FixedTimeProvider(Now));
+        var first = new AgentRunId("active-one");
+        var second = new AgentRunId("active-two");
+        await using var firstLease = await store.ProtectActiveRunAsync(first, CancellationToken.None);
+        var secondLease = await store.ProtectActiveRunAsync(second, CancellationToken.None);
+        Assert.True((await store.SaveAsync(Checkpoint(first.Value, Now.AddDays(-30)), CancellationToken.None)).IsSuccess);
+        Assert.True((await store.SaveAsync(Checkpoint(second.Value, Now.AddDays(-20)), CancellationToken.None)).IsSuccess);
+        var retention = Success(await store.GetHistoryRetentionAsync(CancellationToken.None));
+        retention = Success(await store.UpdateHistoryRetentionAsync(null, retention, 1, TimeSpan.FromDays(5), null, CancellationToken.None));
+        Assert.Equal(2, Success(await store.ListAsync(10, CancellationToken.None)).Count);
+        Assert.False((await store.DeleteAsync(second, CancellationToken.None)).IsSuccess);
+
+        await secondLease!.DisposeAsync();
+        Assert.True((await store.UpdateHistoryRetentionAsync(null, retention, 1, TimeSpan.FromDays(5), null, CancellationToken.None)).IsSuccess);
+        Assert.Equal(first, Assert.Single(Success(await store.ListAsync(10, CancellationToken.None))).RunId);
+    }
+
+    [Fact]
     public async Task MetadataRoundTripsAndRetentionUsesRevisionFence()
     {
         await using var temporary = TemporaryDatabase.Create();

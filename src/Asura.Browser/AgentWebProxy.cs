@@ -13,6 +13,8 @@ namespace Asura.Browser;
 /// </summary>
 internal sealed class AgentWebProxy : IAsyncDisposable
 {
+    internal const long MaximumTransferredBytes = 32 * 1024 * 1024;
+    private long _transferredBytes;
     private readonly TcpListener _listener = new(IPAddress.Loopback, 0);
     private readonly CancellationTokenSource _lifetime;
     private readonly SemaphoreSlim _slots = new(32, 32);
@@ -124,7 +126,7 @@ internal sealed class AgentWebProxy : IAsyncDisposable
                 }
                 if (request.Value.Protocol == WorkspaceLoopbackProxyProtocol.Protocol.HttpForward)
                 {
-                    await upstream.CopyToAsync(downstream, _lifetime.Token).ConfigureAwait(false);
+                    await CopyBoundedAsync(upstream, downstream, _lifetime.Token).ConfigureAwait(false);
                     return;
                 }
 
@@ -142,12 +144,12 @@ internal sealed class AgentWebProxy : IAsyncDisposable
         }
     }
 
-    private static async Task RelayAsync(Stream downstream, Stream upstream, CancellationToken cancellationToken)
+    private async Task RelayAsync(Stream downstream, Stream upstream, CancellationToken cancellationToken)
     {
         using var relay = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var token = relay.Token;
-        var outbound = downstream.CopyToAsync(upstream, token);
-        var inbound = upstream.CopyToAsync(downstream, token);
+        var outbound = CopyBoundedAsync(downstream, upstream, token);
+        var inbound = CopyBoundedAsync(upstream, downstream, token);
         try
         {
             await Task.WhenAny(outbound, inbound).ConfigureAwait(false);
@@ -156,6 +158,25 @@ internal sealed class AgentWebProxy : IAsyncDisposable
         {
             await relay.CancelAsync().ConfigureAwait(false);
             await Task.WhenAll(outbound, inbound).ConfigureAwait(false);
+        }
+    }
+
+    private async Task CopyBoundedAsync(Stream source, Stream destination, CancellationToken cancellationToken)
+    {
+        // One budget covers every response, subresource and tunnel in this web
+        // call. TLS remains opaque, so this limits wire bytes, not decompression.
+        var buffer = new byte[16 * 1024];
+        while (true)
+        {
+            var count = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            if (count == 0) { return; }
+            if (Interlocked.Add(ref _transferredBytes, count) > MaximumTransferredBytes)
+            {
+                Interlocked.CompareExchange(ref _failure, (int)AgentWebToolErrorCode.BodyTooLarge, -1);
+                await _lifetime.CancelAsync().ConfigureAwait(false);
+                throw new IOException("The web request exceeded its transfer budget.");
+            }
+            await destination.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
         }
     }
 
