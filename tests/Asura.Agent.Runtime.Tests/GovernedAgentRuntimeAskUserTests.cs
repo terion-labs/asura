@@ -395,7 +395,7 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.False(result.IsSuccess);
         Assert.Equal("invalid_provider_stream", result.Code);
         Assert.Equal(
-            GovernedAgentState.Failed,
+            GovernedAgentState.Cancelled,
             fixture.Runtime.Snapshot.State);
         Assert.Equal(
             [

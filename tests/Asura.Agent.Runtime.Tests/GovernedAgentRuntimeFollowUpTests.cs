@@ -89,7 +89,7 @@ public sealed partial class GovernedAgentRuntimeTests
         var recoverable = Assert.Single(result.RecoverableFollowUps!);
         Assert.Equal("Preserve this follow-up.", recoverable.Message);
         Assert.Equal(AgentReasoningEffort.High, recoverable.ReasoningEffort);
-        Assert.Equal(GovernedAgentState.Failed, fixture.Runtime.Snapshot.State);
+        Assert.Equal(GovernedAgentState.Cancelled, fixture.Runtime.Snapshot.State);
         Assert.Equal(0, fixture.Runtime.Snapshot.QueuedFollowUpCount);
         Assert.Equal(2, provider.Requests.Count);
 
