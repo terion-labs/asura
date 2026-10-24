@@ -2186,13 +2186,26 @@ public sealed partial class GovernedAgentRuntime :
                 authorityRevoked: revocationError is null);
         }
 
-        return FinishFailure(
+        var failureCode = result.ProviderFailure?.StableCode
+            ?? StableCode(result.ErrorCode ?? AgentTurnErrorCode.ProviderFailure);
+        var failureMessage = result.ProviderFailure?.Message
+            ?? "The provider request failed before a response was completed.";
+        // The failed request left the conversation as it was. A failed run
+        // waits for Clear, which deleted the conversation, so every error
+        // ended the chat until the app restarted and reloaded it. The run
+        // ends as a stopped one does instead: its authority is revoked, and
+        // the next message continues the conversation in a new run.
+        var failedRunRevocation = await CancelRegisteredRunBestEffortAsync(
+                "provider_failure",
+                CancellationToken.None)
+            .ConfigureAwait(false);
+        return FinishResumableFailure(
             turnCancellation,
             ProjectMessages(session),
-            result.ProviderFailure?.StableCode
-                ?? StableCode(result.ErrorCode ?? AgentTurnErrorCode.ProviderFailure),
-            result.ProviderFailure?.Message
-                ?? "The provider request failed before a response was completed.");
+            failureCode,
+            failedRunRevocation is null
+                ? failureMessage
+                : failureMessage + " Agent authority revocation could not be confirmed.");
     }
 
     private async ValueTask<ConversationCompactionOutcome>
@@ -4829,6 +4842,64 @@ public sealed partial class GovernedAgentRuntime :
                     CurrentProgress = null,
                     SteeringAvailable = false,
                     SteeringGeneration = null,
+                    Status = message,
+                };
+            }
+        }
+
+        NotifyChanged();
+        return new GovernedAgentSendResult(
+            false,
+            code,
+            message,
+            initialPromptCommitted,
+            recoverableFollowUps);
+    }
+
+    /// <summary>
+    /// Ends a turn whose provider request failed with the run stopped rather
+    /// than failed, so the conversation stays and the next message resumes it.
+    /// </summary>
+    private GovernedAgentSendResult FinishResumableFailure(
+        CancellationTokenSource turnCancellation,
+        IReadOnlyList<AgentChatMessage> messages,
+        string code,
+        string message)
+    {
+        var initialPromptCommitted = false;
+        IReadOnlyList<GovernedAgentFollowUp> recoverableFollowUps = [];
+        lock (_gate)
+        {
+            if (ReferenceEquals(_turnCancellation, turnCancellation)
+                && !_disposed
+                && _snapshot.State != GovernedAgentState.Cancelled)
+            {
+                initialPromptCommitted = _initialPromptCommittedThisTurn;
+                recoverableFollowUps = CaptureRecoverableFollowUpsUnsafe();
+                DiscardFollowUpsUnsafe();
+                _runPolicy = _baselinePolicy;
+                _effectivePolicy = _baselinePolicy;
+                _snapshot = _snapshot with
+                {
+                    State = GovernedAgentState.Cancelled,
+                    Messages = CopyMessages(messages),
+                    ProvisionalAssistantText = string.Empty,
+                    ProvisionalReasoningSummary = string.Empty,
+                    PendingApproval = null,
+                    PendingQuestion = null,
+                    PendingCapabilityRequest = null,
+                    ActiveTool = null,
+                    PanelActivity = null,
+                    CurrentProgress = null,
+                    SteeringAvailable = false,
+                    SteeringGeneration = null,
+                    TerminalMutationPermission =
+                        _baselinePolicy.GetPermission(AgentCapability.RunCommands),
+                    EffectivePolicy = _baselinePolicy,
+                    BaselinePolicy = _baselinePolicy,
+                    RunPolicy = _runPolicy,
+                    PolicyGeneration = _policyGeneration,
+                    YoloAuthority = null,
                     Status = message,
                 };
             }

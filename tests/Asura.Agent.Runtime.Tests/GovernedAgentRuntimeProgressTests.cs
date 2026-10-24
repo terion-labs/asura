@@ -322,7 +322,7 @@ public sealed partial class GovernedAgentRuntimeTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(GovernedAgentState.Failed, fixture.Runtime.Snapshot.State);
+        Assert.Equal(GovernedAgentState.Cancelled, fixture.Runtime.Snapshot.State);
         Assert.Null(fixture.Runtime.Snapshot.CurrentProgress);
         Assert.Empty(fixture.Terminal.Actions);
         Assert.Empty(fixture.Audit.Events);
