@@ -39,6 +39,8 @@ Native CEF rebuilt successfully from the verified source archive and passed the 
 
 A pre-push run exposed an existing process-memory test startup race: macOS can briefly report zero resident memory while the shell execs its child program. A native probe reproduced two zero-RSS samples in 240 attempts, both positive 10 ms later. The fixture now waits for an explicit ready line from a shell blocked in a builtin read, retaining the positive-memory and post-exit-null assertions. All 12 child-process tests and 20 repetitions of the corrected memory test passed.
 
+A second pre-push run exposed a compaction-test scheduling race: the compactor completion signal precedes background lease cleanup, and 100 scheduler yields do not guarantee cleanup has run. The test now waits up to one second for the public checkpoint idle boundary, accepting only the expected transient SessionNotIdle result, before invoking the failing compactor once. Cancellation, failure, conversation and revision assertions remain intact. All 152 agent tests and 20 repetitions of both cancellation regressions passed.
+
 No live release signing, notarization or publication was performed. The external change was creation of a main-only GitHub release environment; existing secret values were neither read nor removed.
 
 ## Every supplied finding
