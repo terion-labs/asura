@@ -37,6 +37,8 @@ Focused infrastructure checks passed all 120 selected tests, and the lock-concur
 
 Native CEF rebuilt successfully from the verified source archive and passed the profile, authentication, cookie, popup and CDP probes. The retained gzip/CDP budget regression passed twice against that artifact: a compressed 16 MiB-plus response stopped at the 16 MiB decoded limit, and a 9 MiB CDP response returned a small error. Shell validation also passed for all 30 release workflow run blocks.
 
+A pre-push run exposed an existing process-memory test startup race: macOS can briefly report zero resident memory while the shell execs its child program. A native probe reproduced two zero-RSS samples in 240 attempts, both positive 10 ms later. The fixture now waits for an explicit ready line from a shell blocked in a builtin read, retaining the positive-memory and post-exit-null assertions. All 12 child-process tests and 20 repetitions of the corrected memory test passed.
+
 No live release signing, notarization or publication was performed. The external change was creation of a main-only GitHub release environment; existing secret values were neither read nor removed.
 
 ## Every supplied finding
