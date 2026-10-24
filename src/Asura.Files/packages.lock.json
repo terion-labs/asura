@@ -4,11 +4,11 @@
     "net10.0": {
       "AWSSDK.S3": {
         "type": "Direct",
-        "requested": "[4.0.102.4, )",
-        "resolved": "4.0.102.4",
-        "contentHash": "rfUhmzlQifO7Uk3AErPweV1FbwZYI+OuogPjfS/7mbVKVWCYYCLkkLozh2mS/qaHPNGPGFeSFAR1NbWnQyd2pQ==",
+        "requested": "[4.0.104.4, )",
+        "resolved": "4.0.104.4",
+        "contentHash": "Qi+NicEv1md8Vxm6c40zf5pRsQ9DzPm4UwewjxSk4zbHpdzAMZK8bDZJGdp4Za9/vHP8GTbSdnDuseZQ5h9tmw==",
         "dependencies": {
-          "AWSSDK.Core": "[4.0.102.1, 5.0.0)"
+          "AWSSDK.Core": "[4.0.102.11, 5.0.0)"
         }
       },
       "FluentFTP": {
@@ -83,8 +83,8 @@
       },
       "AWSSDK.Core": {
         "type": "Transitive",
-        "resolved": "4.0.102.1",
-        "contentHash": "vsf+/o+S/euH/wG7bO1cha+OWaHvjgvpDeGFO6l3Vcdio9GlSfXkZDD2BogMuAJ+/jDyqqSgqmYVolPKV9ie/A=="
+        "resolved": "4.0.102.11",
+        "contentHash": "K9PP9/qHQ7pqSB0lYwStJrpXQ8P1xc7Fbn3CyPg8EX78p4+yz8dhIiwiRc3aVbVrUZxmPAPRvmZm+ey1euIXGg=="
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
