@@ -109,6 +109,14 @@ public sealed partial class MainWindowViewModel
         return _workspaceRuntimeLeases.KnownIsolationImage(workspaceId);
     }
 
+    /// <summary>
+    /// The network the workspace's AI provider is reached over. "Run the AI
+    /// agent in the workspace environment" says that when it is off, the
+    /// provider is reached over this computer's network. The workspace's
+    /// route was used regardless, so turning on a VPN for a workspace sent
+    /// its agent through it, and a route that broke took the agent down with
+    /// "The AI provider is unavailable". Only the setting sends it there.
+    /// </summary>
     private (bool Required, Uri? Proxy) AgentNetworkProxyFor(
         WorkspaceInstanceId workspaceId)
     {
@@ -117,14 +125,27 @@ public sealed partial class MainWindowViewModel
             && _catalog.Snapshot.Workspaces.FirstOrDefault(
                 item => item.Value.Key == source.SourceDefinition) is { } stored
             && stored.Value.RunAgentInIsolation;
-        var runtimeServices = _workspaceRuntimeLeases.RuntimeServicesFor(workspaceId);
-        if (runtimeServices?.IsNetworkBlocked is true)
-        {
-            return (true, null);
-        }
-
-        return (runInIsolation, runtimeServices?.EffectiveProxyUri);
+        var runtimeServices = runInIsolation
+            ? _workspaceRuntimeLeases.RuntimeServicesFor(workspaceId)
+            : null;
+        return AgentNetworkRoute(
+            runInIsolation,
+            runtimeServices?.IsNetworkBlocked is true,
+            runtimeServices?.EffectiveProxyUri);
     }
+
+    /// <summary>
+    /// Whether the agent needs the workspace's route, and the proxy it uses.
+    /// Off, the agent uses this computer's network whatever the workspace's
+    /// route does; on, it uses the route and is unavailable while it is blocked.
+    /// </summary>
+    internal static (bool Required, Uri? Proxy) AgentNetworkRoute(
+        bool runAgentInWorkspace,
+        bool workspaceNetworkBlocked,
+        Uri? workspaceProxy) =>
+        !runAgentInWorkspace
+            ? (false, null)
+            : (true, workspaceNetworkBlocked ? null : workspaceProxy);
 
     public WorkspaceIsolationRuntimeInstallResult InstallWorkspaceIsolationRuntime()
     {
