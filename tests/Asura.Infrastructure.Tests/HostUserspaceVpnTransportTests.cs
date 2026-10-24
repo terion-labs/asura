@@ -518,6 +518,32 @@ public sealed class HostUserspaceVpnTransportTests
             await ConnectToAsync("example-org"));
     }
 
+    [Fact]
+    public async Task Tailscale_connects_when_its_tailnet_record_cannot_be_stored()
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        using var state = new TemporaryDirectory();
+        using var vault = new InMemorySecretVault();
+        var authKey = new SecretRef("tailscale-auth-key");
+        await StoreSecretAsync(vault, authKey, "tskey-auth-secret");
+        // A file where the record directory belongs: it cannot be created.
+        await File.WriteAllTextAsync(Path.Combine(state.Path, "tailnets"), "not a directory");
+        var processes = new RecordingHostVpnProcessRunner();
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0, string.Empty));
+        processes.CommandResults.Enqueue(new HostVpnCommandResult(0,
+            "{\"BackendState\":\"Running\",\"CurrentTailnet\":{\"Name\":\"example-org\"}}"));
+
+        await using var session = Success(await Create(NetworkConnectionKind.Tailscale, vault, processes, state.Path,
+                ("tailscaled", "/tools/tailscaled"), ("tailscale", "/tools/tailscale"))
+            .ConnectAsync(
+                Request(new NetworkConnectionConfiguration.Tailscale("exit-node", authKeySecret: authKey)),
+                null,
+                CancellationToken.None));
+
+        Assert.Equal("Signed in to tailnet “example-org”.", session.RouteNote);
+    }
+
     [Theory]
     [InlineData("{\"BackendState\":\"Running\"}", null)]
     [InlineData("{\"CurrentTailnet\":{\"Name\":\"  team.example \"}}", "team.example")]

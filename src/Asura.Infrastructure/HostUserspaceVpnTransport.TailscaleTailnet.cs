@@ -45,10 +45,12 @@ internal sealed partial class HostUserspaceVpnTransport
             return null;
         }
 
-        var path = TailnetRecordPath(connectionId);
         string? previous = null;
         try
         {
+            // Creating the record's directory can fail too, and must not end a
+            // connection that is already signed in.
+            var path = TailnetRecordPath(connectionId);
             if (File.Exists(path))
             {
                 previous = File.ReadAllText(path).Trim();
