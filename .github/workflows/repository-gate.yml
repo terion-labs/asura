@@ -78,14 +78,14 @@ jobs:
           ASURA_DOTNET="$(command -v dotnet)"
           ./scripts/build-libghostty-vt.sh --rid osx-arm64
       - name: Upload terminal font assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: terminal-font-test-assets
           path: native/artifacts/common
           if-no-files-found: error
           retention-days: 1
       - name: Upload terminal runtime
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: terminal-native-osx-arm64
           path: native/artifacts/osx-arm64
@@ -131,7 +131,7 @@ jobs:
         run: ./scripts/test-section.sh "${{ matrix.section }}" --no-restore
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results-${{ runner.os }}-${{ matrix.section }}
           path: ".test-results/**/*.trx"
@@ -286,7 +286,7 @@ jobs:
           --maven artifacts/dependency-scan/maven-audit.json
           --output artifacts/dependency-security-evidence
       - name: Upload dependency evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dependency-security-evidence
           path: artifacts/dependency-security-evidence
@@ -626,7 +626,7 @@ jobs:
             --notarization-evidence "${ASURA_RELEASE_ARTIFACTS}/release-evidence/notarization.json" \
             --evidence "${ASURA_RELEASE_ARTIFACTS}/security-campaign"
       - name: Upload macOS release candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: asura-macos-arm64
           path: |
