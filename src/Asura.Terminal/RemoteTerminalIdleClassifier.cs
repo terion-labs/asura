@@ -16,11 +16,11 @@ internal static class RemoteTerminalIdleClassifier
     public static bool AppliesTo(TerminalLaunchRequest launch)
     {
         ArgumentNullException.ThrowIfNull(launch);
-        // Only the exact interactive shell actions offered by the Kubernetes UI
-        // qualify. An arbitrary pod command (including sh -c) remains unknown.
-        if (launch.KubernetesTarget is { } pod)
+        // Pod output cannot establish whether the initially launched shell is
+        // still idle. A child process can print any prompt while it keeps running.
+        if (launch.KubernetesTarget is not null)
         {
-            return pod.Request.Command is ["/bin/sh" or "/bin/bash"];
+            return false;
         }
 
         return launch.ConnectionMetadata?.ConnectionBoundary.StartsWith(

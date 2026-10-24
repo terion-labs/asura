@@ -13,6 +13,29 @@ namespace Asura.Agent.Runtime.Tests;
 public sealed partial class GovernedAgentRuntimeTests
 {
     [Fact]
+    public async Task DisposingKeepsHistoryProtectedUntilTheActiveActionFinishesAuditing()
+    {
+        var checkpoints = new InMemoryCheckpointStore();
+        await using var fixture = new RuntimeFixture(
+            ProviderRound.ReadThenTwoTextTurns("echo first", "echo second"), checkpointStore: checkpoints);
+        fixture.Terminal.Results.Enqueue(new AgentTerminalActionResult.Screen(
+            fixture.Context.Screen("ready", contentRevision: 1)));
+        Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Inspect."), CancellationToken.None)).IsSuccess);
+        Assert.True((await fixture.Runtime.EnableYoloAsync(TimeSpan.FromMinutes(15), CancellationToken.None)).IsAccepted);
+        fixture.Terminal.HoldBlockedActionAfterCancellation = true;
+        fixture.Terminal.BlockNextAction();
+        var sending = fixture.Runtime.SendAsync(fixture.Prompt("Run."), CancellationToken.None).AsTask();
+        await fixture.Terminal.BlockedActionStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await fixture.Runtime.DisposeAsync();
+        await fixture.Terminal.BlockedActionCancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(1, checkpoints.ActiveRunCount);
+        fixture.Terminal.ReleaseBlockedActionCancellation.TrySetResult();
+        await sending.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(0, checkpoints.ActiveRunCount);
+    }
+
+    [Fact]
     public async Task WorkspaceBoundRuntimeRejectsAnotherWorkspaceBeforeProviderUse()
     {
         var provider = ProviderRound.AnswerEveryTurn();
@@ -1428,11 +1451,14 @@ public sealed partial class GovernedAgentRuntimeTests
             restored.Runtime.Snapshot.Messages.Select(message => message.Content), StringComparer.Ordinal);
     }
 
-    [Fact]
-    public async Task CheckpointCaptureFailureReportsCauseWithoutLeakingMessageContent()
+    [Theory]
+    [InlineData("api_key=fixture-secret-value")]
+    [InlineData("--token\nfixture-secret-value")]
+    [InlineData("password=<fixture-secret-value>")]
+    public async Task CheckpointCaptureFailureReportsCauseWithoutLeakingMessageContent(string content)
     {
         var checkpoints = new InMemoryCheckpointStore();
-        var provider = new ProviderRound((_, _) => ProviderRound.Answer("api_key=fixture-secret-value"));
+        var provider = new ProviderRound((_, _) => ProviderRound.Answer(content));
         await using var fixture = new RuntimeFixture(provider, checkpointStore: checkpoints);
         Assert.True((await fixture.Runtime.SendAsync(fixture.Prompt("Continue setup"),
             CancellationToken.None)).IsSuccess);
@@ -3509,6 +3535,25 @@ public sealed partial class GovernedAgentRuntimeTests
     private sealed class InMemoryCheckpointStore : IAgentSessionCheckpointStore
     {
         private readonly Dictionary<AgentRunId, AgentSessionCheckpoint> _values = [];
+        private int _activeRunCount;
+
+        public int ActiveRunCount => Volatile.Read(ref _activeRunCount);
+
+        public ValueTask<IAsyncDisposable?> ProtectActiveRunAsync(AgentRunId runId, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Interlocked.Increment(ref _activeRunCount);
+            return ValueTask.FromResult<IAsyncDisposable?>(new ActiveRunLease(this));
+        }
+
+        private sealed class ActiveRunLease(InMemoryCheckpointStore store) : IAsyncDisposable
+        {
+            public ValueTask DisposeAsync()
+            {
+                Interlocked.Decrement(ref store._activeRunCount);
+                return ValueTask.CompletedTask;
+            }
+        }
 
         public IReadOnlyCollection<AgentSessionCheckpoint> Values => _values.Values;
 

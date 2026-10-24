@@ -607,39 +607,26 @@ public sealed partial class WorkspaceSdkIsolationProvider : IWorkspaceConnection
 
     private static void CreatePrivateDirectory(string path)
     {
-        var directory = Directory.CreateDirectory(path);
-        if (directory.LinkTarget is not null)
-        {
-            throw new IOException("The workspace runtime directory must not be a symbolic link.");
-        }
-
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
+        using var directory = new WorkspaceBootCacheDirectory(path);
+        directory.RequireUnchangedPath();
     }
 
     private static async ValueTask WritePrivateAsync(string path, ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
     {
-        if (new FileInfo(path).LinkTarget is not null)
+        using var directory = new WorkspaceBootCacheDirectory(Path.GetDirectoryName(path)!);
+        var temporary = $"runtime-{Guid.NewGuid():N}.partial";
+        try
         {
-            throw new IOException("The workspace runtime file must not be a symbolic link.");
+            await using var file = directory.CreateNew(temporary);
+            await file.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+            file.Flush(flushToDisk: true);
+            directory.Install(temporary, Path.GetFileName(path), file);
+            directory.RequireUnchangedPath();
         }
-
-        var options = new FileStreamOptions
+        finally
         {
-            Mode = FileMode.Create,
-            Access = FileAccess.Write,
-            Share = FileShare.None,
-            Options = FileOptions.Asynchronous | FileOptions.WriteThrough,
-        };
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+            directory.Delete(temporary);
         }
-
-        await using var file = new FileStream(path, options);
-        await file.WriteAsync(content, cancellationToken).ConfigureAwait(false);
     }
 
     [LibraryImport("libc", EntryPoint = "geteuid")]

@@ -303,7 +303,7 @@ public sealed class AppleContainerWorkspaceIsolationProviderTests
         var create = runner.Commands[4].Arguments;
         Assert.Equal("create", create[0]);
         Assert.Equal(TimeSpan.FromMinutes(5), runner.Commands[4].Timeout);
-        Assert.Contains("--ssh", create, StringComparer.Ordinal);
+        Assert.DoesNotContain("--ssh", create, StringComparer.Ordinal);
         Assert.DoesNotContain("--init", create, StringComparer.Ordinal);
         Assert.Contains(
             create.Zip(create.Skip(1)),
@@ -988,14 +988,14 @@ public sealed class AppleContainerWorkspaceIsolationProviderTests
     }
 
     [Fact]
-    public async Task Prepare_preserves_the_root_filesystem_while_adding_ssh_agent_forwarding()
+    public async Task Prepare_preserves_the_root_filesystem_while_removing_ssh_agent_forwarding()
     {
         var runner = new RecordingRunner(
             AppleContainerCommandResult.Exited(0, CurrentVersionJson),
             AppleContainerCommandResult.Exited(0),
             AppleContainerCommandResult.Exited(
                 0,
-                InspectJson(forwardsSshAgent: false)),
+                InspectJson(forwardsSshAgent: true)),
             AppleContainerCommandResult.Exited(1),
             AppleContainerCommandResult.Exited(0),
             AppleContainerCommandResult.Exited(0),
@@ -1021,7 +1021,7 @@ public sealed class AppleContainerWorkspaceIsolationProviderTests
         Assert.Equal("copy", runner.Commands[7].Arguments[0]);
         Assert.Equal("build", runner.Commands[10].Arguments[0]);
         Assert.Equal("create", runner.Commands[12].Arguments[0]);
-        Assert.Contains("--ssh", runner.Commands[12].Arguments, StringComparer.Ordinal);
+        Assert.DoesNotContain("--ssh", runner.Commands[12].Arguments, StringComparer.Ordinal);
     }
 
     [Fact]
@@ -1778,7 +1778,7 @@ public sealed class AppleContainerWorkspaceIsolationProviderTests
         bool stringStatus = false,
         string? imageReference = null,
         string? baseImageReference = null,
-        bool forwardsSshAgent = true,
+        bool forwardsSshAgent = false,
         string? workspaceLabel = null,
         string schemaVersion = "3",
         string? packetGatewayStateRoot = null,

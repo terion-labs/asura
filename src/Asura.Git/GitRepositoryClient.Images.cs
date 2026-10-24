@@ -4,6 +4,40 @@ namespace Asura.Git;
 
 public sealed partial class GitRepositoryClient
 {
+    // Optional worktree/cache previews require descriptor-relative reads in the connection
+    // environment. Python's isolated mode ignores repository modules and environment hooks.
+    // If it is unavailable, fail closed rather than falling back to symlink-following cat.
+    private const string ReadImageFileScript = """
+        import os, stat, sys
+        try:
+            root, path = sys.argv[1:]
+            parts = path.split('/')
+            if any(part in ('', '.', '..') for part in parts):
+                raise ValueError()
+            directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                for part in parts[:-1]:
+                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+                    os.close(directory)
+                    directory = child
+                descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=directory)
+                with os.fdopen(descriptor, 'rb') as source:
+                    if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                        raise ValueError()
+                    data = source.read(16 * 1024 * 1024 + 1)
+                    if len(data) > 16 * 1024 * 1024:
+                        raise ValueError()
+                    sys.stdout.buffer.write(data)
+            finally:
+                os.close(directory)
+        except FileNotFoundError:
+            sys.stderr.write('No such file')
+            sys.exit(1)
+        except (OSError, ValueError):
+            sys.stderr.write('Image preview requires a bounded regular file without symbolic links.')
+            sys.exit(1)
+        """;
+
     public async ValueTask<GitResult<GitImagePair>> ReadImagesAsync(
         GitRepositoryHandle repository, GitDiffRequest request, CancellationToken cancellationToken)
     {
@@ -48,8 +82,8 @@ public sealed partial class GitRepositoryClient
             ValidateRevision(revision);
         }
 
-        var executable = revision is null ? "cat" : repository.Executable;
-        IReadOnlyList<string> arguments = revision is null ? ["--", repository.WorkingTreeRoot.TrimEnd('/') + "/" + path]
+        var executable = revision is null ? "python3" : repository.Executable;
+        IReadOnlyList<string> arguments = revision is null ? ["-I", "-c", ReadImageFileScript, repository.WorkingTreeRoot, path]
             : ["--literal-pathspecs", "-C", repository.WorkingTreeRoot, "show", revision + ":" + path];
         if (repository.RunAsUser is { } owner)
         {
@@ -73,9 +107,10 @@ public sealed partial class GitRepositoryClient
                         ReadTimeout, ReadOutputLimit, cancellationToken).ConfigureAwait(false);
                     if (directory is GitResult<CommandOutput>.Success location)
                     {
-                        var objectPath = location.Value.Text.TrimEnd('\n', '\r') + "/lfs/objects/" + oid[..2] + "/" + oid[2..4] + "/" + oid;
-                        IReadOnlyList<string> objectArguments = ["--", objectPath];
-                        var objectExecutable = "cat";
+                        var objectRoot = location.Value.Text.TrimEnd('\n', '\r');
+                        var objectPath = "lfs/objects/" + oid[..2] + "/" + oid[2..4] + "/" + oid;
+                        IReadOnlyList<string> objectArguments = ["-I", "-c", ReadImageFileScript, objectRoot, objectPath];
+                        var objectExecutable = "python3";
                         if (repository.RunAsUser is { } objectOwner)
                         {
                             objectArguments = ["-n", "-u", objectOwner, "-H", "--", objectExecutable, .. objectArguments];

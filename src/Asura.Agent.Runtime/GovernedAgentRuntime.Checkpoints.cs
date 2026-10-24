@@ -7,6 +7,21 @@ namespace Asura.Agent.Runtime;
 
 public sealed partial class GovernedAgentRuntime
 {
+    private async ValueTask ReleaseHistoryRetentionAsync()
+    {
+        IAsyncDisposable? lease;
+        lock (_gate)
+        {
+            lease = _historyRetentionLease;
+            _historyRetentionLease = null;
+            _historyRetentionRunId = null;
+        }
+        if (lease is not null)
+        {
+            await lease.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
     public ValueTask RestoreLatestConversationAsync(CancellationToken cancellationToken) =>
         OffUiThreadAsync(() => RestoreLatestConversationCoreAsync(cancellationToken));
 

@@ -88,7 +88,7 @@ internal sealed class KubernetesWorkspaceSessionFactory(
         }
         var managed = await ResolveManagedAsync(profile, token).ConfigureAwait(false);
         var configuration = new KubernetesWorkspaceOpen(profile.ContextName, profile.DefaultNamespace,
-            profile.KubeconfigPath, managed, profile.TrustedExecFingerprint);
+            profile.KubeconfigPath, managed, profile.TrustedExecFingerprint, TrustedAuthorityFingerprint: profile.TrustedAuthorityFingerprint);
         KubernetesCredentialRefresh? hostCredentials = null;
         if (useHostCredentials)
         {
@@ -96,7 +96,7 @@ internal sealed class KubernetesWorkspaceSessionFactory(
             var plan = plans.SingleOrDefault(item => string.Equals(item.ContextName, profile.ContextName, StringComparison.Ordinal))
                 ?? throw new KubernetesRequestException(KubernetesErrorCode.InvalidConfiguration, "The selected Kubernetes context is unavailable.");
             var resolver = new KubernetesCredentialResolver(plan with { Connection = plan.Connection with { Namespace = profile.DefaultNamespace } },
-                profile.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find);
+                profile.TrustedExecFingerprint, new PathConnectionExecutableLocator().Find, profile.TrustedAuthorityFingerprint);
             hostCredentials = resolver.ResolveAsync;
         }
         var owned = await launch(hop, token).ConfigureAwait(false);

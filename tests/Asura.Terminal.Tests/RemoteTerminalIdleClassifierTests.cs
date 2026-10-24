@@ -133,13 +133,13 @@ public sealed class RemoteTerminalIdleClassifierTests
     }
 
     [Theory]
-    [InlineData("/bin/sh", true)]
-    [InlineData("/bin/bash", true)]
+    [InlineData("/bin/sh", false)]
+    [InlineData("/bin/bash", false)]
     [InlineData("sh", false)]
     [InlineData("/usr/bin/bash", false)]
     [InlineData("/bin/top", false)]
     [InlineData("/bin/sh -c sleep 10", false)]
-    public void Pod_fallback_is_limited_to_explicit_interactive_shell_launches(string executable, bool expected)
+    public void Pod_output_cannot_establish_idle_process_state(string executable, bool expected)
     {
         Assert.Equal(expected, RemoteTerminalIdleClassifier.AppliesTo(PodLaunch([executable])));
     }

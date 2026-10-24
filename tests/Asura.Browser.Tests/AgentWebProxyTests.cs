@@ -7,6 +7,30 @@ namespace Asura.Browser.Tests;
 
 public sealed class AgentWebProxyTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Transfer_budget_stops_http_and_opaque_tunnel_responses(bool tunnel)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var proxy = new AgentWebProxy(
+            (_, _) => ValueTask.FromResult(new[] { IPAddress.Parse("93.184.216.34") }),
+            (_, _, _) => ValueTask.FromResult<Stream>(
+                new MemoryStream(new byte[checked((int)AgentWebProxy.MaximumTransferredBytes + 4096)])), timeout.Token);
+        using var client = await ConnectAsync(proxy, timeout.Token);
+        var request = tunnel
+            ? $"CONNECT docs.example.test:443 HTTP/1.1\r\n{Authorization(proxy)}\r\n"
+            : $"GET http://docs.example.test/ HTTP/1.1\r\nHost: docs.example.test\r\n{Authorization(proxy)}\r\n";
+        await client.GetStream().WriteAsync(Encoding.ASCII.GetBytes(request), timeout.Token);
+        if (tunnel) { Assert.Contains("200", await ReadHeadersAsync(client.GetStream(), timeout.Token)); }
+        var buffer = new byte[64 * 1024];
+        long received = 0;
+        int read;
+        while ((read = await client.GetStream().ReadAsync(buffer, timeout.Token)) > 0) { received += read; }
+        Assert.InRange(received, 1, AgentWebProxy.MaximumTransferredBytes);
+        Assert.Equal(AgentWebToolErrorCode.BodyTooLarge, proxy.Failure);
+    }
+
     [Fact]
     public async Task AuthenticatedHttpPinsResolvedPeerAndStripsProxyCredentials()
     {

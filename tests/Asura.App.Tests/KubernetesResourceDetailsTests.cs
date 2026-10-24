@@ -182,6 +182,9 @@ public sealed class KubernetesResourceDetailsTests
         };
         using var panel = Panel(session);
         await panel.Initialization;
+        await panel.DiscoverMetricsProvidersAsync();
+        panel.SelectedPrometheusProvider = Assert.Single(panel.PrometheusProviders);
+        await panel.ProviderSelectionLoading;
         var initial = Assert.Single(panel.Resources);
         panel.SelectedResource = initial;
         var loading = panel.SelectionLoading;

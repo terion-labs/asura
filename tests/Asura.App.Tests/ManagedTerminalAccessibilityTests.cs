@@ -463,6 +463,17 @@ public sealed class ManagedTerminalAccessibilityTests
                 windowsQuoting: true));
     }
 
+    [Theory]
+    [InlineData(@"C:\Downloads\$(calc)")]
+    [InlineData(@"C:\Downloads\$HOME")]
+    [InlineData(@"C:\Downloads\`calc`")]
+    [InlineData(@"C:\Downloads\%COMSPEC%")]
+    [InlineData(@"C:\Downloads\!command!")]
+    public void Windows_drops_refuse_expansion_in_either_supported_shell(string path)
+    {
+        Assert.Empty(ManagedTerminalInput.FormatDroppedPaths([@"C:\safe.txt", path], windowsQuoting: true));
+    }
+
     [Fact]
     public async Task Dropped_files_are_pasted_at_the_prompt_and_never_run()
     {

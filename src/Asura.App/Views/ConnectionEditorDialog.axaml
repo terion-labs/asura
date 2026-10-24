@@ -406,6 +406,9 @@
             <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding ContextName}" /></DataTemplate></ComboBox.ItemTemplate>
           </ComboBox>
           <TextBlock Classes="Muted" Text="{Binding ContextDescription}" TextWrapping="Wrap" />
+          <TextBlock Classes="Muted" Text="{Binding CredentialFilesDescription}" TextWrapping="Wrap" />
+          <CheckBox Content="Trust this endpoint, TLS configuration and credential sources" IsChecked="{Binding TrustConfiguration}" />
+          <TextBlock Classes="Muted" Text="Without workspace isolation, credential files and commands use this computer. Isolated workspaces resolve credentials inside the workspace." TextWrapping="Wrap" />
           <StackPanel IsVisible="{Binding HasCredentialCommand}" Spacing="{DynamicResource ShellSpaceSm}">
             <TextBlock Text="{Binding CredentialCommandDescription}" TextWrapping="Wrap" />
             <CheckBox Content="Trust this exact credential command when connecting" IsChecked="{Binding TrustCredentialCommand}" />

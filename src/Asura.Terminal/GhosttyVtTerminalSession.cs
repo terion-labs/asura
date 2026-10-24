@@ -862,17 +862,16 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
             return false;
         }
 
+        // Pod exec has no trusted foreground-process signal. Both prompt text
+        // and shell-integration markers can be printed by any running process.
+        if (_launch.KubernetesTarget is not null)
+        {
+            return true;
+        }
+
         if (_shellActivity == TerminalShellActivityState.Idle)
         {
             return false;
-        }
-
-        // Pod exec connects directly to the remote process. Unlike an outer
-        // SSH or Docker shell, its command-running signal describes the pod
-        // command itself and must take precedence over prompt-shaped output.
-        if (_launch.KubernetesTarget is not null && _shellActivity == TerminalShellActivityState.Running)
-        {
-            return true;
         }
 
         if (!RemoteTerminalIdleClassifier.AppliesTo(_launch))

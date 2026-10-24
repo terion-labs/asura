@@ -51,6 +51,7 @@ python3 "${script_dir}/test-check-ui-copy.py"
 python3 "${script_dir}/test-cef-keychain-scope.py"
 python3 "${script_dir}/test-gvisor-forwarding.py"
 python3 "${script_dir}/test-workspace-runtime-toolchain.py"
+python3 "${script_dir}/test-avalonia-source-archive.py"
 "${script_dir}/check-network-native.sh" "${mode}"
 if [[ "${mode}" == --full && "$(uname -s)" == Darwin ]]; then
     "${script_dir}/prepare-avalonia-native-macos.sh"

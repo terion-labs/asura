@@ -1095,6 +1095,37 @@ public sealed class AgentMcpSessionHostTests
     }
 
     [Fact]
+    public async Task LoadingExpiredDiagnosticsPurgesPersistentSnapshotWithoutStartingSession()
+    {
+        var old = HostFixture.Now.AddDays(-2);
+        var summary = new McpServerDiagnosticSummary(HostFixture.ProfileId(), HostFixture.ProfileRevision,
+            "0123456789abcdef", McpServerSessionKind.Test, McpServerLifecycleState.Stopped, old, old,
+            [new McpServerDiagnosticEvent(old, McpServerLifecycleState.Stopped, "mcp_stopped", "Stopped.", 0, 0)]);
+        var store = new DiagnosticStore(new([summary], false, null));
+        await using var fixture = await HostFixture.CreateAsync("normal", diagnosticStore: store);
+        await fixture.Host.RefreshAsync(CancellationToken.None);
+        Assert.Empty(fixture.Host.Snapshot.Summaries);
+        Assert.Empty(store.Snapshot.Summaries);
+        Assert.True(store.Writes > 0);
+    }
+
+    private sealed class DiagnosticStore(McpServerDiagnosticsSnapshot snapshot) : IMcpServerDiagnosticStore
+    {
+        public McpServerDiagnosticsSnapshot Snapshot { get; private set; } = snapshot;
+        public int Writes { get; private set; }
+        public ValueTask<ApplicationRunResult<McpServerDiagnosticsSnapshot>> ReadAsync(CancellationToken cancellationToken) =>
+            ValueTask.FromResult(ApplicationRunResult<McpServerDiagnosticsSnapshot>.Success(Snapshot));
+        public ValueTask<ApplicationRunResult<Unit>> WriteAsync(McpServerDiagnosticsSnapshot value, CancellationToken cancellationToken)
+        {
+            Snapshot = value;
+            Writes++;
+            return ValueTask.FromResult(ApplicationRunResult<Unit>.Success(Unit.Value));
+        }
+        public ValueTask<ApplicationRunResult<Unit>> ClearAsync(CancellationToken cancellationToken) =>
+            WriteAsync(new([], false, null), cancellationToken);
+    }
+
+    [Fact]
     public async Task SettingsTestPublishesCorrelatedBoundedSecretSafeLifecycle()
     {
         var fixture = await HostFixture.CreateAsync(mode: "stderr");
@@ -1785,7 +1816,8 @@ public sealed class AgentMcpSessionHostTests
             TimeSpan? shutdownGracePeriod = null,
             McpServerTransport? transport = null,
             Func<Uri, HttpMessageHandler?>? streamableHttpHandlerFactory = null,
-            IWorkspaceNetworkRouteResolver? workspaceNetworkRoutes = null)
+            IWorkspaceNetworkRouteResolver? workspaceNetworkRoutes = null,
+            IMcpServerDiagnosticStore? diagnosticStore = null)
         {
             var assemblyPath = Assembly.GetExecutingAssembly().Location;
             var dotnetPath = Environment.ProcessPath
@@ -1956,6 +1988,7 @@ public sealed class AgentMcpSessionHostTests
                             ?? TimeSpan.FromMilliseconds(50),
                 },
                 streamableHttpHandlerFactory,
+                diagnosticStore: diagnosticStore,
                 workspaceNetworkRoutes: workspaceNetworkRoutes);
             return new HostFixture(
                 host,

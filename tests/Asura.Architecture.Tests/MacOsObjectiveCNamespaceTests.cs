@@ -48,6 +48,9 @@ public sealed class MacOsObjectiveCNamespaceTests
 
         var prepare = File.ReadAllText(Path.Combine(scripts, "prepare-avalonia-native-macos.sh"));
         Assert.Contains("sourceArchiveSha256", prepare, StringComparison.Ordinal);
+        Assert.Contains("ASURA_AVALONIA_FRESH_BUILD:-0", prepare, StringComparison.Ordinal);
+        Assert.Contains("ASURA_AVALONIA_FRESH_BUILD=1 \"${prepare_avalonia_native}\"",
+            File.ReadAllText(Path.Combine(scripts, "package-macos.sh")), StringComparison.Ordinal);
         Assert.Contains("git -C \"${stage}/source\" apply --check", prepare, StringComparison.Ordinal);
         Assert.Contains("namespace-avalonia-native-macos.sh", prepare, StringComparison.Ordinal);
         Assert.Contains("\"${cache}/lifetime-test\"", prepare, StringComparison.Ordinal);
@@ -59,7 +62,7 @@ public sealed class MacOsObjectiveCNamespaceTests
         string laterMarker)
     {
         var invocation = script.IndexOf(
-            "\n\"${prepare_avalonia_native}\" \\",
+            "\"${prepare_avalonia_native}\" \\",
             StringComparison.Ordinal);
         var later = script.IndexOf(
             laterMarker,

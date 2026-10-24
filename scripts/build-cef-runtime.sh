@@ -579,6 +579,7 @@ if [[ "${target_rid}" == osx-arm64 && "${host_rid}" == osx-arm64 ]]; then
     bash "${script_dir}/test-browser-session-cookies.sh" "${cef_artifact_dir}" denied
     bash "${script_dir}/test-browser-authentication-origin.sh" "${cef_artifact_dir}"
     bash "${script_dir}/test-browser-hosted-popups.sh" "${cef_artifact_dir}"
+    bash "${script_dir}/test-browser-response-budgets.sh" "${cef_artifact_dir}"
 fi
 
 existing_artifact_dir="${artifact_parent_dir}/${target_rid}"

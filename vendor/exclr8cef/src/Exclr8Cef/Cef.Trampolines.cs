@@ -357,9 +357,32 @@ public static partial class Cef
     private static unsafe void DevToolsMessageTrampoline(int browserId, int isEvent, int messageId, sbyte* json)
     {
         if (!s_browsers.TryGetValue(browserId, out var b)) return;
-        var s = Marshal.PtrToStringUTF8((IntPtr)json) ?? "";
-        try { b.RaiseDevToolsMessage(isEvent != 0, messageId, s); }
+        try
+        {
+            // Also protects managed hosts running an older native shim. Scan a
+            // bounded prefix before Marshal is allowed to allocate the string.
+            const int maximumReplyBytes = 8 * 1024 * 1024;
+            const int maximumEventBytes = 256 * 1024;
+            int maximum = isEvent != 0 ? maximumEventBytes : maximumReplyBytes;
+            int length = 0;
+            while (json != null && length <= maximum && json[length] != 0) length++;
+            DispatchDevToolsMessage(b, isEvent != 0, messageId, new ReadOnlySpan<byte>(json, length));
+        }
         catch { }
+    }
+
+    internal static void DispatchDevToolsMessage(
+        CefBrowser browser, bool isEvent, int messageId, ReadOnlySpan<byte> json)
+    {
+        var maximum = isEvent ? 256 * 1024 : 8 * 1024 * 1024;
+        if (json.Length > maximum)
+        {
+            if (!isEvent)
+                browser.RaiseDevToolsMessage(false, messageId,
+                    "{\"error\":{\"code\":-32000,\"message\":\"CDP response exceeds the host byte limit.\"}}");
+            return;
+        }
+        browser.RaiseDevToolsMessage(isEvent, messageId, System.Text.Encoding.UTF8.GetString(json));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

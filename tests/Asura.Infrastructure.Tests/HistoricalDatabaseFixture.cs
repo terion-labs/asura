@@ -124,6 +124,10 @@ internal static class HistoricalDatabaseFixture
                 "quick-terminal-control-grave-hotkey",
                 "9E46D482F645831B07A0138905AD3B65A785A0F6E16E84B0EA35B73C92895A5D",
                 IsDestructive: false),
+            [26] = new(
+                "mcp-legacy-trust-review",
+                "A1148446CB045EFEF35B3544343F7343A584263D18741E41B86E4C845EA217EB",
+                IsDestructive: false),
         };
 
     public static readonly DateTimeOffset ReferenceTime =
@@ -214,6 +218,29 @@ internal static class HistoricalDatabaseFixture
                         SELECT RAISE(ABORT, 'next migration collision');
                     END;
                     """,
+                // Migration 26 denies trust for profiles with no receipt. Seed
+                // that legacy payload, then refuse exactly its trust update.
+                25 => $"""
+                    INSERT INTO definitions(
+                        kind, id, schema_version, revision, name, payload_json,
+                        created_utc, updated_utc)
+                    VALUES (
+                        'mcp-server-profile',
+                        'mcp.missing-trust',
+                        2,
+                        1,
+                        'Unreviewed MCP',
+                        '{LegacyMcpPayload}',
+                        '2026-01-01T00:00:00.0000000+00:00',
+                        '2026-01-01T00:00:00.0000000+00:00');
+                    CREATE TRIGGER {schemaObjectName}
+                    BEFORE UPDATE ON definitions
+                    WHEN OLD.kind = 'mcp-server-profile'
+                        AND json_type(OLD.payload_json, '$.isTrusted') IS NULL
+                    BEGIN
+                        SELECT RAISE(ABORT, 'next migration collision');
+                    END;
+                    """,
                 _ => $"CREATE TABLE {schemaObjectName} "
                      + "(incompatible_column TEXT NOT NULL);",
             });
@@ -233,7 +260,7 @@ internal static class HistoricalDatabaseFixture
                 13 => "ALTER TABLE agent_session_checkpoints DROP COLUMN workspace_id;",
                 16 => "ALTER TABLE browser_profile_preference DROP COLUMN default_profile_id;",
                 23 => "ALTER TABLE git_panel_preference DROP COLUMN settings_json;",
-                8 or 24 => $"DROP TRIGGER {schemaObjectName};",
+                8 or 24 or 25 => $"DROP TRIGGER {schemaObjectName};",
                 _ => $"DROP TABLE {schemaObjectName};",
             });
     }
@@ -431,6 +458,7 @@ internal static class HistoricalDatabaseFixture
             22 => "git_commit_draft",
             23 => "settings_json",
             24 => "quick_terminal_hotkey_migration_collision",
+            25 => "mcp_legacy_trust_migration_collision",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(currentVersion),
                 currentVersion,
@@ -439,6 +467,9 @@ internal static class HistoricalDatabaseFixture
 
     private const string QuickTerminalPayload =
         """{"id":{"value":"builtin.quick-terminal.default"},"schemaVersion":2,"name":"Quick Terminal","hotkey":{"key":"GRAVE","modifiers":"Meta"},"monitorPolicy":"MainWindow","heightFraction":0.55,"opacity":0.82,"animateSlide":true,"animationDurationMilliseconds":180,"reduceMotion":false,"restoreLastSession":true,"hideOnFocusLoss":true,"isTranslucent":true,"restoreOnStart":true}""";
+
+    private const string LegacyMcpPayload =
+        """{"id":{"value":"mcp.missing-trust"},"schemaVersion":2,"name":"Unreviewed MCP","transport":{"$type":"stdio","executable":"example-mcp-server","arguments":[],"workingDirectory":null,"environment":{}},"enabledTools":[],"isEnabled":false}""";
 
     private sealed record FrozenMigrationReceipt(
         string Name,

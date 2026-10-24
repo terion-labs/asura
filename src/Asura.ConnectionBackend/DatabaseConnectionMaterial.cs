@@ -6,6 +6,13 @@ using Asura.Databases;
 
 namespace Asura.ConnectionBackend;
 
+internal enum DatabaseConnectionFileAccess
+{
+    InPlace,
+    ImportHost,
+    RefuseWorkspaceFiles,
+}
+
 internal sealed record DatabaseConnectionMaterial(string Option, string Name, int Length);
 
 /// <summary>
@@ -26,6 +33,21 @@ internal sealed partial class DatabaseConnectionMaterials : IDisposable
     private DatabaseConnectionMaterials(DatabaseWorkerConnection connection) { Connection = connection; }
     internal DatabaseWorkerConnection Connection { get; private set; }
     internal DatabaseConnectionMaterial[] Descriptors => [.. _descriptors];
+
+    internal static void RefuseWorkspaceFiles(DatabaseWorkerConnection connection)
+    {
+        var driver = BuiltInDatabaseDrivers.All.Single(item => string.Equals(item.Descriptor.Id, connection.DriverId, StringComparison.Ordinal));
+        var builder = new DbConnectionStringBuilder { ConnectionString = driver.NormalizeConnectionString(connection.ConnectionString) };
+        foreach (var option in builder.Keys.Cast<string>())
+        {
+            if ((IsFileOption(connection.DriverId, option) || IsDirectoryOption(connection.DriverId, option))
+                && !string.IsNullOrWhiteSpace(Convert.ToString(builder[option], System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                throw new NotSupportedException("The protected database service cannot access certificate or wallet files in the interactive workspace. Use a connection without guest-local certificate paths, or open it from a host workspace with explicit host certificate files. No credentials were sent to the workspace backend.");
+            }
+        }
+        RejectEmbeddedOraclePaths(connection.DriverId, builder);
+    }
 
     internal static async Task<DatabaseConnectionMaterials> ReadHostAsync(DatabaseWorkerConnection connection, CancellationToken token)
     {

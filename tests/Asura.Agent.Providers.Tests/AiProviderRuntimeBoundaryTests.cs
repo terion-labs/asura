@@ -168,6 +168,23 @@ public sealed class AiProviderRuntimeBoundaryTests
         Assert.Equal(profile.Id.Value, resolve.Purpose.TargetId);
     }
 
+    [Theory]
+    [InlineData("opaque-vault-credential", "opaque-vault-credential", "Safe")]
+    [InlineData("opaque-vault-credential", "safe-model", "prefix-opaque-vault-credential")]
+    [InlineData("opaque-vault-credential", "sk-reflectedcredential123", "Safe")]
+    public async Task ModelDiscoveryRejectsReflectedCredentials(string credential, string id, string label)
+    {
+        using var vault = new RecordingSecretVault();
+        var reference = SecretRef.New();
+        var profile = ApiKeyProfile(AiProviderKind.OpenAi, "provider-reflection", reference);
+        await StoreCredentialAsync(vault, profile.Id, reference, credential);
+        var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
+            System.Text.Json.JsonSerializer.Serialize(new { data = new[] { new { id, display_name = label } } })));
+        using var factory = new AiProviderFactory(vault, handler);
+        await Assert.ThrowsAsync<AiProviderClientException>(async () =>
+            await factory.ListModelsAsync(profile, CancellationToken.None));
+    }
+
     [Fact]
     public async Task Anthropic_model_discovery_uses_exact_uri_and_required_headers()
     {

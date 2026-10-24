@@ -145,6 +145,7 @@ internal sealed class CefAgentWebReader
         CancellationToken cancellationToken)
     {
         await using var proxy = AgentWebProxy.Create(_networkConnector!, cancellationToken);
+        using var responseBudget = new AgentWebResponseBudget();
         CefBrowserNetworkContext? network = null;
         CefBrowserView? browser = null;
         try
@@ -155,6 +156,7 @@ internal sealed class CefAgentWebReader
                     var createdNetwork = CefBrowserNetworkContext.CreateIsolatedAgentWeb(proxy.Endpoint);
                     var proxyResolver = new WorkspaceProxyAuthenticationResolver(proxy.Endpoint, proxy.Credentials);
                     var createdBrowser = createdNetwork.CreateView(proxyResolver);
+                    createdBrowser.SetResponseBudget(responseBudget);
                     createdBrowser.SetResourceRequestPolicy(
                         AgentWebProxy.AllowsRequestAsync);
                     return (createdNetwork, createdBrowser);
@@ -178,7 +180,9 @@ internal sealed class CefAgentWebReader
                 .ConfigureAwait(false);
             if (!outcome.IsSuccess || outcome.Address is null)
             {
-                return Failed(proxy.Failure ?? outcome.ErrorCode);
+                return Failed(responseBudget.Exceeded
+                    ? AgentWebToolErrorCode.BodyTooLarge
+                    : proxy.Failure ?? outcome.ErrorCode);
             }
 
             browser.MarkDomActivity();
@@ -186,11 +190,13 @@ internal sealed class CefAgentWebReader
                     DomQuietWindow,
                     cancellationToken)
                 .ConfigureAwait(false);
+            if (responseBudget.Exceeded) { return Failed(AgentWebToolErrorCode.BodyTooLarge); }
             var extracted = await (request.Format is AgentWebReadFormat.Markdown
                     ? browser.ExtractReadableArticleAsync()
                     : browser.ExtractRenderedDocumentAsync())
                 .WaitAsync(cancellationToken)
                 .ConfigureAwait(false);
+            if (responseBudget.Exceeded) { return Failed(AgentWebToolErrorCode.BodyTooLarge); }
             if (extracted.Status != NativeBrowserAutomationStatus.Acknowledged
                 || extracted.ResultJson is null)
             {

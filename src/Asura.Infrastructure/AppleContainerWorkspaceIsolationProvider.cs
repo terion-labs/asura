@@ -522,7 +522,7 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
                 configuredMounts = request.Mounts;
                 resource.RuntimeImageReference = ImageReferenceFor(request);
             }
-            else if (!MountsEqual(configuredMounts, request.Mounts) || !forwardsSshAgent)
+            else if (!MountsEqual(configuredMounts, request.Mounts) || forwardsSshAgent)
             {
                 var reconfigured = await ReconfigureContainerAsync(
                         request,
@@ -1380,7 +1380,6 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
             "NONE",
             "--env",
             "container=apple-container",
-            "--ssh",
         };
         if (_useHostOnlyNetwork)
         {
@@ -2091,7 +2090,7 @@ public sealed partial class AppleContainerWorkspaceIsolationProvider : IWorkspac
             out var configuredBaseImage,
             out var forwardsSshAgent)
         && MountsEqual(configuredMounts, request.Mounts)
-        && forwardsSshAgent
+        && !forwardsSshAgent
         && ImageConfigurationMatches(
             request,
             resourceName,

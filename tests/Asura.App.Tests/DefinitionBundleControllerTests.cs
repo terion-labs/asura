@@ -257,6 +257,27 @@ public sealed class DefinitionBundleControllerTests
     }
 
     [Fact]
+    public async Task Import_rejects_null_dock_children_before_the_store_is_called()
+    {
+        using var temporary = TemporaryDirectory.Create();
+        var path = temporary.PathFor("malformed-dock.json");
+        var payload = JsonSerializer.Serialize(new
+        {
+            dockLayoutJson = """
+                {"kind":"root","id":"root","title":"Root","proportion":null,"minWidth":null,"minHeight":null,"orientation":null,"children":null,"windows":[]}
+                """,
+        });
+        await WriteBundleAsync(path, Bundle(Document("bad-dock", payload)));
+        var store = new RecordingBundleStore();
+        var controller = CreateController(store, new RecordingPathPicker { ImportPath = path });
+
+        var result = await controller.PreflightImportAsync(DefinitionImportMode.ReplaceExisting, default);
+
+        Assert.Equal(DefinitionStoreErrorCode.InvalidDefinition, result.Error?.Code);
+        Assert.Empty(store.PreflightCalls);
+    }
+
+    [Fact]
     public async Task Blocking_preflight_cannot_be_applied_even_if_a_caller_ignores_the_ui_state()
     {
         using var temporary = TemporaryDirectory.Create();

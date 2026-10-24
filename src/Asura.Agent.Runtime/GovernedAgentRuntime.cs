@@ -115,6 +115,9 @@ public sealed partial class GovernedAgentRuntime :
     private readonly AgentToolCatalog _toolCatalog;
     private readonly IAgentProviderResolver _providerResolver;
     private readonly IAgentSessionCheckpointStore? _checkpointStore;
+    private IAsyncDisposable? _historyRetentionLease;
+    private AgentRunId? _historyRetentionRunId;
+    private bool _historyRevokedOnDispose;
     private readonly IAgentAttachmentService? _attachments;
     private readonly WorkspaceChatSecrets? _chatSecrets;
     private readonly WorkspaceInstanceId? _workspaceId;
@@ -1035,7 +1038,7 @@ public sealed partial class GovernedAgentRuntime :
         }
         finally
         {
-            ReleaseTurn(turnCancellation);
+            await ReleaseTurnAsync(turnCancellation).ConfigureAwait(false);
         }
     }
 
@@ -1523,6 +1526,8 @@ public sealed partial class GovernedAgentRuntime :
                 }
             }
 
+            await ReleaseHistoryRetentionAsync().ConfigureAwait(false);
+
             if (deleteStoredConversation
                 && _checkpointStore is not null
                 && runId is { } checkpointRun)
@@ -1615,7 +1620,6 @@ public sealed partial class GovernedAgentRuntime :
 
             _disposed = true;
             cancellation = _turnCancellation;
-            _turnCancellation = null;
             session = _session;
             approval = _approvalAwaiter;
             _approvalAwaiter = null;
@@ -1673,10 +1677,20 @@ public sealed partial class GovernedAgentRuntime :
             capabilityRequest,
             "capability_request_cancelled",
             "The capability request was canceled.");
-        await CancelRegisteredRunBestEffortAsync(
+        var revocationError = await CancelRegisteredRunBestEffortAsync(
                 "runtime_disposed",
                 CancellationToken.None)
             .ConfigureAwait(false);
+        bool releaseHistory;
+        lock (_gate)
+        {
+            _historyRevokedOnDispose = revocationError is null;
+            releaseHistory = _historyRevokedOnDispose && _turnCancellation is null;
+        }
+        if (releaseHistory)
+        {
+            await ReleaseHistoryRetentionAsync().ConfigureAwait(false);
+        }
         _chatSecrets?.Dispose();
     }
 
@@ -3649,6 +3663,36 @@ public sealed partial class GovernedAgentRuntime :
             }
         }
 
+        var historyRunId = GetRequiredSession().RunId;
+        if (_historyRetentionRunId != historyRunId)
+        {
+            await ReleaseHistoryRetentionAsync().ConfigureAwait(false);
+        }
+        if (_checkpointStore is not null && _historyRetentionLease is null)
+        {
+            var lease = await _checkpointStore.ProtectActiveRunAsync(
+                historyRunId, cancellationToken).ConfigureAwait(false);
+            bool disposed;
+            lock (_gate)
+            {
+                disposed = _disposed;
+                if (!disposed)
+                {
+                    _historyRetentionLease = lease;
+                    _historyRetentionRunId = historyRunId;
+                }
+            }
+            if (disposed)
+            {
+                if (lease is not null)
+                {
+                    await lease.DisposeAsync().ConfigureAwait(false);
+                }
+                return new AgentAuthorizationError(AgentAuthorizationErrorCode.Cancelled,
+                    "The agent runtime was disposed before registration.");
+            }
+        }
+
         var error = await _broker.RegisterRunAsync(
                 new AgentRunRegistration(
                     GetRequiredSession().RunId,
@@ -5028,10 +5072,11 @@ public sealed partial class GovernedAgentRuntime :
         }
     }
 
-    private void ReleaseTurn(CancellationTokenSource turnCancellation)
+    private async ValueTask ReleaseTurnAsync(CancellationTokenSource turnCancellation)
     {
         QuestionAwaiter? question = null;
         CapabilityRequestAwaiter? capabilityRequest = null;
+        bool releaseHistory;
         lock (_gate)
         {
             if (ReferenceEquals(_turnCancellation, turnCancellation))
@@ -5056,6 +5101,7 @@ public sealed partial class GovernedAgentRuntime :
                     };
                 }
             }
+            releaseHistory = _disposed && _historyRevokedOnDispose;
         }
 
         CancelDetachedQuestionAwaiter(
@@ -5067,6 +5113,12 @@ public sealed partial class GovernedAgentRuntime :
             "capability_request_cancelled",
             "The capability request was canceled.");
         turnCancellation.Dispose();
+        if (releaseHistory)
+        {
+            // A disposed runtime can still have an action finishing its audit.
+            // Retention may reclaim it only after both revocation and this drain.
+            await ReleaseHistoryRetentionAsync().ConfigureAwait(false);
+        }
     }
 
     private ActorDescriptor GetOrCreateAgent()

@@ -207,7 +207,7 @@ public sealed partial class NativeTerminalBuildContractTests
     }
 
     [Fact]
-    public void Repository_gate_runs_only_for_version_tags()
+    public void Repository_release_requires_manual_main_dispatch_and_an_exact_version_tag()
     {
         var workflow = File.ReadAllText(Path.Combine(
             RepositoryRoot,
@@ -216,12 +216,15 @@ public sealed partial class NativeTerminalBuildContractTests
             "repository-gate.yml"));
 
         Assert.Contains(
-            "on:\n  push:\n    tags: [\"v*\"]",
+            "on:\n  workflow_dispatch:",
             workflow,
             StringComparison.Ordinal);
         Assert.DoesNotContain("branches:", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("\n  pull_request:", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("\n  workflow_dispatch:", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n  push:", workflow, StringComparison.Ordinal);
+        Assert.Contains("if: github.ref == 'refs/heads/main'", workflow, StringComparison.Ordinal);
+        Assert.Contains("needs: authorize-release", workflow, StringComparison.Ordinal);
+        Assert.Contains("refs/tags/${ASURA_RELEASE_TAG}", workflow, StringComparison.Ordinal);
     }
 
     [Fact]

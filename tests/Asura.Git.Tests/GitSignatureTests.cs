@@ -22,6 +22,10 @@ public sealed class GitSignatureTests
         var command = Assert.Single(executor.Commands);
         Assert.Contains("HEAD", command.Arguments, StringComparer.Ordinal);
         Assert.Contains("--no-patch", command.Arguments, StringComparer.Ordinal);
+        Assert.Contains("gpg.program=gpg", command.Arguments, StringComparer.Ordinal);
+        Assert.Contains("gpg.openpgp.program=gpg", command.Arguments, StringComparer.Ordinal);
+        Assert.Contains("gpg.x509.program=gpgsm", command.Arguments, StringComparer.Ordinal);
+        Assert.Contains("gpg.ssh.program=ssh-keygen", command.Arguments, StringComparer.Ordinal);
     }
 
     [Fact]

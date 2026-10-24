@@ -274,16 +274,7 @@ public static partial class LiteralSecretValidator
             {
                 continue;
             }
-
-            // An unescaped line break ends this command. An interactive
-            // option at the end of a line must not consume the next command
-            // as its credential value. Backslash continuations remain unsafe.
-            while (cursor < value.Length && char.IsWhiteSpace(value[cursor])
-                && value[cursor] is not ('\r' or '\n'))
-            {
-                cursor++;
-            }
-            if (cursor < value.Length && value[cursor] is '\r' or '\n')
+            else if (IsValuelessShellExampleOption(value, optionStart, cursor))
             {
                 continue;
             }
@@ -295,6 +286,54 @@ public static partial class LiteralSecretValidator
         }
 
         return false;
+    }
+
+    private static bool IsValuelessShellExampleOption(string value, int optionStart, int cursor)
+    {
+        // Only a complete, simple shell example followed by the same executable
+        // gives this newline command-boundary meaning. Ordinary prose/JSON, quotes,
+        // assignments and continuations still scan across newlines. This skips one
+        // empty option, never the whole fence or an arbitrary token on its next line.
+        while (cursor < value.Length && value[cursor] is ' ' or '\t') { cursor++; }
+        if (cursor >= value.Length || value[cursor] is not ('\r' or '\n')) { return false; }
+        if (value[cursor] == '\r' && (cursor + 1 >= value.Length || value[cursor + 1] != '\n')) { return false; }
+
+        const int maximumExampleLength = 4096;
+        var fence = value.LastIndexOf("```", optionStart, Math.Min(optionStart + 1, maximumExampleLength), StringComparison.Ordinal);
+        if (fence < 0 || (fence > 0 && value[fence - 1] != '\n')) { return false; }
+        var openingEnd = value.IndexOf('\n', fence);
+        if (openingEnd < 0 || openingEnd >= optionStart) { return false; }
+        var opening = value.AsSpan(fence, openingEnd - fence).TrimEnd('\r');
+        if (!opening.SequenceEqual("```sh") && !opening.SequenceEqual("```bash") && !opening.SequenceEqual("```shell")) { return false; }
+
+        var closing = value.IndexOf("\n```", cursor, Math.Min(value.Length - cursor, maximumExampleLength), StringComparison.Ordinal);
+        if (closing < 0 || closing - fence > maximumExampleLength) { return false; }
+        var closingEnd = closing + 4;
+        if (closingEnd < value.Length && value[closingEnd] == '\r') { closingEnd++; }
+        if (closingEnd < value.Length && value[closingEnd] != '\n') { return false; }
+
+        var commandStart = value.LastIndexOf('\n', optionStart) + 1;
+        var command = value.AsSpan(commandStart, optionStart - commandStart).Trim();
+        if (command.IsEmpty || command[0] == '-') { return false; }
+        foreach (var character in value.AsSpan(openingEnd + 1, closing - openingEnd - 1))
+        {
+            if (!char.IsAsciiLetterOrDigit(character)
+                && character is not ('.' or '/' or '_' or '-' or ' ' or '\t' or '\r' or '\n'))
+            {
+                return false;
+            }
+        }
+
+        var following = value.AsSpan(cursor, closing - cursor).Trim();
+        if (following.IsEmpty) { return true; }
+        var followingEnd = following.IndexOfAny('\r', '\n');
+        if (followingEnd >= 0) { following = following[..followingEnd]; }
+        var executableEnd = command.IndexOfAny(' ', '\t');
+        var executable = executableEnd < 0 ? command : command[..executableEnd];
+        return following.StartsWith(executable, StringComparison.Ordinal)
+            && following.Length > executable.Length
+            && following[executable.Length] is ' ' or '\t'
+            && !following[(executable.Length + 1)..].Trim().IsEmpty;
     }
 
     private static bool HasSecretBearingValue(string value, int start)
@@ -360,11 +399,6 @@ public static partial class LiteralSecretValidator
             candidate = candidate[1..^1];
         }
         if (ChatHiddenReference.IsPlaceholder(candidate))
-        {
-            return true;
-        }
-        if (candidate.Length > 2 && candidate[0] == '<' && candidate[^1] == '>'
-            && candidate.AsSpan(1, candidate.Length - 2).IndexOfAnyExcept("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-".AsSpan()) < 0)
         {
             return true;
         }

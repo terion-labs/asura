@@ -86,7 +86,7 @@ public sealed class DatabaseConnectionMaterialsTests
             var launched = false;
             using var worker = new DatabaseOperationWorker(() => throw new InvalidOperationException("No result expected."),
                 workspaceLaunch: _ => { launched = true; return Task.FromResult(new DatabaseWorkspaceOperationLaunch(new ProcessStartInfo("must-not-start"), static () => Task.CompletedTask)); },
-                importHostConnectionFiles: true);
+                connectionFiles: DatabaseConnectionFileAccess.ImportHost);
             await Assert.ThrowsAsync<NotSupportedException>(() => worker.ListTablesAsync(new("postgres", $"Host=db.private;Root Certificate={path}"), CancellationToken.None));
             Assert.False(launched);
         }
@@ -96,6 +96,26 @@ public sealed class DatabaseConnectionMaterialsTests
             File.CreateSymbolicLink(link, large);
             await Assert.ThrowsAsync<NotSupportedException>(() => DatabaseConnectionMaterials.ReadHostAsync(new("postgres", $"Host=db.private;Root Certificate={link}"), CancellationToken.None));
         }
+    }
+
+    [Theory]
+    [InlineData("postgres", "Host=db.private;Password=host-vault-secret;Root Certificate=/guest/ca.pem")]
+    [InlineData("mysql", "Server=db.private;Password=host-vault-secret;SslCert=/guest/cert.pem")]
+    [InlineData("sqlserver", "Server=db.private;Password=host-vault-secret;ServerCertificate=/guest/cert.pem")]
+    [InlineData("oracle", "Data Source=db.private;Password=host-vault-secret;Wallet_Location=/guest/wallet")]
+    public async Task Protected_workspace_service_rejects_guest_files_before_launching_or_sending_credentials(string driver, string connection)
+    {
+        var launched = false;
+        using var worker = new DatabaseOperationWorker(() => throw new InvalidOperationException("No result expected."),
+            workspaceLaunch: _ => { launched = true; throw new InvalidOperationException("No worker may receive this request."); },
+            connectionFiles: DatabaseConnectionFileAccess.RefuseWorkspaceFiles);
+
+        var error = await Assert.ThrowsAsync<NotSupportedException>(() => worker.ListTablesAsync(
+            new(driver, connection), CancellationToken.None));
+
+        Assert.False(launched);
+        Assert.Contains("cannot access certificate or wallet files", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("host-vault-secret", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

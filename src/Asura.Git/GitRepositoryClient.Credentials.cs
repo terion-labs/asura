@@ -47,7 +47,9 @@ public sealed partial class GitRepositoryClient
             start += marker.Length;
             var end = error.Message.IndexOf('\'', start);
             if (end > start && Uri.TryCreate(error.Message[start..end], UriKind.Absolute, out var remote)
-                && remote.Scheme is "https" or "http")
+                && (remote.Scheme is "https" || remote.Scheme is "http"
+                    && System.Net.IPAddress.TryParse(remote.IdnHost, out var address)
+                    && System.Net.IPAddress.IsLoopback(address)))
             {
                 return new UriBuilder(remote) { Password = "", Query = "", Fragment = "" }.Uri;
             }

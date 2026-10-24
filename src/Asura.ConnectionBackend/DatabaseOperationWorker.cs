@@ -18,7 +18,7 @@ internal sealed partial class DatabaseOperationWorker(
     SelfReentryLaunch? selfReentry = null,
     Func<ChildProcess, long?>? sampleMemory = null,
     Func<CancellationToken, Task<DatabaseWorkspaceOperationLaunch>>? workspaceLaunch = null,
-    bool importHostConnectionFiles = false) : IDatabaseOperationExecutor, IDisposable
+    DatabaseConnectionFileAccess connectionFiles = DatabaseConnectionFileAccess.InPlace) : IDatabaseOperationExecutor, IDisposable
 {
     internal const string Marker = "--asura-database-operation-worker";
     internal const long MaximumWorkingSetBytes = 2L * 1024 * 1024 * 1024;
@@ -79,11 +79,15 @@ internal sealed partial class DatabaseOperationWorker(
         T? completedResult = default;
         try
         {
-            if (importHostConnectionFiles && workspaceLaunch is null)
+            if (connectionFiles == DatabaseConnectionFileAccess.ImportHost && workspaceLaunch is null)
             {
                 throw new InvalidOperationException("Host database material imports require an owned service backend.");
             }
-            using var materials = importHostConnectionFiles
+            if (connectionFiles == DatabaseConnectionFileAccess.RefuseWorkspaceFiles)
+            {
+                DatabaseConnectionMaterials.RefuseWorkspaceFiles(request.Connection);
+            }
+            using var materials = connectionFiles == DatabaseConnectionFileAccess.ImportHost
                 ? await DatabaseConnectionMaterials.ReadHostAsync(request.Connection, cancellation.Token).ConfigureAwait(false) : null;
             directory = Directory.CreateTempSubdirectory("asura-database-worker-");
             PrivateContentPathGuard.ValidatePrivateDirectory(directory.FullName);

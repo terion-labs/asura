@@ -216,7 +216,9 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("packages.${runtime_identifier}.aot.lock.json", packageScript, StringComparison.Ordinal);
         Assert.Contains("--managed-evidence", packageScript, StringComparison.Ordinal);
         Assert.Contains("*.runtimeconfig.json", packageScript, StringComparison.Ordinal);
-        Assert.Contains("brew install lld@22", workflow, StringComparison.Ordinal);
+        Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew install lld@22", workflow, StringComparison.Ordinal);
+        Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22", workflow, StringComparison.Ordinal);
+        Assert.Contains("core_revision=7d510097b9e6d86c103d22054ec80d74b5d70e9a", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("<string>Asura.icns</string>", infoPlist, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(
             RepositoryRoot,
@@ -485,9 +487,12 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("record-macos-signing-evidence.sh", releaseScript, StringComparison.Ordinal);
         Assert.Contains("name: asura-macos-arm64", workflow, StringComparison.Ordinal);
         Assert.Contains("permissions:\n      contents: write", workflow, StringComparison.Ordinal);
-        Assert.Contains("if: startsWith(github.ref, 'refs/tags/v')", workflow, StringComparison.Ordinal);
+        Assert.Contains("workflow_dispatch:", workflow, StringComparison.Ordinal);
+        Assert.Contains("if: github.ref == 'refs/heads/main'", workflow, StringComparison.Ordinal);
+        Assert.Contains("environment: release", workflow, StringComparison.Ordinal);
+        Assert.Contains("test \"$(git rev-parse 'FETCH_HEAD^{commit}')\" = \"${GITHUB_SHA}\"", workflow, StringComparison.Ordinal);
         Assert.Contains("GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}", workflow, StringComparison.Ordinal);
-        Assert.Contains("gh release create \"${GITHUB_REF_NAME}\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("gh release create \"${ASURA_RELEASE_TAG}\"", workflow, StringComparison.Ordinal);
         Assert.Contains("--latest", workflow, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("--prerelease", workflow, StringComparison.Ordinal);

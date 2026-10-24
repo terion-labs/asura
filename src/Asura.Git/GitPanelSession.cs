@@ -175,7 +175,8 @@ internal sealed class GitPanelSession : IGitPanelSession
                 _target.Repository,
                 selectedRemote.Name,
                 selectedBranch.ShortName,
-                operationCancellation.Token)
+                operationCancellation.Token,
+                selectedRemote.FetchUrl)
             .ConfigureAwait(false);
         if (result is not GitResult<GitGovernedRemoteRef>.Success success)
         {

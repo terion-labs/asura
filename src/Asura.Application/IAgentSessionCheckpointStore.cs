@@ -16,6 +16,10 @@ public sealed record AgentSessionCheckpointSummary(
 /// </summary>
 public interface IAgentSessionCheckpointStore
 {
+    /// <summary>Protects a live run from global retention until its authority is revoked.</summary>
+    ValueTask<IAsyncDisposable?> ProtectActiveRunAsync(AgentRunId runId, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IAsyncDisposable?>(null);
+
     // Unknown adapters conservatively retain vault entries. SQLite checks every
     // workspace row, including history that is outside the UI's catalog window.
     ValueTask<bool> IsChatHiddenReferenceInUseAsync(AgentConversationScopeId scope, string id, CancellationToken cancellationToken) =>

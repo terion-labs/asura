@@ -126,6 +126,27 @@ public sealed class CefAgentWebSearchExecutorTests
         Assert.Equal(AgentWebSearchErrorCode.ExtractionFailed, failed.Code);
     }
 
+    [Fact]
+    public void Dom_observation_accepts_deep_results_without_parsing_the_dom()
+    {
+        var nested = string.Concat(Enumerable.Repeat("{\"children\":[", 100));
+        var close = string.Concat(Enumerable.Repeat("]}", 100));
+        Assert.True(CefBrowserDomActivityTracker.IsSuccessfulDocumentReply(
+            "{\"id\":7,\"result\":" + nested + "{}" + close + "}"));
+        Assert.False(CefBrowserDomActivityTracker.IsSuccessfulDocumentReply(
+            "{\"id\":7,\"error\":{\"message\":\"limit\"}}"));
+    }
+
+    [Fact]
+    public void DomActivityReadsOnlyTheHeaderOfLargePageControlledEvents()
+    {
+        var body = new string('x', 1024 * 1024);
+        Assert.True(CefBrowserDomActivityTracker.IsDomActivityMessage(
+            "{\"method\":\"DOM.characterDataModified\",\"params\":{\"value\":\"" + body + "\"}}"));
+        Assert.False(CefBrowserDomActivityTracker.IsDomActivityMessage(
+            "{\"method\":\"Accessibility.nodesUpdated\",\"params\":{\"value\":\"" + body + "\"}}"));
+    }
+
     [Theory]
     [InlineData("{\"method\":\"DOM.childNodeInserted\",\"params\":{}}", true)]
     [InlineData("{\"method\":\"DOM.characterDataModified\",\"params\":{}}", true)]

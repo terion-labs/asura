@@ -36,6 +36,8 @@ public sealed partial class MainWindow
 
     private bool _changingKeybindingProfile;
     private ThemePreference? _appearanceControlsSource;
+    private long? _appearanceControlsRevision;
+    private int _appearanceControlsGeneration;
 
     private SettingsView SettingsRoute => EnsureSettingsRoute();
 
@@ -726,6 +728,7 @@ public sealed partial class MainWindow
         }
 
         var theme = viewModel.ActiveTheme;
+        var revision = viewModel.AppearanceSettings.ActiveThemeRevision;
         _applyingAppearanceControls = true;
         try
         {
@@ -739,6 +742,8 @@ public sealed partial class MainWindow
         }
 
         _appearanceControlsSource = theme;
+        _appearanceControlsRevision = revision;
+        _appearanceControlsGeneration++;
     }
 
     internal static AppearanceTextScaleOption ResolveApplicationTextScaleOption(
@@ -1245,8 +1250,9 @@ public sealed partial class MainWindow
         try
         {
             var selection = SettingsRoute.CaptureAppearance();
+            var controlsGeneration = _appearanceControlsGeneration;
             var theme = ThemeFrom(selection);
-            if (!ViewModel.PreviewAppearanceTheme(theme))
+            if (!ViewModel.PreviewAppearanceTheme(theme, _appearanceControlsRevision))
             {
                 SettingsRoute.SetAppearanceValidationStatus(
                     ViewModel.AppearancePreviewStatus,
@@ -1261,6 +1267,7 @@ public sealed partial class MainWindow
                 SettingsRoute.SetAppearanceValidationStatus(result.Error!.Message, isWarning: true);
                 return;
             }
+            AdvanceAppearanceControlsRevision(controlsGeneration, result.Value!.Revision);
             SettingsRoute.SetAppearanceValidationStatus(
                 status,
                 isWarning: status.StartsWith(
@@ -1472,8 +1479,11 @@ public sealed partial class MainWindow
             var retryTerminal = ViewModel.CanRetryTerminalAppearanceSave;
             if (!retryTerminal || ViewModel.HasThemeAppearanceDraft)
             {
+                var controlsGeneration = _appearanceControlsGeneration;
+                var theme = ThemeFrom(SettingsRoute.CaptureAppearance());
+                if (!ViewModel.PreviewAppearanceTheme(theme, _appearanceControlsRevision)) { return; }
                 var result = await ViewModel.SaveAppearanceThemeChangeAsync(
-                    ThemeFrom(SettingsRoute.CaptureAppearance()),
+                    theme,
                     _lifetime.Token);
                 if (!result.IsSuccess)
                 {
@@ -1481,6 +1491,7 @@ public sealed partial class MainWindow
                 }
 
                 _appearanceControlsSource = ViewModel.ActiveTheme;
+                AdvanceAppearanceControlsRevision(controlsGeneration, result.Value!.Revision);
             }
 
             if (retryTerminal && !await SaveTerminalAppearanceChangeAsync())
@@ -1631,6 +1642,8 @@ public sealed partial class MainWindow
             }
 
             var theme = portable.Application.ApplyTo(ViewModel.ActiveTheme);
+            var controlsGeneration = ++_appearanceControlsGeneration;
+            _appearanceControlsRevision = ViewModel.AppearanceSettings.ActiveThemeRevision;
             TerminalProfile? terminal = null;
             _applyingAppearanceControls = true;
             try
@@ -1657,6 +1670,7 @@ public sealed partial class MainWindow
                 SettingsRoute.SetAppearanceValidationStatus(savedTheme.Error!.Message, isWarning: true);
                 return;
             }
+            AdvanceAppearanceControlsRevision(controlsGeneration, savedTheme.Value!.Revision);
             if (terminal is not null
                 && ViewModel.PreviewTerminalAppearance(terminal)
                 && !await SaveTerminalAppearanceChangeAsync())
@@ -1679,6 +1693,15 @@ public sealed partial class MainWindow
             or NotSupportedException or UnauthorizedAccessException)
         {
             ViewModel.SetError(AppearanceFileError(exception, exporting: false));
+        }
+    }
+
+    private void AdvanceAppearanceControlsRevision(int generation, long revision)
+    {
+        if (generation == _appearanceControlsGeneration
+            && (_appearanceControlsRevision is null || revision > _appearanceControlsRevision))
+        {
+            _appearanceControlsRevision = revision;
         }
     }
 

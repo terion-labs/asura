@@ -40,10 +40,10 @@ internal sealed class AiProviderModelDiscovery(
                 responseStream,
                 limits.MaximumModelResponseBytes);
             using var document = await ParseAsync(limited, operation.Token).ConfigureAwait(false);
-            return ParseModels(
+            return ValidateModels(ParseModels(
                 document.RootElement,
                 discovery,
-                limits.MaximumModels);
+                limits.MaximumModels), request);
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested)
@@ -108,7 +108,7 @@ internal sealed class AiProviderModelDiscovery(
                 limits.MaximumModelResponseBytes);
             using var document = await ParseAsync(limited, operation.Token)
                 .ConfigureAwait(false);
-            return ParseOpenAiCodexModels(document.RootElement, limits.MaximumModels);
+            return ValidateModels(ParseOpenAiCodexModels(document.RootElement, limits.MaximumModels), request);
         }
         catch (OperationCanceledException exception)
             when (!cancellationToken.IsCancellationRequested)
@@ -117,6 +117,27 @@ internal sealed class AiProviderModelDiscovery(
                 AiProviderRuntimeErrorCode.Timeout,
                 innerException: exception);
         }
+    }
+
+    // Provider responses are untrusted even though that provider receives the credential.
+    // Reject reflected authentication material before model metadata reaches settings or storage.
+    private static IReadOnlyList<AiProviderModelDescriptor> ValidateModels(
+        IReadOnlyList<AiProviderModelDescriptor> models, HttpRequestMessage request)
+    {
+        var credentials = new List<string>();
+        if (request.Headers.Authorization?.Parameter is { Length: > 0 } bearer) { credentials.Add(bearer); }
+        foreach (var name in new[] { "x-api-key", "x-goog-api-key" })
+        {
+            if (request.Headers.TryGetValues(name, out var values)) { credentials.AddRange(values); }
+        }
+        if (models.Any(model => LiteralSecretValidator.ContainsLikelyLiteralSecret(model.Id)
+            || LiteralSecretValidator.ContainsLikelyLiteralSecret(model.DisplayName ?? string.Empty)
+            || credentials.Any(credential => model.Id.Contains(credential, StringComparison.Ordinal)
+                || model.DisplayName?.Contains(credential, StringComparison.Ordinal) == true)))
+        {
+            throw AiProviderClientException.Create(AiProviderRuntimeErrorCode.ProtocolError);
+        }
+        return models;
     }
 
     private static string DiscoveryPath(

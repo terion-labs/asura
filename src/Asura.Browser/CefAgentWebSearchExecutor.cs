@@ -214,6 +214,7 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
         CancellationToken cancellationToken)
     {
         await using var proxy = AgentWebProxy.Create(_networkConnector!, cancellationToken);
+        using var responseBudget = new AgentWebResponseBudget();
         CefBrowserNetworkContext? network = null;
         CefBrowserView? browser = null;
         try
@@ -224,6 +225,7 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
                     var createdNetwork = CefBrowserNetworkContext.CreateIsolatedAgentWeb(proxy.Endpoint);
                     var proxyResolver = new WorkspaceProxyAuthenticationResolver(proxy.Endpoint, proxy.Credentials);
                     var createdBrowser = createdNetwork.CreateView(proxyResolver);
+                    createdBrowser.SetResponseBudget(responseBudget);
                     createdBrowser.SetResourceRequestPolicy(
                         AgentWebProxy.AllowsRequestAsync);
                     return (createdNetwork, createdBrowser);
@@ -264,6 +266,7 @@ public sealed class CefAgentWebSearchExecutor : IAgentWebSearchExecutor
                     .ExtractWebSearchDocumentAsync(request.ResultCount)
                     .WaitAsync(cancellationToken)
                     .ConfigureAwait(false);
+                if (responseBudget.Exceeded) { return Failed(AgentWebSearchErrorCode.ExtractionFailed); }
                 if (extracted.Status != NativeBrowserAutomationStatus.Acknowledged
                     || extracted.ResultJson is null)
                 {

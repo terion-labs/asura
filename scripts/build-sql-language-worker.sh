@@ -229,7 +229,8 @@ verify_native_image_version "$native_image_version"
 artifact_directory="$ARTIFACTS_DIRECTORY/$rid"
 artifact_path="$artifact_directory/$binary_name"
 worker_build_directory="$WORKER_DIRECTORY/target"
-if [[ -n "${ASURA_BUILD_ARTIFACTS_ROOT:-}" ]]; then
+# Docker writes beneath its /workspace mount; only local Maven can use a host-only output root.
+if [[ "$mode" == local && -n "${ASURA_BUILD_ARTIFACTS_ROOT:-}" ]]; then
     worker_build_directory="$ASURA_BUILD_ARTIFACTS_ROOT/sql-language-worker/$rid"
 fi
 mkdir -p "$ARTIFACTS_DIRECTORY"

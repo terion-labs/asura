@@ -774,5 +774,16 @@ internal static class SqliteSchema
                 AND json_extract(payload_json, '$.hotkey.key') = 'GRAVE'
                 AND json_extract(payload_json, '$.hotkey.modifiers') = 'Meta';
             """),
+        new(
+            26,
+            "mcp-legacy-trust-review",
+            """
+            -- Earlier migrations could not distinguish imported profiles from authored ones.
+            -- Preserve explicit receipts; missing receipts must never imply trust.
+            UPDATE definitions
+            SET payload_json = json_set(payload_json, '$.isTrusted', json('false'))
+            WHERE kind = 'mcp-server-profile'
+                AND json_type(payload_json, '$.isTrusted') IS NULL;
+            """),
     ];
 }

@@ -1962,6 +1962,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             return;
         }
 
+        // A new creation attempt revokes the previous tab even if launch fails or is cancelled.
+        _agentSavedScreenLiveTarget = null;
+        NotifyAgentSavedScreenTargetChanged();
         IsPreparingAgentSavedScreenTarget = true;
         AgentSavedScreenTargetStatus =
             $"Opening “{selected.Name}” in a new tab. The agent has no access yet.";
@@ -4874,11 +4877,21 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return acquisition.IsSuccess;
     }
 
-    public bool PreviewAppearanceTheme(ThemePreference theme)
+    public bool PreviewAppearanceTheme(ThemePreference theme) =>
+        PreviewAppearanceTheme(theme, AppearanceSettings.ActiveThemeRevision);
+
+    public bool PreviewAppearanceTheme(ThemePreference theme, long? baselineThemeRevision)
     {
         ArgumentNullException.ThrowIfNull(theme);
-        if (!BeginAppearanceEditing()
-            || _appearancePreviewLease?.PreviewTheme(theme) != true)
+        var hasDraft = HasThemeAppearanceDraft;
+        if (!BeginAppearanceEditing() || _appearancePreviewLease is not { } lease)
+        {
+            return false;
+        }
+        // Fresh controls may have been refreshed while this page held an empty
+        // lease. A retained draft keeps the revision of the values it contains.
+        if (!hasDraft) { _ = lease.AdvanceThemeBaseline(baselineThemeRevision); }
+        if (!lease.PreviewTheme(theme))
         {
             return false;
         }
@@ -4974,18 +4987,27 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public async Task<DefinitionStoreResult<StoredDefinition<ThemePreference>>> SaveAppearanceThemeChangeAsync(
         ThemePreference theme, CancellationToken cancellationToken)
     {
+        if (!BeginAppearanceEditing() || _appearancePreviewLease is not { } lease)
+        {
+            return DefinitionStoreResult<StoredDefinition<ThemePreference>>.Failure(new(
+                DefinitionStoreErrorCode.RevisionConflict, AppearancePreviewStatus));
+        }
         _appearanceThemeSaveFailed = false;
         PublishAppearanceDraftState();
-        var result = await AppearanceSettings.SaveThemeChangeAsync(theme, cancellationToken);
+        var result = await AppearanceSettings.SaveThemeChangeAsync(theme, lease, cancellationToken);
         ApplyError(result.Error);
-        _appearanceThemeSaveFailed = !result.IsSuccess && _appearancePreview.Current.Theme == theme;
+        var samePreview = ReferenceEquals(_appearancePreviewLease, lease) && OwnsAppearancePreview;
+        _appearanceThemeSaveFailed = !result.IsSuccess && samePreview && _appearancePreview.Current.Theme == theme;
         // An older write must not clear a newer live selection, and leaving
         // Settings may already have released this window's preview lease.
-        if (result.IsSuccess && OwnsAppearancePreview && _appearancePreview.Current.Theme == theme)
+        if (result.IsSuccess && samePreview)
         {
-            _ = _appearancePreviewLease?.AdvanceThemeBaseline(result.Value!.Revision);
-            _ = _appearancePreviewLease?.ClearTheme();
-            ReleaseInactiveAppearanceLease();
+            _ = lease.AdvanceThemeBaseline(result.Value!.Revision);
+            if (_appearancePreview.Current.Theme == theme)
+            {
+                _ = lease.ClearTheme();
+                ReleaseInactiveAppearanceLease();
+            }
         }
         AppearancePreviewStatus = result.IsSuccess
             ? "Application appearance saved automatically."

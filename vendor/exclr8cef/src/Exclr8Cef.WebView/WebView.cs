@@ -158,8 +158,8 @@ public class WebView : Control, IWebView, IDisposable
     /// Creates an off-screen browser without requiring this control to be
     /// mounted in an Avalonia visual tree. This is for background tabs and
     /// headless hosts that still need Chromium's semantic/input APIs. The
-    /// preferred accelerated mode remains the default on supported platforms;
-    /// set <see cref="PreferAcceleratedRendering"/> to false before creation to
+    /// accelerated mode is used only after the compositor has proved GPU interop
+    /// support; detached creation otherwise keeps its CPU fallback. Set <see cref="PreferAcceleratedRendering"/> to false before creation to
     /// request CPU rendering. A browser already created by normal layout is
     /// left untouched.
     /// </summary>
@@ -196,7 +196,7 @@ public class WebView : Control, IWebView, IDisposable
             renderScale,
             BackgroundBrowserCreationFlags(
                 PreferAcceleratedRendering,
-                OperatingSystem.IsMacOS()));
+                _gpuInterop is not null));
     }
 
     /// <summary>

@@ -3540,9 +3540,23 @@ public:
     bool OnDevToolsMessage(CefRefPtr<CefBrowser> /*browser*/,
                             const void* message, size_t message_size) override {
         if (!exclr8cef::g_devtools_message_cb) return false;
-        std::string json(static_cast<const char*>(message), message_size);
+        // Bound host-owned CDP copies before allocating or crossing the managed
+        // boundary. Chromium owns the original buffer; do not copy oversized DOM
+        // replies/events into another native string and then a managed JSON tree.
+        constexpr size_t kMaximumDevToolsReplyBytes = 8 * 1024 * 1024;
+        constexpr size_t kMaximumDevToolsEventBytes = 256 * 1024;
         int message_id = 0;
-        bool is_reply = CdpMessageIsReply(json.data(), json.size(), &message_id);
+        bool is_reply = CdpMessageIsReply(static_cast<const char*>(message),
+            std::min(message_size, size_t{1024}), &message_id);
+        if (message_size > (is_reply ? kMaximumDevToolsReplyBytes : kMaximumDevToolsEventBytes)) {
+            if (is_reply) {
+                std::string error = "{\"id\":" + std::to_string(message_id)
+                    + ",\"error\":{\"code\":-32000,\"message\":\"CDP response exceeds the host byte limit.\"}}";
+                exclr8cef::g_devtools_message_cb(browser_id_, 0, message_id, error.c_str());
+            }
+            return false;
+        }
+        std::string json(static_cast<const char*>(message), message_size);
         exclr8cef::g_devtools_message_cb(browser_id_, is_reply ? 0 : 1, message_id, json.c_str());
         return false;  // don't suppress
     }

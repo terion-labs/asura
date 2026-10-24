@@ -80,17 +80,15 @@ public sealed partial class KubernetesRuntimePanelViewModel
                 || _allResources.Any(item => KubernetesResourceRow.Create(item, snapshot.Entries) is { CpuValue: null } or { MemoryValue: null });
             if ((nodes || missingUsage) && provider is not null)
             {
-                var fallback = await ReadAvailableProviderUsageAsync(kind, ns, snapshot, cancellationToken);
+                var fallback = await ReadAvailableProviderUsageAsync(kind, ns, cancellationToken);
                 if (_disposed || generation != _generation || version != _metricsVersion) { return; }
                 if (fallback is { } available)
                 {
                     bool hadApiUsage = snapshot.Entries.Any(entry => entry.CpuCores is not null || entry.MemoryBytes is not null);
                     snapshot = MergeMetrics(snapshot, available.Snapshot);
                     provider = available.Provider;
-                    if (!_metricsProviderChosenByUser) { SelectAutomaticMetricsProvider(provider); }
                     source = (hadApiUsage ? "Metrics API + " : "") + $"{provider.Product} · {provider.DisplayName}";
                 }
-                else if (!_metricsProviderChosenByUser) { _providerDiscoverySucceeded = false; }
             }
             if (_disposed || generation != _generation || version != _metricsVersion) { return; }
             Usage = [.. snapshot.Entries.Select(entry => new KubernetesUsageRow(entry))];

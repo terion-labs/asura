@@ -8,6 +8,40 @@ namespace Asura.App.Tests;
 
 public sealed class SystemMonitorRuntimePanelViewModelTests
 {
+    [Fact]
+    public async Task MovedMonitorsUseTheNewOwnerAndRecoverTheTransferredRevision()
+    {
+        var (client, host) = CreateHost();
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        using var statistics = CreateStatisticsPanel(client);
+        using var processes = CreateProcessPanel(client);
+        var statisticsOwner = Owner(statistics.Id) with { TabId = new TabInstanceId("destination") };
+        var processOwner = Owner(processes.Id) with { TabId = new TabInstanceId("destination") };
+        statistics.UpdateSessionOwner(statisticsOwner);
+        processes.UpdateSessionOwner(processOwner);
+        await statistics.Start();
+        await processes.Start();
+        Assert.Equal(statisticsOwner, Assert.Single(host.StatisticsRequests).Owner);
+        Assert.Equal(processOwner, Assert.Single(host.ProcessEnsureRequests).Owner);
+
+        host.StatisticsResults.Enqueue(HostResult<MonitorPanelResult<SystemStatisticsSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.RevisionConflict, "Owner transferred."), HostRevision + 1));
+        host.ProcessResults.Enqueue(HostResult<MonitorPanelResult<ProcessMonitorSnapshot>>.Fail(
+            HostError.Create(HostErrorCode.RevisionConflict, "Owner transferred."), HostRevision + 1));
+        host.StatisticsResults.Enqueue(StatisticsSuccess(StatisticsSample()));
+        host.ProcessResults.Enqueue(ProcessSuccess(ProcessSample()));
+        await statistics.RefreshAsync();
+        await processes.RefreshAsync();
+        await statistics.RefreshAsync();
+        await processes.RefreshAsync();
+
+        Assert.Equal(HostRevision + 1, host.StatisticsContexts[^1].ExpectedRevision);
+        Assert.Equal(HostRevision + 1, host.ProcessContexts[^1].ExpectedRevision);
+        Assert.Equal(SystemMonitorPanelState.Live, statistics.State);
+        Assert.Equal(SystemMonitorPanelState.Live, processes.State);
+    }
+
     [Theory]
     [InlineData(0, 2)]
     [InlineData(1, 4)]

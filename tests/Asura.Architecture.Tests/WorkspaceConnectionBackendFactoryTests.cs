@@ -1,4 +1,5 @@
 using Asura.Application;
+using Asura.ConnectionBackend;
 using Asura.Core;
 using Asura.Desktop;
 using Asura.Infrastructure;
@@ -7,6 +8,26 @@ namespace Asura.Architecture.Tests;
 
 public sealed class WorkspaceConnectionBackendFactoryTests
 {
+    [Fact]
+    public async Task Isolated_server_database_uses_mount_free_service_separate_from_guest_file_database()
+    {
+        var provider = new Provider();
+        using var host = new DatabaseOperationWorker(static () => throw new InvalidOperationException("Selection must not execute SQL."));
+        var factory = new WorkspaceConnectionBackendFactory(() => provider, new GatewayRuntime(), null!, null!,
+            static () => throw new InvalidOperationException("Selection must not create result storage."), host);
+        await using var session = factory.Create(new WorkspaceInstanceId("isolated-workspace"),
+            new Connector(), null!, new RejectingCommands());
+
+        var server = await session.SelectDatabaseAsync(new("sqlserver", "SQL Server", ""), BuiltInConnections.Local, CancellationToken.None);
+        var file = await session.SelectDatabaseAsync(new("sqlite", "SQLite", "", IsFileBased: true), BuiltInConnections.Local, CancellationToken.None);
+
+        Assert.IsType<DatabaseOperationWorker>(server);
+        Assert.NotSame(host, server);
+        Assert.NotSame(file, server);
+        Assert.Equal(1, provider.Configurations);
+        Assert.Empty(Assert.Single(provider.Preparations).Mounts);
+    }
+
     [Fact]
     public async Task Cleanup_attempts_every_owned_release_and_preserves_failures()
     {
@@ -79,20 +100,30 @@ public sealed class WorkspaceConnectionBackendFactoryTests
             static () => throw new InvalidOperationException("The lifecycle fixture must not create database result storage."));
     }
 
-    private sealed class Provider : IWorkspaceIsolationProvider
+    private sealed class Provider : IWorkspaceConnectionServiceProvider
     {
         public WorkspaceIsolationProviderDescriptor Descriptor => WorkspaceSdkIsolationProvider.ProviderDescriptor;
         public bool FailStop { get; set; }
         public int Stops { get; private set; }
+        public int Configurations { get; private set; }
+        public List<WorkspaceIsolationPrepareRequest> Preparations { get; } = [];
+        public ValueTask ConfigureServiceNetworkingAsync(WorkspaceIsolationBinding binding, CancellationToken cancellationToken)
+        {
+            Configurations++;
+            return ValueTask.CompletedTask;
+        }
         public TaskCompletionSource Stopped { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public ValueTask<WorkspaceIsolationResult<WorkspaceIsolationBinding>> PrepareAsync(
-            WorkspaceIsolationPrepareRequest request, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(WorkspaceIsolationResult<WorkspaceIsolationBinding>.Succeed(
+            WorkspaceIsolationPrepareRequest request, CancellationToken cancellationToken)
+        {
+            Preparations.Add(request);
+            return ValueTask.FromResult(WorkspaceIsolationResult<WorkspaceIsolationBinding>.Succeed(
                 new WorkspaceIsolationBinding(request.WorkspaceId, Descriptor.Id, Descriptor.Capabilities,
                     request.WorkspaceId.Value, [], Guid.NewGuid(), network: new WorkspaceIsolationNetworkBinding(
                         "fixture-service", "100.64.0.1", "100.64.0.0/30", hostAttachment:
                         new WorkspaceHostNetworkAttachment("/tmp/fixture-service.control", "/tmp/fixture-service.packet")))));
+        }
 
         public WorkspaceIsolationResult<WorkspaceProcessLaunch> CreateExecLaunch(
             WorkspaceIsolationBinding binding, WorkspaceIsolationProcessRequest request) =>
@@ -107,6 +138,25 @@ public sealed class WorkspaceConnectionBackendFactoryTests
                 ? WorkspaceIsolationResult<WorkspaceIsolationBinding>.Fail(WorkspaceIsolationErrorCode.StopFailed, binding)
                 : WorkspaceIsolationResult<WorkspaceIsolationBinding>.Succeed(binding));
         }
+    }
+
+    private sealed class Connector : IWorkspaceNetworkConnector
+    {
+        public WorkspaceNetworkEgress Egress => WorkspaceNetworkEgress.Attached;
+        public Uri LocalProxyEndpoint => new("socks5://127.0.0.1:54321");
+        public WorkspaceNetworkProxyCredentials? LocalProxyCredentials => new("fixture", "secret");
+        public ValueTask<Stream> ConnectTcpAsync(string host, int port, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Selection must not open a database connection.");
+    }
+
+    private sealed class RejectingCommands : IConnectionCommandRuntime
+    {
+        public ValueTask<ConnectionRuntimeResult<TerminalLaunchRequest>> PlanCommandAsync(ConnectionProfile connection,
+            string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Service selection must not execute the interactive guest backend.");
+        public ValueTask<ConnectionRuntimeResult<TerminalLaunchRequest>> PlanDuplexCommandAsync(ConnectionProfile connection,
+            string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Service selection must not execute the interactive guest backend.");
     }
 
     private sealed class GatewayRuntime : IWorkspacePacketGatewayRuntime

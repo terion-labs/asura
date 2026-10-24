@@ -320,3 +320,19 @@ All exported native symbols use the `excef_` prefix (e.g. `excef_initialize`, `e
 ## License
 
 MIT — see [LICENSE](LICENSE). CEF itself is BSD; libcef binaries from Spotify CDN are redistributable under CEF's license.
+
+### Asura CDP and detached browser limits
+
+The Asura patch bounds CDP event copies to 256 KiB and replies to 8 MiB before
+creating the shim-owned string. The managed callback applies the same limits,
+including when loading an older compatible shim. Pending managed CDP calls expire
+after five seconds, so an unresponsive renderer cannot retain host operation
+fences indefinitely. Chromium still owns the original CDP buffer and renderer
+resource use; these limits govern the binding's copies and parsing.
+
+Detached browser creation uses CPU presentation until compositor GPU interop is
+known to work. This avoids creating a shared-texture browser that cannot later
+present on an unsupported compositor.
+
+These changes are part of `ASURA-PATCHSET.sha256` and the complete source snapshot.
+Future upstream rebases must retain the pre-allocation checks and reply deadline.

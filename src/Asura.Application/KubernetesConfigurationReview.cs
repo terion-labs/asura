@@ -10,6 +10,8 @@ public sealed record KubernetesContextReview(
     string? ExecCommand,
     IReadOnlyList<string> ExecArguments,
     IReadOnlyList<string> ExecEnvironmentNames,
-    string? ExecFingerprint);
+    string? ExecFingerprint,
+    string? AuthorityFingerprint = null,
+    IReadOnlyList<string>? CredentialFilePaths = null);
 
 public sealed record KubernetesConfigurationReview(IReadOnlyList<KubernetesContextReview> Contexts);

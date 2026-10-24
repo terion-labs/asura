@@ -12,12 +12,62 @@ namespace Asura.Infrastructure;
 /// agent run. Every replacement is revision-fenced in an immediate SQLite
 /// transaction, so a stale writer cannot roll durable state backward.
 /// </summary>
-public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionCheckpointStore
+public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionCheckpointStore, IDisposable
 {
     public const int MaximumListedCheckpoints = 256;
 
     private readonly AsuraDatabase _database;
     private readonly TimeProvider _timeProvider;
+    private readonly SemaphoreSlim _retentionGate = new(1, 1);
+    private readonly Dictionary<AgentRunId, int> _activeRuns = [];
+
+    public void Dispose() => _retentionGate.Dispose();
+
+    public async ValueTask<IAsyncDisposable?> ProtectActiveRunAsync(
+        AgentRunId runId, CancellationToken cancellationToken)
+    {
+        if (!IsBoundedRunId(runId))
+        {
+            throw new ArgumentException("A bounded run ID is required.", nameof(runId));
+        }
+        using var gate = await EnterRetentionAsync(cancellationToken).ConfigureAwait(false);
+        _activeRuns.TryGetValue(runId, out var count);
+        _activeRuns[runId] = count + 1;
+        return new ActiveRunLease(this, runId);
+    }
+
+    private async ValueTask<IDisposable> EnterRetentionAsync(CancellationToken cancellationToken)
+    {
+        await _retentionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        return new RetentionGateLease(_retentionGate);
+    }
+
+    private sealed class RetentionGateLease(SemaphoreSlim gate) : IDisposable
+    {
+        public void Dispose() => gate.Release();
+    }
+
+    private sealed class ActiveRunLease(SqliteAgentSessionCheckpointStore store, AgentRunId runId) : IAsyncDisposable
+    {
+        private int _released;
+
+        public async ValueTask DisposeAsync()
+        {
+            if (Interlocked.Exchange(ref _released, 1) != 0)
+            {
+                return;
+            }
+            using var gate = await store.EnterRetentionAsync(CancellationToken.None).ConfigureAwait(false);
+            if (store._activeRuns[runId] == 1)
+            {
+                store._activeRuns.Remove(runId);
+            }
+            else
+            {
+                store._activeRuns[runId]--;
+            }
+        }
+    }
 
     public SqliteAgentSessionCheckpointStore(
         AsuraDatabase database,
@@ -49,6 +99,7 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
         var checksum = ComputeChecksum(checkpoint, conversationScopeId?.Value);
         try
         {
+            using var retentionGate = await EnterRetentionAsync(cancellationToken).ConfigureAwait(false);
             await using var connection = await _database.OpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
             await using var transaction = connection.BeginTransaction(deferred: false);
@@ -332,6 +383,12 @@ public sealed partial class SqliteAgentSessionCheckpointStore : IAgentSessionChe
 
         try
         {
+            using var retentionGate = await EnterRetentionAsync(cancellationToken).ConfigureAwait(false);
+            if (_activeRuns.ContainsKey(runId))
+            {
+                return Failure<bool>(AgentSessionCheckpointStoreErrorCode.RevisionConflict,
+                    "Stop the active run before deleting its history.");
+            }
             await using var connection = await _database.OpenConnectionAsync(cancellationToken)
                 .ConfigureAwait(false);
             await using var transaction = connection.BeginTransaction(deferred: false);

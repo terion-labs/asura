@@ -12,25 +12,25 @@ public sealed class KubernetesTerminalSessionFactoryTests
     [InlineData("/bin/bash", "bash-5.2$ ")]
     [InlineData("/bin/sh", "/ # ")]
     [InlineData("/bin/sh", "root@pod:/app# ")]
-    public async Task IdlePodShellClosesWithoutConfirmation(string executable, string prompt)
+    public async Task PromptShapedPodShellOutputStillRequiresConfirmation(string executable, string prompt)
     {
         using var pty = new FakePortablePtyConnection();
         await using var session = await CreateAsync(pty, [executable]);
         await pty.WriteOutputAsync(prompt);
         await WaitForScreenAsync(session, screen => screen.PlainText.Contains(prompt.TrimEnd(), StringComparison.Ordinal));
 
-        Assert.False((await session.SnapshotAsync(default)).HasActiveWork);
-        Assert.Equal(PanelCloseOutcome.GracefullyClosed, await session.CloseAsync(PanelCloseMode.Graceful, default));
+        Assert.True((await session.SnapshotAsync(default)).HasActiveWork);
+        Assert.Equal(PanelCloseOutcome.ConfirmationRequired, await session.CloseAsync(PanelCloseMode.Graceful, default));
     }
 
     [Fact]
-    public async Task RunningPodCommandRequiresConfirmationUntilThePromptReturns()
+    public async Task RunningPodCommandStillRequiresConfirmationWhenPromptTextReturns()
     {
         using var pty = new FakePortablePtyConnection();
         await using var session = await CreateAsync(pty, ["/bin/sh"]);
         await pty.WriteOutputAsync("sh-5.1# ");
         await WaitForScreenAsync(session, screen => screen.PlainText.Contains("sh-5.1#", StringComparison.Ordinal));
-        Assert.False((await session.SnapshotAsync(default)).HasActiveWork);
+        Assert.True((await session.SnapshotAsync(default)).HasActiveWork);
 
         await pty.WriteOutputAsync("sleep 60\r\n");
         await WaitForScreenAsync(session, screen => screen.CursorRow == 1 && screen.CursorColumn == 0);
@@ -39,8 +39,8 @@ public sealed class KubernetesTerminalSessionFactoryTests
 
         await pty.WriteOutputAsync("sh-5.1# ");
         await WaitForScreenAsync(session, screen => screen.CursorRow == 1 && screen.CursorColumn == 8);
-        Assert.False((await session.SnapshotAsync(default)).HasActiveWork);
-        Assert.Equal(PanelCloseOutcome.GracefullyClosed, await session.CloseAsync(PanelCloseMode.Graceful, default));
+        Assert.True((await session.SnapshotAsync(default)).HasActiveWork);
+        Assert.Equal(PanelCloseOutcome.ConfirmationRequired, await session.CloseAsync(PanelCloseMode.Graceful, default));
     }
 
     [Theory]

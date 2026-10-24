@@ -160,7 +160,7 @@ public sealed partial class GovernedAgentRuntime
         }
         finally
         {
-            ReleaseTurn(cancellation);
+            await ReleaseTurnAsync(cancellation).ConfigureAwait(false);
         }
     }
 

@@ -59,7 +59,6 @@ public sealed class WorkspaceConnectionBackendSelectionTests
     [Theory]
     [InlineData("sqlite", true)]
     [InlineData("duckdb", true)]
-    [InlineData("sqlserver", false)]
     public async Task Isolated_local_operations_select_workspace_worker_not_host(string driver, bool file)
     {
         using var host = HostWorker();
@@ -72,12 +71,14 @@ public sealed class WorkspaceConnectionBackendSelectionTests
         Assert.NotSame(host, selected);
     }
 
-    [Fact]
-    public async Task Server_database_never_falls_back_to_host_when_service_runtime_missing()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Server_database_never_falls_back_to_host_or_interactive_guest_when_service_runtime_missing(bool isolated)
     {
         using var host = HostWorker();
         await using var session = Factory(host).Create(new WorkspaceInstanceId("fixture"),
-            new Connector(WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:1"))), null!, null);
+            new Connector(WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:1"))), null!, isolated ? new RejectingCommands() : null);
 
         await Assert.ThrowsAsync<PlatformNotSupportedException>(() => session.SelectDatabaseAsync(
             new("sqlserver", "SQL Server", "", DefaultPort: 1433), null, CancellationToken.None).AsTask());

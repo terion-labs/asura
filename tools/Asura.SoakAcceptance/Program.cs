@@ -122,6 +122,7 @@ internal static class Program
                     RequireEnter("Close Asura normally, then press Enter.");
                     tracker.CaptureSnapshot();
                     cleanupPassed = tracker.WaitForAllExited(TimeSpan.FromSeconds(budget.CleanupTimeoutSeconds));
+                    RecordNormalExit(process, failureCodes);
                     if (!cleanupPassed)
                     {
                         failureCodes.Add("captured-process-retained");
@@ -139,6 +140,7 @@ internal static class Program
                 recoveryTracker.CaptureSnapshot();
                 capturedCount += recoveryTracker.CapturedCount;
                 cleanupPassed = recoveryTracker.WaitForAllExited(TimeSpan.FromSeconds(budget.CleanupTimeoutSeconds));
+                RecordNormalExit(recoveryProcess, failureCodes);
                 if (!cleanupPassed)
                 {
                     failureCodes.Add("recovery-process-retained");
@@ -214,6 +216,15 @@ internal static class Program
         if (!cleanupPassed)
         {
             failureCodes.Add("cleanup-invariant-failed");
+        }
+    }
+
+    // Process disappearance proves cleanup, not a successful normal shutdown.
+    internal static void RecordNormalExit(Process process, ICollection<string> failureCodes)
+    {
+        if (!process.HasExited || process.ExitCode != 0)
+        {
+            failureCodes.Add("package-normal-exit-failed");
         }
     }
 

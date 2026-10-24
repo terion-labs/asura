@@ -46,6 +46,7 @@ public sealed class DockLayoutSerializer : IDockSerializer
             return default;
         }
 
+        Validate(payload);
         var restored = Restore(payload);
         return restored is T typed
             ? typed
@@ -64,6 +65,7 @@ public sealed class DockLayoutSerializer : IDockSerializer
             return default;
         }
 
+        Validate(payload);
         var restored = Restore(payload);
         return restored is T typed
             ? typed
@@ -85,6 +87,64 @@ public sealed class DockLayoutSerializer : IDockSerializer
             Capture(dockable),
             DockLayoutJsonContext.Default.DockLayoutNode);
     }
+
+    /// <summary>Checks imported geometry before creating any Dock runtime objects.</summary>
+    public static void Validate(string text)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        var payload = JsonSerializer.Deserialize(text, DockLayoutJsonContext.Default.DockLayoutNode)
+            ?? throw new JsonException("A dock layout requires a root node.");
+        Validate(payload);
+    }
+
+    private static void Validate(DockLayoutNode root)
+    {
+        var pending = new Stack<(DockLayoutNode Node, int Depth)>();
+        pending.Push((root, 0));
+        var nodes = 0;
+        var windows = 0;
+        while (pending.TryPop(out var current))
+        {
+            var node = current.Node;
+            if (node is null || ++nodes > 2048 || current.Depth > 32
+                || node.Children is null || node.Windows is null
+                || node.Children.Length + nodes + pending.Count > 2048
+                || node.Id is null || node.Title is null
+                || node.Kind is not (RootKind or ProportionalKind or DocumentDockKind or DocumentKind)
+                || (node.Orientation is { } orientation && !Enum.IsDefined(orientation))
+                || !IsFinite(node.Proportion) || !IsFinite(node.MinWidth) || !IsFinite(node.MinHeight))
+            {
+                throw new JsonException("The dock layout contains an invalid or oversized node graph.");
+            }
+            if ((node.Kind is DocumentKind && node.Children.Length != 0)
+                || (node.Kind is not RootKind && node.Windows.Length != 0))
+            {
+                throw new JsonException("The dock layout contains invalid node relationships.");
+            }
+            foreach (var child in node.Children)
+            {
+                if (child is null || child.Kind is RootKind
+                    || (node.Kind is DocumentDockKind && child.Kind is not DocumentKind))
+                {
+                    throw new JsonException("The dock layout contains an invalid child node.");
+                }
+                pending.Push((child, current.Depth + 1));
+            }
+            foreach (var window in node.Windows)
+            {
+                if (window is null || ++windows > 64 || window.Id is null
+                    || window.Layout is null || window.Layout.Kind is not RootKind
+                    || !IsFinite(window.X) || !IsFinite(window.Y)
+                    || !IsFinite(window.Width) || !IsFinite(window.Height))
+                {
+                    throw new JsonException("The dock layout contains an invalid floating window.");
+                }
+                pending.Push((window.Layout, current.Depth + 1));
+            }
+        }
+    }
+
+    private static bool IsFinite(double? value) => value is null || double.IsFinite(value.Value);
 
     private static DockLayoutNode Capture(IDockable dockable)
     {
@@ -269,6 +329,8 @@ internal sealed record DockWindowNode(
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
-    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+    RespectNullableAnnotations = true,
+    RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(DockLayoutNode))]
 internal sealed partial class DockLayoutJsonContext : JsonSerializerContext;

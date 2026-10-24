@@ -91,8 +91,15 @@ public sealed class AgentMcpSessionHost :
         }
     }
 
-    public ValueTask RefreshAsync(CancellationToken cancellationToken) =>
-        EnsureDiagnosticsLoadedAsync(cancellationToken);
+    public async ValueTask RefreshAsync(CancellationToken cancellationToken)
+    {
+        await EnsureDiagnosticsLoadedAsync(cancellationToken).ConfigureAwait(false);
+        lock (_diagnosticGate)
+        {
+            PruneDiagnosticsUnsafe(_timeProvider.GetUtcNow().ToUniversalTime());
+        }
+        await PersistDiagnosticsAsync().ConfigureAwait(false);
+    }
 
     public async ValueTask<bool> ClearHistoryAsync(
         OperationContext context,
@@ -2335,6 +2342,8 @@ public sealed class AgentMcpSessionHost :
 
         if (changed is not null)
         {
+            // Retention must remove the durable rows too, even if no new session starts.
+            await PersistDiagnosticsAsync().ConfigureAwait(false);
             Changed?.Invoke(
                 this,
                 new McpServerDiagnosticsChangedEventArgs(changed));
@@ -2471,8 +2480,10 @@ public sealed class AgentMcpSessionHost :
     private void PruneDiagnosticsUnsafe(DateTimeOffset now)
     {
         var oldest = now - MaximumDiagnosticEventAge;
+        var revisions = _catalog.Snapshot.McpServerProfiles.ToDictionary(item => item.Value.Id, item => item.Revision);
         foreach (var profileId in (McpServerProfileId[])[.. _diagnosticSummaries
-                     .Where(item => item.Value.UpdatedAtUtc < oldest)
+                     .Where(item => item.Value.UpdatedAtUtc < oldest
+                         || !revisions.TryGetValue(item.Key, out var revision) || revision != item.Value.Revision)
                      .Select(item => item.Key)])
         {
             _diagnosticSummaries.Remove(profileId);

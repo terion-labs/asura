@@ -3,13 +3,16 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <arpa/inet.h>
 #include <dlfcn.h>
+#include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 static atomic_int completed;
+static atomic_int stopped;
 static char origin[128];
 static int port;
 static void paint(int browser, const void* buffer, int width, int height) {
@@ -30,6 +33,10 @@ static void authenticate_legacy(int browser, uint64_t token, int proxy, const ch
         int challenge_port, const char* realm, const char* scheme) {
     authenticate(browser, token, proxy, host, challenge_port, realm, scheme, NULL);
 }
+static void initialized(int browser) {
+    fprintf(stderr, "Native browser initialized: %d\n", browser);
+    atomic_store(&completed, 1);
+}
 static void closed(int browser) { (void)browser; atomic_store(&completed, 1); }
 static int wait_for_completion(void) {
     time_t deadline = time(NULL) + 15;
@@ -40,9 +47,14 @@ static int wait_for_completion(void) {
     return atomic_load(&completed) == 1;
 }
 static void* serve(void* argument) {
-    int client = accept(*(int*)argument, NULL, NULL);
-    if (client >= 0) {
-        struct timeval timeout = { .tv_sec = 5 };
+    // Chromium can open a speculative connection without sending a request.
+    // Keep accepting until the authenticated navigation itself reaches us.
+    while (!atomic_load(&stopped)) {
+        struct pollfd listener = { .fd = *(int*)argument, .events = POLLIN };
+        if (poll(&listener, 1, 100) <= 0) continue;
+        int client = accept(listener.fd, NULL, NULL);
+        if (client < 0) continue;
+        struct timeval timeout = { .tv_sec = 1 };
         setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
         char request[2048];
         if (recv(client, request, sizeof(request), 0) > 0) {
@@ -56,6 +68,7 @@ static void* serve(void* argument) {
 }
 int main(int argc, char** argv) {
     if (argc != 4) return 64;
+    alarm(90);
     int listener = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in address = { .sin_family = AF_INET, .sin_addr.s_addr = htonl(INADDR_LOOPBACK) };
     if (listener < 0 || bind(listener, (struct sockaddr*)&address, sizeof(address)) || listen(listener, 1)) return 2;
@@ -84,22 +97,24 @@ int main(int argc, char** argv) {
         if (!set_callback) return 4;
         set_callback(authenticate_legacy);
     }
+    excef_set_browser_initialized_callback(initialized);
     excef_set_browser_closed_callback(closed);
     int context = excef_create_request_context(NULL);
     int browser = excef_create_offscreen_browser_in_context(320, 240, 1, "about:blank", paint, context);
-    for (int i = 0; i < 50; i++) {
-        excef_do_message_loop_work();
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.005, true);
-    }
-    excef_load_url(browser, origin);
     int success = browser > 0 && wait_for_completion();
+    if (success) {
+        atomic_store(&completed, 0);
+        excef_load_url(browser, origin);
+        success = wait_for_completion();
+    }
     fprintf(stderr, "Native auth navigation result: %d\n", success);
     if (browser > 0) {
         atomic_store(&completed, 0);
         excef_close_browser(browser, 1);
         if (!wait_for_completion()) fprintf(stderr, "Browser close timed out\n");
     }
-    shutdown(listener, SHUT_RDWR); close(listener); pthread_join(server, NULL);
+    atomic_store(&stopped, 1);
+    pthread_join(server, NULL); close(listener);
     excef_release_request_context(context);
     excef_shutdown();
     return success ? 0 : 1;

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Asura.AccessibilityAcceptance;
 
 namespace Asura.SoakAcceptance.Tests;
@@ -7,6 +8,25 @@ public sealed class SoakAcceptanceTests : IDisposable
     private readonly string _temporaryDirectory = Path.Combine(
         Path.GetTempPath(),
         $"asura-soak-tests-{Guid.NewGuid():N}");
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(7)]
+    public void Normal_shutdown_records_abnormal_package_exit(int exitCode)
+    {
+        if (OperatingSystem.IsWindows()) { return; }
+        var start = new ProcessStartInfo("/bin/sh") { UseShellExecute = false };
+        start.ArgumentList.Add("-c");
+        start.ArgumentList.Add(exitCode == 0 ? "exit 0" : "exit 7");
+        using var process = Process.Start(start)!;
+        Assert.True(process.WaitForExit(5_000));
+        List<string> failures = [];
+
+        Program.RecordNormalExit(process, failures);
+
+        if (exitCode == 0) { Assert.Empty(failures); }
+        else { Assert.Equal(["package-normal-exit-failed"], failures); }
+    }
 
     [Fact]
     public void Catalog_covers_every_required_release_scenario()

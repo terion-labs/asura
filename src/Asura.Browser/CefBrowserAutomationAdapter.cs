@@ -323,10 +323,27 @@ internal sealed class CefBrowserAutomationAdapter
         var extractSource = MozillaReadabilityScript.Source + """
 
             ;(() => {
+              // Check before cloning: Readability's own limit applies only after
+              // the clone has already allocated the complete document.
+              const walker = document.createTreeWalker(document, NodeFilter.SHOW_ALL);
+              let nodes = 0;
+              let characters = 0;
+              while (walker.nextNode()) {
+                const node = walker.currentNode;
+                if (++nodes > 20000) return null;
+                characters += (node.nodeValue || '').length;
+                if (node.attributes) {
+                  for (const attribute of node.attributes) {
+                    characters += attribute.name.length + attribute.value.length;
+                    if (characters > 2097152) return null;
+                  }
+                }
+                if (characters > 2097152) return null;
+              }
             """ + PageLinkCollectionStatements + """
               const article = new Readability(
                 document.cloneNode(true),
-                { keepClasses: false, maxElemsToParse: 0 }).parse();
+                { keepClasses: false, maxElemsToParse: 20000 }).parse();
               if (!article || typeof article.content !== 'string'
                   || !article.content.trim()) {
                 return null;

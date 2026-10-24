@@ -250,7 +250,8 @@ public sealed class KubernetesHostAuthenticationTests
                 """;
             File.WriteAllText(Config, yaml);
             Profile = new(KubernetesConnectionProfileId.New(), 1, "Cluster", Config, "context", "default",
-                trustedExecFingerprint: Assert.Single(KubernetesKubeconfigReader.Read(yaml)).Exec!.Fingerprint);
+                trustedExecFingerprint: Assert.Single(KubernetesKubeconfigReader.Read(yaml)).Exec!.Fingerprint,
+                trustedAuthorityFingerprint: Assert.Single(KubernetesKubeconfigReader.Read(yaml)).AuthorityFingerprint);
         }
 
         internal KubernetesWorkspaceSessionFactory Factory(bool host) => new(LaunchAsync,

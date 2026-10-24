@@ -54,9 +54,9 @@ public sealed partial class NativeAgentSessionTests
     }
 
     [Fact]
-    public void PublicDocumentationResultRemainsReadableWithoutHiddenReferences()
+    public void PublicDocumentationWithoutCredentialValuesRemainsReadable()
     {
-        const string json = """{"ok":true,"body":"Use --token '<token>'. Generated password: `/etc/terrarium/secrets/cockpit_root_password`. Route https://portal.example.com:8080@auth:admins","panel_id":"01a102491ac77ec9ab919d33370daf35","wait_outcome":"elapsed"}""";
+        const string json = """{"ok":true,"body":"Set an API key in settings. Generated password: `/etc/terrarium/secrets/cockpit_root_password`. Route https://portal.example.com:8080@auth:admins"}""";
         using var arguments = JsonDocument.Parse("{}");
         var proposal = new AgentToolProposal("proposal", 1, "call", "terminal.read_screen", arguments.RootElement);
         var message = AgentMessage.FromToolResult(new AgentToolResult(proposal, AgentToolResultStatus.Succeeded, "ok",
@@ -64,8 +64,21 @@ public sealed partial class NativeAgentSessionTests
         var projected = NativeAgentSession.ProjectProtectedMessage(message, new TestChatProtection());
         Assert.Empty(projected.HiddenReferences);
         Assert.Same(message.ToolResult!.Value, projected.ToolResult!.Value);
-        using var original = JsonDocument.Parse(json);
+    }
+
+    [Fact]
+    public void AngleWrappedCredentialsAreProtectedInsideStructuredDocumentation()
+    {
+        const string json = """{"ok":true,"body":"Use --token '<token>'. Generated password: `/etc/terrarium/secrets/cockpit_root_password`. Route https://portal.example.com:8080@auth:admins","panel_id":"01a102491ac77ec9ab919d33370daf35","wait_outcome":"elapsed"}""";
+        using var arguments = JsonDocument.Parse("{}");
+        var proposal = new AgentToolProposal("proposal", 1, "call", "terminal.read_screen", arguments.RootElement);
+        var message = AgentMessage.FromToolResult(new AgentToolResult(proposal, AgentToolResultStatus.Succeeded, "ok",
+            AgentToolResultValue.FromJson(Encoding.UTF8.GetBytes(json))));
+        var projected = NativeAgentSession.ProjectProtectedMessage(message, new TestChatProtection());
+        Assert.NotEmpty(projected.HiddenReferences);
+        Assert.DoesNotContain("<token>", projected.Content, StringComparison.Ordinal);
         using var actual = JsonDocument.Parse(projected.Content);
-        Assert.True(JsonElement.DeepEquals(original.RootElement, actual.RootElement));
+        Assert.True(actual.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal("elapsed", actual.RootElement.GetProperty("wait_outcome").GetString());
     }
 }

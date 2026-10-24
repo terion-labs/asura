@@ -48,12 +48,24 @@ print(digest.hexdigest())
 PY
 )"
 cache_root="${repository_dir}/.deps/avalonia-native-build"
+fresh_root=""
+# Release payloads never trust executable bytes or a receipt from the shared
+# developer cache. Build in a private, unique tree and discard it after copying.
+if [[ "${ASURA_AVALONIA_FRESH_BUILD:-0}" == 1 ]]; then
+    fresh_root="$(mktemp -d "${TMPDIR:-/tmp}/asura-avalonia-release.XXXXXX")"
+    cache_root="${fresh_root}"
+fi
 cache="${cache_root}/${key}"
 mkdir -p "${cache_root}"
+stage=""
+cleanup() {
+    [[ -z "${stage}" ]] || rm -rf -- "${stage}"
+    [[ -z "${fresh_root}" ]] || rm -rf -- "${fresh_root}"
+}
+trap cleanup EXIT
 
 if [[ ! -d "${cache}" ]]; then
     stage="$(mktemp -d "${cache_root}/build.XXXXXX")"
-    trap 'rm -rf -- "${stage}"' EXIT
     archive="${repository_dir}/.deps/avalonia-native-${revision}.tar.gz"
     if [[ ! -f "${archive}" ]]; then
         curl --fail --location --retry 3 \
@@ -61,9 +73,12 @@ if [[ ! -d "${cache}" ]]; then
             --output "${stage}/source.tar.gz"
         mv "${stage}/source.tar.gz" "${archive}"
     fi
-    printf '%s  %s\n' "${archive_sha}" "${archive}" | shasum -a 256 -c -
+    # Cache writers must not replace the source between verification and tar.
+    # Verify and consume the same private copy, including on fresh release builds.
+    cp "${archive}" "${stage}/source.tar.gz"
+    printf '%s  %s\n' "${archive_sha}" "${stage}/source.tar.gz" | shasum -a 256 -c -
     mkdir "${stage}/source"
-    tar -xzf "${archive}" --strip-components=1 -C "${stage}/source"
+    tar -xzf "${stage}/source.tar.gz" --strip-components=1 -C "${stage}/source"
     for patch_file in "${component}/patches/"*.patch; do
         git -C "${stage}/source" apply --check "${patch_file}"
         git -C "${stage}/source" apply "${patch_file}"

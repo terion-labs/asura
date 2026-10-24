@@ -21,7 +21,7 @@ public sealed class KubernetesTerminalTarget
         var identity = string.Join('\0', new[]
         {
             profile.Id.Value, profile.ContextName, profile.KubeconfigPath ?? "", profile.ManagedKubeconfigSecret?.ToString() ?? "",
-            profile.TrustedExecFingerprint ?? "", profile.TunnelConnectionId?.Value ?? "",
+            profile.TrustedExecFingerprint ?? "", profile.TrustedAuthorityFingerprint ?? "", profile.TunnelConnectionId?.Value ?? "",
             request.Pod.Namespace ?? "", request.Pod.Name, request.Pod.Uid, request.Container,
         }.Concat(Request.Command));
         BindingFingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)));

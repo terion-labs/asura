@@ -7,6 +7,31 @@ namespace Asura.Infrastructure.Tests;
 public sealed class SqliteDatabaseTests
 {
     [Fact]
+    public async Task BrowserHistoryMigrationPreservesAnExistingOptOut()
+    {
+        await using var temporary = TemporaryDatabase.Create();
+        await HistoricalDatabaseFixture.CreateAsync(temporary.DatabasePath, 20);
+        await using (var legacy = await HistoricalDatabaseFixture.OpenAsync(temporary.DatabasePath))
+        {
+            await InsertLegacyDefinitionAsync(legacy, DefinitionKind.BrowserProfile, "browser.private", "Private",
+                """
+                {"id":{"value":"browser.private"},"schemaVersion":1,"name":"Private","persistence":"DurableMetadata","privacy":{"history":"DoNotRecord"}}
+                """);
+            await InsertLegacyDefinitionAsync(legacy, DefinitionKind.BrowserProfile, "browser.history", "History",
+                """
+                {"id":{"value":"browser.history"},"schemaVersion":1,"name":"History","persistence":"DurableMetadata","privacy":{"history":"BoundedLocalHistory"}}
+                """);
+        }
+
+        await temporary.Database.EnsureInitializedAsync(CancellationToken.None);
+        await using var connection = await temporary.Database.OpenConnectionAsync(CancellationToken.None);
+        Assert.Equal("DoNotRecord", await ScalarAsync(connection,
+            "SELECT json_extract(payload_json, '$.privacy.history') FROM definitions WHERE id = 'browser.private';"));
+        Assert.Equal("BoundedLocalHistory", await ScalarAsync(connection,
+            "SELECT json_extract(payload_json, '$.privacy.history') FROM definitions WHERE id = 'browser.history';"));
+    }
+
+    [Fact]
     public async Task InitializationEnablesWalForeignKeysAndCurrentMigration()
     {
         await using var temporary = TemporaryDatabase.Create();
@@ -275,7 +300,7 @@ public sealed class SqliteDatabaseTests
             new SecretRef("vault-legacy-mcp"),
             Assert.Single(stdio.Environment).Reference);
         Assert.False(mcpServer.Value.Value.IsEnabled);
-        Assert.True(mcpServer.Value.Value.IsTrusted);
+        Assert.False(mcpServer.Value.Value.IsTrusted);
 
         await using var migrated = await temporary.Database.OpenConnectionAsync(
             CancellationToken.None);
@@ -556,7 +581,7 @@ public sealed class SqliteDatabaseTests
         Assert.Contains(
             sourceVersion switch
             {
-                8 or 24 => "next migration collision",
+                8 or 24 or 25 => "next migration collision",
                 13 or 16 or 23 => "duplicate column name",
                 _ => "already exists",
             },
