@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Asura.Application;
@@ -7,6 +8,22 @@ namespace Asura.Infrastructure;
 
 internal sealed partial class HostUserspaceVpnTransport
 {
+    private const string AwaitingSignInStatus =
+        "Complete Tailscale sign-in in your browser. Waiting for authentication…";
+
+    // A sign-in to an account whose tailnet cannot take this device, such as
+    // one whose plan has ended, completes in the browser while Tailscale never
+    // answers the device: the wait looked the same as a slow sign-in.
+    private const string StillAwaitingSignInStatus =
+        "Still waiting for Tailscale to approve this device. If the sign-in page used a different Tailscale account, " +
+        "or a tailnet whose plan has ended, Tailscale won't approve it. Switch accounts on the page, then sign in again.";
+
+    /// <summary>How long a sign-in waits before the status says what to check.</summary>
+    internal TimeSpan SignInPatience { get; init; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long a sign-in may wait for Tailscale to approve this device.</summary>
+    internal TimeSpan SignInTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
     private async ValueTask<NetworkConnectionResult<HostVpnCommandResult>> RunTailscaleInteractiveLoginAsync(
         HostVpnProcessRequest request,
         NetworkConnectionConfiguration.Tailscale configuration,
@@ -14,13 +31,16 @@ internal sealed partial class HostUserspaceVpnTransport
         CancellationToken cancellationToken)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        deadline.CancelAfter(TimeSpan.FromMinutes(5));
+        deadline.CancelAfter(SignInTimeout);
         try
         {
             await using var login = await _processRunner.StartAsync(request, deadline.Token).ConfigureAwait(false);
             var exited = login.WaitForExitAsync(deadline.Token);
             string? openedUrl = null;
+            Uri? openedAddress = null;
+            var openedAt = 0L;
             var approvalReported = false;
+            var stillWaitingReported = false;
             try
             {
                 while (!exited.IsCompleted)
@@ -46,8 +66,10 @@ internal sealed partial class HostUserspaceVpnTransport
                         }
 
                         openedUrl = authUrl;
-                        progress?.Report(new NetworkConnectionProgress(
-                            "Complete Tailscale sign-in in your browser. Waiting for authentication…"));
+                        openedAddress = address;
+                        openedAt = Stopwatch.GetTimestamp();
+                        stillWaitingReported = false;
+                        progress?.Report(new NetworkConnectionProgress(AwaitingSignInStatus, address));
                     }
 
                     if (needsApproval && !approvalReported)
@@ -55,6 +77,12 @@ internal sealed partial class HostUserspaceVpnTransport
                         approvalReported = true;
                         progress?.Report(new NetworkConnectionProgress(
                             "Approve this device in the Tailscale admin console. Waiting for device approval…"));
+                    }
+                    else if (openedAddress is not null && !approvalReported && !stillWaitingReported
+                        && Stopwatch.GetElapsedTime(openedAt) >= SignInPatience)
+                    {
+                        stillWaitingReported = true;
+                        progress?.Report(new NetworkConnectionProgress(StillAwaitingSignInStatus, openedAddress));
                     }
 
                     await Task.WhenAny(exited, Task.Delay(TimeSpan.FromMilliseconds(200), deadline.Token))
@@ -82,7 +110,9 @@ internal sealed partial class HostUserspaceVpnTransport
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return LoginFailure("tailscale_login_timed_out",
-                "Tailscale sign-in timed out. Retry and complete sign-in in your browser, then approve the device in your tailnet if required.");
+                "Tailscale didn't approve this device within five minutes. Check that the sign-in page used the account " +
+                "for this tailnet and that the tailnet's plan is active, then connect again. An auth key in the " +
+                "connection's settings signs in without the browser.");
         }
         catch (IOException)
         {

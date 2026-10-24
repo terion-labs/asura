@@ -17,6 +17,9 @@ internal interface IHostWorkspacePacketGatewayBackendSession : IAsyncDisposable
 
     NetworkConnectionError? Failure { get; }
 
+    /// <summary>The route note of the connection this gateway carries.</summary>
+    string? RouteNote => null;
+
     event EventHandler<NetworkConnectionError>? Failed;
 }
 
@@ -187,6 +190,8 @@ internal sealed class HostWorkspacePacketGatewayRuntime : IWorkspacePacketGatewa
                 }
             }
         }
+
+        public string? RouteNote => _backend.RouteNote;
 
         public event EventHandler<WorkspacePacketGatewaySnapshot>? Changed;
 

@@ -95,6 +95,78 @@ public sealed class ShellWindowMenusHeadlessTests
     });
 
     [Fact]
+    public Task Network_route_menu_offers_the_pending_sign_in_page() => RunAsync(async () =>
+    {
+        using var model = CreateModel();
+        var view = new WorkspaceView { DataContext = model };
+        var signIn = new Uri("https://login.tailscale.com/a/test");
+        var session = new SignInPendingSession(signIn);
+        var opened = new List<Uri>();
+        await using var network = new WorkspaceNetworkControlViewModel(
+            new WorkspaceNetworkPolicyUpdate(
+                new NetworkPolicy([FirstId], FirstId, isEnabled: false, killSwitchEnabled: false),
+                [Profile(FirstId, "First")]),
+            session,
+            new ImmediateDispatcher(),
+            openSignInPage: (address, _) =>
+            {
+                opened.Add(address);
+                return ValueTask.FromResult(true);
+            });
+        Assert.DoesNotContain(
+            view.BuildWorkspaceNetworkMenu(network).OfType<MenuItem>(),
+            item => Equals(item.Header, WorkspaceView.ReopenSignInHeader));
+
+        var connecting = network.SelectAsync(FirstId, CancellationToken.None);
+        for (var attempt = 0; attempt < 200 && !network.CanReopenSignIn; attempt++)
+        {
+            await Task.Delay(10);
+        }
+
+        var requested = 0;
+        view.WorkspaceNetworkSignInReopenRequested += (_, _) => requested++;
+        var items = view.BuildWorkspaceNetworkMenu(network);
+        var reopen = Assert.IsType<MenuItem>(items[1]);
+        Assert.Equal(WorkspaceView.ReopenSignInHeader, reopen.Header);
+        reopen.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+        Assert.Equal(1, requested);
+
+        // The shell answers the request by reopening the pending page.
+        Assert.True(await network.ReopenSignInAsync(CancellationToken.None));
+        Assert.Equal(signIn, Assert.Single(opened));
+        session.Release();
+        await connecting;
+    });
+
+    private sealed class SignInPendingSession(Uri signIn) : IWorkspaceNetworkSession
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public WorkspaceNetworkSnapshot Snapshot { get; private set; } = WorkspaceNetworkSnapshot.Direct;
+
+        public event EventHandler<WorkspaceNetworkSnapshot>? Changed;
+
+        public void Release() => _release.TrySetResult();
+
+        public async ValueTask<NetworkConnectionResult<WorkspaceNetworkSnapshot>> ApplyAsync(
+            WorkspaceNetworkPolicyUpdate update,
+            IProgress<NetworkConnectionProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            progress?.Report(new NetworkConnectionProgress("Complete sign-in in your browser.", signIn));
+            await _release.Task.WaitAsync(cancellationToken);
+            Snapshot = new WorkspaceNetworkSnapshot(
+                WorkspaceNetworkState.Connected,
+                WorkspaceNetworkEgress.Attached,
+                update.Policy.SelectedConnectionId);
+            Changed?.Invoke(this, Snapshot);
+            return NetworkConnectionResult<WorkspaceNetworkSnapshot>.Succeed(Snapshot);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    [Fact]
     public Task Network_route_menu_checks_the_connection_in_use() => RunAsync(() =>
     {
         using var model = CreateModel();

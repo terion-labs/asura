@@ -508,6 +508,7 @@
         ToggleAgentPinRequested="OnToggleAgentPinClick"
         WorkspaceNetworkConnectionSelected="OnWorkspaceNetworkConnectionSelected"
         WorkspaceNetworkToggleRequested="OnWorkspaceNetworkToggleRequested"
+        WorkspaceNetworkSignInReopenRequested="OnWorkspaceNetworkSignInReopenRequested"
         NetworkingSettingsRequested="OnNetworkingSettingsClick" />
 
     <!-- The command palette, the one overlay left. Runtime native views are

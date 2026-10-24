@@ -284,6 +284,9 @@ public interface IWorkspacePacketGatewaySession : IAsyncDisposable
 {
     WorkspacePacketGatewaySnapshot Snapshot { get; }
 
+    /// <summary>The route note of the connection the gateway carries.</summary>
+    string? RouteNote => null;
+
     event EventHandler<WorkspacePacketGatewaySnapshot>? Changed;
 }
 

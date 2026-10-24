@@ -866,6 +866,8 @@ internal sealed class BundledWorkspacePacketGatewayBackend : IHostWorkspacePacke
 
     private sealed class ProcessBackedSession : IHostWorkspacePacketGatewayBackendSession
     {
+        public string? RouteNote { get; }
+
         private readonly IWorkspaceGatewayProcess _host;
         private readonly IWorkspaceGatewayProcess _guest;
         private readonly INetworkConnectionSession? _provider;
@@ -886,6 +888,7 @@ internal sealed class BundledWorkspacePacketGatewayBackend : IHostWorkspacePacke
             _guest = guest;
             _provider = provider;
             _connectionKind = connectionKind;
+            RouteNote = provider?.RouteNote;
             _host.Exited += OnHostExited;
             _guest.Exited += OnGuestExited;
             if (_provider is { } existingProvider)

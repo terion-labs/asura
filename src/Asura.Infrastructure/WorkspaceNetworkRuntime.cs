@@ -609,7 +609,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                 WorkspaceNetworkState.Connected,
                 connection.Egress,
                 selectedId,
-                authenticationRouteIdentity: BrowserHttpAuthentication.NetworkRouteIdentity(selected));
+                authenticationRouteIdentity: BrowserHttpAuthentication.NetworkRouteIdentity(selected),
+                routeNote: connection.RouteNote);
             Publish(snapshot);
             return NetworkConnectionResult<WorkspaceNetworkSnapshot>.Succeed(snapshot);
         }
@@ -711,7 +712,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                             WorkspaceNetworkEgress.Attached,
                             selectedId,
                             routeCapabilities: gatewaySnapshot.Capabilities,
-                            authenticationRouteIdentity: BrowserHttpAuthentication.NetworkRouteIdentity(selected));
+                            authenticationRouteIdentity: BrowserHttpAuthentication.NetworkRouteIdentity(selected),
+                            routeNote: gateway.RouteNote);
                 _snapshot = snapshot;
                 changed = Changed;
             }
@@ -1056,7 +1058,8 @@ public sealed partial class WorkspaceNetworkRuntime : IWorkspaceNetworkRuntime
                         WorkspaceNetworkState.Connected,
                         connection.Egress,
                         providerSnapshot.ConnectionId,
-                        authenticationRouteIdentity: _connectionAuthenticationRouteIdentity),
+                        authenticationRouteIdentity: _connectionAuthenticationRouteIdentity,
+                        routeNote: connection.RouteNote),
                     NetworkConnectionState.Disconnecting
                         or NetworkConnectionState.Disconnected
                         or NetworkConnectionState.Failed =>
