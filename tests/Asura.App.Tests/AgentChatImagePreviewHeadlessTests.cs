@@ -165,7 +165,8 @@ public sealed partial class AgentChatViewModelTests
                 window.MouseDown(center, MouseButton.Left);
                 window.MouseUp(center, MouseButton.Left);
                 var popup = first.FindControl<Avalonia.Controls.Primitives.Popup>("PreviewPopup")!;
-                Assert.True(popup.IsOpen);
+                // The click opens it on the next dispatcher turn, which a busy machine delays.
+                await WaitUntilAsync(() => popup.IsOpen);
                 var enlarged = first.FindControl<ZoomableImageView>("EnlargedImage")!;
                 await WaitUntilAsync(() => enlarged.Source is not null);
                 Assert.Equal(1200, enlarged.Source!.PixelSize.Width);
