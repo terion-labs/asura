@@ -15,6 +15,10 @@ public static class BrowserEngineRuntime
     private const string ExpectedCefVersion = "150.0.9";
     private const string ExpectedChromiumVersion = "150.0.7871.46";
     private const string ExpectedShimVersion = "0.8.0-asura.11";
+    // In the pinned Chromium build this gate forces the normal OSCrypt cache
+    // implementation without enterprise policy enrollment. It does not select
+    // test keys or weaken encryption. Key failure disables the disk backend.
+    internal const string RequiredChromiumFeatures = "EnableCacheEncryption,EnableCacheEncryptionForTesting";
     internal const string DisabledChromiumFeatures =
         "OptimizationGuideOnDeviceModel,LogOnDeviceMetricsOnStartup";
     internal const string DisableChromeLoginPromptSwitch =
@@ -105,6 +109,7 @@ public static class BrowserEngineRuntime
             // through either of these feature gates. Disable both so its
             // startup metrics path cannot request a GPU adapter independently
             // of browser rendering.
+            Cef.AddCommandLineSwitch("enable-features", RequiredChromiumFeatures);
             Cef.AddCommandLineSwitch(
                 "disable-features",
                 DisabledChromiumFeatures);
@@ -201,6 +206,19 @@ public static class BrowserEngineRuntime
 
             return succeeded;
         }
+    }
+
+    public static async Task<bool> ShutdownAsync(CefBrowserProfileStore profileStore)
+    {
+        await profileStore.PrepareForShutdownAsync().ConfigureAwait(true);
+        foreach (var browser in Cef.Browsers.ToArray()) { browser.Close(force: true); }
+        var elapsed = Stopwatch.StartNew();
+        while (Cef.Browsers.Any() && elapsed.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            // Avalonia continues pumping CEF and showing closing progress.
+            await Task.Delay(TimeSpan.FromMilliseconds(16)).ConfigureAwait(true);
+        }
+        return Shutdown(profileStore, TimeSpan.FromMilliseconds(1));
     }
 
     /// <summary>

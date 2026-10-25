@@ -427,7 +427,13 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(SelectedDefaultProfile));
     }
 
-    public void RefreshUsage() => RefreshState();
+    private bool _usageRequested;
+
+    public void RefreshUsage()
+    {
+        _usageRequested = true;
+        RefreshState();
+    }
 
     /// <summary>
     /// Makes a profile from <see cref="NewProfileName"/>. A refused name or a
@@ -926,8 +932,13 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         return true;
     }
 
-    private void RefreshState()
+    private int _stateGeneration;
+
+    private void RefreshState() => _ = RefreshStateAsync();
+
+    private async Task RefreshStateAsync()
     {
+        var generation = ++_stateGeneration;
         if (_dataControl is null)
         {
             StateText = "Clearing browser data isn’t available in this version of Asura.";
@@ -943,9 +954,13 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
             return;
         }
 
+        // This editor is constructed with every shell, even if settings never
+        // opens. Only explicit settings activation may start browser recovery.
+        if (!_usageRequested) { return; }
         try
         {
-            var state = _dataControl.ReadState(selection, revision);
+            var state = await _dataControl.ReadStateAsync(selection, revision, CancellationToken.None);
+            if (generation != _stateGeneration) { return; }
             StateText = state.HasData
                 ? $"{Count(state.ActiveContexts, "open browser session", "open browser sessions")}, "
                     + $"{Count(state.ActiveLeases, "panel using it", "panels using it")}, "
@@ -954,6 +969,7 @@ public sealed class BrowserProfileSettingsEditorViewModel : ObservableObject
         }
         catch (Exception error) when (error is InvalidOperationException or IOException or UnauthorizedAccessException)
         {
+            if (generation != _stateGeneration) { return; }
             StateText = "Saved browser data is kept while the browser is unavailable. Use Retry browser to recover it.";
         }
     }

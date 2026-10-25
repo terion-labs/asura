@@ -63,15 +63,29 @@ public sealed class CefPresentationShutdownContractTests
             Path.Combine(RepositoryRoot, "src", "Asura.Desktop", "DesktopBrowserStartup.cs"));
         var initialization = RequiredIndexOf(browserStartup, "BrowserEngineRuntime.Initialize(");
         var chromiumFailure = RequiredIndexOf(browserStartup, "desktop.cef-initialize.failed", initialization);
-        var browserStart = RequiredIndexOf(program, "browserStartup.Start(");
-        var lifetime = RequiredIndexOf(program, "lifetime.Start(args)", browserStart);
+        var browserConfiguration = RequiredIndexOf(program, "browserStartup.Configure(");
+        var lifetime = RequiredIndexOf(program, "lifetime.Start(args)", browserConfiguration);
         var desktopFailure = RequiredIndexOf(program, "desktop.runtime.failed", lifetime);
 
         Assert.True(initialization < chromiumFailure);
-        Assert.True(browserStart < lifetime);
+        Assert.True(browserConfiguration < lifetime);
         Assert.True(lifetime < desktopFailure);
         Assert.DoesNotContain("desktop.cef-initialize.failed", program, StringComparison.Ordinal);
         Assert.DoesNotContain("lifetime.Start(", browserStartup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Browser_options_are_available_before_framework_setup_even_when_keys_are_locked()
+    {
+        var program = File.ReadAllText(
+            Path.Combine(RepositoryRoot, "src", "Asura.Desktop", "Program.cs"));
+        var encryptionResolution = RequiredIndexOf(program, "var encryption = services.GetRequiredService<ApplicationEncryptionRuntime>();");
+        var configuration = RequiredIndexOf(program, "browserStartup.Configure(CreateBrowserEngineOptions(services));", encryptionResolution);
+        var setup = RequiredIndexOf(program, ".SetupWithLifetime(lifetime)", configuration);
+
+        Assert.True(encryptionResolution < configuration && configuration < setup);
+        Assert.DoesNotContain("if (", program[encryptionResolution..setup], StringComparison.Ordinal);
+        Assert.DoesNotContain("browserStartup.Start(", program, StringComparison.Ordinal);
     }
 
     [Fact]

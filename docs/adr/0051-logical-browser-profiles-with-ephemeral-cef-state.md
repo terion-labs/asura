@@ -3,6 +3,9 @@
 **Status:** Accepted
 **Date:** 2026-08-28
 
+The complete-tree and eager-recovery behavior below is superseded by
+[ADR 0060](0060-protected-browser-storage-and-lazy-recovery.md).
+
 ## Context
 
 Named browser profiles exist to preserve authenticated web sessions. A useful

@@ -1,3 +1,4 @@
+using Asura.Application;
 using Asura.Files;
 using Asura.Infrastructure;
 
@@ -26,16 +27,28 @@ internal sealed class BrowserEngineSnapshotCopy(IConnectionCommandRunner runner)
         }
 
         var archiveBudget = MeasureTree(source, cancellationToken);
-        // Reserve both an ordinary copy and an uncompressed archive. cp may use
-        // an APFS clone, but correctness and disk admission do not depend on it.
+        // Reserve both a copy and an uncompressed archive. A child process
+        // preserves the engine's POSIX locks. Caches are not opened or traversed.
         _ = new DiskWriteHeadroom(destination, checked(archiveBudget * 2));
+        var arguments = new List<string> { "-r", "--links" };
+        foreach (var cache in new[] { "Cache", "Code Cache", "GPUCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache", "ShaderCache", "GrShaderCache", "GraphiteDawnCache" })
+        {
+            arguments.Add("--exclude=/" + cache + "/");
+            arguments.Add("--exclude=/Default/" + cache + "/");
+            arguments.Add("--exclude=/Profile */" + cache + "/");
+            arguments.Add("--exclude=/profile-*/" + cache + "/");
+            arguments.Add("--exclude=/profile-*/Default/" + cache + "/");
+            arguments.Add("--exclude=/profile-*/Profile */" + cache + "/");
+        }
+        arguments.Add(Path.TrimEndingDirectorySeparator(source) + "/");
+        arguments.Add(destination);
         var result = await runner.RunAsync(new ConnectionProbeCommand(
-            "/bin/cp", ["-R", "-P", "-X", Path.TrimEndingDirectorySeparator(source) + "/.", destination],
+            "/usr/bin/rsync", arguments,
             TimeSpan.FromMinutes(2)), cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
         if (result.Outcome != ConnectionProbeOutcome.Exited || result.ExitCode != 0)
         {
-            // cp's stderr contains private paths. Do not include it in errors.
+            // The copier's stderr contains private paths. Do not include it in errors.
             throw new IOException("The stopped browser engine snapshot could not be completed.");
         }
 
@@ -53,6 +66,7 @@ internal sealed class BrowserEngineSnapshotCopy(IConnectionCommandRunner runner)
             foreach (var entry in directory.EnumerateFileSystemInfos())
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (BrowserDisposableCache.Contains(Path.GetRelativePath(root, entry.FullName))) { continue; }
                 if (entry.LinkTarget is not null || entry.Attributes.HasFlag(FileAttributes.ReparsePoint))
                 {
                     throw new IOException("Browser engine snapshot source contains a filesystem link.");

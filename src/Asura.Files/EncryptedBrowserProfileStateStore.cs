@@ -568,7 +568,8 @@ public sealed class EncryptedBrowserProfileStateStore :
                 // They must never be followed or carried into a new process.
                 // Keep rejecting every other linked path, including these
                 // same names inside a profile subdirectory.
-                if (relative is "SingletonLock" or "SingletonSocket"
+                if (BrowserDisposableCache.Contains(relative)
+                    || relative is "SingletonLock" or "SingletonSocket"
                     or "SingletonCookie" or "RunningChromeVersion")
                 {
                     continue;
@@ -696,6 +697,12 @@ public sealed class EncryptedBrowserProfileStateStore :
                     "The encrypted browser profile archive escapes its runtime directory.");
             }
 
+            // Old snapshots also contain caches; never materialize those entries.
+            if (BrowserDisposableCache.Contains(Path.GetRelativePath(root, target)))
+            {
+                continue;
+            }
+
             if (entry.FullName.EndsWith('/'))
             {
                 PrivateContentPathGuard.EnsurePrivateDirectory(target);
@@ -717,10 +724,26 @@ public sealed class EncryptedBrowserProfileStateStore :
     private static void PrepareEmptyDestination(string destinationDirectory)
     {
         PrivateContentPathGuard.EnsurePrivateDirectory(destinationDirectory);
-        if (Directory.EnumerateFileSystemEntries(destinationDirectory).Any())
+        ValidateCacheOnly(destinationDirectory, destinationDirectory);
+    }
+
+    private static void ValidateCacheOnly(string root, string directory)
+    {
+        foreach (var path in Directory.EnumerateFileSystemEntries(directory))
         {
+            if (BrowserDisposableCache.Contains(Path.GetRelativePath(root, path)))
+            {
+                PrivateContentPathGuard.HardenExistingDirectory(path);
+                continue;
+            }
+            if (Directory.Exists(path))
+            {
+                PrivateContentPathGuard.HardenExistingDirectory(path);
+                ValidateCacheOnly(root, path);
+                continue;
+            }
             throw new InvalidOperationException(
-                "A browser profile can be restored only into an empty runtime directory.");
+                "A browser profile can be restored only into a runtime containing disposable caches.");
         }
     }
 

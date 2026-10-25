@@ -2064,7 +2064,17 @@ public sealed class RuntimePanelViewContractTests
             "DestinationFolder",
             codeBehind,
             StringComparison.Ordinal);
-        Assert.DoesNotContain("private async ", codeBehind, StringComparison.Ordinal);
+        // The view may await renderer readiness, but file operations remain in
+        // its view model. Detach or a newer address invalidates that continuation.
+        Assert.Contains("private async Task ShowHtmlPreviewAsync()", codeBehind, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "private async ",
+            codeBehind.Replace("private async Task ShowHtmlPreviewAsync()", string.Empty, StringComparison.Ordinal),
+            StringComparison.Ordinal);
+        var readiness = codeBehind.IndexOf("await factory.EnsureReadyAsync(", StringComparison.Ordinal);
+        var stalePreviewGuard = codeBehind.IndexOf("generation != _htmlPreviewGeneration", readiness, StringComparison.Ordinal);
+        var previewCreation = codeBehind.IndexOf("factory.CreateIsolatedHtmlPreview()", readiness, StringComparison.Ordinal);
+        Assert.True(readiness >= 0 && readiness < stalePreviewGuard && stalePreviewGuard < previewCreation);
         Assert.Contains(
             "protected override void OnDetachedFromVisualTree(",
             codeBehind,

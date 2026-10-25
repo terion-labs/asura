@@ -9,6 +9,31 @@ namespace Asura.App.Tests;
 public sealed class BrowserProfileSettingsEditorViewModelTests
 {
     [Fact]
+    public void ShellConstructionAndCatalogRefreshDoNotLoadBrowserData()
+    {
+        var data = new DeferredBrowserProfileDataControl();
+        var catalog = Catalog(Store(BuiltInBrowserProfiles.Default, 1));
+        var editor = new BrowserProfileSettingsEditorViewModel(
+            new InMemoryBrowserProfilePreferences(), data, catalog.Catalog);
+        editor.ApplyCatalog(catalog.Catalog.Snapshot);
+        Assert.Equal(0, data.Reads);
+        editor.RefreshUsage();
+        Assert.Equal(1, data.Reads);
+    }
+
+    private sealed class DeferredBrowserProfileDataControl : IBrowserProfileDataControl
+    {
+        public int Reads { get; private set; }
+        public BrowserProfileDataState ReadState(BrowserProfileSelection selection, long expectedRevision)
+        {
+            Reads++;
+            return new BrowserProfileDataState(selection, expectedRevision, 0, 0, 0);
+        }
+        public ValueTask<BrowserProfileClearResult> ClearAsync(BrowserProfileClearRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
+    [Fact]
     public void SharingChoiceAppliesImmediatelyToNewBrowserProfiles()
     {
         var preferences = new InMemoryBrowserProfilePreferences();

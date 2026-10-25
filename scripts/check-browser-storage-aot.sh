@@ -5,7 +5,7 @@ repository_dir="$(cd "${script_dir}/.." && pwd)"
 dotnet="${ASURA_DOTNET:-${repository_dir}/.dotnet/dotnet}"
 work="${1:-$(mktemp -d "${TMPDIR:-/tmp}/asura-browser-storage-aot.XXXXXX")}"
 mkdir -p "${work}"
-export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+source "${script_dir}/configure-macos-toolchain.sh"
 "${dotnet}" publish "${script_dir}/acceptance/browser-storage/Asura.BrowserStorageAcceptance.csproj" \
     --configuration Release --runtime osx-arm64 \
     --artifacts-path "${work}/artifacts" --output "${work}/publish" \

@@ -23,7 +23,21 @@ public sealed class BrowserEngineSnapshotCopyTests
             {
                 await File.WriteAllTextAsync(Path.Combine(source, file), "synthetic:" + file);
             }
+            string[] caches = ["Cache", "Code Cache", "Default/Cache", "profile-test/Code Cache", "profile-test/Default/Cache"];
+            foreach (var cache in caches)
+            {
+                Directory.CreateDirectory(Path.Combine(source, cache));
+                File.WriteAllText(Path.Combine(source, cache, "disposable"), "not copied");
+            }
+            Directory.CreateDirectory(Path.Combine(source, "Service Worker", "CacheStorage"));
+            File.WriteAllText(Path.Combine(source, "Service Worker", "CacheStorage", "durable"), "site data");
             await new BrowserEngineSnapshotCopy(new ProcessConnectionCommandRunner()).CopyAsync(source, destination, CancellationToken.None);
+            Assert.Equal("site data", File.ReadAllText(Path.Combine(destination, "Service Worker", "CacheStorage", "durable")));
+            foreach (var cache in caches)
+            {
+                Assert.False(Directory.Exists(Path.Combine(destination, cache)));
+                Assert.True(File.Exists(Path.Combine(source, cache, "disposable")));
+            }
             foreach (var file in files)
             {
                 Assert.Equal("synthetic:" + file, await File.ReadAllTextAsync(Path.Combine(destination, file)));
@@ -74,8 +88,8 @@ public sealed class BrowserEngineSnapshotCopyTests
         public ValueTask<ConnectionProbeResult> RunAsync(ConnectionProbeCommand command, CancellationToken cancellationToken)
         {
             Count++;
-            Assert.Equal("/bin/cp", command.Executable);
-            Assert.Equal(["-R", "-P", "-X"], command.Arguments.Take(3), StringComparer.Ordinal);
+            Assert.Equal("/usr/bin/rsync", command.Executable);
+            Assert.Equal(["-r", "--links"], command.Arguments.Take(2), StringComparer.Ordinal);
             return ValueTask.FromResult(new ConnectionProbeResult(ConnectionProbeOutcome.Exited, 1, "private-path-sentinel"));
         }
     }

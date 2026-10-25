@@ -57,3 +57,24 @@ Tracked follow-ups: `asura-5hti` (cache persistence), `asura-f99e` (responsive b
 - `src/Asura.SessionHost/InMemorySessionHostClient.cs`: sequential session close/disposal.
 - `src/Asura.Terminal/GhosttyVtTerminalSession.cs`: PTY exit wait and reader/writer drain.
 - `src/Asura.App/WorkspaceRuntimeLeaseCoordinator.cs`: sequential workspace release.
+
+
+## Implementation verification
+
+The follow-up implementation is described in [ADR 0060](adr/0060-protected-browser-storage-and-lazy-recovery.md).
+The same synthetic Native AOT fixture now archives only durable state even when
+all 35,355 disposable HTTP/code-cache files are present. Under concurrent build
+and test load, unchanged save took 4.406 seconds and restoration 1.142 seconds,
+versus the earlier 23.272 / 13.297 seconds. The durable-only and cache-heavy
+fixtures both produced a 286,605,312-byte container; cached payloads no longer
+increase its size. These are storage-operation measurements, not whole-app
+launch or quit timings, and concurrent load limits direct timing comparisons.
+
+The checked-in Native AOT storage acceptance passed both ordinary restart and
+repair of damaged LiteDB file metadata, preserving cookies and Service Worker
+CacheStorage while omitting HTTP/code caches. The native CEF cache probe passed
+cross-process cache reuse and denied-Keychain access without a plaintext fallback.
+A separate Native AOT probe verified native/managed TMPDIR agreement, independent
+legacy temp resolution, and missing-entitlement failure. Developer ID signed
+container authorization remains release-environment acceptance, tracked by
+`asura-cpw3`; this workstation has no valid signing identity.

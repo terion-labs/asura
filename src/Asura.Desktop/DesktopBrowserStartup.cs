@@ -28,6 +28,7 @@ internal sealed class DesktopBrowserStartup(
     private bool _usingRecoveryBrowser;
     private bool _initializationFailed;
     private bool _disposed;
+    private bool _stopping;
 
     public string? Error { get; private set; }
     public bool RequiresRestart { get; private set; }
@@ -84,6 +85,7 @@ internal sealed class DesktopBrowserStartup(
             _state?.Dispose();
             _profiles = null;
             _state = new EncryptedBrowserProfileStateStore(selectedPaths.PersistentDirectory, encryption);
+            PrepareEncryptedHttpCache(selectedPaths);
             var profiles = new CefBrowserProfileStore(authentication, _state, selectedPaths.RuntimeDirectory);
             if (!profiles.RecoverOrphanedRuntimeState())
             {
@@ -99,6 +101,78 @@ internal sealed class DesktopBrowserStartup(
             SecretSafeDiagnosticProjection.WriteStandardError("desktop.browser-profile-recovery.failed", error);
             return false;
         }
+    }
+
+    internal static void PrepareEncryptedHttpCache(BrowserProfileStoragePaths selectedPaths)
+    {
+        PrivateContentPathGuard.EnsurePrivateDirectory(selectedPaths.PersistentDirectory);
+        var marker = selectedPaths.PersistentDirectory + ".native-http-cache-v1";
+        if (File.Exists(marker))
+        {
+            PrivateContentPathGuard.ValidatePrivateFile(marker);
+            return;
+        }
+        // Old versions used plaintext HTTP caches, including abandoned contexts.
+        // Drop those once before enabling persistent encrypted caching. The
+        // marker lives beside the store directory, whose entry allowlist stays strict.
+        PurgeLegacyHttpCaches(selectedPaths.RuntimeDirectory, selectedPaths.RuntimeDirectory);
+        using var committed = PrivateContentPathGuard.CreatePrivateFile(marker, FileShare.None);
+    }
+
+    private static void PurgeLegacyHttpCaches(string root, string directory)
+    {
+        var info = new DirectoryInfo(directory);
+        if (info.LinkTarget is not null || info.Attributes.HasFlag(FileAttributes.ReparsePoint) && info.Exists)
+        {
+            throw new IOException("Legacy browser storage contains a directory link.");
+        }
+        if (!info.Exists) { return; }
+        foreach (var child in info.EnumerateDirectories())
+        {
+            if (child.LinkTarget is not null || child.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            {
+                throw new IOException("Legacy browser storage contains a directory link.");
+            }
+            var relative = Path.GetRelativePath(root, child.FullName);
+            if (BrowserDisposableCache.Contains(relative))
+            {
+                if (string.Equals(child.Name, "Cache", StringComparison.Ordinal)) { child.Delete(recursive: true); }
+                continue;
+            }
+            PurgeLegacyHttpCaches(root, child.FullName);
+        }
+    }
+
+    public void Configure(BrowserEngineRuntimeOptions options) => _options = options;
+
+    // Only browser consumers wait here. Recovery and archive extraction never
+    // occupy Avalonia's dispatcher, and concurrent tabs share the same engine.
+    public async Task EnsureRunningAsync(CancellationToken cancellationToken)
+    {
+        await _retryGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_stopping) { throw new InvalidOperationException("The browser is closing."); }
+            if (IsRunning) { return; }
+            if (!await Task.Run(RecoverProfile, CancellationToken.None).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException(Error ?? "Saved browser data is unavailable.");
+            }
+            var options = _options ?? throw new InvalidOperationException("Browser startup is not configured.");
+            if (!await Dispatcher.UIThread.InvokeAsync(() => Start(options)))
+            {
+                throw new InvalidOperationException(Error ?? "The browser could not start.");
+            }
+        }
+        finally { _retryGate.Release(); }
+    }
+
+    public async Task BeginShutdownAsync()
+    {
+        await _retryGate.WaitAsync().ConfigureAwait(false);
+        try { _stopping = true; }
+        finally { _retryGate.Release(); }
     }
 
     public bool Start(BrowserEngineRuntimeOptions options)
@@ -147,6 +221,7 @@ internal sealed class DesktopBrowserStartup(
         }
         try
         {
+            if (_disposed || _stopping) { return; }
             if (RequiresRestart)
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
@@ -178,14 +253,32 @@ internal sealed class DesktopBrowserStartup(
             ? _profiles.ReadState(selection, expectedRevision)
             : throw new InvalidOperationException(Error ?? "Browser profile recovery has not finished.");
 
+    public async ValueTask<BrowserProfileDataState> ReadStateAsync(
+        BrowserProfileSelection selection, long expectedRevision, CancellationToken cancellationToken)
+    {
+        await EnsureRunningAsync(cancellationToken).ConfigureAwait(false);
+        return await Task.Run(() => ReadState(selection, expectedRevision), cancellationToken).ConfigureAwait(false);
+    }
+
     public async ValueTask<BrowserProfileClearResult> ClearAsync(BrowserProfileClearRequest request, CancellationToken cancellationToken)
     {
-        if (!IsRunning || _profiles is null)
+        try
         {
+            await EnsureRunningAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new BrowserProfileClearResult(BrowserProfileClearStatus.Cancelled, 0, "Clearing browser data was canceled.");
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            SecretSafeDiagnosticProjection.WriteTrace("browser.clear-startup.failed", error);
             return new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, 0,
                 "Saved browser data is kept while recovery is pending. Retry recovery before clearing it.");
         }
-        var result = await _profiles.ClearAsync(request, cancellationToken);
+        var result = await Task.Run(async () =>
+            await RequireRunningProfile().ClearAsync(request, cancellationToken).ConfigureAwait(false),
+            CancellationToken.None).ConfigureAwait(false);
         if (result.Status == BrowserProfileClearStatus.Cleared
             && request.Categories.HasFlag(BrowserProfileDataCategory.AllWebContent) && history is not null)
         {

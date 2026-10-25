@@ -46,6 +46,12 @@ public sealed record LocalArtifactPaths
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var durableDataDirectory = AsuraDataPaths.CreateDefault().DataDirectory;
 
+        if (MacOsAppGroupStorage.Root is { } container)
+        {
+            return new LocalArtifactPaths(Path.Combine(container, "cache"),
+                Path.Combine(container, "logs"), durableDataDirectory: durableDataDirectory);
+        }
+
         if (OperatingSystem.IsMacOS())
         {
             return new LocalArtifactPaths(

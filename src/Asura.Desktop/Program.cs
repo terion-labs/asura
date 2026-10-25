@@ -184,6 +184,8 @@ internal static class Program
         string[]? restartArguments = null;
         MainWindowViewModel? mainWindowViewModel = null;
         INativeNotificationService? nativeNotifications = null;
+        var finalized = false;
+        var browserSealed = false;
         try
         {
             try
@@ -198,16 +200,40 @@ internal static class Program
                     .GetRequiredService<DesktopUpdateShutdown>();
                 updateShutdown.Attach(
                     lifetime,
-                    cancellationToken => services
-                        .GetRequiredService<AsuraApplication>()
-                        .PrepareForUpdateRestartAsync(cancellationToken));
+                    async cancellationToken =>
+                    {
+                        await services.GetRequiredService<AsuraApplication>()
+                            .PrepareForUpdateRestartAsync(cancellationToken);
+                        await browserStartup.BeginShutdownAsync();
+                        TeardownPresentationOrReport(mainWindowViewModel);
+                        await FinalizeAsync(services);
+                        finalized = true;
+                        if (browserStartup.IsRunning && !browserSealed)
+                        {
+                            var profiles = browserStartup.RequireRunningProfile();
+                            if (!await BrowserEngineRuntime.ShutdownAsync(profiles))
+                            {
+                                throw new IOException("The browser did not finish closing.");
+                            }
+                            Func<string, string, CancellationToken, Task>? copy = OperatingSystem.IsMacOS()
+                                ? new BrowserEngineSnapshotCopy(services.GetRequiredService<IConnectionCommandRunner>()).CopyAsync : null;
+                            browserSealed = await BrowserEngineRuntime.SealStateAfterShutdownAsync(profiles, copy, CancellationToken.None);
+                            if (!browserSealed) { throw new IOException("Saved browser data could not be secured."); }
+                        }
+                    });
                 browserStartup.ConfigureRestart(() =>
                 {
                     restartArguments = originalArguments;
                     updateShutdown.Request();
                 });
+                var encryption = services.GetRequiredService<ApplicationEncryptionRuntime>();
+                // Restored views can request CEF during framework setup or as
+                // soon as PIN unlock completes. Options need no unlocked keys;
+                // publish them first while initialization remains lazy.
+                browserStartup.Configure(CreateBrowserEngineOptions(services));
                 BrowserEngineRuntime.Configure(BuildAvaloniaApp(services))
                     .SetupWithLifetime(lifetime);
+                services.GetRequiredService<AsuraApplication>().RequestDesktopShutdown = updateShutdown.Request;
                 nativeNotifications =
                     services.GetRequiredService<INativeNotificationService>();
                 nativeNotifications.Activated += OnNativeNotificationActivated;
@@ -232,11 +258,9 @@ internal static class Program
                     TeardownPresentationOrReport(mainWindowViewModel);
                 void InitializeBrowserRuntime()
                 {
-                    _ = browserStartup.Start(CreateBrowserEngineOptions(services));
+                    browserStartup.Configure(CreateBrowserEngineOptions(services));
                 }
 
-                var encryption = services
-                    .GetRequiredService<ApplicationEncryptionRuntime>();
                 if (encryption.AwaitingUnlock)
                 {
                     DeferredStartupCoordinator.Arm(
@@ -249,10 +273,6 @@ internal static class Program
                             updateShutdown.Request();
                         });
                 }
-                else
-                {
-                    InitializeBrowserRuntime();
-                }
 
                 // Attached here, not in App: headless tests run App too, and
                 // they must still see a UI exception.
@@ -262,7 +282,7 @@ internal static class Program
                 // The process's STA thread is a safe fallback if the lifetime
                 // returns without raising Exit.
                 TeardownPresentationOrReport(mainWindowViewModel);
-                FinalizeAsync(services).GetAwaiter().GetResult();
+                if (!finalized) { FinalizeAsync(services).GetAwaiter().GetResult(); }
             }
             catch (Exception error)
             {
@@ -288,7 +308,7 @@ internal static class Program
                     // CEF closes browsers and stops its message pump.
                     TeardownPresentationOrReport(mainWindowViewModel);
                     QuiescePresentationOrReport(services);
-                    if (browserStartup.IsRunning)
+                    if (browserStartup.IsRunning && !browserSealed)
                     {
                         var profiles = browserStartup.RequireRunningProfile();
                         if (!BrowserEngineRuntime.Shutdown(profiles))
@@ -413,7 +433,7 @@ internal static class Program
         try
         {
             instanceStart = await SingleInstanceCoordinator.StartAsync(
-                profile.Data.DataDirectory, CancellationToken.None);
+                DesktopStorageMigration.CoordinationDirectory(profile), CancellationToken.None);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
@@ -437,6 +457,8 @@ internal static class Program
         ServiceProvider? services = null;
         try
         {
+            DesktopStorageMigration.Migrate(profile);
+            MacOsAppGroupStorage.ConfigureTemporaryStorage(profile.IsThrowaway ? profile.Data.DataDirectory : null);
             services = DesktopComposition.CreateServiceProvider(profile);
             // Before anything opens the configuration database: an encrypted
             // database needs its key in hand for the very first connection —
@@ -513,7 +535,7 @@ internal static class Program
     {
         // Browser failures are isolated from configuration and terminal startup.
         // The shell exposes a retry action while the saved browser data stays closed.
-        _ = services.GetRequiredService<DesktopBrowserStartup>().RecoverProfile();
+        // Browser recovery is deferred until a browser surface is requested.
 
         var runStore = services.GetRequiredService<IApplicationRunStore>();
         var startResult = await runStore.BeginRunAsync(CancellationToken.None);
@@ -578,7 +600,7 @@ internal static class Program
 
         var mainWindowViewModel = services.GetRequiredService<MainWindowViewModel>();
         var application = services.GetRequiredService<AsuraApplication>();
-        // The desktop dispatcher no longer pumps once the classic lifetime returns.
+        // Normal quit finalizes while the dispatcher pumps; the post-lifetime path is a fallback.
         var completion = await services.GetRequiredService<DesktopRunFinalizer>()
             .FinalizeAsync(
                 cancellationToken => QuiescePresentationAsync(

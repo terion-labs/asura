@@ -2,7 +2,7 @@ namespace Asura.Infrastructure;
 
 /// <summary>
 /// Separates the encrypted durable browser archive from CEF's owner-private
-/// working tree. The working tree is deleted after it has been sealed.
+/// working tree. Durable working files are deleted after sealing; regenerable caches remain.
 /// </summary>
 public sealed record BrowserProfileStoragePaths
 {
@@ -28,7 +28,9 @@ public sealed record BrowserProfileStoragePaths
         var data = AsuraDataPaths.CreateDefault().DataDirectory;
         return new BrowserProfileStoragePaths(
             Path.Combine(data, "browser", "state"),
-            Path.Combine(Path.GetTempPath(), ApplicationStorageIdentity.DirectoryName, "browser-runtime"));
+            MacOsAppGroupStorage.Root is { } container
+                ? Path.Combine(container, "browser-runtime")
+                : Path.Combine(MacOsAppGroupStorage.SystemTemporaryDirectory(), ApplicationStorageIdentity.DirectoryName, "browser-runtime"));
     }
 
     private static string Normalize(string path)

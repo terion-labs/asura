@@ -4,7 +4,8 @@ using Asura.Core;
 namespace Asura.Browser;
 
 public sealed class AgentWebToolExecutor(
-    IWorkspaceNetworkRouteResolver routeResolver) : IAgentWebToolExecutor
+    IWorkspaceNetworkRouteResolver routeResolver,
+    Func<CancellationToken, Task> ensureBrowserRunning) : IAgentWebToolExecutor
 {
     public async ValueTask<AgentWebToolExecutionResult> ExecuteAsync(
         WorkspaceInstanceId workspaceId,
@@ -17,6 +18,23 @@ public sealed class AgentWebToolExecutor(
         {
             return new AgentWebToolExecutionResult.Failed(
                 AgentWebToolErrorCode.Unavailable);
+        }
+
+        if (request is AgentWebReadRequest or AgentWebSearchRequest)
+        {
+            try
+            {
+                await ensureBrowserRunning(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return new AgentWebToolExecutionResult.Failed(AgentWebToolErrorCode.Cancelled);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                SecretSafeDiagnosticProjection.WriteTrace("browser.agent-startup.failed", error);
+                return new AgentWebToolExecutionResult.Failed(AgentWebToolErrorCode.Unavailable);
+            }
         }
 
         return request switch

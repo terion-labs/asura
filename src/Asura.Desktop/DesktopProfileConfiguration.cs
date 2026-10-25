@@ -40,7 +40,8 @@ public sealed class DesktopProfileConfiguration
             new(Path.Combine(root, "cache"), Path.Combine(root, "logs"), durableDataDirectory: data),
             new(Path.Combine(data, "browser", "state"),
                 throwaway is null
-                    ? Path.Combine(Path.GetTempPath(), ApplicationStorageIdentity.DirectoryName, "recovery-browser-runtime" + suffix)
+                    ? Path.Combine(MacOsAppGroupStorage.Root
+                        ?? Path.Combine(MacOsAppGroupStorage.SystemTemporaryDirectory(), ApplicationStorageIdentity.DirectoryName), "recovery-browser-runtime" + suffix)
                     : throwaway.Browser.RuntimeDirectory + ".recovery" + suffix),
             (throwaway?.SecretServiceName ?? ApplicationStorageIdentity.SecretServiceName) + ".recovery" + suffix,
             throwaway is not null, true);
@@ -105,7 +106,7 @@ public sealed class DesktopProfileConfiguration
         }
 
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(arguments[index + 1]));
-        var temporaryRoot = ResolvePhysicalDirectory(Path.GetTempPath());
+        var temporaryRoot = ResolvePhysicalDirectory(MacOsAppGroupStorage.SystemTemporaryDirectory());
         if (!root.StartsWith(temporaryRoot + Path.DirectorySeparatorChar,
                 OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
             || !Directory.Exists(root))

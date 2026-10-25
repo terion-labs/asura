@@ -22,6 +22,9 @@ internal sealed class DesktopBrowserRendererViewFactory(
         return CreateView(profile);
     }
 
+    public async ValueTask EnsureReadyAsync(CancellationToken cancellationToken) =>
+        await browserStartup.EnsureRunningAsync(cancellationToken).ConfigureAwait(false);
+
     public BrowserRendererView CreateIsolatedHtmlPreview()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -86,14 +89,15 @@ internal sealed class DesktopBrowserRendererViewFactory(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(connection);
+        await browserStartup.EnsureRunningAsync(cancellationToken).ConfigureAwait(true);
         if (connection.Endpoint is ConnectionEndpoint.Local)
         {
-            var localLease = networkConnector is null
+            var localLease = await Task.Run(() => networkConnector is null
                 ? browserStartup.RequireRunningProfile().AcquireLocal(profile)
                 : browserStartup.RequireRunningProfile().AcquireRouted(
                     profile,
                     networkConnector.LocalProxyEndpoint.AbsoluteUri,
-                    networkConnector);
+                    networkConnector), cancellationToken).ConfigureAwait(true);
             try
             {
                 await localLease.Ready.WaitAsync(cancellationToken).ConfigureAwait(true);
@@ -121,11 +125,11 @@ internal sealed class DesktopBrowserRendererViewFactory(
         CefBrowserProfileLease? profileLease = null;
         try
         {
-            profileLease = browserStartup.RequireRunningProfile().AcquireRouted(
+            profileLease = await Task.Run(() => browserStartup.RequireRunningProfile().AcquireRouted(
                 profile,
                 route.Tunnel.ProfileRouteIdentity,
                 route.Proxy,
-                BrowserHttpAuthentication.SshRouteIdentity(connection));
+                BrowserHttpAuthentication.SshRouteIdentity(connection)), cancellationToken).ConfigureAwait(true);
             await profileLease.Ready.WaitAsync(cancellationToken).ConfigureAwait(true);
             cancellationToken.ThrowIfCancellationRequested();
             var surface = new BrowserSurface(
@@ -158,10 +162,11 @@ internal sealed class DesktopBrowserRendererViewFactory(
         ArgumentOutOfRangeException.ThrowIfLessThan(socksProxyPort, 1);
         ArgumentException.ThrowIfNullOrWhiteSpace(routeIdentity);
         cancellationToken.ThrowIfCancellationRequested();
-        var lease = browserStartup.RequireRunningProfile().AcquireRouted(
+        await browserStartup.EnsureRunningAsync(cancellationToken).ConfigureAwait(true);
+        var lease = await Task.Run(() => browserStartup.RequireRunningProfile().AcquireRouted(
             profile,
             routeIdentity,
-            socksProxyPort);
+            socksProxyPort), cancellationToken).ConfigureAwait(true);
         try
         {
             await lease.Ready.WaitAsync(cancellationToken).ConfigureAwait(true);

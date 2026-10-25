@@ -130,10 +130,11 @@ public sealed partial class App
     private void OnShutdownRequested(object? sender, ShutdownRequestedEventArgs e)
     {
         _ = sender;
-        // A confirmed quit, or an update restart that has already closed every
-        // window's sessions, is shutting down on purpose.
+        // Keep pumping while the host finishes its asynchronous save. Its final
+        // forced Shutdown() bypasses this event; repeated native Quit must not.
         if (_quitApproved || _desktopExitStarted)
         {
+            e.Cancel = RequestDesktopShutdown is not null;
             return;
         }
 
@@ -180,7 +181,8 @@ public sealed partial class App
                 withdraw: WithdrawQuit);
             if (outcome == QuitOutcome.ReadyToExit)
             {
-                desktop.Shutdown();
+                if (RequestDesktopShutdown is { } request) { request(); }
+                else { desktop.Shutdown(); }
             }
         }
         finally
