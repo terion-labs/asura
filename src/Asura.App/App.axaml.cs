@@ -1396,6 +1396,9 @@ public sealed partial class App : Avalonia.Application
         }
     }
 
+    /// <summary>Requests the host shutdown after the user has approved quitting.</summary>
+    public Action? RequestDesktopShutdown { get; set; }
+
     /// <summary>
     /// Performs the update-restart close while Avalonia still pumps its dispatcher.
     /// Host scopes close before presentation and isolation are torn down, so a
@@ -1404,7 +1407,7 @@ public sealed partial class App : Avalonia.Application
     public async Task PrepareForUpdateRestartAsync(CancellationToken cancellationToken)
     {
         // The restarted app puts the same windows back where they are now.
-        SaveWindowPlacements();
+        if (!_quitApproved) { SaveWindowPlacements(); }
         _desktopExitStarted = true;
         var additionalViewModels = _additionalMainWindowViewModels.ToArray();
         MainWindowViewModel[] allViewModels = _mainWindowViewModel is { } mainViewModel
@@ -1552,7 +1555,8 @@ public sealed partial class App : Avalonia.Application
                 return;
             }
 
-            desktop.Shutdown();
+            if (RequestDesktopShutdown is { } request) { request(); }
+            else { desktop.Shutdown(); }
             return;
         }
 

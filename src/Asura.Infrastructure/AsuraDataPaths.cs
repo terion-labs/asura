@@ -4,9 +4,12 @@ public sealed record AsuraDataPaths(string DataDirectory, string DatabasePath)
 {
     public static AsuraDataPaths CreateDefault()
     {
-        var dataDirectory = ResolveDataDirectory();
+        var dataDirectory = MacOsAppGroupStorage.Root is { } container
+            ? Path.Combine(container, "data") : ResolveDataDirectory();
         return new(dataDirectory, Path.Combine(dataDirectory, "asura.db"));
     }
+
+    public static string ResolveLegacyDataDirectory() => ResolveDataDirectory();
 
     private static string ResolveDataDirectory()
     {

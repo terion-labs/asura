@@ -262,7 +262,9 @@ public static class DesktopComposition
         services.AddSingleton<BrowserPanelSessionFactory>();
         services.AddSingleton<IBrowserPanelSessionFactory>(provider =>
             provider.GetRequiredService<BrowserPanelSessionFactory>());
-        services.AddSingleton<IAgentWebToolExecutor, AgentWebToolExecutor>();
+        services.AddSingleton<IAgentWebToolExecutor>(provider => new AgentWebToolExecutor(
+            provider.GetRequiredService<IWorkspaceNetworkRouteResolver>(),
+            provider.GetRequiredService<DesktopBrowserStartup>().EnsureRunningAsync));
         services.AddSingleton<SystemMonitorPanelSessionFactory>();
         services.AddSingleton<WorkspaceSystemMonitorPanelSessionFactory>();
         services.AddSingleton<ISystemMonitorPanelSessionFactory>(provider =>

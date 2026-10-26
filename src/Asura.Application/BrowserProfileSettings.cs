@@ -174,6 +174,13 @@ public interface IBrowserProfileDataControl
         BrowserProfileSelection selection,
         long expectedRevision);
 
+    ValueTask<BrowserProfileDataState> ReadStateAsync(
+        BrowserProfileSelection selection, long expectedRevision, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(ReadState(selection, expectedRevision));
+    }
+
     ValueTask<BrowserProfileClearResult> ClearAsync(
         BrowserProfileClearRequest request,
         CancellationToken cancellationToken);

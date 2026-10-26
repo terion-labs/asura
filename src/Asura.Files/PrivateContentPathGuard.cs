@@ -59,6 +59,15 @@ public static class PrivateContentPathGuard
         ValidatePrivateDirectory(path);
     }
 
+    // Migration may adopt an older, owner-controlled directory with broader
+    // permissions. Validate ownership and reject links before changing its mode.
+    internal static void HardenExistingDirectory(string path)
+    {
+        ValidateOwnerAndType(path, DirectoryFileType, isDirectory: true);
+        RestrictDirectoryPermissions(path);
+        ValidatePrivateDirectory(path);
+    }
+
     public static void ValidatePrivateDirectory(string path) =>
         ValidatePrivatePath(path, DirectoryFileType, OwnerDirectoryMode, isDirectory: true);
 

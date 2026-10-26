@@ -123,7 +123,9 @@ public sealed class ConnectionEnginePackagingTests
     {
         var entitlements = XDocument.Load(Path.Combine(RepositoryRoot,
             "tools", "Asura.Packaging", "MacOS", "WorkspaceRuntime.entitlements"));
-        Assert.Equal("com.apple.security.virtualization", Assert.Single(entitlements.Descendants("key")).Value);
+        Assert.Equal(["com.apple.security.application-groups", "com.apple.security.virtualization"],
+            entitlements.Descendants("key").Select(element => element.Value), StringComparer.Ordinal);
+        Assert.Equal(Asura.Infrastructure.MacOsAppGroupStorage.Identifier, Assert.Single(entitlements.Descendants("string")).Value);
         Assert.Single(entitlements.Descendants("true"));
         var signing = Read("scripts", "sign-notarize-macos.sh");
         Assert.Contains("sign_workspace_runtime \"${runtime_file}\"", signing, StringComparison.Ordinal);

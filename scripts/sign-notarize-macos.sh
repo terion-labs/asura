@@ -183,6 +183,14 @@ for helper in \
 done
 
 sign_chromium_bundle "${app}"
+if [[ "${identity}" != "-" ]]; then
+    signing_team="$(/usr/bin/codesign -dv --verbose=4 "${app}" 2>&1 | sed -n 's/^TeamIdentifier=//p')"
+    storage_group="$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.application-groups:0' "${entitlements}")"
+    if [[ -z "${signing_team}" || "${storage_group}" != "${signing_team}."* ]]; then
+        echo "The signing team does not own the configured application storage group." >&2
+        exit 1
+    fi
+fi
 /usr/bin/codesign --verify --deep --strict --verbose=2 "${app}"
 
 if [[ -z "${notary_profile}" ]]; then

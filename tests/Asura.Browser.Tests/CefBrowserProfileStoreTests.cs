@@ -6,6 +6,160 @@ namespace Asura.Browser.Tests;
 public sealed class CefBrowserProfileStoreTests
 {
     [Fact]
+    public void FailedContextRestoreCannotLeavePartialStateForEngineSealing()
+    {
+        var root = TemporaryRoot();
+        var state = new RecordingStateStore();
+        string? partial = null;
+        try
+        {
+            state.Restoring = _ =>
+            {
+                var entry = Assert.Single(Directory.GetDirectories(Path.Combine(root, "contexts")));
+                partial = Path.Combine(root, "profile-" + Path.GetFileName(entry));
+                Directory.CreateDirectory(partial);
+                File.WriteAllText(Path.Combine(partial, "Cookies"), "incomplete");
+                throw new IOException("Synthetic restore interruption.");
+            };
+            var factory = new RecordingRequestContextFactory();
+            using var store = new CefBrowserProfileStore(null, state, root, factory.Create);
+            Assert.Throws<IOException>(() => store.AcquireLocal(Binding("profile.failed-restore", 1, BrowserProfilePersistence.DurableMetadata)));
+            Assert.NotNull(partial);
+            Assert.False(Directory.Exists(partial));
+            Assert.Empty(Directory.GetDirectories(Path.Combine(root, "contexts")));
+            Assert.Empty(factory.Created);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ShutdownDrainsNativeClearBeforeReleasingContextsAndRefusesLaterClears()
+    {
+        var factory = new RecordingRequestContextFactory();
+        using var store = new CefBrowserProfileStore(null, factory.Create);
+        var binding = Binding("profile.clear-shutdown", 1, BrowserProfilePersistence.DurableMetadata);
+        using var lease = store.AcquireLocal(binding);
+        var context = Assert.Single(factory.Created);
+        var deleted = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        context.DeleteCookiesCompletion = deleted.Task;
+        var request = new BrowserProfileClearRequest(binding.Selection, 1, BrowserProfileDataCategory.Cookies);
+        var clearing = store.ClearAsync(request, CancellationToken.None).AsTask();
+        Assert.Equal(1, context.DeleteCookiesCount);
+        var stopping = store.PrepareForShutdownAsync();
+        Assert.False(stopping.IsCompleted);
+        Assert.Equal(0, context.DisposeCount);
+        deleted.SetResult(1);
+        Assert.Equal(BrowserProfileClearStatus.Cleared, (await clearing).Status);
+        await stopping.WaitAsync(TimeSpan.FromSeconds(5));
+        store.ReleaseContextsForEngineShutdown();
+        Assert.Equal(BrowserProfileClearStatus.Failed, (await store.ClearAsync(request, CancellationToken.None)).Status);
+        Assert.Equal(1, context.DeleteCookiesCount);
+        lease.Dispose();
+        Assert.Equal(1, context.DisposeCount);
+    }
+
+    [Fact]
+    public void LegacyRandomProfileCacheIsRemovedAfterCrashRecovery()
+    {
+        var root = TemporaryRoot();
+        var state = new RecordingStateStore();
+        var key = new BrowserProfileStateKey(Selection("profile.legacy-cache"), "local");
+        var entry = Path.Combine(root, "contexts", Guid.NewGuid().ToString("N"));
+        var profile = Path.Combine(root, "profile-" + Path.GetFileName(entry));
+        try
+        {
+            Directory.CreateDirectory(entry);
+            BrowserProfileRuntimeManifest.Write(entry, key);
+            BrowserProfileRuntimeManifest.MarkActive(entry);
+            Directory.CreateDirectory(Path.Combine(profile, "Code Cache"));
+            File.WriteAllText(Path.Combine(profile, "Code Cache", "entry"), "private compiled code");
+            File.WriteAllText(Path.Combine(profile, "Cookies"), "session");
+            using var store = new CefBrowserProfileStore(null, state, root, new RecordingRequestContextFactory().Create);
+            Assert.True(store.RecoverOrphanedRuntimeState());
+            Assert.False(Directory.Exists(profile));
+            Assert.Equal("session".Length, state.Inspect(key.Selection).ContentBytes);
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task RetainedCachesSurviveSealAndLazyRestoreWithoutEnteringArchives()
+    {
+        var root = TemporaryRoot();
+        var state = new RecordingStateStore();
+        var binding = Binding("profile.retained-cache", 1, BrowserProfilePersistence.DurableMetadata);
+        string cachePath;
+        try
+        {
+            var contexts = new RecordingRequestContextFactory();
+            using (var first = new CefBrowserProfileStore(null, state, root, contexts.Create))
+            {
+                using (first.AcquireLocal(binding)) { }
+                cachePath = contexts.Created[0].CachePath!;
+                Directory.CreateDirectory(Path.Combine(cachePath, "Cache"));
+                Directory.CreateDirectory(Path.Combine(cachePath, "Code Cache"));
+                File.WriteAllText(Path.Combine(cachePath, "Cache", "entry"), "native-encrypted");
+                File.WriteAllText(Path.Combine(cachePath, "Code Cache", "entry"), "compiled-code");
+                File.WriteAllText(Path.Combine(cachePath, "Cookies"), "saved-cookie");
+                first.ReleaseContextsForEngineShutdown();
+                Assert.True(await first.SealRuntimeStateAfterEngineShutdownAsync());
+            }
+            Assert.Equal("native-encrypted", File.ReadAllText(Path.Combine(cachePath, "Cache", "entry")));
+            Assert.Equal("compiled-code", File.ReadAllText(Path.Combine(cachePath, "Code Cache", "entry")));
+            Assert.False(File.Exists(Path.Combine(cachePath, "Cookies")));
+            Assert.Equal("saved-cookie".Length, state.Inspect(binding.Selection).ContentBytes);
+            var restoredContexts = new RecordingRequestContextFactory();
+            using var second = new CefBrowserProfileStore(null, state, root, restoredContexts.Create);
+            Assert.True(second.RecoverOrphanedRuntimeState());
+            Assert.False(File.Exists(Path.Combine(cachePath, "Cookies")));
+            using var lease = second.AcquireLocal(binding);
+            Assert.Equal(cachePath, restoredContexts.Created[0].CachePath);
+            Assert.Equal("saved-cookie", File.ReadAllText(Path.Combine(cachePath, "Cookies")));
+            Assert.Equal("native-encrypted", File.ReadAllText(Path.Combine(cachePath, "Cache", "entry")));
+            lease.Dispose();
+            // Another retained slot has no live context in this process.
+            var unusedSlot = cachePath[..^1] + "1";
+            Directory.CreateDirectory(Path.Combine(unusedSlot, "Cache"));
+            File.WriteAllText(Path.Combine(unusedSlot, "Cache", "entry"), "old route");
+            var cleared = await second.ClearAsync(new BrowserProfileClearRequest(binding.Selection, 1,
+                BrowserProfileDataCategory.AllWebContent), CancellationToken.None);
+            Assert.Equal(BrowserProfileClearStatus.Cleared, cleared.Status);
+            Assert.False(Directory.Exists(cachePath));
+            Assert.False(Directory.Exists(unusedSlot));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
+    public async Task ClosingAnExistingLeaseDoesNotWaitForAnotherProfileRestore()
+    {
+        var root = TemporaryRoot();
+        var state = new RecordingStateStore();
+        using var entered = new ManualResetEventSlim();
+        using var allow = new ManualResetEventSlim();
+        try
+        {
+            using var store = new CefBrowserProfileStore(null, state, root, new RecordingRequestContextFactory().Create);
+            using var first = store.AcquireLocal(Binding("first", 1, BrowserProfilePersistence.DurableMetadata));
+            state.Restoring = _ =>
+            {
+                entered.Set();
+                Assert.True(allow.Wait(TimeSpan.FromSeconds(10)));
+            };
+            var restoring = Task.Run(() => store.AcquireLocal(Binding("second", 1, BrowserProfilePersistence.DurableMetadata)));
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
+            try
+            {
+                await Task.Run(first.Dispose).WaitAsync(TimeSpan.FromSeconds(2));
+                Assert.False(restoring.IsCompleted);
+            }
+            finally { allow.Set(); }
+            using var second = await restoring;
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
+    [Fact]
     public void ConstructionDoesNotCreatePersistentProfileStorage()
     {
         var parent = TemporaryRoot();
@@ -649,6 +803,7 @@ public sealed class CefBrowserProfileStoreTests
             using var other = second.AcquireRouted(otherBinding, "runtime:another-instance", otherConnector);
             Assert.Equal(2, contexts.Created.Count);
             Assert.NotSame(contexts.Created[0], contexts.Created[1]);
+            Assert.NotEqual(contexts.Created[0].CachePath, contexts.Created[1].CachePath, StringComparer.Ordinal);
             Assert.Equal(!isolated, File.Exists(Path.Combine(contexts.Created[1].CachePath!, "Cookies")));
         }
         finally
@@ -1145,6 +1300,7 @@ public sealed class CefBrowserProfileStoreTests
         public bool Available { get; init; } = true;
 
         public int SealCount { get; private set; }
+        public Action<BrowserProfileStateKey>? Restoring { get; set; }
 
         public bool IsRetentionEnabled => RetentionEnabled;
 
@@ -1168,6 +1324,7 @@ public sealed class CefBrowserProfileStoreTests
 
         public void Restore(BrowserProfileStateKey key, string destinationDirectory)
         {
+            Restoring?.Invoke(key);
             Directory.CreateDirectory(destinationDirectory);
             if (!_states.TryGetValue(key, out var files))
             {
@@ -1189,6 +1346,7 @@ public sealed class CefBrowserProfileStoreTests
                     sourceDirectory,
                     "*",
                     SearchOption.AllDirectories)
+                .Where(path => !BrowserDisposableCache.Contains(Path.GetRelativePath(sourceDirectory, path)))
                 .ToDictionary(
                     path => Path.GetRelativePath(sourceDirectory, path),
                     File.ReadAllBytes,

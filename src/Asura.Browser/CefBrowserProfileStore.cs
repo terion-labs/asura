@@ -26,6 +26,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
     private readonly Func<string?, ICefBrowserRequestContext> _createContext;
     private readonly Dictionary<ContextKey, ContextEntry> _contexts = [];
     private bool _disposed;
+    private bool _closing;
     private bool _contextsReleasedForShutdown;
     private readonly Dictionary<IWorkspaceNetworkConnector, (HashSet<ContextKey> Keys, Func<CancellationToken, Task> Callback)> _authenticationRouteBindings = [];
     private bool _engineShutdownCompleted;
@@ -221,6 +222,21 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
 
     internal void Release(ContextKey key, long revision)
     {
+        // A different profile may be extracting on a worker. Closing a panel
+        // must not wait on that disk I/O on Avalonia's dispatcher. Shutdown
+        // releases every remaining context even if this deferred release loses
+        // the race to the shutdown barrier.
+        if (!Monitor.TryEnter(_gate))
+        {
+            _ = Task.Run(() => ReleaseCore(key, revision));
+            return;
+        }
+        try { ReleaseCore(key, revision); }
+        finally { Monitor.Exit(_gate); }
+    }
+
+    private void ReleaseCore(ContextKey key, long revision)
+    {
         lock (_gate)
         {
             if (_disposed || !_contexts.TryGetValue(key, out var entry))
@@ -231,7 +247,11 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
             entry.Release(revision);
             if (entry.ActiveLeases == 0 && !entry.IsDurable)
             {
-                entry.Context.Dispose();
+                if (!entry.ContextReleased)
+                {
+                    entry.Context.Dispose();
+                    entry.ContextReleased = true;
+                }
                 _contexts.Remove(key);
             }
         }
@@ -314,7 +334,9 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                         }
 
                         _stateStore.Seal(record.StateKey, cacheDirectory);
-                        DeleteRuntimeEntry(entryDirectory);
+                        // Older releases used random GUID names. Those caches
+                        // cannot be reused or found by an exact-profile reset.
+                        DeleteRuntimeEntry(entryDirectory, preserveCaches: IsRetainedCacheSlot(entryDirectory, record.StateKey));
                     }
 
                     DeleteOwnedDirectory(ContextsRoot);
@@ -322,12 +344,12 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
 
                 if (Directory.Exists(_runtimeRoot))
                 {
-                    if (Directory.EnumerateFileSystemEntries(_runtimeRoot).Any())
+                    if (HasDurableFiles(_runtimeRoot, _runtimeRoot))
                     {
                         _stateStore.Seal(EngineStateKey, _runtimeRoot);
                     }
 
-                    DeleteOwnedDirectory(_runtimeRoot);
+                    DeleteDurableTree(_runtimeRoot, _runtimeRoot);
                 }
 
                 RestoreEngineStateAtomically();
@@ -347,11 +369,21 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
         }
     }
 
+    public async Task PrepareForShutdownAsync()
+    {
+        // Wait for extraction without blocking UI. New acquisitions and clears
+        // are then refused while existing native clear callbacks finish.
+        await Task.Run(() => { lock (_gate) { _closing = true; } }).ConfigureAwait(false);
+        await _clearGate.WaitAsync().ConfigureAwait(false);
+        _clearGate.Release();
+    }
+
     internal void ReleaseContextsForEngineShutdown()
     {
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            _closing = true;
             if (_contextsReleasedForShutdown)
             {
                 return;
@@ -388,7 +420,8 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                     "Browser contexts must be released before their runtime state is sealed.");
             }
 
-            return _shutdownSeal ??= SealRuntimeStateCoreAsync(copyEngineSnapshot, cancellationToken);
+            return _shutdownSeal ??= Task.Run(
+                () => SealRuntimeStateCoreAsync(copyEngineSnapshot, cancellationToken), cancellationToken);
         }
     }
 
@@ -416,7 +449,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
 
                 _stateStore.Seal(entry.StateKey, entry.CacheDirectory!);
                 contextOperation = "cleanup-failed";
-                DeleteRuntimeEntry(entry.EntryDirectory!);
+                DeleteRuntimeEntry(entry.EntryDirectory!, preserveCaches: true);
             }
             catch (Exception exception)
                 when (exception is IOException
@@ -503,7 +536,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                             }
                         }
                         operation = "browser.shutdown.engine-state.cleanup-failed";
-                        DeleteOwnedDirectory(_runtimeRoot);
+                        DeleteDurableTree(_runtimeRoot, _runtimeRoot);
                     }
                     else
                     {
@@ -592,7 +625,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (_contextsReleasedForShutdown)
+            if (_closing || _contextsReleasedForShutdown)
             {
                 throw new InvalidOperationException(
                     "Browser profiles cannot be acquired during engine shutdown.");
@@ -655,13 +688,16 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                     RouteKey(persistentRouteIdentity ?? routeIdentity));
                 entryDirectory = CreateRuntimeEntry(stateKey.Value);
                 cacheDirectory = CacheDirectoryForEntry(entryDirectory);
-                _stateStore!.Restore(stateKey.Value, cacheDirectory);
-                PreparePrivateDirectory(cacheDirectory);
             }
 
             ICefBrowserRequestContext? context = null;
             try
             {
+                if (stateKey is { } restoringKey && cacheDirectory is not null)
+                {
+                    _stateStore!.Restore(restoringKey, cacheDirectory);
+                    PreparePrivateDirectory(cacheDirectory);
+                }
                 context = _createContext(cacheDirectory);
                 var ready = proxyEndpoint is { } endpoint
                     ? ConfigureProxyAsync(context, endpoint)
@@ -813,6 +849,10 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_closing || _contextsReleasedForShutdown)
+            {
+                return new BrowserProfileClearResult(BrowserProfileClearStatus.Failed, 0, "The browser is closing.");
+            }
             if (cancellationToken.IsCancellationRequested)
             {
                 return Cancelled();
@@ -886,6 +926,7 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                         _contexts.Remove(item.Key);
                     }
 
+                    DeleteRetainedCaches(request.Selection);
                     var deleted = _stateStore?.IsAvailable == true
                         ? _stateStore.Delete(request.Selection)
                         : 0;
@@ -1005,28 +1046,62 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
                 "The durable browser runtime is unavailable.");
         }
 
-        if (Directory.Exists(_runtimeRoot))
-        {
-            throw new InvalidOperationException(
-                "The browser runtime root must be empty before engine state is restored.");
-        }
-
         if (Directory.Exists(EngineRestoreDirectory))
         {
             DeleteOwnedDirectory(EngineRestoreDirectory);
         }
-
         _stateStore.Restore(EngineStateKey, EngineRestoreDirectory);
+        // Moving cache directories is a rename, not a copy or traversal. If a
+        // process dies during this step, recovery discards staging and restores
+        // the last complete encrypted snapshot; only disposable caches are lost.
+        MoveRetainedCaches(_runtimeRoot, _runtimeRoot, EngineRestoreDirectory);
+        DeleteOwnedDirectory(_runtimeRoot);
         Directory.Move(EngineRestoreDirectory, _runtimeRoot);
     }
 
     private string CreateRuntimeEntry(BrowserProfileStateKey stateKey)
     {
         PreparePrivateDirectory(ContextsRoot);
-        var entryDirectory = Path.Combine(ContextsRoot, Guid.NewGuid().ToString("n"));
+        var identity = RuntimeIdentity(stateKey);
+        var slot = 0;
+        string entryDirectory;
+        do
+        {
+            entryDirectory = Path.Combine(ContextsRoot, identity + "-" + slot.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            slot++;
+        } while (Directory.Exists(entryDirectory));
         PreparePrivateDirectory(entryDirectory);
         BrowserProfileRuntimeManifest.Write(entryDirectory, stateKey);
         return entryDirectory;
+    }
+
+    private static string RuntimeIdentity(BrowserProfileStateKey stateKey) => Convert.ToHexStringLower(
+        System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(
+            string.Join('\0', stateKey.Selection.ProfileId.Value,
+                ((int)stateKey.Selection.Partition.Kind).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                stateKey.Selection.Partition.Identity, stateKey.Route))));
+
+    private static bool IsRetainedCacheSlot(string entryDirectory, BrowserProfileStateKey key)
+    {
+        var prefix = RuntimeIdentity(key) + "-";
+        var name = Path.GetFileName(entryDirectory);
+        return name.StartsWith(prefix, StringComparison.Ordinal)
+            && int.TryParse(name.AsSpan(prefix.Length), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var slot)
+            && slot >= 0;
+    }
+
+    // Explicit reset also removes caches of routes not opened in this process.
+    private void DeleteRetainedCaches(BrowserProfileSelection selection)
+    {
+        if (_runtimeRoot is null || !Directory.Exists(_runtimeRoot) || _stateStore?.IsAvailable != true) { return; }
+        foreach (var stateKey in _stateStore.ListKeys(selection))
+        {
+            foreach (var directory in Directory.EnumerateDirectories(_runtimeRoot, "profile-" + RuntimeIdentity(stateKey) + "-*"))
+            {
+                DeleteOwnedDirectory(directory);
+            }
+        }
     }
 
     // Chromium requires each disk profile to be an immediate child of its
@@ -1034,9 +1109,17 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
     private string CacheDirectoryForEntry(string entryDirectory) =>
         Path.Combine(_runtimeRoot!, "profile-" + Path.GetFileName(entryDirectory));
 
-    private void DeleteRuntimeEntry(string entryDirectory)
+    private void DeleteRuntimeEntry(string entryDirectory, bool preserveCaches = false)
     {
-        DeleteOwnedDirectory(CacheDirectoryForEntry(entryDirectory));
+        var cache = CacheDirectoryForEntry(entryDirectory);
+        if (preserveCaches)
+        {
+            DeleteDurableTree(cache, cache);
+        }
+        else
+        {
+            DeleteOwnedDirectory(cache);
+        }
         DeleteOwnedDirectory(entryDirectory);
     }
 
@@ -1104,6 +1187,76 @@ public sealed class CefBrowserProfileStore : IBrowserProfileDataControl, IDispos
             _ =>
                 "The selected browser data categories were cleared from this exact profile revision.",
         };
+
+    private static void MoveRetainedCaches(string root, string directory, string destination)
+    {
+        if (!Directory.Exists(directory)) { return; }
+        ValidateRuntimeDirectory(directory);
+        foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+        {
+            var relative = Path.GetRelativePath(root, path);
+            if (BrowserDisposableCache.Contains(relative))
+            {
+                ValidateRuntimeDirectory(path);
+                var target = Path.Combine(destination, relative);
+                PreparePrivateDirectory(Path.GetDirectoryName(target)!);
+                Directory.Move(path, target);
+            }
+            else if (Directory.Exists(path))
+            {
+                MoveRetainedCaches(root, path, destination);
+            }
+            else
+            {
+                throw new InvalidDataException("Unsealed browser state cannot be replaced during restoration.");
+            }
+        }
+    }
+
+    private static bool HasDurableFiles(string root, string directory)
+    {
+        ValidateRuntimeDirectory(directory);
+        foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+        {
+            if (BrowserDisposableCache.Contains(Path.GetRelativePath(root, path)))
+            {
+                continue;
+            }
+            if (!Directory.Exists(path) || HasDurableFiles(root, path))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void DeleteDurableTree(string root, string directory)
+    {
+        if (!Directory.Exists(directory))
+        {
+            return;
+        }
+        ValidateRuntimeDirectory(directory);
+        foreach (var path in Directory.EnumerateFileSystemEntries(directory))
+        {
+            if (BrowserDisposableCache.Contains(Path.GetRelativePath(root, path)))
+            {
+                continue;
+            }
+            if (Directory.Exists(path))
+            {
+                DeleteDurableTree(root, path);
+            }
+            else
+            {
+                File.Delete(path);
+            }
+        }
+        if (!Directory.EnumerateFileSystemEntries(directory).Any())
+        {
+            Directory.Delete(directory);
+        }
+    }
 
     internal static void DeleteOwnedDirectory(string directory)
     {

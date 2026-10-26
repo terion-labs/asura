@@ -30,6 +30,13 @@ internal static class Program
                 File.SetUnixFileMode(source, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             }
             File.WriteAllBytes(Path.Combine(source, "Cookies"), RandomNumberGenerator.GetBytes(700_000));
+            foreach (var cache in new[] { "Cache", "Code Cache" })
+            {
+                Directory.CreateDirectory(Path.Combine(source, cache));
+                File.WriteAllBytes(Path.Combine(source, cache, "disposable"), RandomNumberGenerator.GetBytes(1_000_000));
+            }
+            Directory.CreateDirectory(Path.Combine(source, "Service Worker", "CacheStorage"));
+            File.WriteAllText(Path.Combine(source, "Service Worker", "CacheStorage", "offline"), "durable-site-state");
             if (!OperatingSystem.IsWindows())
             {
                 // Reproduce the process links left behind by a Chromium crash.
@@ -49,9 +56,12 @@ internal static class Program
             {
                 throw new InvalidDataException("Native AOT archive did not round-trip.");
             }
-            if (Directory.EnumerateFileSystemEntries(restored).Count() != 1)
+            if (Directory.EnumerateFileSystemEntries(restored).Count() != 2
+                || Directory.Exists(Path.Combine(restored, "Cache"))
+                || Directory.Exists(Path.Combine(restored, "Code Cache"))
+                || !string.Equals(File.ReadAllText(Path.Combine(restored, "Service Worker", "CacheStorage", "offline")), "durable-site-state", StringComparison.Ordinal))
             {
-                throw new InvalidDataException("Chromium process markers were restored into a new process.");
+                throw new InvalidDataException("Chromium cache or durable-storage boundaries did not survive restoration.");
             }
             store.Seal(key, restored);
             Console.WriteLine("Native AOT browser storage survived a process restart and rewrite.");

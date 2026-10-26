@@ -176,6 +176,7 @@ public sealed partial class FileRuntimePanelView : UserControl
     /// creating one per selection would be visible.
     /// </summary>
     private BrowserRendererView? _htmlPreview;
+    private int _htmlPreviewGeneration;
 
     private void ObservePanel()
     {
@@ -203,7 +204,7 @@ public sealed partial class FileRuntimePanelView : UserControl
         base.OnAttachedToVisualTree(e);
         if (_boundPanel?.HtmlAddress is not null)
         {
-            ShowHtmlPreview();
+            _ = ShowHtmlPreviewAsync();
         }
     }
 
@@ -230,7 +231,7 @@ public sealed partial class FileRuntimePanelView : UserControl
         _ = sender;
         if (string.Equals(e.PropertyName, nameof(FileRuntimePanelViewModel.HtmlAddress), StringComparison.Ordinal))
         {
-            ShowHtmlPreview();
+            _ = ShowHtmlPreviewAsync();
         }
         else if (string.Equals(e.PropertyName, nameof(FileRuntimePanelViewModel.MenuActions), StringComparison.Ordinal))
         {
@@ -238,8 +239,9 @@ public sealed partial class FileRuntimePanelView : UserControl
         }
     }
 
-    private void ShowHtmlPreview()
+    private async Task ShowHtmlPreviewAsync()
     {
+        var generation = ++_htmlPreviewGeneration;
         if (DataContext is not FileRuntimePanelViewModel { HtmlAddress: { } address })
         {
             return;
@@ -263,7 +265,19 @@ public sealed partial class FileRuntimePanelView : UserControl
                 return;
             }
 
-            _htmlPreview = factory.CreateIsolatedHtmlPreview();
+            try
+            {
+                await factory.EnsureReadyAsync(CancellationToken.None);
+                if (generation != _htmlPreviewGeneration || TopLevel.GetTopLevel(this) is null) { return; }
+                _htmlPreview = factory.CreateIsolatedHtmlPreview();
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                Asura.Application.SecretSafeDiagnosticProjection.WriteStandardError("browser.preview-start.failed", exception);
+                if (generation != _htmlPreviewGeneration || TopLevel.GetTopLevel(this) is null) { return; }
+                HtmlPreviewHost.Content = new TextBlock { Text = "The browser preview could not start." };
+                return;
+            }
             HtmlPreviewHost.Content = _htmlPreview.View;
         }
 
@@ -272,6 +286,7 @@ public sealed partial class FileRuntimePanelView : UserControl
 
     private void ReleaseHtmlPreview()
     {
+        _htmlPreviewGeneration++;
         var preview = _htmlPreview;
         _htmlPreview = null;
         if (preview is null)

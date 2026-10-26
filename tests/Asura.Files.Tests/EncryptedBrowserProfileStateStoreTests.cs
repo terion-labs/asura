@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text;
 using Asura.Application;
 using Asura.Core;
@@ -10,6 +11,78 @@ public sealed class EncryptedBrowserProfileStateStoreTests : IDisposable
     private readonly string _root = Directory
         .CreateTempSubdirectory("asura-browser-state")
         .FullName;
+
+    [Fact]
+    public void SnapshotsExcludeDisposableCachesButKeepSiteOwnedStorageAndRetainedCaches()
+    {
+        var source = Path.Combine(_root, "source");
+        CreatePrivateDirectory(source);
+        string[] disposable = ["Cache", "Code Cache", "Default/GPUCache", "profile-example/Default/Cache"];
+        string[] durable = ["Cookies", "Service Worker/CacheStorage/site", "Default/IndexedDB/Cache/site"];
+        foreach (var cache in disposable)
+        {
+            CreatePrivateDirectory(Path.Combine(source, cache));
+            File.WriteAllText(Path.Combine(source, cache, "item"), "disposable payload");
+        }
+        foreach (var file in durable)
+        {
+            CreatePrivateDirectory(Path.GetDirectoryName(Path.Combine(source, file))!);
+            File.WriteAllText(Path.Combine(source, file), "saved");
+        }
+        using var store = new EncryptedBrowserProfileStateStore(Path.Combine(_root, "store"), new TestApplicationEncryption());
+        var key = StateKey("profile.caches", "local");
+        Assert.Equal(durable.Length * 5, store.Seal(key, source));
+        var destination = Path.Combine(_root, "restored");
+        CreatePrivateDirectory(destination);
+        CreatePrivateDirectory(Path.Combine(destination, "Cache"));
+        File.WriteAllText(Path.Combine(destination, "Cache", "retained"), "native encrypted cache");
+        store.Restore(key, destination);
+        Assert.Equal("native encrypted cache", File.ReadAllText(Path.Combine(destination, "Cache", "retained")));
+        foreach (var cache in disposable)
+        {
+            Assert.False(File.Exists(Path.Combine(destination, cache, "item")));
+        }
+        foreach (var file in durable)
+        {
+            Assert.Equal("saved", File.ReadAllText(Path.Combine(destination, file)));
+        }
+    }
+
+    [Fact]
+    public void OldSnapshotsNeverRestoreDisposableCacheEntries()
+    {
+        var encryption = new TestApplicationEncryption();
+        var directory = Path.Combine(_root, "store");
+        var key = StateKey("profile.old-cache", "local");
+        using (var writer = new EncryptedBrowserProfileStateStore(directory, encryption))
+        {
+            SealMarker(writer, key, "durable");
+        }
+        using (var database = new LiteDatabase(new ConnectionString
+        {
+            Filename = Path.Combine(directory, "browser-profiles.db"),
+            Password = encryption.PersistentCachePassword,
+        }))
+        {
+            var manifest = database.GetCollection<BsonDocument>("browser_profile_state").FindAll().Single();
+            var blob = manifest["blobId"].AsString;
+            using var contents = new MemoryStream();
+            using (var original = database.GetStorage<string>().OpenRead(blob)) { original.CopyTo(contents); }
+            using (var archive = new ZipArchive(contents, ZipArchiveMode.Update, leaveOpen: true))
+            {
+                using var entry = new StreamWriter(archive.CreateEntry("Default/Code Cache/old").Open());
+                entry.Write("old disposable cache");
+            }
+            contents.Position = 0;
+            using var replacement = database.GetStorage<string>().OpenWrite(blob, blob);
+            contents.CopyTo(replacement);
+        }
+        using var reader = new EncryptedBrowserProfileStateStore(directory, encryption);
+        var destination = Path.Combine(_root, "restored-old");
+        reader.Restore(key, destination);
+        Assert.Equal("durable", File.ReadAllText(Path.Combine(destination, "marker")));
+        Assert.False(Directory.Exists(Path.Combine(destination, "Default", "Code Cache")));
+    }
 
     [Fact]
     public void CrashLeftChromiumProcessLinksAreNotArchivedOrFollowed()

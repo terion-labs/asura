@@ -11,6 +11,8 @@ namespace Asura.App;
 /// </summary>
 public interface IBrowserRendererViewFactory
 {
+    ValueTask EnsureReadyAsync(CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
     /// <summary>Creates a direct local browser for lightweight embedded previews.</summary>
     BrowserRendererView Create();
 

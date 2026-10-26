@@ -55,7 +55,7 @@ case "${1:-}" in
         shasum -a 256 -c legal/MANIFEST.sha256
         codesign --verify --strict workspace-runtime
         codesign --display --entitlements :- workspace-runtime 2>/dev/null \
-            | python3 -c 'import plistlib,sys; assert plistlib.loads(sys.stdin.buffer.read())=={"com.apple.security.virtualization":True}, "Unexpected workspace runtime entitlements"'
+            | python3 -c 'import plistlib,sys; assert plistlib.loads(sys.stdin.buffer.read())==plistlib.load(open(sys.argv[1], "rb")), "Unexpected workspace runtime entitlements"' "${entitlements}"
         diff -u "${artifact_dir}/legal/SOURCE-MANIFEST.sha256" <(source_manifest)
         cd "${build_dir}/distribution"
         shasum -a 256 -c Asura-workspace-boot-arm64.zip.sha256
