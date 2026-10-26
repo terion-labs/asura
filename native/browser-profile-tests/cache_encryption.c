@@ -40,10 +40,22 @@ int main(int argc, char** argv) {
     excef_set_init_settings(&settings);
     excef_add_command_line_switch("enable-features", "EnableCacheEncryption,EnableCacheEncryptionForTesting");
     excef_add_command_line_switch("disable-features", "OptimizationGuideOnDeviceModel,LogOnDeviceMetricsOnStartup");
+    excef_add_command_line_switch("profile-directory", "Default");
     fprintf(stderr, "cache probe: initialize\n");
     if (excef_initialize_offscreen(1, argv, argv[2], NULL)) return 2;
     signal(SIGALRM, timeout);
     fprintf(stderr, "cache probe: initialized engine\n");
+    // DevTools can make a durable request context Chrome's last-used profile.
+    // Engine startup must not populate that directory before Asura restores it.
+    char deferred_preferences[4096];
+    if (snprintf(deferred_preferences, sizeof(deferred_preferences), "%s/deferred-profile/Preferences", argv[1]) >= (int)sizeof(deferred_preferences)) return 64;
+    time_t startup_until = time(NULL) + 1;
+    while (time(NULL) < startup_until) { excef_do_message_loop_work(); CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.005, true); }
+    if (access(deferred_preferences, F_OK) == 0) {
+        fprintf(stderr, "cache probe: engine opened deferred profile before restoration\n");
+        excef_shutdown();
+        return 4;
+    }
     excef_set_browser_initialized_callback(ready);
     excef_set_browser_closed_callback(closed);
     excef_set_load_end_callback(ended);

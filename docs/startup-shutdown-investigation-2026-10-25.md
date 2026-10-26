@@ -75,6 +75,9 @@ repair of damaged LiteDB file metadata, preserving cookies and Service Worker
 CacheStorage while omitting HTTP/code caches. The native CEF cache probe passed
 cross-process cache reuse and denied-Keychain access without a plaintext fallback.
 A separate Native AOT probe verified native/managed TMPDIR agreement, independent
-legacy temp resolution, and missing-entitlement failure. Developer ID signed
-container authorization remains release-environment acceptance, tracked by
-`asura-cpw3`; this workstation has no valid signing identity.
+legacy temp resolution, and missing-entitlement failure. A configured Developer ID
+certificate was subsequently found and used for the
+[full production AOT application test](acceptance/macos-aot-lifecycle-2026-10-26.md).
+That test records actual application quit/restart behavior and a Chromium
+last-used-profile regression missed by the component probes. Remaining container
+security acceptance is tracked by `asura-cpw3`.

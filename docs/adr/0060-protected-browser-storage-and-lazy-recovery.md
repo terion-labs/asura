@@ -79,6 +79,11 @@ needs it. Stable hashed profile/partition/route identities retain caches across
 runs. Concurrent live routes with the same durable identity use separate slots.
 An explicit whole-profile reset also removes retained caches of unopened slots.
 
+CEF receives `profile-directory=Default` before initialization. Opening DevTools
+can make an Asura context Chrome's last-used profile; without this override Chrome
+opens that context during engine startup, before lazy restoration. The unused
+default profile may initialize normally while retained contexts remain unopened.
+
 Engine restoration remains staged. Only a complete decrypted snapshot becomes
 the engine root. Retained cache directories are moved by rename; interruption can
 lose disposable caches but cannot replace the last complete encrypted snapshot
@@ -110,6 +115,9 @@ Managed regression tests cover cache omission, old archives, retention, migratio
 interrupted restoration, route isolation and disposal during a blocked restore.
 A disposable Native AOT probe verifies the Foundation/Security interop, native
 and managed temp redirection, stable legacy-temp resolution, and missing-entitlement
-failure. The final Developer ID signed container access check must run in the release
-signing environment: this workstation has no valid signing identity. Unsigned
-local runs cannot establish macOS's protection guarantees for the production team.
+failure. A configured Developer ID certificate was subsequently found and used
+for the [full production AOT application acceptance](../acceptance/macos-aot-lifecycle-2026-10-26.md).
+The signed main app and CEF helpers accessed their group container locally.
+Legacy-profile migration, virtualization-helper access, unrelated-application
+denial and update identity continuity remain tracked by `asura-cpw3`; successful
+access by the application alone does not establish those protection guarantees.

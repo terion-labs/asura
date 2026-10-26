@@ -92,9 +92,18 @@ for entry in entries:
 # Native encrypted files start with the 40-byte salt/nonce header.
 assert any(p.read_bytes()[0:1] == bytes([40]) for p in entries), 'No encrypted cache file header'
 assert (root / 'requests').read_text().count('request') == 1
+# Reproduce Chrome's last-used profile metadata written by opening DevTools.
+# Only its HTTP cache should exist until the application explicitly restores it.
+import json
+state_path = root / 'state/Local State'
+state = json.loads(state_path.read_text())
+state.setdefault('profile', {})['last_used'] = 'deferred-profile'
+state_path.write_text(json.dumps(state))
+(root / 'state/deferred-profile/Cache').mkdir(parents=True)
 PY_VERIFY
 "${app}/Contents/MacOS/SessionCookies" "${test_dir}/state" "${helper}" "${url}"
 [[ "$(wc -l < "${test_dir}/requests" | tr -d ' ')" == 1 ]] || { echo "Cache was not reused across processes." >&2; exit 1; }
+[[ ! -e "${test_dir}/state/deferred-profile/Preferences" ]] || { echo "Chromium opened a deferred profile before restoration." >&2; exit 1; }
 echo "Native encrypted HTTP cache survived restart without a network fetch."
 
 # A different identity is denied this run's Keychain key. The disk backend must

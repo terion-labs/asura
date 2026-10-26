@@ -118,6 +118,10 @@ public static class BrowserEngineRuntime
             // Asura answers that hook only for an authenticated workspace
             // proxy at the exact configured loopback endpoint.
             Cef.AddCommandLineSwitch(DisableChromeLoginPromptSwitch);
+            // DevTools updates Chrome's last-used profile. Never let engine
+            // startup open a retained Asura context before its lazy restore.
+            // The unused global profile may initialize normally.
+            Cef.AddCommandLineSwitch("profile-directory", "Default");
             // Use Chromium's real platform cookie encryption. The stock macOS
             // framework is packaged with an Asura-owned Keychain service name.
             // Development bundles have a separate service so ad-hoc builds never
