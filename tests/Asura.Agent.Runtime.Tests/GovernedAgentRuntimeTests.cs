@@ -1190,8 +1190,14 @@ public sealed partial class GovernedAgentRuntimeTests
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A failed provider request is never repeated on its own, but it no
+    /// longer ends the run: clearing deleted the conversation, so an error
+    /// left nothing to do but restart. The person's next message is a new
+    /// request on the unchanged conversation.
+    /// </summary>
     [Fact]
-    public async Task ProviderFailureRequiresClearInsteadOfRetryingInvalidTranscript()
+    public async Task ProviderFailureIsRetriedOnlyByTheNextMessage()
     {
         await using var fixture = new RuntimeFixture(
             ProviderRound.Invalid());
@@ -1199,17 +1205,18 @@ public sealed partial class GovernedAgentRuntimeTests
         var first = await fixture.Runtime.SendAsync(
             fixture.Prompt("Start."),
             CancellationToken.None);
+
+        Assert.False(first.IsSuccess);
+        Assert.Equal(GovernedAgentState.Cancelled, fixture.Runtime.Snapshot.State);
+        Assert.Single(fixture.Provider.Requests);
+
         var second = await fixture.Runtime.SendAsync(
             fixture.Prompt("Retry."),
             CancellationToken.None);
 
-        Assert.False(first.IsSuccess);
-        Assert.Equal(GovernedAgentState.Failed, fixture.Runtime.Snapshot.State);
-        Assert.False(fixture.Runtime.Snapshot.CanSend);
-        Assert.Equal("agent_run_requires_clear", second.Code);
-        Assert.Single(fixture.Provider.Requests);
-        Assert.True(await fixture.Runtime.ClearAsync(CancellationToken.None));
-        Assert.True(fixture.Runtime.Snapshot.CanSend);
+        Assert.Equal(first.Code, second.Code);
+        Assert.Equal(2, fixture.Provider.Requests.Count);
+        Assert.Equal(GovernedAgentState.Cancelled, fixture.Runtime.Snapshot.State);
     }
 
     [Fact]

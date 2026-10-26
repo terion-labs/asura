@@ -161,6 +161,10 @@ public sealed partial class AgentChatViewModelTests
                 }
                 var first = previews[0];
                 var open = first.FindControl<Button>("OpenPreview")!;
+                // The button turns on once its image loads, and the transcript
+                // lays out again as images arrive: aim only at the settled button.
+                await WaitUntilAsync(() => open.IsEffectivelyEnabled);
+                window.UpdateLayout();
                 var center = open.TranslatePoint(new Avalonia.Point(open.Bounds.Width / 2, open.Bounds.Height / 2), window)!.Value;
                 window.MouseDown(center, MouseButton.Left);
                 window.MouseUp(center, MouseButton.Left);
