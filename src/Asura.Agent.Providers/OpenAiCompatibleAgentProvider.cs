@@ -51,9 +51,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
             }
             catch (IOException exception)
             {
-                throw AiProviderClientException.Create(
-                    AiProviderRuntimeErrorCode.ProviderUnavailable,
-                    innerException: exception);
+                throw AiProviderClientException.ConnectionLost(exception);
             }
 
             if (!moved)

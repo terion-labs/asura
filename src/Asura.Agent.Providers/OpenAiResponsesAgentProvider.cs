@@ -61,9 +61,7 @@ internal sealed class OpenAiResponsesAgentProvider(
             }
             catch (IOException exception)
             {
-                throw AiProviderClientException.Create(
-                    AiProviderRuntimeErrorCode.ProviderUnavailable,
-                    innerException: exception);
+                throw AiProviderClientException.ConnectionLost(exception);
             }
 
             if (!moved)
@@ -759,9 +757,10 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                     CompleteResponse(root, incomplete: true, events);
                     break;
                 case "response.failed":
+                    throw AiProviderClientException.FromStreamFailure(
+                        root.TryGetProperty("response", out var failed) ? failed : root);
                 case "error":
-                    throw AiProviderClientException.Create(
-                        AiProviderRuntimeErrorCode.ProviderUnavailable);
+                    throw AiProviderClientException.FromStreamFailure(root);
                 case "response.content_part.added":
                 case "response.content_part.done":
                 case "response.output_text.done":

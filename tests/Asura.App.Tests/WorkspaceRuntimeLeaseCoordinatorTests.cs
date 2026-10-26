@@ -140,6 +140,53 @@ public sealed class WorkspaceRuntimeLeaseCoordinatorTests
         new DesktopLifecyclePolicy(),
         TimeProvider.System);
 
+    /// <summary>
+    /// An agent that runs in its workspace environment keeps the proxy address
+    /// it was created with. That address must be the workspace's own local
+    /// proxy, which forwards to whichever route is current: the provider's
+    /// port changes on every reconnect (Tailscale's SOCKS listener moves), and
+    /// an agent holding that port would lose its provider until a restart.
+    /// </summary>
+    [Fact]
+    public void The_agent_route_stays_on_the_workspace_proxy_as_the_route_changes()
+    {
+        var connector = new FixedProxyConnector();
+        var services = new WorkspaceRuntimeServices(
+            HostServices(null!).Backends,
+            WorkspaceNetworkRoute.Direct,
+            networkConnector: connector);
+        var expected = services.EffectiveProxyUri;
+        Assert.NotNull(expected);
+        Assert.Equal(connector.LocalProxyEndpoint.Port, expected.Port);
+        Assert.Equal("asura:secret", expected.UserInfo);
+
+        foreach (var egress in new[]
+                 {
+                     WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:52324")),
+                     WorkspaceNetworkEgress.ViaProxy(new Uri("socks5://127.0.0.1:54053")),
+                     WorkspaceNetworkEgress.Direct,
+                 })
+        {
+            services.ApplyNetworkEgress(egress);
+            Assert.Equal(expected, services.EffectiveProxyUri);
+        }
+
+        services.ApplyNetworkEgress(WorkspaceNetworkEgress.Blocked);
+        Assert.Null(services.EffectiveProxyUri);
+    }
+
+    private sealed class FixedProxyConnector : IWorkspaceNetworkConnector
+    {
+        public WorkspaceNetworkEgress Egress => WorkspaceNetworkEgress.Direct;
+
+        public Uri LocalProxyEndpoint { get; } = new("socks5://127.0.0.1:41000");
+
+        public WorkspaceNetworkProxyCredentials? LocalProxyCredentials { get; } = new("asura", "secret");
+
+        public ValueTask<Stream> ConnectTcpAsync(string host, int port, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+    }
+
     private static WorkspaceRuntimeServices HostServices(
         ISessionHostClient sessionClient) => new(
         new WorkspaceRuntimeBackends(
