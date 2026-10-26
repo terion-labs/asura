@@ -52,9 +52,7 @@ internal sealed class AnthropicAgentProvider(
             }
             catch (IOException exception)
             {
-                throw AiProviderClientException.Create(
-                    AiProviderRuntimeErrorCode.ProviderUnavailable,
-                    innerException: exception);
+                throw AiProviderClientException.ConnectionLost(exception);
             }
 
             if (!moved)
@@ -679,8 +677,7 @@ internal sealed class AnthropicAgentProvider(
                     EnsureMessageStarted();
                     break;
                 case "error":
-                    throw AiProviderClientException.Create(
-                        AiProviderRuntimeErrorCode.ProviderUnavailable);
+                    throw AiProviderClientException.FromStreamFailure(root);
                 default:
                     throw ProtocolError();
             }

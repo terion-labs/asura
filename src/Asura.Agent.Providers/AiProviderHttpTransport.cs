@@ -190,9 +190,7 @@ internal sealed class AiProviderHttpTransport : IDisposable
         }
         catch (HttpRequestException exception)
         {
-            throw AiProviderClientException.Create(
-                AiProviderRuntimeErrorCode.ProviderUnavailable,
-                innerException: exception);
+            throw AiProviderClientException.Unreachable(exception);
         }
 
         try

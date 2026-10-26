@@ -27,6 +27,65 @@ internal sealed class AiProviderClientException : AgentProviderException
     /// The provider refused the request and said why with an error code of its
     /// own. Only that identifier is shown, never the provider's free text.
     /// </summary>
+    /// <summary>
+    /// The connection broke while the response was still arriving. It read as
+    /// "the AI provider is unavailable" on a network that cuts long-lived
+    /// connections, though the provider was fine.
+    /// </summary>
+    public static AiProviderClientException ConnectionLost(Exception innerException) =>
+        new(
+            AiProviderRuntimeErrorCode.ProviderUnavailable,
+            "ai_provider_connection_lost",
+            "The connection to the AI provider dropped before the response finished. Send the message again.",
+            innerException: innerException);
+
+    /// <summary>No connection to the provider could be made at all.</summary>
+    public static AiProviderClientException Unreachable(Exception innerException) =>
+        new(
+            AiProviderRuntimeErrorCode.ProviderUnavailable,
+            "ai_provider_unreachable",
+            "Asura couldn't reach the AI provider. Check the network connection, then send again.",
+            innerException: innerException);
+
+    /// <summary>
+    /// A response stream that ended in a failure event says why in it, as a
+    /// refused request does in its body. Every such event read as "the AI
+    /// provider is unavailable", so a conversation longer than the model reads
+    /// was never compacted, and a rate limit or an exhausted quota looked like
+    /// an outage. <paramref name="error"/> is the event's error, or the object
+    /// that holds one.
+    /// </summary>
+    public static AiProviderClientException FromStreamFailure(System.Text.Json.JsonElement error)
+    {
+        var refusal = error.ValueKind == System.Text.Json.JsonValueKind.Object
+            ? AiProviderRequestRefusal.Parse(System.Text.Encoding.UTF8.GetBytes(error.GetRawText()))
+            : default;
+        if (refusal.IsContextOverflow)
+        {
+            return Create(AiProviderRuntimeErrorCode.RequestTooLarge);
+        }
+
+        // An event's own type ("error") is not a reason.
+        var code = string.Equals(refusal.Code, "error", StringComparison.OrdinalIgnoreCase) ? null : refusal.Code;
+        return code?.ToLowerInvariant() switch
+        {
+            null => new(
+                AiProviderRuntimeErrorCode.ProviderUnavailable,
+                "ai_provider_unavailable",
+                "The AI provider ended the response with an error and gave no reason. Send the message again."),
+            "rate_limit_exceeded" or "rate_limit_error" or "rate_limited" =>
+                Create(AiProviderRuntimeErrorCode.RateLimited),
+            "insufficient_quota" or "quota_exceeded" or "billing_hard_limit_reached" =>
+                Create(AiProviderRuntimeErrorCode.QuotaExceeded),
+            "server_error" or "internal_error" or "api_error" or "overloaded_error" or "server_is_overloaded"
+                or "service_unavailable" or "timeout" => new(
+                    AiProviderRuntimeErrorCode.ProviderUnavailable,
+                    "ai_provider_unavailable",
+                    $"The AI provider is unavailable ({code}). Send the message again."),
+            _ => Rejected(code),
+        };
+    }
+
     public static AiProviderClientException Rejected(string providerCode) =>
         new(
             AiProviderRuntimeErrorCode.RequestRejected,

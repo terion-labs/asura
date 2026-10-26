@@ -119,7 +119,9 @@ func TestOpenVPNEngineRejectsPrivateOutputAndCancelsStartup(t *testing.T) {
 
 func TestOpenVPNEngineProjectsOnlyAuthenticationCategory(t *testing.T) {
 	path := openVPNFixture(t, "authentication")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	// The fixture engine is this test binary started again; one second was
+	// not always enough to start it on a machine busy with a release build.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := startOpenVPNEngine(ctx, path, "/private/test.ovpn", "fixture-user", strings.NewReader("fixture-password"))
 	if err == nil || err.Error() != "OpenVPN authentication failed" {
