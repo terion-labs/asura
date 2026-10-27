@@ -219,6 +219,7 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew install lld@22", workflow, StringComparison.Ordinal);
         Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22", workflow, StringComparison.Ordinal);
         Assert.Contains("core_revision=7d510097b9e6d86c103d22054ec80d74b5d70e9a", workflow, StringComparison.Ordinal);
+        Assert.Contains("checkout --force --detach \"${core_revision}\"", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("<string>Asura.icns</string>", infoPlist, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(
             RepositoryRoot,

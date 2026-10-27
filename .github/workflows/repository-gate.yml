@@ -383,7 +383,9 @@ jobs:
             git -C "${core_tap}" remote add origin https://github.com/Homebrew/homebrew-core.git
           fi
           git -C "${core_tap}" fetch --depth=1 origin "${core_revision}"
-          git -C "${core_tap}" checkout --detach "${core_revision}"
+          # Runner images can ship a tap with locally edited formulae; the
+          # pinned revision must replace them, not be refused by them.
+          git -C "${core_tap}" checkout --force --detach "${core_revision}"
           test "$(git -C "${core_tap}" rev-parse HEAD)" = "${core_revision}"
           if brew list --versions lld@22 >/dev/null 2>&1; then
             HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22
