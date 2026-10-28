@@ -15,6 +15,8 @@
     <maven.compiler.release>21</maven.compiler.release>
     <calcite.version>1.42.0</calcite.version>
     <jackson.version>2.18.11</jackson.version>
+    <!-- Calcite 1.42.0 brings 33.4.8-jre, affected by GHSA-xxph-c9ww-hj94. -->
+    <guava.version>33.7.2-jre</guava.version>
     <commons-lang3.version>3.18.0</commons-lang3.version>
     <junit.version>5.13.1</junit.version>
     <maven.clean.version>3.4.1</maven.clean.version>
@@ -37,6 +39,11 @@
         <version>${jackson.version}</version>
         <type>pom</type>
         <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
       </dependency>
     </dependencies>
   </dependencyManagement>

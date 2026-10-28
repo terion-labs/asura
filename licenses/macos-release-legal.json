@@ -33,7 +33,7 @@
     "sqlLanguageWorker": {
       "status": "accepted-by-owner-for-macos",
       "scope": "macos-arm64",
-      "comment": "The project owner accepts the recorded Apache Commons Math BesselJ provenance exception for the exact macOS SQL worker closure. Engineering evidence renewed on 2026-10-01 for the requested 0.1.71 release: Jackson 2.18.10 to 2.18.11 is a security maintenance update. Embedded JAR license and notice bytes are unchanged across all four updated runtime JARs, and generated legal closure validation passed for all 45 runtime dependencies. The license expressions, retained third-party notices, and existing Commons Math provenance exception are unchanged; this is not a new independent legal review."
+      "comment": "The project owner accepts the recorded Apache Commons Math BesselJ provenance exception for the exact macOS SQL worker closure. Engineering evidence renewed on 2026-10-01 for the requested 0.1.71 release: Jackson 2.18.10 to 2.18.11 is a security maintenance update. Embedded JAR license and notice bytes are unchanged across all four updated runtime JARs, and generated legal closure validation passed for all 45 runtime dependencies. The license expressions, retained third-party notices, and existing Commons Math provenance exception are unchanged; this is not a new independent legal review. Engineering evidence renewed on 2026-10-28 for the 0.1.93 release: Guava 33.4.8-jre to 33.7.2-jre resolves GHSA-xxph-c9ww-hj94 and moves its dependencies j2objc-annotations 3.0.0 to 3.1 and jspecify 1.0.0 to 1.0.1. All three remain Apache-2.0; Guava's embedded license bytes are unchanged and the other two still embed none, so the existing Apache-2.0 fallback text applies. The runtime closure is still 45 dependencies. This records engineering maintenance under the existing disposition and does not claim a new owner decision or independent legal review."
     }
   },
   "evidence": [
@@ -95,7 +95,7 @@
     },
     {
       "path": "native/sql-language-worker/src/legal/runtime-license-map.tsv",
-      "sha256": "1ede9765483252fd8705dd5430c2b64c86dcc23067057a6b65a6da6c0c1abc38"
+      "sha256": "ce1709466c43a102e53e136f1969978fc44fa4a13e430f82e1afcb08a9c63015"
     }
   ]
 }
