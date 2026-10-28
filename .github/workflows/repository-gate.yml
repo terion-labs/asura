@@ -300,7 +300,9 @@ jobs:
     environment: release
     needs: [managed-conformance, macos-release-build, format-and-boundaries, dependency-security-evidence]
     runs-on: macos-26
-    timeout-minutes: 180
+    # A normal run takes about two hours, but slow macOS runners have needed
+    # over three; 300 stays under the hosted-runner ceiling of 360.
+    timeout-minutes: 300
     permissions:
       contents: write
     steps:
