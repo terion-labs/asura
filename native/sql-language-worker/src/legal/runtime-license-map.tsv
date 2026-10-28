@@ -5,9 +5,9 @@ com.fasterxml.jackson.core:jackson-databind:2.18.11	Apache-2.0	-	-
 com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.11	Apache-2.0	-	-
 com.google.errorprone:error_prone_annotations:2.36.0	Apache-2.0	licenses/apache-2.0.txt	-
 com.google.guava:failureaccess:1.0.3	Apache-2.0	-	-
-com.google.guava:guava:33.4.8-jre	Apache-2.0	-	-
+com.google.guava:guava:33.7.2-jre	Apache-2.0	-	-
 com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava	Apache-2.0	licenses/apache-2.0.txt	-
-com.google.j2objc:j2objc-annotations:3.0.0	Apache-2.0	licenses/apache-2.0.txt	-
+com.google.j2objc:j2objc-annotations:3.1	Apache-2.0	licenses/apache-2.0.txt	-
 com.google.protobuf:protobuf-java:3.25.8	BSD-3-Clause	licenses/protobuf-3.25.8-bsd-3-clause.txt	-
 com.google.uzaygezen:uzaygezen-core:0.2	Apache-2.0	licenses/apache-2.0.txt	-
 com.googlecode.json-simple:json-simple:1.1.1	Apache-2.0	licenses/apache-2.0.txt	-
@@ -36,7 +36,7 @@ org.checkerframework:checker-qual:3.10.0	MIT	-	-
 org.codehaus.janino:commons-compiler:3.1.12	BSD-3-Clause	licenses/janino-3.1.12-bsd-3-clause.txt	-
 org.codehaus.janino:janino:3.1.12	BSD-3-Clause	licenses/janino-3.1.12-bsd-3-clause.txt	-
 org.jooq:joou-java-6:0.9.5	Apache-2.0	-	-
-org.jspecify:jspecify:1.0.0	Apache-2.0	licenses/apache-2.0.txt	-
+org.jspecify:jspecify:1.0.1	Apache-2.0	licenses/apache-2.0.txt	-
 org.locationtech.jts.io:jts-io-common:1.19.0	BSD-3-Clause	licenses/jts-1.19.0-edl-1.0.txt	-
 org.locationtech.jts:jts-core:1.19.0	BSD-3-Clause	licenses/jts-1.19.0-edl-1.0.txt	-
 org.locationtech.proj4j:proj4j:1.2.2	Apache-2.0	licenses/apache-2.0.txt	-
