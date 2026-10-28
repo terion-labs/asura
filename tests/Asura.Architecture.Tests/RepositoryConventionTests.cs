@@ -511,7 +511,7 @@ public sealed partial class RepositoryConventionTests
             "  macos-early-release:",
             StringComparison.Ordinal)..];
 
-        Assert.Contains("    timeout-minutes: 180", releaseJob, StringComparison.Ordinal);
+        Assert.Contains("    timeout-minutes: 300", releaseJob, StringComparison.Ordinal);
     }
 
     [Fact]
