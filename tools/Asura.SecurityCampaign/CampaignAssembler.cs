@@ -608,23 +608,29 @@ internal static class CampaignAssembler
         }
     }
 
-    internal static void RequireGitHubReleaseContext(ReleaseInputs inputs)
+    internal static void RequireGitHubReleaseContext(ReleaseInputs inputs) =>
+        RequireGitHubReleaseContext(inputs, Environment.GetEnvironmentVariable);
+
+    // Releases are dispatched from main with the tag as an input. The workflow
+    // has already required that tag to name this commit, and the source seal
+    // records it, so the run itself must be that dispatch and nothing else.
+    internal static void RequireGitHubReleaseContext(ReleaseInputs inputs, Func<string, string?> environment)
     {
-        var expectedWorkflowPrefix =
-            "terion-labs/asura/.github/workflows/repository-gate.yml@refs/tags/";
-        var workflowReference = Environment.GetEnvironmentVariable("GITHUB_WORKFLOW_REF") ?? string.Empty;
-        if (!string.Equals(Environment.GetEnvironmentVariable("GITHUB_ACTIONS"), "true", StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_REPOSITORY"), "terion-labs/asura", StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_REF_TYPE"), "tag", StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_REF_NAME"), inputs.Tag, StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_SHA"), inputs.SourceCommit, StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_RUN_ID"), inputs.RunId, StringComparison.Ordinal)
-            || !string.Equals(Environment.GetEnvironmentVariable("GITHUB_RUN_ATTEMPT"), inputs.RunAttempt, StringComparison.Ordinal)
-            || !workflowReference.StartsWith(expectedWorkflowPrefix, StringComparison.Ordinal)
-            || !workflowReference.EndsWith("/" + inputs.Tag, StringComparison.Ordinal))
+        bool Is(string name, string expected) =>
+            string.Equals(environment(name), expected, StringComparison.Ordinal);
+
+        if (!Is("GITHUB_ACTIONS", "true")
+            || !Is("GITHUB_REPOSITORY", "terion-labs/asura")
+            || !Is("GITHUB_EVENT_NAME", "workflow_dispatch")
+            || !Is("GITHUB_REF", "refs/heads/main")
+            || !Is("GITHUB_WORKFLOW_REF", "terion-labs/asura/" + WorkflowRelativePath + "@refs/heads/main")
+            || !Is("ASURA_RELEASE_TAG", inputs.Tag)
+            || !Is("GITHUB_SHA", inputs.SourceCommit)
+            || !Is("GITHUB_RUN_ID", inputs.RunId)
+            || !Is("GITHUB_RUN_ATTEMPT", inputs.RunAttempt))
         {
             throw new InvalidDataException(
-                "Release-candidate PASS can be assembled only by the tagged repository-gate GitHub Actions run.");
+                "Release-candidate PASS can be assembled only by the repository-gate GitHub Actions run dispatched from main for this tag.");
         }
     }
 

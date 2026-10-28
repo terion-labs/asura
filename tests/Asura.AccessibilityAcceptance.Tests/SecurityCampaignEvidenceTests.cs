@@ -163,6 +163,61 @@ public sealed class SecurityCampaignEvidenceTests
     }
 
     [Fact]
+    public void ReleaseAssemblerAcceptsTheMainDispatchForTheTag()
+    {
+        var inputs = DispatchInputs();
+
+        CampaignAssembler.RequireGitHubReleaseContext(inputs, name => DispatchEnvironment(inputs).GetValueOrDefault(name));
+    }
+
+    [Theory]
+    [InlineData("GITHUB_EVENT_NAME", "push")]
+    [InlineData("GITHUB_REF", "refs/tags/v0.1.92")]
+    [InlineData("GITHUB_WORKFLOW_REF", "terion-labs/asura/.github/workflows/repository-gate.yml@refs/tags/v0.1.92")]
+    [InlineData("GITHUB_REF", "refs/heads/feature")]
+    [InlineData("ASURA_RELEASE_TAG", "v0.1.91")]
+    [InlineData("GITHUB_SHA", "cccccccccccccccccccccccccccccccccccccccc")]
+    [InlineData("GITHUB_REPOSITORY", "someone/asura")]
+    public void ReleaseAssemblerRejectsAnyOtherRun(string name, string value)
+    {
+        var inputs = DispatchInputs();
+        var environment = DispatchEnvironment(inputs);
+        environment[name] = value;
+
+        var error = Assert.Throws<InvalidDataException>(
+            () => CampaignAssembler.RequireGitHubReleaseContext(inputs, key => environment.GetValueOrDefault(key)));
+        Assert.Contains("dispatched from main", error.Message, StringComparison.Ordinal);
+    }
+
+    private static ReleaseInputs DispatchInputs() => new(
+        ".",
+        new string('a', 40),
+        new string('b', 40),
+        "v0.1.92",
+        "40586428993",
+        "3",
+        "source-seal",
+        "build-identity.json",
+        "Asura.zip",
+        "Asura.app",
+        "results",
+        "dependencies.json",
+        "notarization.json");
+
+    private static Dictionary<string, string> DispatchEnvironment(ReleaseInputs inputs) => new(StringComparer.Ordinal)
+    {
+        ["GITHUB_ACTIONS"] = "true",
+        ["GITHUB_REPOSITORY"] = "terion-labs/asura",
+        ["GITHUB_EVENT_NAME"] = "workflow_dispatch",
+        ["GITHUB_REF"] = "refs/heads/main",
+        ["GITHUB_WORKFLOW_REF"] = "terion-labs/asura/.github/workflows/repository-gate.yml@refs/heads/main",
+        ["ASURA_RELEASE_TAG"] = inputs.Tag,
+        ["GITHUB_SHA"] = inputs.SourceCommit,
+        ["GITHUB_RUN_ID"] = inputs.RunId,
+        ["GITHUB_RUN_ATTEMPT"] = inputs.RunAttempt,
+    };
+
+    [Fact]
     public void ExactSourceTreeRejectsDirtyTrackedFile()
     {
         using var fixture = new GitRepositoryFixture();
