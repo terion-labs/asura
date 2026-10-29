@@ -168,7 +168,7 @@ its own .NET runtime and dependency notices beside its verified Linux payload.
 | `ModelContextProtocol` | `2.2.0` | Apache-2.0 |
 | `ModelContextProtocol.AspNetCore` | `2.2.0` | Apache-2.0 |
 | `ModelContextProtocol.Core` | `2.2.0` | Apache-2.0 |
-| `MySqlConnector` | `2.4.0` | MIT |
+| `MySqlConnector` | `2.6.1` | MIT |
 | `NodaTime` | `3.2.2` | Apache-2.0 |
 | `Npgsql` | `9.0.3` | PostgreSQL |
 | `Onigwrap` | `1.0.11` | MIT |

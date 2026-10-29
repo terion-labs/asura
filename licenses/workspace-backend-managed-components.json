@@ -589,13 +589,13 @@
       "nuspecLicense": "MIT"
     },
     {
-      "identity": "MySqlConnector/2.4.0",
+      "identity": "MySqlConnector/2.6.1",
       "kind": "nuget",
       "depsType": "package",
       "licenseDeclared": "MIT",
       "nuGetId": "MySqlConnector",
-      "contentHash": "78M+gVOjbdZEDIyXQqcA7EYlCGS3tpbUELHvn6638A2w0pkPI625ixnzsa5staAd3N9/xFmPJtkKDYwsXpFi/w==",
-      "nupkgSha512": "+s2ATOz2Vlqpr1kcnY1+PKaOt5GfGPleSIGp8UhHnqpYipt6gQY9EAvtJhnVLX8X8g+tGDOrRc1O2SbLvnBUcg==",
+      "contentHash": "MzNSfnHWBc0Mo3zVbYxG+556zuex9obs8NYtwcPCwFahel40e49stH+osjX4k/doEHp4LT/zTtGdax4nlGWhcw==",
+      "nupkgSha512": "CUytMvzWgWbLjbATO1b/XB/lVG1OZIRqhv36Rmk5wIDE1A0vnh6B3JMOB/HfMkJLmIMHdL1ssfeCiPmr7IGYtQ==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT"
     },
