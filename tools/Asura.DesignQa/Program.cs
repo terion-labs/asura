@@ -328,8 +328,8 @@ internal sealed class QaApplication : Avalonia.Application
     private static readonly QaGitRepositoryClient Git = new();
 
     /// <summary>The Settings window's size when a route does not ask for more.</summary>
-    private const int SettingsCaptureWidth = 850;
-    private const int SettingsCaptureHeight = 800;
+    private const int SettingsCaptureWidth = 1100;
+    private const int SettingsCaptureHeight = 820;
     private const int DefaultCaptureHeight = 900;
 
     private static readonly RouteCapture[] Routes =
@@ -348,6 +348,13 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-quick-terminal", vm => vm.ShowSettings(SettingsPage.QuickTerminal)),
         new("settings-keybindings", vm => vm.ShowSettings(SettingsPage.Keybindings)),
         new("settings-connections", vm => vm.ShowSettings(SettingsPage.Connections)),
+        // An editor asked over Settings takes the page's place.
+        new(
+            "settings-connection-editor",
+            vm => vm.ShowSettings(SettingsPage.Connections),
+            PrepareCapture: static window => OpenSheet(
+                new ConnectionEditorDialog(((MainWindowViewModel)window.DataContext!).CreateUnifiedConnectionEditor()),
+                SettingsWindow.Current!)),
         new("settings-files", vm => vm.ShowSettings(SettingsPage.Files)),
         new("settings-browser", vm => vm.ShowSettings(SettingsPage.Browser)),
         new("settings-agent", vm => vm.ShowSettings(SettingsPage.Agent)),
@@ -1214,10 +1221,11 @@ internal sealed class QaApplication : Avalonia.Application
         scroll.Offset = new Vector(0, section.TranslatePoint(new Point(0, 0), scroll)!.Value.Y + scroll.Offset.Y);
     }
 
-    /// <summary>The workspace editor's own window, where its controls are.</summary>
+    /// <summary>The Settings window showing the workspace editor, where its controls are.</summary>
     private static Window WorkspaceEditorWindowOf(MainWindow window) =>
-        window.OpenWorkspaceEditorWindow
-        ?? throw new InvalidOperationException("The route wanted the workspace editor's window, which is not open.");
+        window.IsWorkspaceEditorShown && SettingsWindow.Current is { } settings
+            ? settings
+            : throw new InvalidOperationException("The route wanted the workspace editor, which is not shown in Settings.");
 
     private static void ScrollWorkspaceEditorToEnd(MainWindow window)
     {
@@ -4871,14 +4879,12 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         window.UpdateLayout();
         await Task.Delay(120);
 
-        // A route captures the window its surface is shown in: an editor's
-        // own window when one is open, else the Settings window for a
-        // settings route, else the main window.
+        // A route captures the window its surface is shown in: the Settings
+        // window for a settings route or an editor, which Settings shows,
+        // else the main window.
         Window? SecondaryWindow() => route.Dialog is not null
             ? null
-            : (Window?)window.OpenWorkspaceEditorWindow
-                ?? window.OpenLayoutDesignerWindow
-                ?? (viewModel.IsSettingsVisible ? (Window?)SettingsWindow.Current : null);
+            : viewModel.IsSettingsVisible ? SettingsWindow.Current : null;
         var secondaryWindow = SecondaryWindow();
         Window captureRoot = secondaryWindow ?? window;
         // The product's App.ApplyToWindow marks every window it reaches with
@@ -5144,8 +5150,8 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
         }
 
         // The command palette is the one overlay left in the main window; the
-        // workspace editor and the Layout Designer open windows of their own,
-        // as they do when a person opens them.
+        // workspace editor and the Layout Designer open in Settings, as they
+        // do when a person opens them.
         if (viewModel.Overlay == ShellOverlay.CommandPalette)
         {
             InvokeMaterializer(window, "EnsureCommandPaletteOverlay");
@@ -5153,12 +5159,12 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
 
         if (viewModel.IsDefinitionEditorVisible)
         {
-            InvokeMaterializer(window, "PresentWorkspaceEditor");
+            InvokeMaterializer(window, "PresentWorkspaceEditorAsync");
         }
 
         if (viewModel.IsLayoutDesignerVisible)
         {
-            InvokeMaterializer(window, "PresentLayoutDesigner");
+            InvokeMaterializer(window, "PresentLayoutDesignerAsync");
         }
     }
 

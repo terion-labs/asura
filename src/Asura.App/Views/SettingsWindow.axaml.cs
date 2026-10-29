@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -15,7 +16,7 @@ namespace Asura.App.Views;
 /// forward rather than opening a second one, because the settings themselves
 /// are the application's, not a window's.
 /// </summary>
-public sealed partial class SettingsWindow : Window
+public sealed partial class SettingsWindow : Window, IDialogPageHost
 {
     /// <summary>
     /// How much of the screen's working area the window may take, leaving
@@ -31,7 +32,7 @@ public sealed partial class SettingsWindow : Window
     private bool _closeInProgress;
 
     /// <summary>The frame a Settings window opens at before it has one to restore.</summary>
-    internal static Size DefaultSize { get; } = new(850, 800);
+    internal static Size DefaultSize { get; } = new(1100, 820);
 
     /// <summary>
     /// The class the window wears while its content runs under the title
@@ -244,9 +245,14 @@ public sealed partial class SettingsWindow : Window
         Close();
     }
 
+    /// <summary>The Settings content on show.</summary>
+    private SettingsView? View => this.FindControl<ContentControl>("SettingsHost")?.Content as SettingsView;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_closeApproved && _host is { HasPendingSettingsDraft: true } host)
+        if (!_closeApproved
+            && _host is { } host
+            && (host.HasPendingSettingsDraft || View is { HasDetail: true }))
         {
             e.Cancel = true;
             if (!_closeInProgress)
@@ -256,6 +262,37 @@ public sealed partial class SettingsWindow : Window
         }
 
         base.OnClosing(e);
+    }
+
+    /// <summary>
+    /// An editor opened over Settings is an item of the page it came from,
+    /// shown in the page's place; a second one, opened from inside the first,
+    /// is a sheet over it.
+    /// </summary>
+    bool IDialogPageHost.TryShowDialogPage(SheetCard card)
+    {
+        if (View is not { HasDetail: false } view)
+        {
+            return false;
+        }
+
+        view.ShowDetail(card, card.Dialog.Title ?? string.Empty, () => LeaveDialogPageAsync(card));
+        return true;
+    }
+
+    void IDialogPageHost.RetitleDialogPage(SheetCard card, string title) => View?.RetitleDetail(card, title);
+
+    void IDialogPageHost.HideDialogPage(SheetCard card) => View?.HideDetail(card);
+
+    /// <summary>
+    /// Back from an editor is its Cancel, which may ask about unsaved edits.
+    /// Unasked, the editor closes at once and the page is back once the
+    /// dispatcher has run its close.
+    /// </summary>
+    private static async Task LeaveDialogPageAsync(SheetCard card)
+    {
+        card.Dialog.CancelSheet();
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -384,6 +421,15 @@ public sealed partial class SettingsWindow : Window
         _closeInProgress = true;
         try
         {
+            if (View is { HasDetail: true } view)
+            {
+                await view.LeaveDetailAsync();
+                if (view.HasDetail)
+                {
+                    return;
+                }
+            }
+
             if (await host.ConfirmLeavingSettingsPageAsync(this))
             {
                 _closeApproved = true;

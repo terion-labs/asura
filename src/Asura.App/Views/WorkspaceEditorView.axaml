@@ -29,73 +29,14 @@
     </Style>
   </UserControl.Styles>
   <!--
-    A rail and a detail column, because editing a workspace is mostly comparing
-    it with the others: the rail is how you get between them, and the detail is
-    one workspace at a time. The old editor put the identity fields, the add
-    controls, and the launch order all in one scrolling column and the selected
-    item in the other, which meant nothing on screen answered "which workspace
-    am I in" without reading a text box.
-
-    It fills a window of its own, which can be as small as half a laptop
-    screen: the rail narrows, the detail scrolls, and the buttons stay
-    pinned along the bottom of the window outside the scrolling area.
+    One workspace at a time, shown in Settings in place of the Workspaces page
+    it was opened from, as System Settings opens an item: the page's list is
+    how you get between workspaces, and Back returns to it. The detail
+    scrolls, and the buttons stay pinned along the bottom outside it.
   -->
   <Grid RowDefinitions="*,Auto">
     <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" MinWidth="180" MaxWidth="300" />
-        <ColumnDefinition Width="2.4*" />
-      </Grid.ColumnDefinitions>
-      <Border Background="{DynamicResource ShellSidebarBrush}" BorderBrush="{DynamicResource ShellSidebarBorderBrush}" BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="Auto,*">
-          <Grid Margin="{controls:Inset Lg}" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-            <TextBlock VerticalAlignment="Center" Classes="Title2" Text="Workspaces" />
-            <components:CountPill Grid.Column="1" Value="{Binding PeerCount}" />
-            <Button
-                x:Name="CreateWorkspaceButton"
-                Grid.Column="3"
-                Classes="IconButton"
-                Click="OnCreateWorkspaceClick"
-                ToolTip.Tip="New workspace…"
-                AutomationProperties.Name="New Workspace…">
-              <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-            </Button>
-          </Grid>
-
-          <ListBox
-              x:Name="PeerList"
-              Grid.Row="1"
-              Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
-              Classes="NeutralSelection"
-              Background="Transparent"
-              BorderThickness="0"
-              ItemsSource="{Binding Peers}"
-              SelectionChanged="OnPeerSelectionChanged"
-              AutomationProperties.Name="Workspaces">
-            <ListBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:WorkspaceRailItemViewModel">
-                <controls:ListItem
-                    Margin="{controls:Inset Vertical=Xs}"
-                    Title="{Binding Name}"
-                    Detail="{Binding Summary}">
-                  <controls:ListItem.Leading>
-                    <controls:IdentityTile Tint="{Binding Color}" Symbol="{Binding IconSymbol}" />
-                  </controls:ListItem.Leading>
-                  <controls:ListItem.Trailing>
-                    <icons:SymbolIcon
-                        Symbol="Checkmark"
-                        FontSize="{DynamicResource ShellIconSizeSm}"
-                        Foreground="{DynamicResource ShellAccentBrush}"
-                        IsVisible="{Binding IsCurrent}" />
-                  </controls:ListItem.Trailing>
-                </controls:ListItem>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </Grid>
-      </Border>
-
-      <Grid Grid.Column="1">
+      <Grid>
         <ScrollViewer x:Name="DetailScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
           <StackPanel Margin="{controls:Inset Xl}" Spacing="{DynamicResource ShellSpaceXl}">
             <!-- The header is the workspace: its mark at full size, and its name

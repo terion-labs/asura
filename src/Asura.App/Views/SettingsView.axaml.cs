@@ -816,13 +816,27 @@ public sealed partial class SettingsView : UserControl
         }
 
         var page = SettingsPanes.SidebarPage(current);
-        SettingsPageTitle.Text = SettingsPanes.Title(page);
+        if (_detail is null)
+        {
+            SettingsPageTitle.Text = SettingsPanes.Title(page);
+        }
+
         _history.Visit(page);
         RefreshHistoryButtons();
     }
 
     private void RefreshHistoryButtons()
     {
+        if (_detail is not null && CurrentSettingsPage is { } current)
+        {
+            // An item goes back to the page it was opened from.
+            SettingsBackButton.IsEnabled = true;
+            SettingsForwardButton.IsEnabled = false;
+            ToolTip.SetTip(SettingsBackButton, $"Back to {SettingsPanes.Title(SettingsPanes.SidebarPage(current))} (⌘[)");
+            ToolTip.SetTip(SettingsForwardButton, "Forward (⌘])");
+            return;
+        }
+
         SettingsBackButton.IsEnabled = _history.CanGoBack;
         SettingsForwardButton.IsEnabled = _history.CanGoForward;
         ToolTip.SetTip(
@@ -833,9 +847,77 @@ public sealed partial class SettingsView : UserControl
             _history.ForwardTarget is { } forward ? $"Forward to {SettingsPanes.Title(forward)} (⌘])" : "Forward (⌘])");
     }
 
-    /// <summary>Back: the page shown before this one.</summary>
+    /// <summary>The item shown in place of the page, while one is.</summary>
+    private SettingsDetail? _detail;
+
+    /// <summary>Whether an item is shown in place of the page.</summary>
+    internal bool HasDetail => _detail is not null;
+
+    /// <summary>The item shown in place of the page, if any.</summary>
+    internal Control? DetailContent => _detail?.Content;
+
+    /// <summary>
+    /// Shows <paramref name="content"/> in place of the page, titled
+    /// <paramref name="title"/>. Back, ⌘[, or a page in the sidebar runs
+    /// <paramref name="back"/>, which asks about unsaved edits and ends the
+    /// edit; the item leaves when its owner calls <see cref="HideDetail"/>.
+    /// </summary>
+    internal void ShowDetail(Control content, string title, Func<Task> back)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(back);
+        _detail = new SettingsDetail(content, back);
+        SettingsDetailHost.Content = content;
+        SettingsDetailHost.IsVisible = true;
+        SettingsPageScroll.IsVisible = false;
+        SettingsPageTitle.Text = title;
+        RefreshHistoryButtons();
+    }
+
+    /// <summary>Renames the item on show, as its name is edited.</summary>
+    internal void RetitleDetail(Control content, string title)
+    {
+        if (ReferenceEquals(_detail?.Content, content))
+        {
+            SettingsPageTitle.Text = title;
+        }
+    }
+
+    /// <summary>Puts the page back in place of <paramref name="content"/>.</summary>
+    internal void HideDetail(Control content)
+    {
+        if (!ReferenceEquals(_detail?.Content, content))
+        {
+            return;
+        }
+
+        _detail = null;
+        SettingsDetailHost.Content = null;
+        SettingsDetailHost.IsVisible = false;
+        SettingsPageScroll.IsVisible = true;
+        if (CurrentSettingsPage is { } current)
+        {
+            SettingsPageTitle.Text = SettingsPanes.Title(SettingsPanes.SidebarPage(current));
+        }
+
+        RefreshHistoryButtons();
+    }
+
+    /// <summary>
+    /// Leaves the item on show the way Back does: unsaved edits are asked
+    /// about first, and the item stays when the answer is to keep editing.
+    /// </summary>
+    internal Task LeaveDetailAsync() => _detail?.Back() ?? Task.CompletedTask;
+
+    /// <summary>Back: the page an item was opened from, or the page shown before this one.</summary>
     internal bool GoBack()
     {
+        if (_detail is { } detail)
+        {
+            _ = detail.Back();
+            return true;
+        }
+
         if (!_history.TryGoBack(out var page))
         {
             return false;
@@ -848,7 +930,7 @@ public sealed partial class SettingsView : UserControl
     /// <summary>Forward: the page gone back from.</summary>
     internal bool GoForward()
     {
-        if (!_history.TryGoForward(out var page))
+        if (_detail is not null || !_history.TryGoForward(out var page))
         {
             return false;
         }
@@ -1268,3 +1350,6 @@ public sealed partial class SettingsView : UserControl
     private void OnAgentHistoryRetentionSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
         AgentHistoryRetentionSelectionChangedRequested?.Invoke(sender, e);
 }
+
+/// <summary>An item shown in place of a Settings page, and how to leave it.</summary>
+internal sealed record SettingsDetail(Control Content, Func<Task> Back);

@@ -187,8 +187,8 @@
           SplitSlotRightRequested="OnLayoutSplitSlotRightClick" />
     </DataTemplate>
 
-    <!-- The workspace editor, shown in its own window (WorkspaceEditorWindow)
-         beside this one. -->
+    <!-- The workspace editor, shown in Settings in place of the Workspaces
+         page it is opened from. -->
     <DataTemplate x:Key="WorkspaceEditorTemplate" x:DataType="vm:MainWindowViewModel">
       <views:WorkspaceEditorView
           DataContext="{Binding WorkspaceEditor}"
@@ -196,9 +196,7 @@
           InstallWorkspaceIsolationRuntimeRequested="OnInstallWorkspaceIsolationRuntimeClick"
           RecreateWorkspaceIsolationRequested="OnRecreateWorkspaceIsolationRequested"
           SaveRequested="OnWorkspaceEditorSaveRequested"
-          CancelRequested="OnWorkspaceEditorCancelRequested"
-          WorkspaceSelectionRequested="OnWorkspaceSelectionRequested"
-          CreateWorkspaceRequested="OnCreateWorkspaceRequested" />
+          CancelRequested="OnWorkspaceEditorCancelRequested" />
     </DataTemplate>
   </Window.Resources>
 
