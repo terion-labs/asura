@@ -4,13 +4,13 @@
     "net10.0": {
       "FluentIcons.Avalonia": {
         "type": "Direct",
-        "requested": "[2.1.333, )",
-        "resolved": "2.1.333",
-        "contentHash": "rysgTNvvjI8dlRVvt9bmSxfK06ZmPi1X8WIvo1Od+MgA3lI+QUp7mWvaD42Ni7Leh34iFKCME8dEAJdyKZWtlQ==",
+        "requested": "[2.1.344, )",
+        "resolved": "2.1.344",
+        "contentHash": "9Iwk6EmiDY/MvoW6Z80Nm+3qWQ61WBU3FN/XSBoKPRNmw2ubZlf2Z7ZAgwjLZjGfWSbx9M91ntUsuHjzlAluSA==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]",
-          "FluentIcons.Resources.Avalonia": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.344]",
+          "FluentIcons.Resources.Avalonia": "[2.1.344]"
         }
       },
       "Meziantou.Analyzer": {
@@ -63,22 +63,31 @@
       },
       "FluentIcons.Common": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "ph0Tqd6TIkSOr9Iixw+k6og1Y92UldfGLTxlDfj+FmdKtlG95qDX418TseY6gRcQVS9w+Tt2ye10RVM0kcGHmg=="
+        "resolved": "2.1.344",
+        "contentHash": "CT7Oxzwd7b83u9fpJeF5G5cdr/Wkf++fol9Wu242aWAA7SILUKg+wlNnmjPgHgQoJ+gaTbUW5334RENa5ObU8Q=="
       },
       "FluentIcons.Resources.Avalonia": {
         "type": "Transitive",
-        "resolved": "2.1.333",
-        "contentHash": "RaFZs1cjhW0qzUE6ir5tjLQqIxq5c2l0QhuYb1Dckp3FHleHfGsLrME2/yYVLoF6eA6SCpQ+5ki+XiiNrSgamA==",
+        "resolved": "2.1.344",
+        "contentHash": "flpY4JHyaciRKZCSjYsWXQZhh1y8sorvgfr5AuL0wPelETX1sbSofvbtFLZcRcgZc+zfDVoo/S1+iO8cP3AB+w==",
         "dependencies": {
           "Avalonia": "12.0.0",
-          "FluentIcons.Common": "[2.1.333]"
+          "FluentIcons.Common": "[2.1.344]"
         }
       },
       "MicroCom.Runtime": {
         "type": "Transitive",
         "resolved": "0.11.4",
         "contentHash": "yZ8+Lgwo+KtRI29TB2mIOEMzV+csMJ+pKZg4YHReAP3vRewWLKKeYfrBDo5FS69rWnEbCfU3sbM+ZEQr+GDLtg=="
+      },
+      "asura.application": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Core": "[1.0.0, )"
+        }
+      },
+      "asura.core": {
+        "type": "Project"
       },
       "exclr8cef": {
         "type": "Project"
@@ -89,15 +98,6 @@
           "Avalonia": "[12.0.3, )",
           "Exclr8Cef": "[0.8.0, )"
         }
-      },
-      "asura.application": {
-        "type": "Project",
-        "dependencies": {
-          "Asura.Core": "[1.0.0, )"
-        }
-      },
-      "asura.core": {
-        "type": "Project"
       },
       "Avalonia": {
         "type": "CentralTransitive",
