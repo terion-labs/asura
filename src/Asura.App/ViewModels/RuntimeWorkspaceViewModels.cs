@@ -298,6 +298,7 @@ public enum PanelFocusDirection
     Up,
     Down,
     Next,
+    Previous,
 }
 
 public enum RuntimeTabPlacement

@@ -247,12 +247,13 @@ internal sealed partial class RuntimeDockLayoutController
         }
 
         var ordered = regions.Values.OrderBy(region => region.Order).ToArray();
-        if (direction == PanelFocusDirection.Next)
+        if (direction is PanelFocusDirection.Next or PanelFocusDirection.Previous)
         {
             var index = Array.FindIndex(
                 ordered,
                 region => region.PanelId == activePanelId);
-            return ordered[(index + 1) % ordered.Length].PanelId;
+            var step = direction == PanelFocusDirection.Next ? 1 : ordered.Length - 1;
+            return ordered[(index + step) % ordered.Length].PanelId;
         }
 
         return ordered

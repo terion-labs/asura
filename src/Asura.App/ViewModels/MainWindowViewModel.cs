@@ -3316,6 +3316,33 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         return OpenWorkspaceAsync(Workspaces[position].Id, cancellationToken);
     }
 
+    /// <summary>
+    /// The rail position of the open workspace <paramref name="offset"/> steps
+    /// from the one in front, in rail order and wrapping around. Closed
+    /// workspaces are passed over, because stepping through the rail should
+    /// not start one. Null when there is nowhere else to go.
+    /// </summary>
+    internal int? RelativeOpenWorkspacePosition(int offset)
+    {
+        var open = Workspaces
+            .Select((item, position) => (item, position))
+            .Where(entry => entry.item.IsOpen)
+            .ToArray();
+        var current = Array.FindIndex(open, entry => entry.item.IsInFront);
+        if (current < 0)
+        {
+            return open.Length == 0 ? null : open[offset > 0 ? 0 : open.Length - 1].position;
+        }
+
+        if (open.Length < 2)
+        {
+            return null;
+        }
+
+        var destination = ((current + offset) % open.Length + open.Length) % open.Length;
+        return open[destination].position;
+    }
+
     public async Task<bool> OpenConnectionAsync(
         ConnectionId connectionId,
         CancellationToken cancellationToken = default)
@@ -9747,24 +9774,25 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             : null;
         foreach (var command in BuiltInCommands.Registry.Commands)
         {
-            // A command the active profile does not bind is still listed, once
-            // per invocation its presets know, but without another profile's
-            // shortcut: that key would do nothing here.
-            var bindings = activeBindings[command.Id].ToArray();
-            var isBoundHere = bindings.Length > 0;
-            if (!isBoundHere)
-            {
-                bindings = [.. command.DefaultBindings];
-            }
-
-            var invocations = bindings
+            // Every invocation the presets know is listed, so Focus Panel Left
+            // stays findable when the active profile binds only some
+            // directions. One the active profile does not bind is shown
+            // without another profile's shortcut: that key would do nothing here.
+            var invocations = activeBindings[command.Id]
                 .Select(binding => new
                 {
-                    Binding = binding,
+                    Binding = (CommandBinding?)binding,
                     Target = new LauncherSearchTarget.Command(
                         command.Id,
                         binding.Arguments),
                 })
+                .Concat(command.DefaultBindings.Select(binding => new
+                {
+                    Binding = (CommandBinding?)null,
+                    Target = new LauncherSearchTarget.Command(
+                        command.Id,
+                        binding.Arguments),
+                }))
                 .DistinctBy(invocation => invocation.Target.InvocationKey, StringComparer.Ordinal)
                 .ToArray();
             if (invocations.Length == 0)
@@ -9785,7 +9813,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         menuShortcuts,
                         command.Id,
                         invocation.Target.Arguments,
-                        isBoundHere ? invocation.Binding.Sequence : null),
+                        invocation.Binding?.Sequence),
                     captured)));
         }
 
@@ -10143,6 +10171,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     out var position)
                 && position >= 0
                 && position < Workspaces.Count;
+        }
+
+        if (id == BuiltInCommands.NextWorkspace
+            || id == BuiltInCommands.PreviousWorkspace)
+        {
+            return RelativeOpenWorkspacePosition(1) is not null;
         }
 
         if (id == BuiltInCommands.SelectTab)

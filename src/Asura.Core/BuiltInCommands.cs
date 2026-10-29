@@ -23,6 +23,8 @@ public static class BuiltInCommands
     public static CommandId LastTab { get; } = new("tab.last");
     public static CommandId SelectTab { get; } = new("tab.select-position");
     public static CommandId SelectWorkspace { get; } = new("workspace.select-position");
+    public static CommandId NextWorkspace { get; } = new("workspace.next");
+    public static CommandId PreviousWorkspace { get; } = new("workspace.previous");
 
     // The rail tile's menu, for the workspace in front in the menu bar.
     public static CommandId EditWorkspace { get; } = new("workspace.edit");
@@ -461,7 +463,7 @@ public static class BuiltInCommands
         var orientationSchema = new CommandParameterSchema(
             [new CommandParameter("orientation", CommandParameterType.Choice, true, ["left-right", "top-bottom"])]);
         var directionSchema = new CommandParameterSchema(
-            [new CommandParameter("direction", CommandParameterType.Choice, true, ["left", "right", "up", "down", "next"])]);
+            [new CommandParameter("direction", CommandParameterType.Choice, true, ["left", "right", "up", "down", "next", "previous"])]);
         var positionSchema = new CommandParameterSchema(
             [new CommandParameter("position", CommandParameterType.Integer, true)]);
 
@@ -494,6 +496,7 @@ public static class BuiltInCommands
                     "up" => "Focus Panel Up",
                     "down" => "Focus Panel Down",
                     "next" => "Focus Next Panel",
+                    "previous" => "Focus Previous Panel",
                     _ => null,
                 }),
             Define(TogglePanelZoom, "Zoom Panel", "Panels", CommandContext.Panel),
@@ -546,6 +549,8 @@ public static class BuiltInCommands
                 CommandContext.Window,
                 positionSchema,
                 arguments => PositionTitle("Go to Workspace", arguments)),
+            Define(NextWorkspace, "Show Next Workspace", "Workspaces", CommandContext.Window),
+            Define(PreviousWorkspace, "Show Previous Workspace", "Workspaces", CommandContext.Window),
 
             // The workspace in front, as its rail tile's menu acts on that
             // tile's workspace. The window reports which of them it can run.

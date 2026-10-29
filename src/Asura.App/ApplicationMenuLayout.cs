@@ -162,6 +162,7 @@ internal static class ApplicationMenuLayout
             Item("Focus Panel Up", BuiltInCommands.FocusPanel, ("direction", "up")),
             Item("Focus Panel Down", BuiltInCommands.FocusPanel, ("direction", "down")),
             Item("Focus Next Panel", BuiltInCommands.FocusPanel, ("direction", "next")),
+            Item("Focus Previous Panel", BuiltInCommands.FocusPanel, ("direction", "previous")),
             MenuSeparatorNode.Instance,
             Item("Zoom Panel", BuiltInCommands.TogglePanelZoom) with { CheckedWhen = CommandStates.IsPanelZoomed },
             MenuSeparatorNode.Instance,
@@ -284,6 +285,9 @@ internal static class ApplicationMenuLayout
         ]),
         new("Workspace",
         [
+            Item("Show Previous Workspace", BuiltInCommands.PreviousWorkspace),
+            Item("Show Next Workspace", BuiltInCommands.NextWorkspace),
+            MenuSeparatorNode.Instance,
             .. Positions(9, position => Item(
                 $"Go to Workspace {position + 1}",
                 BuiltInCommands.SelectWorkspace,

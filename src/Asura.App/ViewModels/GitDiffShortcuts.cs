@@ -7,7 +7,7 @@ namespace Asura.App.ViewModels;
 ///
 /// They act while the diff has keyboard focus. Option-arrow steps between
 /// changes and Option-Shift-arrow between files: Option-Command-arrow already
-/// moves focus between panels, and Command-arrow scrolls a list to its ends.
+/// changes tabs and workspaces, and Command-arrow scrolls a list to its ends.
 /// Return and Shift-Return in the find field step through matches, as Find
 /// Next and Find Previous do from the Edit menu.
 /// </summary>

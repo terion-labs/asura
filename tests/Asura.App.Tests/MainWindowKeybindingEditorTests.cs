@@ -351,7 +351,7 @@ public sealed class MainWindowKeybindingEditorTests
             .Where(item => item.Target is LauncherSearchTarget.Command command
                 && command.Id == BuiltInCommands.FocusPanel)
             .ToArray();
-        Assert.Equal(5, focusCommands.Length);
+        Assert.Equal(6, focusCommands.Length);
         var right = Assert.Single(
             focusCommands,
             item => item.Target is LauncherSearchTarget.Command command

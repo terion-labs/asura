@@ -28,6 +28,7 @@ internal enum ApplicationCommandActionKind
     SelectLastTab,
     SelectTab,
     SelectWorkspace,
+    SelectRelativeWorkspace,
     EditWorkspace,
     SaveWorkspaceLayout,
     TerminateWorkspace,
@@ -72,7 +73,8 @@ internal sealed record ApplicationCommandAction(
     int? TabOffset = null,
     int? TabPosition = null,
     int? WorkspacePosition = null,
-    CommandId? Command = null);
+    CommandId? Command = null,
+    int? WorkspaceOffset = null);
 
 internal sealed record ApplicationCommandRouteResult(
     ApplicationCommandAction? Action,
@@ -120,6 +122,12 @@ internal static class ApplicationCommandRouter
         [BuiltInCommands.MoveTabRight] = 1,
         [BuiltInCommands.PreviousTab] = -1,
         [BuiltInCommands.NextTab] = 1,
+    };
+
+    private static readonly Dictionary<CommandId, int> WorkspaceOffsets = new()
+    {
+        [BuiltInCommands.PreviousWorkspace] = -1,
+        [BuiltInCommands.NextWorkspace] = 1,
     };
 
     private static readonly HashSet<CommandId> WindowCommands =
@@ -190,6 +198,15 @@ internal static class ApplicationCommandRouter
                     ? ApplicationCommandActionKind.MoveTab
                     : ApplicationCommandActionKind.SelectRelativeTab,
                 tabOffset: offset);
+        }
+
+        if (WorkspaceOffsets.TryGetValue(commandId, out var workspaceOffset))
+        {
+            return new ApplicationCommandRouteResult(
+                new ApplicationCommandAction(
+                    ApplicationCommandActionKind.SelectRelativeWorkspace,
+                    WorkspaceOffset: workspaceOffset),
+                null);
         }
 
         if (commandId == BuiltInCommands.SplitPanel)
@@ -288,6 +305,7 @@ internal static class ApplicationCommandRouter
             "up" => PanelFocusDirection.Up,
             "down" => PanelFocusDirection.Down,
             "next" => PanelFocusDirection.Next,
+            "previous" => PanelFocusDirection.Previous,
             _ => (PanelFocusDirection?)null,
         };
         return direction is { } value
