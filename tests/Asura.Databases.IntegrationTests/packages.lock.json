@@ -755,7 +755,7 @@
           "FirebirdSql.Data.FirebirdClient": "[10.3.1, )",
           "Microsoft.Data.SqlClient": "[6.0.2, )",
           "Microsoft.Data.Sqlite.Core": "[10.0.10, )",
-          "MySqlConnector": "[2.4.0, )",
+          "MySqlConnector": "[2.6.1, )",
           "Npgsql": "[9.0.3, )",
           "Oracle.ManagedDataAccess.Core": "[23.7.0, )",
           "SQLite3MC.PCLRaw.bundle": "[2.4.0, )",
@@ -1078,9 +1078,9 @@
       },
       "MySqlConnector": {
         "type": "CentralTransitive",
-        "requested": "[2.4.0, )",
-        "resolved": "2.4.0",
-        "contentHash": "78M+gVOjbdZEDIyXQqcA7EYlCGS3tpbUELHvn6638A2w0pkPI625ixnzsa5staAd3N9/xFmPJtkKDYwsXpFi/w==",
+        "requested": "[2.6.1, )",
+        "resolved": "2.6.1",
+        "contentHash": "MzNSfnHWBc0Mo3zVbYxG+556zuex9obs8NYtwcPCwFahel40e49stH+osjX4k/doEHp4LT/zTtGdax4nlGWhcw==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.2"
