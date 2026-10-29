@@ -347,6 +347,7 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-terminal", vm => vm.ShowSettings(SettingsPage.Terminal)),
         new("settings-quick-terminal", vm => vm.ShowSettings(SettingsPage.QuickTerminal)),
         new("settings-keybindings", vm => vm.ShowSettings(SettingsPage.Keybindings)),
+        new("settings-connections", vm => vm.ShowSettings(SettingsPage.Connections)),
         new("settings-files", vm => vm.ShowSettings(SettingsPage.Files)),
         new("settings-browser", vm => vm.ShowSettings(SettingsPage.Browser)),
         new("settings-agent", vm => vm.ShowSettings(SettingsPage.Agent)),
@@ -2469,10 +2470,6 @@ System.Globalization.CultureInfo.InvariantCulture, out var requested) ? requeste
                     DataContext = CreateViewModel(),
                 },
             },
-        }, null),
-        ("dialog-saved-connections", () => new SavedConnectionsDialog
-        {
-            DataContext = CreateViewModel().Launcher,
         }, null),
         ("dialog-connection-password", () =>
         {

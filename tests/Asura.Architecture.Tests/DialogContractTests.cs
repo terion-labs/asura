@@ -424,7 +424,6 @@ public sealed partial class DialogContractTests
     [InlineData("GitStatisticsDialog")]
     [InlineData("GitLfsDialog")]
     [InlineData("GitSubmoduleDialog")]
-    [InlineData("SavedConnectionsDialog")]
     public void Inspector_windows_open_without_blocking_their_owner(string dialog)
     {
         Assert.True(IsInspector(dialog + ".axaml"), $"{dialog} should be presented as an inspector.");

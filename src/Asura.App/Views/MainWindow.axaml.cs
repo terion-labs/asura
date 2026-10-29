@@ -974,32 +974,22 @@ public sealed partial class MainWindow : Window
         await RequestNewAdapterTabAsync(PanelKind.Git);
     }
 
+    /// <summary>
+    /// Add Connection… from the launcher or from Settings: the editor is a
+    /// sheet over the window the button is in.
+    /// </summary>
     private async void OnAddConnectionClick(object? sender, RoutedEventArgs e)
     {
-        _ = sender;
         _ = e;
-        await ShowConnectionEditorAsync(null);
+        await ShowConnectionEditorAsync(null, DialogOwnerFor(sender));
     }
 
-    private SavedConnectionsDialog? _savedConnections;
-
+    /// <summary>Saved connections are managed on their Settings page.</summary>
     private void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        // One at a time: asked for again, the open one comes forward.
-        if (_savedConnections is { } open)
-        {
-            open.Activate();
-            return;
-        }
-
-        var dialog = new SavedConnectionsDialog { DataContext = ViewModel.Launcher };
-        dialog.EditRequested += async (_, connection) => await ShowConnectionEditorAsync(connection, dialog);
-        dialog.AddRequested += async (_, _) => await ShowConnectionEditorAsync(null, dialog);
-        dialog.Closed += (_, _) => _savedConnections = null;
-        _savedConnections = dialog;
-        dialog.Show(this);
+        _ = RequestSettingsPageAsync(SettingsPage.Connections);
     }
 
     private async void OnEditConnectionClick(object? sender, RoutedEventArgs e)
@@ -1007,7 +997,7 @@ public sealed partial class MainWindow : Window
         _ = e;
         if (sender is Control { DataContext: LauncherConnectionViewModel connection })
         {
-            await ShowConnectionEditorAsync(connection);
+            await ShowConnectionEditorAsync(connection, DialogOwnerFor(sender));
         }
     }
 

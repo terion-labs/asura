@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using FluentIcons.Common;
 
 namespace Asura.App.Tests;
 
@@ -67,53 +68,68 @@ public sealed class SettingsListPatternTests
     }
 
     [Fact]
-    public Task File_providers_are_removed_by_selection_the_minus_button_and_the_delete_key() =>
-        RunSettingsAsync(SettingsPage.Files, _ => { }, async (view, viewModel) =>
+    public Task Saved_connections_are_removed_by_selection_the_minus_button_and_the_delete_key()
+    {
+        var archive = new LauncherConnectionViewModel(
+            new ConnectionId("archive"), 1, "Archive", "SSH", "ops@archive", "Validated on open", true, []);
+        return RunSettingsAsync(SettingsPage.Connections, viewModel => viewModel.Launcher.Connections.Add(archive), async (view, viewModel) =>
         {
-            var provider = new FileProviderProfileItemViewModel(
-                new FileProviderProfileId("files.archive"), 1, "Archive", "SFTP", "sftp://archive", "Ready", "", false, false);
-            viewModel.FileProviderDefinitions.Add(provider);
+            _ = viewModel;
             var deletes = new List<object?>();
-            view.DeleteFileProviderRequested += (sender, _) => deletes.Add((sender as Control)?.DataContext);
+            view.DeleteConnectionRequested += (sender, _) => deletes.Add((sender as Control)?.DataContext);
 
-            // A file provider is deleted at once with Undo; no question follows.
-            await AssertListPatternAsync(view, "FileProviderList", "DeleteFileProviderButton", provider, deletes, "Delete");
+            // A connection is deleted at once with Undo; no question follows.
+            await AssertListPatternAsync(view, "ConnectionList", "DeleteConnectionButton", archive, deletes, "Delete");
         });
+    }
 
     [Fact]
-    public Task File_provider_status_chip_tone_follows_the_provider_state() =>
-        RunSettingsAsync(SettingsPage.Files, _ => { }, async (view, viewModel) =>
-        {
-            static FileProviderProfileItemViewModel Provider(string id, bool hasError, bool hasWarning) =>
-                new(new FileProviderProfileId(id), 1, id, "SFTP", "sftp://" + id, "Status", "", hasError, hasWarning);
-            var loading = Provider("loading", hasError: false, hasWarning: false);
-            var warning = Provider("warning", hasError: false, hasWarning: true);
-            var failed = Provider("failed", hasError: true, hasWarning: false);
-            var both = Provider("both", hasError: true, hasWarning: true);
-            foreach (var provider in new[] { loading, warning, failed, both })
-            {
-                viewModel.FileProviderDefinitions.Add(provider);
-            }
-
-            await Task.Yield();
-            Dispatcher.UIThread.RunJobs();
-            var list = view.FindControl<ListBox>("FileProviderList")!;
-            (TopLevel.GetTopLevel(view) as Window)!.UpdateLayout();
-
-            Assert.Equal("ShellSurfaceRaisedBrush", ChipBackground(view, list, loading));
-            Assert.Equal("ShellWarningSoftBrush", ChipBackground(view, list, warning));
-            Assert.Equal("ShellDangerSoftBrush", ChipBackground(view, list, failed));
-            Assert.Equal("ShellDangerSoftBrush", ChipBackground(view, list, both));
-        });
-
-    private static string ChipBackground(SettingsView view, ListBox list, object item)
+    public Task Every_kind_of_saved_connection_is_listed_with_its_glyph_and_filtered_in_place()
     {
-        list.ScrollIntoView(item);
-        list.UpdateLayout();
-        var container = Assert.IsType<ListBoxItem>(list.ContainerFromItem(item));
-        var chip = container.GetVisualDescendants().OfType<Asura.App.Controls.StatusChip>().Single();
-        string[] keys = ["ShellSurfaceRaisedBrush", "ShellWarningSoftBrush", "ShellDangerSoftBrush", "ShellSuccessSoftBrush"];
-        return keys.Single(key => view.TryFindResource(key, view.ActualThemeVariant, out var brush) && Equals(brush, chip.Background));
+        var server = new LauncherConnectionViewModel(
+            new ConnectionId("build"), 1, "Build server", "SSH", "ops@build", "Validated on open", true, []);
+        var files = new LauncherConnectionViewModel(
+            new ConnectionId("files:archive"), 1, "Archive bucket", "S3", "s3://archive", "Ready", true, [],
+            SavedConnectionFamily.Files, "archive");
+        var database = new LauncherConnectionViewModel(
+            new ConnectionId("database:orders"), 1, "Orders", "PostgreSQL", "orders@db", "Ready", true, [],
+            SavedConnectionFamily.Database, "orders");
+        var cluster = new LauncherConnectionViewModel(
+            new ConnectionId("kubernetes:prod"), 1, "Production cluster", "Kubernetes", "prod", "Ready", true, [],
+            SavedConnectionFamily.Kubernetes, "prod");
+        return RunSettingsAsync(
+            SettingsPage.Connections,
+            viewModel =>
+            {
+                viewModel.Launcher.Connections.Add(server);
+                viewModel.Launcher.FileConnections.Add(files);
+                viewModel.Launcher.DatabaseConnections.Add(database);
+                viewModel.Launcher.KubernetesConnections.Add(cluster);
+            },
+            async (view, viewModel) =>
+            {
+                var list = view.FindControl<ListBox>("ConnectionList")!;
+                var listed = list.Items.OfType<LauncherConnectionViewModel>().ToArray();
+                Assert.Contains(server, listed);
+                Assert.Contains(files, listed);
+                Assert.Contains(database, listed);
+                Assert.Contains(cluster, listed);
+                Assert.Equal(Symbol.Server, server.IconSymbol);
+                Assert.Equal(Symbol.Folder, files.IconSymbol);
+                Assert.Equal(Symbol.Database, database.IconSymbol);
+                Assert.Equal(Symbol.Cloud, cluster.IconSymbol);
+
+                viewModel.Launcher.ConnectionSearchQuery = "orders";
+                await Task.Yield();
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal([database], list.Items.OfType<LauncherConnectionViewModel>());
+
+                viewModel.Launcher.ConnectionSearchQuery = "nothing like it";
+                await Task.Yield();
+                Dispatcher.UIThread.RunJobs();
+                Assert.False(list.IsVisible);
+                Assert.True(viewModel.Launcher.HasNoMatchingConnections);
+            });
     }
 
     [Fact]

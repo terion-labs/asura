@@ -4,6 +4,7 @@ using Asura.App.Views.Components;
 using Asura.App.Views.SettingsPages;
 using Asura.Application;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -86,7 +87,7 @@ public sealed partial class SettingsView : UserControl
             content.PropertyChanged += OnPageContentPropertyChanged;
         }
 
-        FollowListSelection(FileProviderList, DeleteFileProviderButton);
+        FollowListSelection(ConnectionList, DeleteConnectionButton);
         FollowListSelection(
             BrowserProfileList,
             DeleteBrowserProfileButton,
@@ -134,7 +135,7 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? AddAiProviderRequested;
 
-    public event EventHandler<RoutedEventArgs>? AddFileProviderRequested;
+    public event EventHandler<RoutedEventArgs>? AddConnectionRequested;
 
     public event EventHandler<RoutedEventArgs>? AddMcpServerRequested;
 
@@ -161,7 +162,7 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? DeleteAiProviderRequested;
 
-    public event EventHandler<RoutedEventArgs>? DeleteFileProviderRequested;
+    public event EventHandler<RoutedEventArgs>? DeleteConnectionRequested;
 
     public event EventHandler<RoutedEventArgs>? DeleteMcpServerRequested;
 
@@ -177,7 +178,7 @@ public sealed partial class SettingsView : UserControl
 
     public event EventHandler<RoutedEventArgs>? EditAiProviderRequested;
 
-    public event EventHandler<RoutedEventArgs>? EditFileProviderRequested;
+    public event EventHandler<RoutedEventArgs>? EditConnectionRequested;
 
     public event EventHandler<RoutedEventArgs>? EditLayoutRequested;
 
@@ -200,6 +201,8 @@ public sealed partial class SettingsView : UserControl
     public event EventHandler<RoutedEventArgs>? EnableStartupProtectionRequested;
 
     public event EventHandler<RoutedEventArgs>? FilesSettingsRequested;
+
+    public event EventHandler<RoutedEventArgs>? ConnectionSettingsRequested;
 
     public event EventHandler<RoutedEventArgs>? BrowserSettingsRequested;
 
@@ -487,8 +490,8 @@ public sealed partial class SettingsView : UserControl
     private void OnAddAiProviderClick(object? sender, RoutedEventArgs e) =>
         AddAiProviderRequested?.Invoke(sender, e);
 
-    private void OnAddFileProviderClick(object? sender, RoutedEventArgs e) =>
-        AddFileProviderRequested?.Invoke(sender, e);
+    private void OnAddConnectionClick(object? sender, RoutedEventArgs e) =>
+        AddConnectionRequested?.Invoke(sender, e);
 
     private void OnAddMcpServerClick(object? sender, RoutedEventArgs e) =>
         AddMcpServerRequested?.Invoke(sender, e);
@@ -528,8 +531,8 @@ public sealed partial class SettingsView : UserControl
     private void OnDeleteAiProviderClick(object? sender, RoutedEventArgs e) =>
         DeleteAiProviderRequested?.Invoke(sender, e);
 
-    private void OnDeleteFileProviderClick(object? sender, RoutedEventArgs e) =>
-        DeleteFileProviderRequested?.Invoke(sender, e);
+    private void OnDeleteConnectionClick(object? sender, RoutedEventArgs e) =>
+        DeleteConnectionRequested?.Invoke(sender, e);
 
     private void OnDeleteMcpServerClick(object? sender, RoutedEventArgs e) =>
         DeleteMcpServerRequested?.Invoke(sender, e);
@@ -552,8 +555,19 @@ public sealed partial class SettingsView : UserControl
     private void OnEditAiProviderClick(object? sender, RoutedEventArgs e) =>
         EditAiProviderRequested?.Invoke(sender, e);
 
-    private void OnEditFileProviderClick(object? sender, RoutedEventArgs e) =>
-        EditFileProviderRequested?.Invoke(sender, e);
+    private void OnEditConnectionClick(object? sender, RoutedEventArgs e) =>
+        EditConnectionRequested?.Invoke(sender, e);
+
+    /// <summary>A double-click on a row edits it, as Edit… on the row does.</summary>
+    private void OnConnectionListDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        _ = sender;
+        if (e.Source is Visual source
+            && source.FindAncestorOfType<ListBoxItem>(includeSelf: true) is { DataContext: LauncherConnectionViewModel } row)
+        {
+            EditConnectionRequested?.Invoke(row, new RoutedEventArgs());
+        }
+    }
 
     private void OnEditLayoutClick(object? sender, RoutedEventArgs e) =>
         EditLayoutRequested?.Invoke(sender, e);
@@ -587,6 +601,9 @@ public sealed partial class SettingsView : UserControl
 
     private void OnFilesSettingsClick(object? sender, RoutedEventArgs e) =>
         FilesSettingsRequested?.Invoke(sender, e);
+
+    private void OnConnectionSettingsClick(object? sender, RoutedEventArgs e) =>
+        ConnectionSettingsRequested?.Invoke(sender, e);
 
     private void OnBrowserSettingsClick(object? sender, RoutedEventArgs e) =>
         BrowserSettingsRequested?.Invoke(sender, e);
@@ -952,6 +969,7 @@ public sealed partial class SettingsView : UserControl
     {
         yield return (SettingsPage.Appearance, AppearanceNavigationItem, AppearanceSettingsPage);
         yield return (SettingsPage.Workspaces, WorkspacesNavigationItem, WorkspacesSettingsPage);
+        yield return (SettingsPage.Connections, ConnectionsNavigationItem, ConnectionsSettingsPage);
         yield return (SettingsPage.Networking, NetworkingNavigationItem, NetworkingSettingsPage);
         yield return (SettingsPage.Keybindings, KeybindingsNavigationItem, KeybindingsSettingsPage);
         yield return (SettingsPage.Files, FilesNavigationItem, FilesSettingsPage);

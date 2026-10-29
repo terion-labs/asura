@@ -130,7 +130,7 @@ public sealed class SettingsSystemLayoutHeadlessTests
             // same family of colour for pages of the same kind.
             string[] tiles =
             [
-                "Graphite", "Green", "Blue", "Gray",
+                "Graphite", "Green", "Sky", "Blue", "Gray",
                 "Sky", "Blue", "DarkGray", "DarkGray", "Orange",
                 "Red", "Gray", "Gray",
                 "Purple", "Gray",

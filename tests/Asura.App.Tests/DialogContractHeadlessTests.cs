@@ -176,7 +176,7 @@ public sealed class DialogContractHeadlessTests
 
         await RunAsync(async () =>
         {
-            var inspector = new SavedConnectionsDialog();
+            var inspector = new GitStatisticsDialog();
             var closed = false;
             inspector.Closed += (_, _) => closed = true;
             inspector.Show();
@@ -278,60 +278,6 @@ public sealed class DialogContractHeadlessTests
     }
 
     [Fact]
-    public async Task Saved_connections_are_edited_from_the_selection_not_a_button_per_row()
-    {
-        await RunAsync(async () =>
-        {
-            using var launcher = new LauncherViewModel(() => []);
-            launcher.Connections.Add(new LauncherConnectionViewModel(
-                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
-            launcher.Connections.Add(new LauncherConnectionViewModel(
-                new ConnectionId("two"), 1, "Staging", "SSH", "ops@staging", "Ready", true, []));
-            var inspector = new SavedConnectionsDialog { DataContext = launcher };
-            LauncherConnectionViewModel? edited = null;
-            inspector.EditRequested += (_, connection) => edited = connection;
-            inspector.Show();
-            await Idle();
-
-            var buttons = inspector.GetVisualDescendants().OfType<Button>()
-                .Where(button => button.Content is "Edit…")
-                .ToArray();
-            var edit = Assert.Single(buttons);
-            Assert.False(edit.IsEnabled);
-
-            var list = inspector.FindControl<ListBox>("ConnectionList")!;
-            list.SelectedIndex = 1;
-            await Idle();
-            Assert.True(edit.IsEnabled);
-
-            Assert.True(list.ContainerFromIndex(1)!.Focus());
-            await Idle();
-            inspector.KeyPress(Key.Return, RawInputModifiers.None, PhysicalKey.Enter, "\r");
-            await Idle();
-            Assert.Equal("Staging", edited?.Name);
-
-            edited = null;
-            edit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-            Assert.Equal("Staging", edited?.Name);
-
-            // The count above the list is a real plural.
-            static bool ShowsText(Window window, string text) =>
-                window.GetVisualDescendants().OfType<TextBlock>().Any(block => block.Text == text);
-            Assert.True(ShowsText(inspector, "2 saved connections"));
-            inspector.Close();
-
-            using var single = new LauncherViewModel(() => []);
-            single.Connections.Add(new LauncherConnectionViewModel(
-                new ConnectionId("one"), 1, "Build server", "SSH", "ops@build", "Ready", true, []));
-            var singleInspector = new SavedConnectionsDialog { DataContext = single };
-            singleInspector.Show();
-            await Idle();
-            Assert.True(ShowsText(singleInspector, "1 saved connection"));
-            singleInspector.Close();
-        });
-    }
-
-    [Fact]
     public async Task Sheets_cannot_be_minimized_and_inspectors_can()
     {
         await RunAsync(() =>
@@ -341,7 +287,7 @@ public sealed class DialogContractHeadlessTests
             Assert.False(sheet.CanMaximize);
             Assert.False(sheet.ShowInTaskbar);
 
-            var inspector = new SavedConnectionsDialog();
+            var inspector = new GitStatisticsDialog();
             Assert.Equal(DialogPresentation.Inspector, inspector.Presentation);
             Assert.True(inspector.CanMinimize);
             return Task.CompletedTask;

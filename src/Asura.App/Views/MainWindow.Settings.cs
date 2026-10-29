@@ -499,6 +499,9 @@ public sealed partial class MainWindow
     private void OnFilesSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.Files);
 
+    private void OnConnectionSettingsClick(object? sender, RoutedEventArgs e) =>
+        _ = RequestSettingsPageAsync(SettingsPage.Connections);
+
     private void OnBrowserSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.Browser);
 
@@ -899,63 +902,6 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         _ = await ViewModel.SaveKeybindingEditorAsync(_lifetime.Token);
-    }
-
-    private async void OnAddFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShowFileProviderEditorAsync(null);
-    }
-
-    private async void OnEditFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: FileProviderProfileItemViewModel profile })
-        {
-            await ShowFileProviderEditorAsync(profile.Id);
-        }
-    }
-
-    private async void OnDeleteFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is not Control { DataContext: FileProviderProfileItemViewModel profile })
-        {
-            return;
-        }
-
-        // At once, with Undo, like every other saved connection.
-        var result = await ViewModel.DeleteConnectionWithUndoAsync(
-            new DefinitionKey(FileProviderProfile.Kind, profile.Id.Value),
-            profile.Revision,
-            _lifetime.Token);
-        if (result.IsSuccess)
-        {
-            FocusDefinitionDeleteUndo(sender);
-        }
-    }
-
-    private async Task ShowFileProviderEditorAsync(FileProviderProfileId? profileId)
-    {
-        try
-        {
-            await ViewModel.RefreshSecretsAsync(_lifetime.Token);
-            var editor = ViewModel.CreateUnifiedConnectionEditor(
-                SavedConnectionFamily.Files,
-                fileProfileId: profileId,
-                initialFamily: SavedConnectionFamily.Files);
-            var result = await new ConnectionEditorDialog(editor)
-                .ShowDialog<UnifiedConnectionEditorResult?>(SettingsDialogOwner);
-            if (result is UnifiedConnectionEditorResult.Files files)
-            {
-                _ = await ViewModel.SaveFileProviderProfileAsync(files.Request, _lifetime.Token);
-            }
-        }
-        catch (InvalidOperationException exception)
-        {
-            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
-        }
     }
 
     private async void OnAddAiProviderClick(object? sender, RoutedEventArgs e)

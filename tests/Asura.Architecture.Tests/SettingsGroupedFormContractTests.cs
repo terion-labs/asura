@@ -264,7 +264,7 @@ public sealed class SettingsGroupedFormContractTests
     {
         var root = Load("SettingsView.axaml");
         var items = root.Descendants().Where(element => Is(element, "ShellNavigationItem")).ToArray();
-        Assert.Equal(14, items.Length);
+        Assert.Equal(15, items.Length);
         foreach (var item in items)
         {
             Assert.Matches(
