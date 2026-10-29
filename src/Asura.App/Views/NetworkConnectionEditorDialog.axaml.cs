@@ -109,7 +109,7 @@ public sealed partial class NetworkConnectionEditorDialog : DialogWindow
         // is about and everything typed stays where it was.
         FieldValidation.Clear(this);
         if (viewModel.ProfileEditor is { IsValid: false, InvalidFieldName: { } field } editor
-            && FieldValidation.Show(this, field, editor.ValidationMessage))
+            && FieldValidation.Show(ContentRoot, field, editor.ValidationMessage))
         {
             return;
         }

@@ -160,7 +160,9 @@ internal sealed class DialogShell : ContentControl
     /// <summary>The window is titled with the header's words, whatever they bind to.</summary>
     private void NameWindow()
     {
-        if (!string.IsNullOrWhiteSpace(Title) && TopLevel.GetTopLevel(this) is Window window)
+        // A sheet names its dialog, not the window it stands in.
+        if (!string.IsNullOrWhiteSpace(Title)
+            && (SheetHost.DialogFor(this) ?? TopLevel.GetTopLevel(this)) is Window window)
         {
             window.Title = Title;
         }

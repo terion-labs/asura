@@ -333,9 +333,11 @@ public sealed partial class QuickTerminalWindow : Window
         _ = sender;
         // A search field with a query clears it on this Escape; only the
         // next one is the window's.
+        // Escape in a sheet is the sheet's.
         if (e.Key != Key.Escape
             || e.KeyModifiers != Avalonia.Input.KeyModifiers.None
-            || Asura.App.Controls.SearchField.ClaimsEscape(e))
+            || Asura.App.Controls.SearchField.ClaimsEscape(e)
+            || Asura.App.Controls.SheetHost.IsPresenting(this))
         {
             return;
         }

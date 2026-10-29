@@ -148,8 +148,9 @@ public sealed class GitPanelConformanceHeadlessTests
     public Task Stash_from_the_Git_menu_opens_the_panel_stash_dialog() => RunPanelAsync(async (view, panel, window) =>
     {
         panel.StashRequestCommand.Execute(null);
-        await WaitForAsync(() => window.OwnedWindows.Count > 0);
-        var dialog = Assert.IsType<GitStashPushDialog>(Assert.Single(window.OwnedWindows));
+        await WaitForAsync(() => SheetHost.IsPresenting(window));
+        Assert.Empty(window.OwnedWindows);
+        var dialog = Assert.IsType<GitStashPushDialog>(SheetHost.For(window).Front);
         dialog.Close();
     });
 

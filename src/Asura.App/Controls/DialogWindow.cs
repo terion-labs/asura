@@ -5,7 +5,11 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Chrome;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace Asura.App.Controls;
@@ -14,15 +18,14 @@ namespace Asura.App.Controls;
 public enum DialogPresentation
 {
     /// <summary>
-    /// A task the person finishes or cancels before going back: attached under
-    /// the owner's title bar like a sheet, not minimizable, not zoomable.
+    /// A task the person finishes or cancels before going back. Its opener
+    /// waits for the answer.
     /// </summary>
     Sheet,
 
     /// <summary>
     /// A tool consulted while working — a history browser, a statistics view.
-    /// It opens beside the owner without blocking it, can be minimized, and
-    /// closes with ⌘W or Escape.
+    /// Its opener does not wait for it, and it closes with ⌘W or Escape.
     /// </summary>
     Inspector,
 }
@@ -47,6 +50,10 @@ public enum DialogPresentation
 /// <item>On macOS the native title text is hidden: the dialog's own header is
 /// the title the person reads, and the window keeps its <c>Title</c> for the
 /// Window menu and VoiceOver.</item>
+/// <item>Over a window that is on screen, the dialog is a sheet inside it
+/// (<see cref="SheetHost"/>) rather than a window of its own, so it cannot
+/// fall behind the window it asks over. Its code does not change: it is
+/// still shown with <c>ShowDialog</c> and answers with <c>Close(result)</c>.</item>
 /// </list>
 ///
 /// The architecture tests hold every <c>*Dialog.axaml</c> to this base and to
@@ -56,6 +63,10 @@ public class DialogWindow : Window
 {
     public static readonly StyledProperty<DialogPresentation> PresentationProperty =
         AvaloniaProperty.Register<DialogWindow, DialogPresentation>(nameof(Presentation));
+
+    private SheetHost? _sheetHost;
+    private SheetCard? _sheetCard;
+    private object? _closeResult;
 
     static DialogWindow()
     {
@@ -83,6 +94,203 @@ public class DialogWindow : Window
 
     protected override Type StyleKeyOverride => typeof(Window);
 
+    /// <summary>Whether the dialog is showing as a sheet inside another window.</summary>
+    internal bool IsSheet => _sheetCard is not null;
+
+    /// <summary>
+    /// The dialog's content wherever it is showing: in its card while it is a
+    /// sheet, in its own window otherwise.
+    /// </summary>
+    internal Visual ContentRoot => _sheetCard ?? (Visual)this;
+
+    /// <summary>The window's file pickers: those of the window the sheet is in.</summary>
+    public new IStorageProvider StorageProvider =>
+        _sheetHost?.Window.StorageProvider ?? base.StorageProvider;
+
+    /// <summary>The clipboard, reached through the window the sheet is in.</summary>
+    public new IClipboard? Clipboard => _sheetHost?.Window.Clipboard ?? base.Clipboard;
+
+    /// <summary>
+    /// Shows the dialog as a sheet in <paramref name="owner"/> and answers with
+    /// what it closes with. An owner that is not on screen gets a window of
+    /// its own, as before.
+    /// </summary>
+    public new Task<TResult> ShowDialog<TResult>(Window owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return SheetWindowFor(owner) is { } window
+            ? ShowAsSheetAsync<TResult>(window)
+            : base.ShowDialog<TResult>(owner);
+    }
+
+    /// <inheritdoc cref="ShowDialog{TResult}(Window)"/>
+    public new Task ShowDialog(Window owner) => ShowDialog<object?>(owner);
+
+    /// <summary>
+    /// Shows an inspector without waiting for it, as a sheet in
+    /// <paramref name="owner"/> when it is on screen.
+    /// </summary>
+    public new void Show(Window owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (SheetWindowFor(owner) is { } window)
+        {
+            _ = ShowAsSheetAsync<object?>(window);
+            return;
+        }
+
+        base.Show(owner);
+    }
+
+    /// <summary>Brings the dialog forward: a sheet takes the keyboard.</summary>
+    public new void Activate()
+    {
+        if (IsSheet)
+        {
+            FocusSheet();
+            return;
+        }
+
+        base.Activate();
+    }
+
+    /// <summary>Closes the dialog with no answer.</summary>
+    public new void Close() => Close(null);
+
+    /// <summary>
+    /// Closes the dialog with <paramref name="dialogResult"/> as its answer. A
+    /// close its <c>Closing</c> refuses leaves it showing, as for a window.
+    /// </summary>
+    public new void Close(object? dialogResult)
+    {
+        _closeResult = dialogResult;
+        base.Close(dialogResult);
+    }
+
+    /// <summary>Cancels the sheet the way its Cancel button does.</summary>
+    internal void CancelSheet() => Cancel();
+
+    /// <summary>Gives the keyboard to the sheet: its focused field, or its first.</summary>
+    internal void FocusSheet()
+    {
+        if (_sheetCard is not { } card)
+        {
+            return;
+        }
+
+        if (TopLevel.GetTopLevel(card)?.FocusManager?.GetFocusedElement() is Visual focused
+            && card.IsVisualAncestorOf(focused))
+        {
+            return;
+        }
+
+        var first = card.GetVisualDescendants()
+            .OfType<InputElement>()
+            .FirstOrDefault(element => element is { Focusable: true, IsEffectivelyEnabled: true, IsEffectivelyVisible: true }
+                && KeyboardNavigation.GetIsTabStop(element));
+        _ = first?.Focus(NavigationMethod.Tab) ?? card.Focus();
+    }
+
+    /// <summary>
+    /// The window a dialog over <paramref name="owner"/> stands in: the owner
+    /// itself, or, for a dialog asked from a sheet, the window that sheet is
+    /// in. None when the owner is not on screen.
+    /// </summary>
+    private static Window? SheetWindowFor(Window owner) => owner switch
+    {
+        DialogWindow { _sheetHost: { } host } => host.Window,
+        { IsVisible: true } => owner,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Return presses the sheet's default button, and only the sheet's: the
+    /// window it stands in may mark a default button of its own, and that
+    /// one waits behind the sheet like everything else. A field that takes
+    /// Return for itself — a multi-line text box — has handled it already.
+    /// </summary>
+    private void OnSheetReturn(object? sender, KeyEventArgs e)
+    {
+        _ = sender;
+        if (e.Handled
+            || e.Key != Key.Enter
+            || e.KeyModifiers != KeyModifiers.None
+            || _sheetCard is not { } card)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        var button = card.GetVisualDescendants()
+            .OfType<Button>()
+            .FirstOrDefault(candidate => candidate.IsDefault && candidate.IsEffectivelyVisible);
+        if (button is { IsEffectivelyEnabled: true }
+            && ControlAutomationPeer.CreatePeerForElement(button) is IInvokeProvider invoke)
+        {
+            invoke.Invoke();
+        }
+    }
+
+    private async Task<TResult> ShowAsSheetAsync<TResult>(Window window)
+    {
+        if (Content is not Control content)
+        {
+            throw new InvalidOperationException("A dialog shown as a sheet needs a control as its content.");
+        }
+
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnClosed(object? sender, EventArgs e) => closed.TrySetResult();
+
+        _closeResult = null;
+        Content = null;
+        var host = SheetHost.For(window);
+        var card = host.Present(this, content);
+        var styles = Styles.ToArray();
+        foreach (var style in styles)
+        {
+            _ = Styles.Remove(style);
+            card.Styles.Add(style);
+        }
+
+        _sheetHost = host;
+        _sheetCard = card;
+        card.AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
+        card.AddHandler(KeyDownEvent, OnSheetReturn, RoutingStrategies.Bubble);
+        Closed += OnClosed;
+        try
+        {
+            // As a window opens once it is laid out, so does a sheet: its
+            // fields have their templates by then, and Opened can focus one.
+            await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Loaded);
+            if (!closed.Task.IsCompleted)
+            {
+                FocusSheet();
+                OnOpened(EventArgs.Empty);
+            }
+
+            await closed.Task;
+        }
+        finally
+        {
+            Closed -= OnClosed;
+            card.RemoveHandler(KeyDownEvent, OnDialogKeyDown);
+            card.RemoveHandler(KeyDownEvent, OnSheetReturn);
+            host.Dismiss(this);
+            foreach (var style in styles)
+            {
+                _ = card.Styles.Remove(style);
+                Styles.Add(style);
+            }
+
+            card.Child = null;
+            Content = content;
+            _sheetHost = null;
+            _sheetCard = null;
+        }
+
+        return _closeResult is TResult result ? result : default!;
+    }
+
     /// <summary>
     /// Whether this key is one of the cancel gestures: Escape everywhere, and
     /// ⌘. on macOS, where it is the standard cancel in every alert and sheet.
@@ -107,7 +315,7 @@ public class DialogWindow : Window
     /// </summary>
     protected virtual void Cancel()
     {
-        var cancel = this.GetVisualDescendants()
+        var cancel = ContentRoot.GetVisualDescendants()
             .OfType<Button>()
             .FirstOrDefault(button => button.IsCancel && button.IsEffectivelyVisible);
         if (cancel is null)
@@ -135,6 +343,11 @@ public class DialogWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        if (IsSheet)
+        {
+            return;
+        }
+
         MacOsDialogTitleBar.HideTitle(this);
         if (Presentation == DialogPresentation.Sheet && Owner is Window owner)
         {

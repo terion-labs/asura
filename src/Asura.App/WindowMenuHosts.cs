@@ -156,8 +156,9 @@ internal class AuxiliaryWindowMenuHost(
     public virtual bool CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
         // A modal dialog keeps the rest of the app waiting on its answer, so
-        // its menus dim whatever would act behind it.
-        if (Window.IsDialog)
+        // its menus dim whatever would act behind it — and a sheet in this
+        // window is such a dialog.
+        if (Window.IsDialog || SheetHost.IsPresenting(Window))
         {
             return ModalSafeApplicationCommands.Contains(command)
                 || FocusedCommandTargets.IsEditCommand(command)
@@ -221,7 +222,20 @@ internal class AuxiliaryWindowMenuHost(
     {
     }
 
-    protected virtual void CloseWindow() => Window.Close();
+    /// <summary>
+    /// ⌘W closes the window — or, while a sheet is up in it, cancels the
+    /// sheet, as Close does in any dialog.
+    /// </summary>
+    protected virtual void CloseWindow()
+    {
+        if (SheetHost.IsPresenting(Window))
+        {
+            SheetHost.For(Window).Front?.CancelSheet();
+            return;
+        }
+
+        Window.Close();
+    }
 
     /// <summary>
     /// The Git panel the Git menu acts on: the one holding focus, or a floated
