@@ -96,6 +96,16 @@ public static class BuiltInKeymaps
                 "ARROWRIGHT",
                 KeyModifiers.Meta | KeyModifiers.Alt,
                 CommandContext.Tab),
+            Direct(
+                BuiltInCommands.PreviousWorkspace,
+                "ARROWUP",
+                KeyModifiers.Meta | KeyModifiers.Alt,
+                CommandContext.Window),
+            Direct(
+                BuiltInCommands.NextWorkspace,
+                "ARROWDOWN",
+                KeyModifiers.Meta | KeyModifiers.Alt,
+                CommandContext.Window),
             Prefixed(BuiltInCommands.LastTab, "L", CommandContext.Tab),
             Prefixed(BuiltInCommands.EnterTerminalCopyMode, "[", CommandContext.Terminal),
             new(
@@ -128,8 +138,12 @@ public static class BuiltInKeymaps
     /// Direct Command shortcuts that agree with the menu bar. Commands the menu
     /// bar owns outright, such as New Window or the Command Palette, are not
     /// keymap commands; the ones here are the menu's keymap counterparts plus
-    /// panel navigation, which has no standard Mac shortcut and uses
-    /// Option-Command arrows.
+    /// the navigation people bring from other Mac apps. Option-Command-Left and
+    /// -Right and Control-Tab change tabs, as in Chrome, Firefox and VS Code;
+    /// Shift-Command-[ and -] come first, so the menu shows Apple's standard.
+    /// Option-Command-Up and -Down step through the open workspaces, and
+    /// Command-[ and -] through the tab's panels, as iTerm2 and Ghostty step
+    /// through their splits.
     /// </summary>
     private static KeymapProfile CreateMacOsApplication()
     {
@@ -149,6 +163,32 @@ public static class BuiltInKeymaps
                 KeyModifiers.Shift | KeyModifiers.Meta,
                 CommandContext.Tab),
             Direct(
+                BuiltInCommands.PreviousTab,
+                "ARROWLEFT",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Tab),
+            Direct(
+                BuiltInCommands.NextTab,
+                "ARROWRIGHT",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Tab),
+            Direct(
+                BuiltInCommands.PreviousTab,
+                "TAB",
+                KeyModifiers.Shift | KeyModifiers.Control,
+                CommandContext.Tab),
+            Direct(BuiltInCommands.NextTab, "TAB", KeyModifiers.Control, CommandContext.Tab),
+            Direct(
+                BuiltInCommands.PreviousWorkspace,
+                "ARROWUP",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Window),
+            Direct(
+                BuiltInCommands.NextWorkspace,
+                "ARROWDOWN",
+                KeyModifiers.Alt | KeyModifiers.Meta,
+                CommandContext.Window),
+            Direct(
                 BuiltInCommands.SplitPanel,
                 "D",
                 KeyModifiers.Meta,
@@ -162,28 +202,10 @@ public static class BuiltInKeymaps
                 ("orientation", "top-bottom")),
             Direct(
                 BuiltInCommands.FocusPanel,
-                "ARROWLEFT",
-                KeyModifiers.Alt | KeyModifiers.Meta,
+                "OEMOPENBRACKETS",
+                KeyModifiers.Meta,
                 CommandContext.Panel,
-                ("direction", "left")),
-            Direct(
-                BuiltInCommands.FocusPanel,
-                "ARROWRIGHT",
-                KeyModifiers.Alt | KeyModifiers.Meta,
-                CommandContext.Panel,
-                ("direction", "right")),
-            Direct(
-                BuiltInCommands.FocusPanel,
-                "ARROWUP",
-                KeyModifiers.Alt | KeyModifiers.Meta,
-                CommandContext.Panel,
-                ("direction", "up")),
-            Direct(
-                BuiltInCommands.FocusPanel,
-                "ARROWDOWN",
-                KeyModifiers.Alt | KeyModifiers.Meta,
-                CommandContext.Panel,
-                ("direction", "down")),
+                ("direction", "previous")),
             Direct(
                 BuiltInCommands.FocusPanel,
                 "OEMCLOSEBRACKETS",

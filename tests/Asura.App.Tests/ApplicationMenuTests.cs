@@ -541,8 +541,9 @@ public sealed class MenuShortcutResolverTests
 
     /// <summary>
     /// Built-in application keymaps made of direct shortcuts, rather than a
-    /// prefix, are the macOS defaults; their bindings for menu commands must be
-    /// the menu's own shortcuts.
+    /// prefix, are the macOS defaults; the stroke the menu shows for a menu
+    /// command, its first binding, must be the menu's own shortcut. Later
+    /// bindings are extra keys for it, such as Control-Tab for Show Next Tab.
     /// </summary>
     [Fact]
     public void Direct_shortcut_application_keymaps_agree_with_the_menu_shortcuts()
@@ -600,7 +601,12 @@ public sealed class MenuShortcutResolverTests
 
     private static void AssertKeymapAgreesWithMenu(KeymapProfile keymap)
     {
-        foreach (var binding in keymap.Bindings.Where(binding => binding.Sequence.Count == 1))
+        var shown = keymap.Bindings
+            .Where(binding => binding.Sequence.Count == 1)
+            .DistinctBy(binding => (
+                binding.CommandId,
+                string.Join(",", binding.Arguments.OrderBy(argument => argument.Key, StringComparer.Ordinal))));
+        foreach (var binding in shown)
         {
             if (MacOsMenuShortcuts.For(binding.CommandId, binding.Arguments) is { } standard)
             {

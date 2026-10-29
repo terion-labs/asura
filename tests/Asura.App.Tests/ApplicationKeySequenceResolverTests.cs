@@ -537,6 +537,23 @@ public sealed class ApplicationCommandRouterTests
     }
 
     [Fact]
+    public void MacNavigationBindingsRouteToTabsWorkspacesAndPanels()
+    {
+        var bindings = BuiltInKeymaps.MacOsApplication.Bindings;
+        ApplicationCommandAction Pressed(string key, CoreKeyModifiers modifiers) => Route(bindings.Single(binding =>
+            ShortcutText.AreEquivalent(binding.Sequence[0], new KeyStroke(key, modifiers))));
+
+        Assert.Equal(-1, Pressed("ARROWLEFT", CoreKeyModifiers.Alt | CoreKeyModifiers.Meta).TabOffset);
+        Assert.Equal(1, Pressed("ARROWRIGHT", CoreKeyModifiers.Alt | CoreKeyModifiers.Meta).TabOffset);
+        Assert.Equal(1, Pressed("TAB", CoreKeyModifiers.Control).TabOffset);
+        Assert.Equal(-1, Pressed("TAB", CoreKeyModifiers.Control | CoreKeyModifiers.Shift).TabOffset);
+        Assert.Equal(-1, Pressed("ARROWUP", CoreKeyModifiers.Alt | CoreKeyModifiers.Meta).WorkspaceOffset);
+        Assert.Equal(1, Pressed("ARROWDOWN", CoreKeyModifiers.Alt | CoreKeyModifiers.Meta).WorkspaceOffset);
+        Assert.Equal(PanelFocusDirection.Previous, Pressed("[", CoreKeyModifiers.Meta).FocusDirection);
+        Assert.Equal(PanelFocusDirection.Next, Pressed("]", CoreKeyModifiers.Meta).FocusDirection);
+    }
+
+    [Fact]
     public void RegistryRejectsMissingRequiredParameters()
     {
         var result = ApplicationCommandRouter.Route(

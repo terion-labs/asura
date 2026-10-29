@@ -319,6 +319,8 @@ public sealed class RuntimePanelLayoutPanelTests
         Assert.Same(lowerRight, tab.ActivePanel);
         Assert.True(tab.FocusPanel(PanelFocusDirection.Next));
         Assert.Same(left, tab.ActivePanel);
+        Assert.True(tab.FocusPanel(PanelFocusDirection.Previous));
+        Assert.Same(lowerRight, tab.ActivePanel);
     }
 
     [Fact]

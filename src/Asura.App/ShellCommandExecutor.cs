@@ -239,6 +239,13 @@ internal sealed class ShellCommandExecutor(
                 await presentation.SelectWorkspaceAsync(
                     action.WorkspacePosition!.Value);
                 return;
+            case ApplicationCommandActionKind.SelectRelativeWorkspace:
+                if (viewModel.RelativeOpenWorkspacePosition(action.WorkspaceOffset!.Value) is { } relative)
+                {
+                    await presentation.SelectWorkspaceAsync(relative);
+                }
+
+                return;
             case ApplicationCommandActionKind.EditWorkspace:
                 await presentation.EditFrontWorkspaceAsync();
                 return;

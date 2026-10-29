@@ -281,6 +281,25 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
     }
 
     [Fact]
+    public async Task Stepping_through_workspaces_visits_only_the_open_ones()
+    {
+        var (client, _) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+        int Position(WorkspaceId id) => viewModel.Workspaces.ToList().FindIndex(item => item.Id == id);
+
+        Assert.Null(viewModel.RelativeOpenWorkspacePosition(1));
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        Assert.Null(viewModel.RelativeOpenWorkspacePosition(1));
+
+        Assert.True(await viewModel.OpenWorkspaceAsync(SecondWorkspaceId));
+        Assert.Equal(Position(WorkspaceId), viewModel.RelativeOpenWorkspacePosition(1));
+        Assert.Equal(Position(WorkspaceId), viewModel.RelativeOpenWorkspacePosition(-1));
+        Assert.True(viewModel.AllowsCommand(
+            BuiltInCommands.NextWorkspace,
+            new Dictionary<string, string>(StringComparer.Ordinal)));
+    }
+
+    [Fact]
     public async Task Another_workspace_can_be_brought_forward_while_one_starts_and_back_again()
     {
         var snapshot = WithWorkspaceIsolation(CreateCatalogSnapshot(), WorkspaceId);
