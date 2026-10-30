@@ -26,6 +26,7 @@ public sealed partial class SettingsWindow : Window, IDialogPageHost
 
     private static SettingsWindowState? s_state;
 
+    private readonly List<SheetCard> _dialogPages = [];
     private MainWindow? _host;
     private MainWindowViewModel? _viewModel;
     private bool _closeApproved;
@@ -276,13 +277,33 @@ public sealed partial class SettingsWindow : Window, IDialogPageHost
             return false;
         }
 
+        _dialogPages.Add(card);
         view.ShowDetail(card, card.Dialog.Title ?? string.Empty, () => LeaveDialogPageAsync(card));
         return true;
     }
 
     void IDialogPageHost.RetitleDialogPage(SheetCard card, string title) => View?.RetitleDetail(card, title);
 
-    void IDialogPageHost.HideDialogPage(SheetCard card) => View?.HideDetail(card);
+    void IDialogPageHost.HideDialogPage(SheetCard card)
+    {
+        _ = _dialogPages.Remove(card);
+        View?.HideDetail(card);
+    }
+
+    /// <summary>Whether an editor dialog is open as a page.</summary>
+    internal bool HasDialogPage => _dialogPages.Count > 0;
+
+    /// <summary>
+    /// Puts away the editor open as a page, the way Back does: it may ask
+    /// about unsaved edits, and stays when the answer is to keep editing.
+    /// </summary>
+    internal async Task LeaveDialogPagesAsync()
+    {
+        foreach (var page in _dialogPages.ToArray())
+        {
+            await LeaveDialogPageAsync(page);
+        }
+    }
 
     /// <summary>
     /// Back from an editor is its Cancel, which may ask about unsaved edits.
@@ -333,6 +354,14 @@ public sealed partial class SettingsWindow : Window, IDialogPageHost
 
     private void Detach()
     {
+        // An editor open as a page belongs to the main window being let go:
+        // it ends with it rather than staying open with nowhere to show.
+        // The main window's close has put it away already when it could ask.
+        foreach (var page in _dialogPages.ToArray())
+        {
+            page.Dialog.Close();
+        }
+
         _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
         // The view belongs to its main window, which keeps it for the next
         // time; it must leave this window's tree before then.

@@ -87,6 +87,24 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
     });
 
     [Fact]
+    public Task Closing_the_main_window_ends_an_editor_open_as_a_page_in_its_Settings() => RunAsync(async (window, viewModel) =>
+    {
+        window.NavigateToSettings(SettingsPage.Connections);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        var dialog = new ConnectionEditorDialog(viewModel.CreateUnifiedConnectionEditor());
+        var answer = dialog.ShowDialog<UnifiedConnectionEditorResult?>(settings);
+        await UntilAsync(() => settings.HasDialogPage);
+        var closed = TrackClosed(window, settings, dialog);
+
+        window.Close();
+        _ = await UntilClosedAsync(window, closed, answer: _ => true);
+
+        Assert.All(closed, entry => Assert.True(entry.Value(), $"{entry.Key} is still open."));
+        Assert.Null(await answer);
+    });
+
+    [Fact]
     public Task A_page_asked_for_while_editing_asks_about_unsaved_edits_first() => RunAsync(async (window, viewModel) =>
     {
         await window.EditWorkspaceAsync(viewModel.Workspaces[0].Id);

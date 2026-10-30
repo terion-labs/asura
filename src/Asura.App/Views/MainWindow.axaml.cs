@@ -199,9 +199,9 @@ public sealed partial class MainWindow : Window
         if (!CloseCoordinator.IsWindowCloseApproved)
         {
             e.Cancel = true;
-            if (!CloseCoordinator.IsWindowCloseInProgress)
+            if (!CloseCoordinator.IsWindowCloseInProgress && !_leavingSettingsPagesForClose)
             {
-                _ = CloseCoordinator.RequestWindowCloseAsync();
+                _ = RequestWindowCloseAsync();
             }
         }
 
@@ -357,6 +357,37 @@ public sealed partial class MainWindow : Window
         _ = sender;
         _ = e;
         ViewModel.IsWindowFocused = false;
+    }
+
+    private bool _leavingSettingsPagesForClose;
+
+    /// <summary>
+    /// An editor dialog open as a page in this window's Settings is put away
+    /// first, asking about its edits as Back does; the window's own close
+    /// then asks about everything else.
+    /// </summary>
+    private async Task RequestWindowCloseAsync()
+    {
+        if (SettingsWindow.Current is { HasDialogPage: true } settings
+            && ReferenceEquals(settings.Host, this))
+        {
+            _leavingSettingsPagesForClose = true;
+            try
+            {
+                await settings.LeaveDialogPagesAsync();
+            }
+            finally
+            {
+                _leavingSettingsPagesForClose = false;
+            }
+
+            if (settings.HasDialogPage)
+            {
+                return;
+            }
+        }
+
+        await CloseCoordinator.RequestWindowCloseAsync();
     }
 
     protected override void OnClosed(EventArgs e)
