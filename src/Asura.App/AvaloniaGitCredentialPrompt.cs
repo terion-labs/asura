@@ -27,7 +27,7 @@ public sealed class AvaloniaGitCredentialPrompt : IGitCredentialPrompt
                 var dialog = new GitCredentialDialog(remote, canSave, rejected);
                 using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() =>
                 {
-                    if (dialog.IsVisible)
+                    if (dialog.IsShowing)
                     {
                         dialog.Close(null);
                     }

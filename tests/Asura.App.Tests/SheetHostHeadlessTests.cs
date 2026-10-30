@@ -1,4 +1,8 @@
 using Asura.App.Controls;
+using Asura.App.ViewModels;
+using Asura.App.Views;
+using Asura.Application;
+using Asura.Core;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
@@ -164,6 +168,100 @@ public sealed class SheetHostHeadlessTests
             owner.Close();
             Assert.Null(await answer);
             return true;
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_sheet_counts_as_showing_though_its_own_window_never_opens()
+    {
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var owner = Owner();
+            var dialog = new ProbeDialog();
+            Assert.False(dialog.IsShowing);
+            _ = dialog.ShowDialog<string?>(owner);
+            await Settle();
+
+            // A prompt cancelled from elsewhere closes what is showing; a
+            // sheet's window is never visible, so visibility alone missed it.
+            Assert.False(dialog.IsVisible);
+            Assert.True(dialog.IsShowing);
+            dialog.Close();
+            await Settle();
+            Assert.False(dialog.IsShowing);
+            return true;
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_read_only_permissions_sheet_keeps_its_rows_disabled()
+    {
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var owner = Owner();
+            var editor = new FileAccessControlEditorViewModel(
+                "deploy.sh",
+                "staging",
+                new FilePanelAccessControl(
+                    new FilePanelLocation(
+                        "files.remote",
+                        "staging",
+                        new FilePanelAddress.Hierarchical(
+                            FilePanelPath.Root.Append(new FilePanelPathSegment("deploy.sh")))),
+                    new FilePanelPosixMode(0b111_101_101)),
+                canEdit: false);
+            var dialog = new FileAccessControlDialog(editor);
+            _ = dialog.ShowDialog<FilePanelSetAccessControlRequest?>(owner);
+            await Settle();
+
+            // The rows read the editor through the dialog's frame, which a
+            // sheet keeps, rather than through its window, which it does not.
+            var card = Assert.Single(OverlayLayer.GetOverlayLayer(owner)!.GetVisualDescendants().OfType<SheetCard>());
+            var pickers = card.GetVisualDescendants().OfType<ComboBox>().ToArray();
+            Assert.NotEmpty(pickers);
+            Assert.All(pickers, picker => Assert.False(picker.IsEnabled));
+            dialog.Close();
+            return true;
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_main_windows_menus_wait_behind_a_sheet_and_Close_cancels_it()
+    {
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            using var viewModel = await MainWindowRuntimeGraphIntegrationTests.CreateViewModelWithOpenWorkspaceAsync();
+            var window = new MainWindow { DataContext = viewModel, Width = 1200, Height = 800 };
+            window.Show();
+            try
+            {
+                await Settle();
+                IApplicationMenuHost menus = window;
+                var none = new Dictionary<string, string>(StringComparer.Ordinal);
+                Assert.True(menus.CanExecute(BuiltInCommands.CloseTab, none));
+
+                var dialog = new ProbeDialog();
+                var answer = dialog.ShowDialog<string?>(window);
+                await Settle();
+                Assert.False(menus.CanExecute(BuiltInCommands.CloseTab, none));
+                Assert.False(menus.CanExecute(BuiltInCommands.NewTerminalTab, none));
+                Assert.True(menus.CanExecute(BuiltInCommands.CloseWindow, none));
+
+                // Close is the sheet's Cancel, not the window's close.
+                ((IShellCommandPresentation)window).CloseWindow();
+                Assert.Equal("cancel", await answer);
+                Assert.True(window.IsVisible);
+                await Settle();
+                Assert.True(menus.CanExecute(BuiltInCommands.CloseTab, none));
+                return true;
+            }
+            finally
+            {
+                await window.CloseForQuitAsync();
+            }
         }, CancellationToken.None));
     }
 

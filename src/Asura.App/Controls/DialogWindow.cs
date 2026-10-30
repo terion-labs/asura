@@ -98,6 +98,12 @@ public class DialogWindow : Window
     internal bool IsSheet => _sheetCard is not null;
 
     /// <summary>
+    /// Whether the dialog is up, as a sheet or as a window of its own. A sheet
+    /// never makes its window visible, so <c>IsVisible</c> alone misses it.
+    /// </summary>
+    internal bool IsShowing => IsSheet || IsVisible;
+
+    /// <summary>
     /// The dialog's content wherever it is showing: in its card while it is a
     /// sheet, in its own window otherwise.
     /// </summary>
