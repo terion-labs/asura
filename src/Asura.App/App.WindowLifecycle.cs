@@ -363,6 +363,10 @@ public sealed partial class App
         {
             ShowOrOpenMainWindow();
         }
+        else if (e is FileActivatedEventArgs files)
+        {
+            OpenDroppedFolders(files);
+        }
     }
 
     /// <summary>

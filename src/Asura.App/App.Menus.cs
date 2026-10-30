@@ -194,6 +194,10 @@ public sealed partial class App : IApplicationCommandService
                 await window.ExecuteCommandAsync(BuiltInCommands.NewTerminalTab);
             }
         }
+        else if (command == BuiltInCommands.InstallCommandLineTool)
+        {
+            await InstallCommandLineToolAsync();
+        }
         else if (command == BuiltInCommands.ShowHelp)
         {
             await OpenAddressAsync(origin, HelpAddress);
@@ -212,6 +216,35 @@ public sealed partial class App : IApplicationCommandService
     /// The frontmost main window, brought forward; a new one when every window
     /// has been closed and Asura kept running. None while Asura is quitting.
     /// </summary>
+    /// <summary>
+    /// Puts the <c>asura</c> command on the shell's path: given by the
+    /// desktop host, which may start the installer. Answers null when it is
+    /// in place, or why it is not.
+    /// </summary>
+    public Func<CancellationToken, Task<string?>>? InstallCommandLineTool { get; set; }
+
+    /// <summary>
+    /// Installs <c>asura</c> on the shell's path and says how it went over
+    /// the window in front.
+    /// </summary>
+    private async Task InstallCommandLineToolAsync()
+    {
+        var problem = InstallCommandLineTool is { } install
+            ? await install(CancellationToken.None)
+            : "The command line tool can be installed only from the Asura app on a Mac.";
+        if (ShowFrontMainWindow() is not { } window)
+        {
+            return;
+        }
+
+        var dialog = problem is null
+            ? Confirmations.Problem(
+                "Command Line Tool Installed",
+                "Run “asura open PATH” in a terminal to open a folder in Asura as a terminal there, or add “--as files” or “--as git”.")
+            : Confirmations.Problem("Couldn’t Install the Command Line Tool", problem);
+        _ = await dialog.ShowDialog<bool>(window);
+    }
+
     private MainWindow? ShowFrontMainWindow()
     {
         if (WindowForRequest() is not { } window)

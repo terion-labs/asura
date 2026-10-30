@@ -1,0 +1,52 @@
+<controls:DialogWindow
+    x:Class="Asura.App.Views.OpenFolderAsDialog"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:Asura.App.Views"
+    xmlns:controls="using:Asura.App.Controls"
+    Width="460"
+    SizeToContent="Height"
+    CanResize="False">
+  <!--
+    A folder dropped on the Dock icon: what it opens as. One list, the way
+    Add Tab asks, with the choice that cannot apply — Git outside a
+    repository — dimmed and saying why rather than left out.
+  -->
+  <controls:DialogShell
+      x:Name="Shell"
+      Chrome="Utility"
+      Title="Open Folder As"
+      Scrolls="False">
+    <controls:DialogShell.Footer>
+      <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceSm}">
+        <Button Classes="SecondaryButton" Click="OnCancelClick" Content="Cancel" IsCancel="True" />
+        <Button x:Name="OpenButton" Classes="PrimaryButton" Click="OnOpenClick" Content="Open" IsDefault="True" />
+      </StackPanel>
+    </controls:DialogShell.Footer>
+    <ListBox
+        x:Name="ViewList"
+        Classes="NeutralSelection"
+        Background="Transparent"
+        BorderThickness="0"
+        DoubleTapped="OnViewDoubleTapped"
+        AutomationProperties.Name="Open the folder as">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="views:OpenFolderViewRow">
+          <controls:ListItem
+              Margin="{controls:Inset Vertical=Xs}"
+              Title="{Binding Title}"
+              Detail="{Binding Detail}"
+              IsEnabled="{Binding IsAvailable}">
+            <controls:ListItem.Leading>
+              <controls:IdentityTile
+                  TileSize="Small"
+                  Tint="{DynamicResource ShellSurfaceHoverBrush}"
+                  Foreground="{DynamicResource ShellTextBrush}"
+                  Symbol="{Binding Symbol}" />
+            </controls:ListItem.Leading>
+          </controls:ListItem>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </controls:DialogShell>
+</controls:DialogWindow>

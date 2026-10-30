@@ -109,6 +109,29 @@ internal static class Program
             return;
         }
 
+        // asura open PATH [--as VIEW]: handed to the running instance, or
+        // opened by this one once it is up.
+        OpenFolderCommand.Invocation? openFolder = null;
+        if (OpenFolderCommand.IsInvocation(args))
+        {
+            try
+            {
+                openFolder = OpenFolderCommand.Parse(args, Environment.CurrentDirectory);
+            }
+            catch (ArgumentException error)
+            {
+                // The command's own answer to the person who typed it, not a
+                // diagnostic: standard error carries only the audited
+                // projections, and the exit status says it failed.
+                Console.Out.WriteLine("asura: " + error.Message);
+                Console.Out.WriteLine(OpenFolderCommand.Usage);
+                Environment.ExitCode = 64;
+                return;
+            }
+
+            args = [];
+        }
+
         DesktopProfileConfiguration profile;
         try
         {
@@ -142,7 +165,7 @@ internal static class Program
         // subprocesses preserve CEF's required first-dispatch ordering.
         var originalArguments = args;
         var profileAlreadyExists = Directory.Exists(profile.Data.DataDirectory);
-        var prepared = PrepareAsync(profile).GetAwaiter().GetResult();
+        var prepared = PrepareAsync(profile, openFolder).GetAwaiter().GetResult();
         // Why the person's own profile did not open, for the recovery notice.
         // A recovery workspace asked for by name has no such reason.
         var profileFailure = !profile.IsRecovery && prepared is StartupPreparation.Failed opening
@@ -155,7 +178,7 @@ internal static class Program
             args = DesktopProfileConfiguration.NextRecoveryArguments(args);
             profile = DesktopProfileConfiguration.FromCommandLine(args);
             profileAlreadyExists = Directory.Exists(profile.Data.DataDirectory);
-            prepared = PrepareAsync(profile).GetAwaiter().GetResult();
+            prepared = PrepareAsync(profile, openFolder: null).GetAwaiter().GetResult();
             if (prepared is StartupPreparation.Failed && !profileAlreadyExists)
             {
                 // If even a new workspace cannot open, another empty directory
@@ -190,7 +213,7 @@ internal static class Program
         {
             try
             {
-                instanceCoordinator.RegisterActivationHandler(RequestMainWindowActivation);
+                instanceCoordinator.RegisterActivationHandler(OnInstanceActivated);
                 var lifetime = new ClassicDesktopStyleApplicationLifetime
                 {
                     Args = args,
@@ -234,6 +257,11 @@ internal static class Program
                 BrowserEngineRuntime.Configure(BuildAvaloniaApp(services))
                     .SetupWithLifetime(lifetime);
                 services.GetRequiredService<AsuraApplication>().RequestDesktopShutdown = updateShutdown.Request;
+                services.GetRequiredService<AsuraApplication>().InstallCommandLineTool = CommandLineToolInstaller.InstallAsync;
+                if (openFolder is { } startupFolder)
+                {
+                    services.GetRequiredService<AsuraApplication>().RequestOpenFolder(startupFolder.Request);
+                }
                 nativeNotifications =
                     services.GetRequiredService<INativeNotificationService>();
                 nativeNotifications.Activated += OnNativeNotificationActivated;
@@ -425,7 +453,7 @@ internal static class Program
     /// threads it needs. Null means an existing instance was activated. Errors
     /// are returned to Main for presentation on the process's original thread.
     /// </summary>
-    private static async Task<StartupPreparation?> PrepareAsync(DesktopProfileConfiguration profile)
+    private static async Task<StartupPreparation?> PrepareAsync(DesktopProfileConfiguration profile, OpenFolderCommand.Invocation? openFolder)
     {
         ConfigureDockDiagnostics();
 
@@ -433,7 +461,9 @@ internal static class Program
         try
         {
             instanceStart = await SingleInstanceCoordinator.StartAsync(
-                DesktopStorageMigration.CoordinationDirectory(profile), CancellationToken.None);
+                DesktopStorageMigration.CoordinationDirectory(profile),
+                openFolder?.Request.Encode(),
+                CancellationToken.None);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
@@ -454,6 +484,21 @@ internal static class Program
 
         var instanceCoordinator =
             ((SingleInstanceStartResult.Primary)instanceStart).Coordinator;
+        if (openFolder is { WasLaunched: false } fromShell
+            && OpenFolderCommand.ApplicationBundle() is { } bundle)
+        {
+            // No Asura is running. A shell's command starts it through the
+            // system's launcher, as the Dock would, and ends here; the app
+            // it starts opens the folder.
+            await instanceCoordinator.DisposeAsync();
+            if (await OpenFolderCommand.TryLaunchApplicationAsync(bundle, fromShell.Request))
+            {
+                return null;
+            }
+
+            return new StartupPreparation.Failed("Asura could not be started to open the folder.");
+        }
+
         ServiceProvider? services = null;
         try
         {
@@ -674,6 +719,22 @@ internal static class Program
     /// A second launch or a notification brings Asura forward. With every
     /// window closed and Asura still running, as on a Mac, that opens one.
     /// </summary>
+    /// <summary>
+    /// A second launch reached this instance: it opens the folder it carried,
+    /// or just brings a window forward.
+    /// </summary>
+    private static void OnInstanceActivated(string? request)
+    {
+        if (OpenFolderRequest.Decode(request) is { } folder)
+        {
+            Dispatcher.UIThread.Post(() =>
+                (Avalonia.Application.Current as AsuraApplication)?.RequestOpenFolder(folder));
+            return;
+        }
+
+        RequestMainWindowActivation();
+    }
+
     private static void RequestMainWindowActivation()
     {
         Dispatcher.UIThread.Post(() =>

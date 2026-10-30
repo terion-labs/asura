@@ -74,6 +74,8 @@ internal static class ApplicationMenuLayout
         MenuSeparatorNode.Instance,
         Item("Settings…", BuiltInCommands.ShowSettings),
         Item("Check for Updates…", BuiltInCommands.CheckForUpdates),
+        MenuSeparatorNode.Instance,
+        Item("Install Command Line Tool…", BuiltInCommands.InstallCommandLineTool),
     ];
 
     public static ImmutableArray<MenuSubmenuNode> MenuBar { get; } =

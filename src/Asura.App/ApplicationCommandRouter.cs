@@ -144,6 +144,7 @@ internal static class ApplicationCommandRouter
         BuiltInCommands.NewWindow,
         BuiltInCommands.ShowSettings,
         BuiltInCommands.CheckForUpdates,
+        BuiltInCommands.InstallCommandLineTool,
         BuiltInCommands.ToggleQuickTerminal,
         BuiltInCommands.ShowHelp,
         BuiltInCommands.ShowKeyboardShortcuts,

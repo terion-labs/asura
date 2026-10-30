@@ -32,8 +32,13 @@ public sealed class ApplicationMenuLayoutTests
         Assert.IsType<MenuSeparatorNode>(items[1]);
         Assert.Equal(
             ["Settings…", "Check for Updates…"],
-            items.Skip(2).Cast<MenuCommandNode>().Select(item => item.Title),
+            items.Skip(2).Take(2).Cast<MenuCommandNode>().Select(item => item.Title),
             StringComparer.Ordinal);
+
+        // The command line tool stands apart: it changes the system, not Asura.
+        Assert.IsType<MenuSeparatorNode>(items[4]);
+        var install = Assert.IsType<MenuCommandNode>(Assert.Single(items.Skip(5)));
+        Assert.Equal(BuiltInCommands.InstallCommandLineTool, install.Command);
     }
 
     [Fact]
