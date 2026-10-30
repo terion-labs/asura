@@ -648,7 +648,7 @@ screenshots. Session names are `ubuntu`, `plasma` and `xfce`.
 |---|---|---|---|---|---|
 | GNOME 50, Wayland (XWayland) | yes, no diagnostics | Mutter server-side title bar above the tab strip | yes | follows the portal: switching GNOME to blue recoloured tabs, buttons and badges within seconds | GNOME Keyring, works |
 | Plasma 6.6, Wayland (XWayland) | yes | Breeze server-side title bar | yes, `plasma-apply-colorscheme BreezeDark` | follows the portal (Breeze blue) | GNOME Keyring on the bus, works |
-| XFCE 4.20, X11 | yes | xfwm4 title bar | not tested (no portal scheme) | **wrong**: the portal has no `accent-color`, yet the shell shows Avalonia's default blue instead of the bronze fallback. With no bus at all (Xvfb) the fallback applied. Phase 2 must treat Avalonia's default accent as "no accent" | works |
+| XFCE 4.20, X11 | yes | xfwm4 title bar | not tested (no portal scheme) | was wrong: the portal has no `accent-color`, yet Avalonia reported its default blue as the host's. Fixed the same day: `LinuxSystemPaletteSource` in `Asura.Desktop` reads the portal's accent itself and reports it absent when the key or the portal is missing, and the adapter treats that like macOS Multicolor, so the bronze fallback applies. Verified on XFCE (bronze) and GNOME (still follows blue) | works |
 
 Other notes: GNOME 50 ships no X11 session any more, so GNOME is XWayland
 only. The virtual display is 3296x2064 at 96 DPI, so every desktop and Asura

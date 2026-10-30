@@ -925,6 +925,42 @@ public sealed class AvaloniaHostAppearanceAdapterTests
                 HostSystemPalette.None));
     }
 
+    /// <summary>
+    /// A Linux desktop whose portal has no accent key still makes Avalonia
+    /// report its default blue; the palette source's "absent" answer wins.
+    /// </summary>
+    [Fact]
+    public void An_absent_host_accent_falls_back_to_the_brand_accent()
+    {
+        var reported = AvaloniaHostAppearanceAdapter.EffectiveHostAccent(
+            Color.Parse("#0078D7"),
+            HostSystemPalette.None with { AccentIsAbsent = true });
+        var host = AvaloniaHostAppearanceAdapter.Map(
+            PlatformThemeVariant.Light,
+            ColorContrastPreference.NoPreference,
+            reported,
+            new HostPlatformCapabilities(
+                HostOperatingSystem.Linux,
+                LinuxDesktopEnvironment.Unknown,
+                SupportsAdvancedMaterials: false,
+                SupportsLiquidGlass: false));
+        var effective = ThemePreference.Default.Resolve(host);
+
+        Assert.Null(host.Accent);
+        Assert.Equal(ThemePreference.BrandAccent, effective.Accent);
+        Assert.Equal(AccentSource.AsuraFallback, effective.AccentSource);
+    }
+
+    [Fact]
+    public void A_host_accent_read_by_the_palette_source_outranks_the_reported_one()
+    {
+        Assert.Equal(
+            Color.Parse("#3DAEE9"),
+            AvaloniaHostAppearanceAdapter.EffectiveHostAccent(
+                Color.Parse("#0078D7"),
+                HostSystemPalette.None with { Accent = Color.Parse("#3DAEE9") }));
+    }
+
     [Fact]
     public void Differentiate_without_color_reaches_the_published_resources()
     {

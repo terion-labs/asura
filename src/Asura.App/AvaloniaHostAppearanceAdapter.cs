@@ -67,10 +67,14 @@ internal sealed class AvaloniaHostAppearanceAdapter
     /// The accent the host is really offering. Multicolor is the one macOS
     /// accent with no colour of its own, and Avalonia reports it as blue;
     /// answering "no accent" is what lets the brand accent stand in, which is
-    /// what the system asks an app to do.
+    /// what the system asks an app to do. A Linux desktop whose settings
+    /// portal has no accent at all gets the same answer: Avalonia fills that
+    /// gap with its own default blue, which is nobody's choice.
     /// </summary>
     internal static Color EffectiveHostAccent(Color reported, HostSystemPalette palette) =>
-        palette.AccentIsMulticolor ? Colors.Transparent : reported;
+        palette.AccentIsMulticolor || palette.AccentIsAbsent
+            ? Colors.Transparent
+            : palette.Accent ?? reported;
 
     internal static HostAppearance Map(
         PlatformThemeVariant themeVariant,
@@ -118,7 +122,7 @@ internal sealed class AvaloniaHostAppearanceAdapter
 /// them. Label and separator colours keep their alpha, because that is how the
 /// platform defines them; the mapper composites them over the window.
 /// </summary>
-internal sealed record HostSemanticColors(
+public sealed record HostSemanticColors(
     Color WindowBackground,
     Color Label,
     Color SecondaryLabel,
@@ -130,19 +134,33 @@ internal sealed record HostSemanticColors(
 /// <summary>
 /// What the host says about colour beyond Avalonia's single accent value.
 /// </summary>
-internal sealed record HostSystemPalette(
+/// <param name="Accent">
+/// The accent as the host itself reports it, when the source read it
+/// directly rather than trusting Avalonia's reading; null leaves Avalonia's
+/// value in charge.
+/// </param>
+/// <param name="AccentIsAbsent">
+/// The host positively offers no accent: its settings portal has no such key,
+/// or there is no portal to ask. The brand accent stands in.
+/// </param>
+public sealed record HostSystemPalette(
     HostSemanticColors? Light,
     HostSemanticColors? Dark,
-    bool AccentIsMulticolor)
+    bool AccentIsMulticolor,
+    Color? Accent = null,
+    bool AccentIsAbsent = false)
 {
     public static HostSystemPalette None { get; } = new(null, null, AccentIsMulticolor: false);
 
-    public HostSemanticColors? For(EffectiveAppearanceMode appearance) =>
+    internal HostSemanticColors? For(EffectiveAppearanceMode appearance) =>
         appearance == EffectiveAppearanceMode.Light ? Light : Dark;
 }
 
-/// <summary>A live source of <see cref="HostSystemPalette"/>. Only macOS has one.</summary>
-internal interface IHostSystemPaletteSource
+/// <summary>
+/// A live source of <see cref="HostSystemPalette"/>: AppKit on macOS, the
+/// settings portal on Linux.
+/// </summary>
+public interface IHostSystemPaletteSource
 {
     HostSystemPalette Current { get; }
 

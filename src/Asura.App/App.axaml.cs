@@ -34,6 +34,7 @@ public sealed partial class App : Avalonia.Application
     private readonly LocalArtifactControlViewModel? _localArtifactControlViewModel;
     private readonly QuickTerminalController? _quickTerminalController;
     private readonly IHostAccessibilityPreferencesSource? _hostAccessibilityPreferences;
+    private readonly IHostSystemPaletteSource? _providedHostSystemPalette;
     private readonly IScreenColorSampler? _screenColorSampler;
     private readonly AppearancePreviewCoordinator? _appearancePreview;
     private IPlatformSettings? _platformSettings;
@@ -169,7 +170,8 @@ public sealed partial class App : Avalonia.Application
         IScreenColorSampler screenColorSampler,
         AppearancePreviewCoordinator? appearancePreview = null,
         IWindowPlacementStore? windowPlacements = null,
-        ISettingsWindowStateStore? settingsWindowState = null)
+        ISettingsWindowStateStore? settingsWindowState = null,
+        IHostSystemPaletteSource? hostSystemPalette = null)
     {
         ArgumentNullException.ThrowIfNull(mainWindowViewModel);
         ArgumentNullException.ThrowIfNull(mainWindowViewModelFactory);
@@ -200,6 +202,7 @@ public sealed partial class App : Avalonia.Application
         _localArtifactControlViewModel = localArtifactControlViewModel;
         _quickTerminalController = quickTerminalController;
         _hostAccessibilityPreferences = hostAccessibilityPreferences;
+        _providedHostSystemPalette = hostSystemPalette;
         _screenColorSampler = screenColorSampler;
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
         _windowPlacements = windowPlacements;
@@ -376,13 +379,15 @@ public sealed partial class App : Avalonia.Application
         var hostAccessibilityPreferences = _hostAccessibilityPreferences
             ?? throw new InvalidOperationException(
                 "The desktop composition root did not provide host accessibility preferences.");
-        // AppKit's semantic colours and the Multicolor accent are read on macOS
-        // only; elsewhere the mapper's literal palette is the answer. The Dock
-        // icon is not touched at runtime: Assets.car carries every appearance
-        // the system can ask for, including Clear and Tinted.
+        // AppKit's semantic colours and the Multicolor accent are read on macOS;
+        // on Linux the composition root hands in the portal's accent, so a
+        // desktop with none gets the brand accent rather than Avalonia's
+        // default blue. Elsewhere the mapper's literal palette is the answer.
+        // The Dock icon is not touched at runtime: Assets.car carries every
+        // appearance the system can ask for, including Clear and Tinted.
         _hostSystemPalette = OperatingSystem.IsMacOS()
             ? new MacOsSystemPaletteSource()
-            : null;
+            : _providedHostSystemPalette;
         _hostAppearance = new AvaloniaHostAppearanceAdapter(
             _platformSettings,
             hostAccessibilityPreferences,
