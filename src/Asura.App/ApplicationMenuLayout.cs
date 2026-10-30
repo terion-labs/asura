@@ -204,6 +204,10 @@ internal static class ApplicationMenuLayout
                 MenuSeparatorNode.Instance,
                 Item("Delete…", BuiltInCommands.KubernetesDelete),
             ]),
+            new MenuSubmenuNode("Browser",
+            [
+                Item("Reload Page", BuiltInCommands.BrowserReload),
+            ]),
             new MenuSubmenuNode("Files",
             [
                 Item("Open", BuiltInCommands.FilesOpen),

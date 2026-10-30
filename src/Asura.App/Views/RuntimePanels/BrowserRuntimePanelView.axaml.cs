@@ -309,6 +309,15 @@ public sealed partial class BrowserRuntimePanelView : UserControl
             OpenFind();
             e.Handled = true;
         }
+        else if (!OperatingSystem.IsMacOS()
+            && ((e.Key == Key.R && e.KeyModifiers == KeyModifiers.Control)
+                || (e.Key == Key.F5 && e.KeyModifiers == KeyModifiers.None)))
+        {
+            // On macOS the menu bar's Reload Page takes Command-R; elsewhere
+            // the panel answers a browser's own keys.
+            OnReloadClick(this, new RoutedEventArgs());
+            e.Handled = true;
+        }
         else if (e.Key == Key.Escape
             && RuntimeBrowser.IsFindVisible
             && !SearchField.ClaimsEscape(e))

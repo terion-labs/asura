@@ -19,7 +19,7 @@ public sealed class PanelMenuBarTests
 {
     private static readonly ImmutableDictionary<string, string> NoArguments = [];
 
-    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Files", "Database", "Processes", "Redis"];
+    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Browser", "Files", "Database", "Processes", "Redis"];
 
     [Fact]
     public void The_panel_menu_ends_with_one_submenu_per_panel_kind()

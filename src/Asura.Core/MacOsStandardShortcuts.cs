@@ -131,6 +131,7 @@ public static class MacOsStandardShortcuts
             Reserved("ENTER", Command, "Open Cell Editor… in a Database panel", BuiltInCommands.DatabaseOpenCellEditor),
             Reserved("C", ShiftCommand, "Copy Cell Value in a Database panel", BuiltInCommands.DatabaseCopyCell),
             Reserved("R", OptionCommand, "Refresh in a Database panel", BuiltInCommands.DatabaseRefresh),
+            Reserved("R", Command, "Reload Page in a Browser panel", BuiltInCommands.BrowserReload),
             Reserved("N", OptionCommand, "Add Row in a Database panel", BuiltInCommands.DatabaseAddRow),
             Reserved("OEMOPENBRACKETS", ShiftCommand, "Show Previous Tab", BuiltInCommands.PreviousTab),
             Reserved("OEMCLOSEBRACKETS", ShiftCommand, "Show Next Tab", BuiltInCommands.NextTab),

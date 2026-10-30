@@ -105,6 +105,8 @@ public static class MacOsMenuShortcuts
         Add(BuiltInCommands.DatabaseOpenCellEditor, "ENTER", Command);
         Add(BuiltInCommands.DatabaseCopyCell, "C", Command | KeyModifiers.Shift);
         Add(BuiltInCommands.DatabaseRefresh, "R", Command | KeyModifiers.Alt);
+        // A browser's own key, as in Safari: Command-R reloads the page.
+        Add(BuiltInCommands.BrowserReload, "R", Command);
         Add(BuiltInCommands.DatabaseAddRow, "N", Command | KeyModifiers.Alt);
 
         Add(BuiltInCommands.MinimizeWindow, "M", Command);

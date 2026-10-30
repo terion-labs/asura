@@ -199,6 +199,8 @@ public static class BuiltInCommands
     public static CommandId FilesRefresh { get; } = new("files.refresh");
     public static CommandId FilesDelete { get; } = new("files.delete");
 
+    public static CommandId BrowserReload { get; } = new("browser.reload");
+
     public static CommandId DatabaseReconnect { get; } = new("database.reconnect");
     public static CommandId DatabaseToggleConnection { get; } = new("database.toggle-connection");
     public static CommandId DatabaseOpenObjectInTab { get; } = new("database.open-object-in-tab");
@@ -264,6 +266,7 @@ public static class BuiltInCommands
         FilesOpen, FilesOpenExternally, FilesDownload, FilesUpload, FilesTransfer,
         FilesNewFolder, FilesRename, FilesCopyName, FilesCopyPath, FilesPermissions,
         FilesRefresh, FilesDelete,
+        BrowserReload,
         DatabaseReconnect, DatabaseToggleConnection,
         DatabaseOpenObjectInTab, DatabaseOpenObjectInPanel, DatabaseOpenStructure,
         DatabaseCopyObjectName,
@@ -730,6 +733,7 @@ public static class BuiltInCommands
             DefinePanelCommand(FilesCopyPath, "Copy Path", "Files"),
             DefinePanelCommand(FilesPermissions, "Permissions…", "Files"),
             DefinePanelCommand(FilesRefresh, "Refresh", "Files"),
+            DefinePanelCommand(BrowserReload, "Reload Page", "Browser"),
 
             // A local folder moves to the Trash at once; a connection without
             // a Trash deletes for good and asks first.
