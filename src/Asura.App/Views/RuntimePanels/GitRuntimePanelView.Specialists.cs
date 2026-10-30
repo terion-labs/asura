@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.Git;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,7 +15,7 @@ public sealed partial class GitRuntimePanelView
     /// the panel leaves the window, changes view model, or opens another
     /// repository, so none acts on a repository the panel no longer shows.
     /// </summary>
-    private readonly Dictionary<string, Window> _inspectors = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, DialogWindow> _inspectors = new(StringComparer.Ordinal);
     private string? _inspectedRepositoryRoot;
 
     private const string StatisticsInspector = "statistics";
@@ -30,7 +31,7 @@ public sealed partial class GitRuntimePanelView
         return true;
     }
 
-    private void ShowInspector(string key, Window owner, Func<Window?> create)
+    private void ShowInspector(string key, Window owner, Func<DialogWindow?> create)
     {
         if (TryActivateInspector(key))
         {

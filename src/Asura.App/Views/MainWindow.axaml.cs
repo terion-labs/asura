@@ -981,12 +981,14 @@ public sealed partial class MainWindow : Window
         await ShowConnectionEditorAsync(null);
     }
 
+    private SavedConnectionsDialog? _savedConnections;
+
     private void OnManageConnectionsClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        // One window, kept beside this one rather than blocking it.
-        if (OwnedWindows.OfType<SavedConnectionsDialog>().FirstOrDefault() is { } open)
+        // One at a time: asked for again, the open one comes forward.
+        if (_savedConnections is { } open)
         {
             open.Activate();
             return;
@@ -995,6 +997,8 @@ public sealed partial class MainWindow : Window
         var dialog = new SavedConnectionsDialog { DataContext = ViewModel.Launcher };
         dialog.EditRequested += async (_, connection) => await ShowConnectionEditorAsync(connection, dialog);
         dialog.AddRequested += async (_, _) => await ShowConnectionEditorAsync(null, dialog);
+        dialog.Closed += (_, _) => _savedConnections = null;
+        _savedConnections = dialog;
         dialog.Show(this);
     }
 
@@ -1904,6 +1908,13 @@ public sealed partial class MainWindow : Window
         // replay a buffered prefix before the terminal can handle Cmd+C.
         if (ApplicationKeyStrokeMapper.IsModifierOnly(e.Key, e.PhysicalKey))
         {
+            return;
+        }
+
+        if (SheetHost.IsPresenting(this))
+        {
+            // A sheet is up: its keys are its own, and nothing acts behind
+            // it, as nothing did behind a modal window.
             return;
         }
 

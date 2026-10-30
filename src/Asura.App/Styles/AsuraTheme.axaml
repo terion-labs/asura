@@ -28,6 +28,19 @@
     <Setter Property="FontFamily" Value="{DynamicResource ShellUiFontFamily}" />
   </Style>
 
+  <!-- A dialog shown inside its window (SheetHost): the window washes back
+       and the dialog stands on it as a card with the window's own surface. -->
+  <Style Selector="Border.SheetScrim">
+    <Setter Property="Background" Value="{DynamicResource ShellScrimBrush}" />
+  </Style>
+  <Style Selector="Border.Sheet">
+    <Setter Property="Background" Value="{DynamicResource ShellBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ShellBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellSheetCornerRadius}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ShellOverlayShadow}" />
+  </Style>
+
   <!--
     Text takes its colour from what it sits in. A blanket TextBlock rule used to
     paint every text block the body colour, which outranked the foreground a

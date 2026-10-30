@@ -1,3 +1,4 @@
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
@@ -123,7 +124,8 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
         while (DateTime.UtcNow < deadline && !closed.Values.All(isClosed => isClosed()))
         {
             Dispatcher.UIThread.RunJobs();
-            foreach (var dialog in window.OwnedWindows.OfType<ConfirmationDialog>().Where(answered.Add).ToArray())
+            // Each alert is a sheet in the window it asks about.
+            if (SheetHost.For(window).Front is ConfirmationDialog dialog && answered.Add(dialog))
             {
                 headings.Add(dialog.Heading);
                 var button = dialog.FindControl<Button>(answer(dialog) ? "ConfirmButton" : "CancelButton")!;

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.App.Views.Components;
@@ -61,6 +62,7 @@ public sealed class ConnectionManagementHeadlessTests
                 // The credential is written in place, under its field; no
                 // second window opens over the editor.
                 Assert.Empty(dialog.OwnedWindows);
+                Assert.False(SheetHost.IsPresenting(dialog));
                 var draftView = Assert.Single(
                     dialog.GetVisualDescendants().OfType<ConnectionCredentialDraftView>(),
                     candidate => candidate.IsEffectivelyVisible);

@@ -350,6 +350,23 @@ internal sealed class QaApplication : Avalonia.Application
         new("settings-files", vm => vm.ShowSettings(SettingsPage.Files)),
         new("settings-browser", vm => vm.ShowSettings(SettingsPage.Browser)),
         new("settings-agent", vm => vm.ShowSettings(SettingsPage.Agent)),
+        // A dialog over a window is a sheet inside it: the window washes
+        // back and the dialog stands on it. A large editor gives way to the
+        // window; a small dialog keeps its own size.
+        new(
+            "settings-sheet-ai-provider",
+            vm => vm.ShowSettings(SettingsPage.Agent),
+            PrepareCapture: static _ => OpenSheet(
+                new AiProviderProfileEditorDialog(new AiProviderProfileEditorViewModel(new QaAiProfileRuntime(), [])),
+                SettingsWindow.Current!)),
+        new(
+            "settings-sheet-shortcut-recorder",
+            vm => vm.ShowSettings(SettingsPage.Keybindings),
+            PrepareCapture: static _ => OpenSheet(new ShortcutRecorderDialog(), SettingsWindow.Current!)),
+        new(
+            "main-sheet-confirmation",
+            vm => vm.ShowWorkspace(),
+            PrepareCapture: static window => OpenSheet(Confirmations.DiscardChanges(), window)),
         new(
             "settings-mcp",
             vm => vm.ShowSettings(SettingsPage.Mcp),
@@ -1237,6 +1254,12 @@ internal sealed class QaApplication : Avalonia.Application
         _ = settings.BeginEditProfileAsync(proxy, CancellationToken.None).AsTask();
         return new NetworkConnectionEditorDialog(settings);
     }
+
+    /// <summary>
+    /// Shows <paramref name="dialog"/> as the product does, over
+    /// <paramref name="owner"/>, and leaves it up for the capture.
+    /// </summary>
+    private static void OpenSheet(DialogWindow dialog, Window owner) => _ = dialog.ShowDialog(owner);
 
     private static Window OpenAddTabDialog(MainWindowViewModel viewModel)
     {
