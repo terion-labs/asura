@@ -176,6 +176,12 @@ public class DialogWindow : Window
     /// <summary>Cancels the sheet the way its Cancel button does.</summary>
     internal void CancelSheet() => Cancel();
 
+    /// <summary>
+    /// Cancels the dialog the way its Cancel button does, finishing once it
+    /// has decided: closed, or kept open by the answer to a question it asked.
+    /// </summary>
+    internal Task CancelAndDecideAsync() => CancelAsync();
+
     /// <summary>Gives the keyboard to the sheet: its focused field, or its first.</summary>
     internal void FocusSheet()
     {
@@ -376,6 +382,17 @@ public class DialogWindow : Window
         {
             invoke.Invoke();
         }
+    }
+
+    /// <summary>
+    /// <see cref="Cancel"/>, for a caller that goes on once the dialog has
+    /// decided. A dialog whose Cancel asks a question first — whether to
+    /// discard its edits — overrides this to finish with the answer.
+    /// </summary>
+    protected virtual Task CancelAsync()
+    {
+        Cancel();
+        return Task.CompletedTask;
     }
 
     /// <summary>

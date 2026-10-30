@@ -121,6 +121,36 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
         Assert.Equal(SettingsPage.Workspaces, viewModel.SettingsPage);
     });
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task A_page_asked_for_over_an_editor_that_asks_first_goes_on_with_the_answer(bool discard) => RunAsync(async (window, viewModel) =>
+    {
+        window.NavigateToSettings(SettingsPage.Workspaces);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        // A screen not yet saved: its Cancel asks before it lets the draft go.
+        var dialog = new SavedScreenEditorDialog(
+            viewModel.CreateNewSavedScreenEditor("Draft"),
+            viewModel.SaveSavedScreenAsync);
+        var answer = dialog.ShowDialog<bool>(settings);
+        await UntilAsync(() => settings.HasDialogPage);
+
+        var request = window.RequestSettingsPageAsync(SettingsPage.Terminal);
+        var question = await UntilAsync(() => SheetHost.For(settings).Front as ConfirmationDialog);
+        Assert.False(request.IsCompleted);
+        question.FindControl<Button>(discard ? "ConfirmButton" : "CancelButton")!
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        Assert.Equal(discard, await request);
+        Assert.Equal(discard ? SettingsPage.Terminal : SettingsPage.Workspaces, viewModel.SettingsPage);
+        Assert.Equal(!discard, settings.HasDialogPage);
+        if (discard)
+        {
+            Assert.False(await answer);
+        }
+    });
+
     [Fact]
     public Task One_close_takes_the_main_window_and_Settings_with_a_clean_editor() => RunAsync(async (window, viewModel) =>
     {

@@ -306,13 +306,13 @@ public sealed partial class SettingsWindow : Window, IDialogPageHost
     }
 
     /// <summary>
-    /// Back from an editor is its Cancel, which may ask about unsaved edits.
-    /// Unasked, the editor closes at once and the page is back once the
-    /// dispatcher has run its close.
+    /// Back from an editor is its Cancel, which may ask about unsaved edits;
+    /// this finishes with the answer, and the page is back once the
+    /// dispatcher has run the editor's close.
     /// </summary>
     private static async Task LeaveDialogPageAsync(SheetCard card)
     {
-        card.Dialog.CancelSheet();
+        await card.Dialog.CancelAndDecideAsync();
         await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
     }
 
