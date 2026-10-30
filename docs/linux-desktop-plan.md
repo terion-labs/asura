@@ -634,6 +634,28 @@ Notes for the VM tiers:
 - Nested virtualization is not needed by anything in this plan; the
   namespace isolation provider runs inside any of these guests.
 
+### Observations from the desktop VM, 2026-10-30
+
+One Ubuntu 26.04 Lima VM (`--vm-type vz --video`) with GNOME 50, KDE Plasma
+6.6 and XFCE 4.20 installed side by side, GDM autologin, and the linux-arm64
+package under `/opt/asura`. `scripts/acceptance/linux-desktop-vm-provision.sh`
+sets the guest up and `scripts/acceptance/linux-desktop-vm-test.sh <user>
+<session> <out>` switches the autologin session, launches Asura, probes the
+portal and the Secret Service, and captures light, dark and blue-accent
+screenshots. Session names are `ubuntu`, `plasma` and `xfce`.
+
+| Desktop | Starts | Chrome | Scheme follows live | Accent | Secret Service |
+|---|---|---|---|---|---|
+| GNOME 50, Wayland (XWayland) | yes, no diagnostics | Mutter server-side title bar above the tab strip | yes | follows the portal: switching GNOME to blue recoloured tabs, buttons and badges within seconds | GNOME Keyring, works |
+| Plasma 6.6, Wayland (XWayland) | yes | Breeze server-side title bar | yes, `plasma-apply-colorscheme BreezeDark` | follows the portal (Breeze blue) | GNOME Keyring on the bus, works |
+| XFCE 4.20, X11 | yes | xfwm4 title bar | not tested (no portal scheme) | **wrong**: the portal has no `accent-color`, yet the shell shows Avalonia's default blue instead of the bronze fallback. With no bus at all (Xvfb) the fallback applied. Phase 2 must treat Avalonia's default accent as "no accent" | works |
+
+Other notes: GNOME 50 ships no X11 session any more, so GNOME is XWayland
+only. The virtual display is 3296x2064 at 96 DPI, so every desktop and Asura
+rendered at 1x; fractional scaling is still untested. XDG_CURRENT_DESKTOP was
+`ubuntu:GNOME`, `KDE` and `XFCE`, so GNOME and KDE picked their profiles and
+XFCE landed on the generic one, as the family mapping in 2.5 predicts.
+
 ## 8. ADRs this plan creates
 
 1. Linux display backend: X11 and XWayland now, portals for shared features,
