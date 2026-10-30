@@ -2,6 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <!-- A folder dropped on the Dock icon opens in a tab — a terminal there,
+         Files, or Git, as the person chooses. Rank None: Asura takes the
+         folders given to it and never becomes what opens folders. -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleTypeName</key>
+        <string>Folder</string>
+        <key>CFBundleTypeRole</key>
+        <string>Viewer</string>
+        <key>LSHandlerRank</key>
+        <string>None</string>
+        <key>LSItemContentTypes</key>
+        <array>
+          <string>public.folder</string>
+        </array>
+      </dict>
+    </array>
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleDisplayName</key>

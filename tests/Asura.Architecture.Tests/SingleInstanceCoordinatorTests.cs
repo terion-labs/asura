@@ -25,6 +25,54 @@ public sealed class SingleInstanceCoordinatorTests
     }
 
     [Fact]
+    public async Task SecondaryLaunchHandsItsRequestToThePrimaryInstance()
+    {
+        await using var profile = TemporaryProfile.Create();
+        await using var primary = await StartPrimaryAsync(profile.DirectoryPath);
+        var received = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        primary.RegisterActivationHandler(request => received.SetResult(request));
+
+        var request = "git\n/Users/someone/Projects/São Paulo";
+        var secondary = await SingleInstanceCoordinator.StartAsync(
+            profile.DirectoryPath,
+            TestTimeout,
+            request,
+            CancellationToken.None);
+
+        Assert.IsType<SingleInstanceStartResult.ExistingInstanceActivated>(secondary);
+        Assert.Equal(request, await received.Task.WaitAsync(TestTimeout));
+    }
+
+    [Fact]
+    public async Task BareActivationReachesTheHandlerWithoutARequest()
+    {
+        await using var profile = TemporaryProfile.Create();
+        await using var primary = await StartPrimaryAsync(profile.DirectoryPath);
+        var received = new TaskCompletionSource<string?>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        primary.RegisterActivationHandler(request => received.SetResult(request));
+
+        _ = await SingleInstanceCoordinator.StartAsync(
+            profile.DirectoryPath,
+            TestTimeout,
+            CancellationToken.None);
+
+        Assert.Null(await received.Task.WaitAsync(TestTimeout));
+    }
+
+    [Fact]
+    public async Task AnOversizedRequestIsRefusedBeforeItIsSent()
+    {
+        await using var profile = TemporaryProfile.Create();
+        await Assert.ThrowsAsync<ArgumentException>(async () => await SingleInstanceCoordinator.StartAsync(
+            profile.DirectoryPath,
+            TestTimeout,
+            new string('a', SingleInstanceCoordinator.MaximumPayloadBytes + 1),
+            CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ActivationIsQueuedUntilThePrimaryRegistersItsHandler()
     {
         await using var profile = TemporaryProfile.Create();

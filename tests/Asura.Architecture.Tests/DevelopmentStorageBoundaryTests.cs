@@ -244,11 +244,11 @@ public sealed class DevelopmentStorageBoundaryTests
     public void Startup_error_UI_is_only_started_by_synchronous_Main()
     {
         var program = Read("src/Asura.Desktop/Program.cs");
-        var preparation = program.IndexOf("private static async Task<StartupPreparation?> PrepareAsync(DesktopProfileConfiguration profile)", StringComparison.Ordinal);
+        var preparation = program.IndexOf("private static async Task<StartupPreparation?> PrepareAsync(DesktopProfileConfiguration profile, OpenFolderCommand.Invocation? openFolder)", StringComparison.Ordinal);
         Assert.True(preparation > 0);
         Assert.DoesNotContain("DesktopStartupFailurePresenter.TryShow", program[preparation..], StringComparison.Ordinal);
         var main = program[..preparation];
-        Assert.Contains("var prepared = PrepareAsync(profile).GetAwaiter().GetResult();", main, StringComparison.Ordinal);
+        Assert.Contains("var prepared = PrepareAsync(profile, openFolder).GetAwaiter().GetResult();", main, StringComparison.Ordinal);
         Assert.Contains("prepared is StartupPreparation.Failed failure", main, StringComparison.Ordinal);
         Assert.Contains("DesktopStartupFailurePresenter.TryShow", main, StringComparison.Ordinal);
     }

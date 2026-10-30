@@ -40,6 +40,19 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
     private static readonly TimeSpan ActivationPollInterval = TimeSpan.FromMilliseconds(10);
     private static readonly TimeSpan ConnectionAttemptTimeout = TimeSpan.FromMilliseconds(100);
     private static readonly byte[] ActivationRequest = "GSA1"u8.ToArray();
+
+    /// <summary>
+    /// An activation that carries a request — a folder to open — as a
+    /// two-byte little-endian length and that many bytes of UTF-8.
+    /// </summary>
+    private static readonly byte[] PayloadActivationRequest = "GSA2"u8.ToArray();
+
+    /// <summary>The largest request an activation carries.</summary>
+    internal const int MaximumPayloadBytes = 16 * 1024;
+
+    private static readonly System.Text.UTF8Encoding StrictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true);
     private static readonly byte[] ActivationAcknowledgement = "GSK1"u8.ToArray();
     private static readonly TimeSpan DefaultCoordinationTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan DefaultRequestTimeout = TimeSpan.FromSeconds(2);
@@ -51,9 +64,9 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
     private readonly FileStream _profileLock;
     private readonly NamedPipeServerStream _server;
     private readonly Task _serverLoop;
-    private readonly TaskCompletionSource<Action> _activationHandlerReady = new(
+    private readonly TaskCompletionSource<Action<string?>> _activationHandlerReady = new(
         TaskCreationOptions.RunContinuationsAsynchronously);
-    private Action? _activationHandler;
+    private Action<string?>? _activationHandler;
     private bool _acceptingActivations = true;
     private Task? _disposeTask;
 
@@ -73,11 +86,34 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
         CancellationToken cancellationToken) =>
         StartAsync(profileDirectory, DefaultCoordinationTimeout, cancellationToken);
 
+    /// <summary>
+    /// Becomes the profile's instance, or hands the running one
+    /// <paramref name="activationPayload"/> along with the activation.
+    /// </summary>
+    public static ValueTask<SingleInstanceStartResult> StartAsync(
+        string profileDirectory,
+        string? activationPayload,
+        CancellationToken cancellationToken) =>
+        StartAsync(profileDirectory, DefaultCoordinationTimeout, activationPayload, cancellationToken);
+
+    internal static ValueTask<SingleInstanceStartResult> StartAsync(
+        string profileDirectory,
+        TimeSpan activationTimeout,
+        CancellationToken cancellationToken) =>
+        StartAsync(profileDirectory, activationTimeout, activationPayload: null, cancellationToken);
+
     internal static async ValueTask<SingleInstanceStartResult> StartAsync(
         string profileDirectory,
         TimeSpan activationTimeout,
+        string? activationPayload,
         CancellationToken cancellationToken)
     {
+        var payload = activationPayload is null ? null : StrictUtf8.GetBytes(activationPayload);
+        if (payload is { Length: > MaximumPayloadBytes })
+        {
+            throw new ArgumentException("The activation request is too large.", nameof(activationPayload));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(profileDirectory);
         if (activationTimeout <= TimeSpan.Zero || activationTimeout > TimeSpan.FromMinutes(1))
         {
@@ -137,8 +173,21 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
                 {
                     var attempt = await TryActivateExistingInstanceAsync(
                             pipeName,
+                            payload,
                             coordinationLifetime.Token)
                         .ConfigureAwait(false);
+                    if (attempt == ActivationAttempt.Rejected && payload is not null)
+                    {
+                        // An instance from before requests could be carried
+                        // knows only the bare activation; it comes forward,
+                        // and the request goes no further.
+                        attempt = await TryActivateExistingInstanceAsync(
+                                pipeName,
+                                payload: null,
+                                coordinationLifetime.Token)
+                            .ConfigureAwait(false);
+                    }
+
                     if (attempt == ActivationAttempt.Activated)
                     {
                         return new SingleInstanceStartResult.ExistingInstanceActivated();
@@ -164,6 +213,16 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
     }
 
     public void RegisterActivationHandler(Action activationHandler)
+    {
+        ArgumentNullException.ThrowIfNull(activationHandler);
+        RegisterActivationHandler(_ => activationHandler());
+    }
+
+    /// <summary>
+    /// Registers what a second launch does here: the handler is given the
+    /// request it carried, or null for a bare activation.
+    /// </summary>
+    public void RegisterActivationHandler(Action<string?> activationHandler)
     {
         ArgumentNullException.ThrowIfNull(activationHandler);
 
@@ -261,12 +320,27 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
 
         var request = new byte[ActivationRequest.Length];
         await _server.ReadExactlyAsync(request, requestLifetime.Token).ConfigureAwait(false);
-        if (!CryptographicOperations.FixedTimeEquals(request, ActivationRequest))
+        string? payload = null;
+        if (CryptographicOperations.FixedTimeEquals(request, PayloadActivationRequest))
+        {
+            var length = new byte[2];
+            await _server.ReadExactlyAsync(length, requestLifetime.Token).ConfigureAwait(false);
+            var count = length[0] | (length[1] << 8);
+            if (count > MaximumPayloadBytes)
+            {
+                return;
+            }
+
+            var bytes = new byte[count];
+            await _server.ReadExactlyAsync(bytes, requestLifetime.Token).ConfigureAwait(false);
+            payload = StrictUtf8.GetString(bytes);
+        }
+        else if (!CryptographicOperations.FixedTimeEquals(request, ActivationRequest))
         {
             return;
         }
 
-        if (!await AcceptActivationAsync(shutdownToken).ConfigureAwait(false))
+        if (!await AcceptActivationAsync(payload, shutdownToken).ConfigureAwait(false))
         {
             return;
         }
@@ -278,9 +352,9 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
         await _server.FlushAsync(responseLifetime.Token).ConfigureAwait(false);
     }
 
-    private async ValueTask<bool> AcceptActivationAsync(CancellationToken cancellationToken)
+    private async ValueTask<bool> AcceptActivationAsync(string? payload, CancellationToken cancellationToken)
     {
-        Action? activationHandler;
+        Action<string?>? activationHandler;
         lock (_stateGate)
         {
             if (!_acceptingActivations || _disposeTask is not null)
@@ -320,7 +394,7 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
                 }
             }
 
-            if (!InvokeHandler(activationHandler))
+            if (!InvokeHandler(activationHandler, payload))
             {
                 return false;
             }
@@ -334,11 +408,11 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
         }
     }
 
-    private static bool InvokeHandler(Action activationHandler)
+    private static bool InvokeHandler(Action<string?> activationHandler, string? payload)
     {
         try
         {
-            activationHandler();
+            activationHandler(payload);
             return true;
         }
         catch (Exception)
@@ -511,6 +585,7 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
 
     private static async ValueTask<ActivationAttempt> TryActivateExistingInstanceAsync(
         string pipeName,
+        byte[]? payload,
         CancellationToken cancellationToken)
     {
         await using var pipe = new NamedPipeClientStream(
@@ -536,8 +611,21 @@ internal sealed class SingleInstanceCoordinator : IAsyncDisposable
 
         try
         {
-            await pipe.WriteAsync(ActivationRequest, cancellationToken)
-                .ConfigureAwait(false);
+            if (payload is null)
+            {
+                await pipe.WriteAsync(ActivationRequest, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                var message = new byte[PayloadActivationRequest.Length + 2 + payload.Length];
+                PayloadActivationRequest.CopyTo(message, 0);
+                message[PayloadActivationRequest.Length] = (byte)(payload.Length & 0xFF);
+                message[PayloadActivationRequest.Length + 1] = (byte)(payload.Length >> 8);
+                payload.CopyTo(message, PayloadActivationRequest.Length + 2);
+                await pipe.WriteAsync(message, cancellationToken).ConfigureAwait(false);
+            }
+
             await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);
 
             var acknowledgement = new byte[ActivationAcknowledgement.Length];

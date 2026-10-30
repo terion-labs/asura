@@ -62,6 +62,7 @@ public static class BuiltInCommands
     public static CommandId About { get; } = new("app.about");
     public static CommandId ShowSettings { get; } = new("app.settings");
     public static CommandId CheckForUpdates { get; } = new("app.check-for-updates");
+    public static CommandId InstallCommandLineTool { get; } = new("app.install-command-line-tool");
 
     public static CommandId NewWindow { get; } = new("window.new");
     public static CommandId CloseWindow { get; } = new("window.close");
@@ -303,6 +304,7 @@ public static class BuiltInCommands
     {
         About,
         CheckForUpdates,
+        InstallCommandLineTool,
         ChangeTabIcon,
         MoveTabToNewWindow,
         CloseOtherTabs,
@@ -590,6 +592,7 @@ public static class BuiltInCommands
             Define(About, "About Asura", "Application", CommandContext.Global),
             Define(ShowSettings, "Settings…", "Application", CommandContext.Global),
             Define(CheckForUpdates, "Check for Updates…", "Application", CommandContext.Global),
+            Define(InstallCommandLineTool, "Install Command Line Tool…", "Application", CommandContext.Global),
 
             Define(NewWindow, "New Window", "Window", CommandContext.Global),
             Define(CloseWindow, "Close Window", "Window", CommandContext.Global),
