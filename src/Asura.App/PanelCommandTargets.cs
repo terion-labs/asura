@@ -85,6 +85,8 @@ internal static class PanelCommandTargets
     /// so an enabled item would take Command-Delete or Shift-Command-N from
     /// the field the person is typing in. When two targets report the same
     /// fact, the innermost one's holds, as it is the one that runs commands.
+    /// Reload Page is the exception: no field takes Command-R, and a browser
+    /// reloads with it from the page or the address field.
     /// </summary>
     public static void AddState(
         ICollection<KeyValuePair<string, bool>> state,
@@ -98,7 +100,7 @@ internal static class PanelCommandTargets
         {
             state.Add(new(
                 CommandStates.CanExecute(command),
-                !(typing && HasMenuKey(command)) && Runner(targets, command) is not null));
+                !(typing && TakesKeyFromTyping(command)) && Runner(targets, command) is not null));
         }
 
         var reported = new HashSet<string>(StringComparer.Ordinal);
@@ -169,8 +171,9 @@ internal static class PanelCommandTargets
             or ManagedTerminalSurface
             or IBrowserEditCommandTarget);
 
-    private static bool HasMenuKey(CommandId command) =>
-        MacOsMenuShortcuts.For(command, NoArguments) is not null;
+    private static bool TakesKeyFromTyping(CommandId command) =>
+        command != BuiltInCommands.BrowserReload
+        && MacOsMenuShortcuts.For(command, NoArguments) is not null;
 
     private static IPanelCommandTarget? Runner(IReadOnlyList<IPanelCommandTarget> targets, CommandId command) =>
         targets.FirstOrDefault(target => target.CanExecute(command));

@@ -275,6 +275,28 @@ public sealed class PanelCommandTargetHeadlessTests
     }
 
     [Fact]
+    public async Task Reload_Page_stays_available_while_the_address_field_has_focus()
+    {
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(() =>
+        {
+            var address = new TextBox();
+            var target = new FakePanel(BuiltInCommands.BrowserReload) { Content = address };
+            var window = new Window { Content = target };
+            window.Show();
+            try
+            {
+                Assert.True(address.Focus());
+                Assert.True(State(window, address)[CommandStates.CanExecute(BuiltInCommands.BrowserReload)]);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
     public async Task The_innermost_panel_that_can_run_a_command_runs_it()
     {
         await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
