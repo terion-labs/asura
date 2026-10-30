@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Asura.Application;
 using Avalonia;
 using Avalonia.Threading;
@@ -35,7 +36,31 @@ public static class BrowserEngineRuntime
     /// Lets CEF claim renderer/GPU/utility subprocess invocations before any
     /// Asura single-instance, storage, or UI initialization occurs.
     /// </summary>
-    public static int ExecuteSubprocess() => Cef.ExecuteProcess();
+    public static int ExecuteSubprocess()
+    {
+        PreloadLinuxCefLibrary();
+        return Cef.ExecuteProcess();
+    }
+
+    /// <summary>
+    /// The flat Linux runtime keeps libcef.so beside the shim, but the shim's
+    /// RPATH is the working directory, so the loader finds libcef.so only when
+    /// Asura is started from its own folder. Mapping it by absolute path first
+    /// lets the shim's dependency resolve against the library already loaded.
+    /// </summary>
+    private static void PreloadLinuxCefLibrary()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var path = Path.Combine(AppContext.BaseDirectory, "libcef.so");
+        if (File.Exists(path))
+        {
+            _ = NativeLibrary.Load(path);
+        }
+    }
 
     /// <summary>
     /// Adds CEF's external message pump to the Avalonia application builder.
@@ -84,6 +109,7 @@ public static class BrowserEngineRuntime
                     "CEF cannot be initialized again after shutdown.");
             }
 
+            PreloadLinuxCefLibrary();
             PrepareProfileLayout(options.ProfileDirectory);
             PreparePrivateDirectory(
                 Path.GetDirectoryName(options.LogFilePath)

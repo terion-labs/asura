@@ -17,7 +17,9 @@ openbox_log="$output_directory/openbox.log"
 mkdir -p "$output_directory" "$runtime_evidence" /work/home /work/runtime
 chmod 700 /work/runtime
 
-dotnet --info >"$output_directory/dotnet-info.txt"
+# The SDK muxer resolves global.json from the working directory, not from
+# the project path, so every dotnet command runs from the source root.
+(cd "$source_root" && dotnet --info) >"$output_directory/dotnet-info.txt"
 cat /etc/os-release >"$output_directory/os-release.txt"
 uname -a >"$output_directory/uname.txt"
 {
@@ -38,10 +40,10 @@ find "$source_root" -type f \
 source_digest=$(tr -d '\n' <"$output_directory/source-snapshot.sha256")
 
 set +e
-dotnet restore "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
+(cd "$source_root" && dotnet restore "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
   --runtime linux-arm64 \
   --locked-mode \
-  --disable-build-servers \
+  --disable-build-servers) \
   >"$output_directory/restore.log" 2>&1
 restore_status=$?
 if ((restore_status != 0)); then
@@ -49,14 +51,14 @@ if ((restore_status != 0)); then
   echo "linux-arm64 locked restore failed; see $output_directory/restore.log" >&2
   exit "$restore_status"
 fi
-dotnet publish "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
+(cd "$source_root" && dotnet publish "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
   --configuration Release \
   --runtime linux-arm64 \
   --self-contained true \
   --no-restore \
   -p:RestoreLockedMode=true \
   --output "$package_directory" \
-  --disable-build-servers \
+  --disable-build-servers) \
   >"$output_directory/publish.log" 2>&1
 publish_status=$?
 set -e
@@ -109,8 +111,24 @@ if ! kill -0 "$openbox_pid" 2>/dev/null \
   exit 70
 fi
 
+# A fresh profile bootstraps application encryption by storing its keys in
+# the Secret Service, so the desktop needs one to start at all. The driver
+# gives the app HOME=/work/home; a passwordless login keyring there, served
+# by gnome-keyring on the driver's session bus, stands in for the desktop's.
+keyring_home=/work/home
+keyring_data="$keyring_home/.local/share"
+mkdir -p "$keyring_data/keyrings" "$keyring_home/.cache"
+printf 'login' >"$keyring_data/keyrings/default"
+printf '[keyring]\ndisplay-name=login\nctime=0\nmtime=0\nlock-on-idle=false\nlock-after=false\n' \
+  >"$keyring_data/keyrings/login.keyring"
+
 set +e
-dbus-run-session -- python3 "$source_root/scripts/acceptance/linux_x11_xvfb_acceptance.py" \
+dbus-run-session -- bash -c '
+  eval "$(env HOME=/work/home XDG_DATA_HOME=/work/home/.local/share XDG_CACHE_HOME=/work/home/.cache \
+    XDG_RUNTIME_DIR=/work/runtime gnome-keyring-daemon --start --components=secrets 2>/dev/null)"
+  export GNOME_KEYRING_CONTROL
+  exec python3 "$@"
+' _ "$source_root/scripts/acceptance/linux_x11_xvfb_acceptance.py" \
   --package "$package_directory" \
   --source-root "$source_root" \
   --output "$output_directory" \
