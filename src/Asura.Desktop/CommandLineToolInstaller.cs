@@ -43,7 +43,7 @@ internal static class CommandLineToolInstaller
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Destination)!);
-            await File.WriteAllTextAsync(Destination, script, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+            await WriteScriptAsync(Destination, script, cancellationToken).ConfigureAwait(false);
             if (OperatingSystem.IsMacOS())
             {
                 File.SetUnixFileMode(Destination, ExecutableMode);
@@ -62,7 +62,7 @@ internal static class CommandLineToolInstaller
         var staged = Path.Combine(Path.GetTempPath(), "asura-command-" + Guid.NewGuid().ToString("N"));
         try
         {
-            await File.WriteAllTextAsync(staged, script, Encoding.UTF8, cancellationToken).ConfigureAwait(false);
+            await WriteScriptAsync(staged, script, cancellationToken).ConfigureAwait(false);
             var command = "mkdir -p " + ShellQuote(Path.GetDirectoryName(Destination)!)
                 + " && cp " + ShellQuote(staged) + " " + ShellQuote(Destination)
                 + " && chmod 755 " + ShellQuote(Destination);
@@ -90,6 +90,15 @@ internal static class CommandLineToolInstaller
             }
         }
     }
+
+    /// <summary>
+    /// Writes <paramref name="script"/> as plain UTF-8: a byte-order mark
+    /// before <c>#!</c> would keep the system from reading the interpreter.
+    /// </summary>
+    internal static Task WriteScriptAsync(string path, string script, CancellationToken cancellationToken) =>
+        File.WriteAllTextAsync(path, script, ScriptEncoding, cancellationToken);
+
+    private static readonly UTF8Encoding ScriptEncoding = new(encoderShouldEmitUTF8Identifier: false);
 
     private const UnixFileMode ExecutableMode =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute

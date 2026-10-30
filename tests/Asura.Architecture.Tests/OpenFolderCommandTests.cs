@@ -59,6 +59,23 @@ public sealed class OpenFolderCommandTests : IDisposable
     }
 
     [Fact]
+    public async Task The_installed_command_starts_with_its_interpreter()
+    {
+        var script = Path.Combine(_root, "asura");
+        await CommandLineToolInstaller.WriteScriptAsync(script, CommandLineToolInstaller.Script("/Applications/Asura.app/Contents/MacOS/Asura"), CancellationToken.None);
+        var bytes = await File.ReadAllBytesAsync(script);
+        Assert.Equal("#!/bin/sh\n"u8.ToArray(), bytes[..10]);
+    }
+
+    [Fact]
+    public void An_executable_outside_an_app_bundle_opens_the_folder_itself()
+    {
+        // The test host is not in an app bundle: there is no app to hand
+        // the folder to, so startup goes on in this process.
+        Assert.Null(OpenFolderCommand.ApplicationBundle());
+    }
+
+    [Fact]
     public void A_request_crosses_to_the_running_instance_intact()
     {
         var path = Path.Combine(_root, "plain");

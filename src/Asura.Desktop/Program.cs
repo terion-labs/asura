@@ -484,13 +484,14 @@ internal static class Program
 
         var instanceCoordinator =
             ((SingleInstanceStartResult.Primary)instanceStart).Coordinator;
-        if (openFolder is { WasLaunched: false } fromShell && OperatingSystem.IsMacOS())
+        if (openFolder is { WasLaunched: false } fromShell
+            && OpenFolderCommand.ApplicationBundle() is { } bundle)
         {
             // No Asura is running. A shell's command starts it through the
             // system's launcher, as the Dock would, and ends here; the app
             // it starts opens the folder.
             await instanceCoordinator.DisposeAsync();
-            if (await OpenFolderCommand.TryLaunchApplicationAsync(fromShell.Request))
+            if (await OpenFolderCommand.TryLaunchApplicationAsync(bundle, fromShell.Request))
             {
                 return null;
             }

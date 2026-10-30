@@ -102,18 +102,12 @@ internal static class OpenFolderCommand
 
     /// <summary>
     /// On a Mac, an <c>open</c> run from a shell that finds no Asura running
-    /// starts it through the system's launcher rather than becoming the app
-    /// itself, so it does not belong to the shell and end with it. Returns
-    /// false when this process is not inside an app bundle, and it opens the
-    /// folder itself.
+    /// starts <paramref name="bundle"/> through the system's launcher rather
+    /// than becoming the app itself, so it does not belong to the shell and
+    /// end with it. Returns false when the launcher could not start it.
     /// </summary>
-    internal static async Task<bool> TryLaunchApplicationAsync(OpenFolderRequest request)
+    internal static async Task<bool> TryLaunchApplicationAsync(string bundle, OpenFolderRequest request)
     {
-        if (!OperatingSystem.IsMacOS()
-            || BundlePath() is not { } bundle)
-        {
-            return false;
-        }
 
         var start = new ProcessStartInfo("/usr/bin/open") { UseShellExecute = false };
         foreach (var argument in new[]
@@ -142,9 +136,18 @@ internal static class OpenFolderCommand
         OpenFolderRequest.ParseView(name)
         ?? throw new ArgumentException($"Unknown view {name}: use terminal, files, or git.");
 
-    /// <summary>The app bundle this executable runs from, if it runs from one.</summary>
-    private static string? BundlePath()
+    /// <summary>
+    /// The Mac app bundle this executable runs from, if it runs from one.
+    /// Outside one there is nothing to hand the folder to, and this process
+    /// opens it itself.
+    /// </summary>
+    internal static string? ApplicationBundle()
     {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return null;
+        }
+
         var bundle = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", ".."));
         return bundle.EndsWith(".app", StringComparison.OrdinalIgnoreCase)
             && Directory.Exists(Path.Combine(bundle, "Contents", "MacOS"))
