@@ -63,7 +63,7 @@
                       HorizontalAlignment="Stretch"
                       ItemsSource="{Binding Choices}"
                       SelectedItem="{Binding Privilege, Mode=TwoWay}"
-                      IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
+                      IsEnabled="{Binding $parent[controls:DialogShell].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
                       AutomationProperties.Name="{Binding PrivilegeLabel}" />
                   <!-- A checkbox, as a permission in a table row is: a switch is
                        for a prominent setting, not one cell among many. -->
@@ -74,7 +74,7 @@
                       HorizontalContentAlignment="Center"
                       IsChecked="{Binding CanRun, Mode=TwoWay}"
                       IsVisible="{Binding ShowsExecute}"
-                      IsEnabled="{Binding $parent[Window].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
+                      IsEnabled="{Binding $parent[controls:DialogShell].((vm:FileAccessControlEditorViewModel)DataContext).CanEdit}"
                       AutomationProperties.Name="{Binding Name, StringFormat={}{0} can run this}" />
                 </Grid>
               </DataTemplate>

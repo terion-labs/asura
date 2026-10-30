@@ -153,6 +153,18 @@ internal class AuxiliaryWindowMenuHost(
         BuiltInCommands.ReportIssue,
     ];
 
+    /// <summary>
+    /// What a window's menus still do while a modal dialog or a sheet waits
+    /// for an answer: edit the focused field, open help or About, move or
+    /// size the window, and Close — which closes the dialog, or cancels the
+    /// sheet, rather than the window behind it.
+    /// </summary>
+    internal static bool IsModalSafe(Window window, CommandId command) =>
+        ModalSafeApplicationCommands.Contains(command)
+        || FocusedCommandTargets.IsEditCommand(command)
+        || command == BuiltInCommands.CloseWindow
+        || (WindowFrameCommands.Handles(command) && WindowFrameCommands.CanExecute(window, command));
+
     public virtual bool CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
         // A modal dialog keeps the rest of the app waiting on its answer, so
@@ -160,10 +172,7 @@ internal class AuxiliaryWindowMenuHost(
         // window is such a dialog.
         if (Window.IsDialog || SheetHost.IsPresenting(Window))
         {
-            return ModalSafeApplicationCommands.Contains(command)
-                || FocusedCommandTargets.IsEditCommand(command)
-                || command == BuiltInCommands.CloseWindow
-                || (WindowFrameCommands.Handles(command) && WindowFrameCommands.CanExecute(Window, command));
+            return IsModalSafe(Window, command);
         }
 
         return ApplicationCommandRouter.IsApplicationCommand(command)
