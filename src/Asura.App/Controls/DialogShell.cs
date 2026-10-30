@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Controls;
 
@@ -154,6 +155,9 @@ internal sealed class DialogShell : ContentControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        // Shown as a page, the window's title band names the dialog, so
+        // its own header keeps only the line under the title.
+        PseudoClasses.Set(":page", this.FindAncestorOfType<SheetCard>() is { IsPage: true });
         NameWindow();
     }
 

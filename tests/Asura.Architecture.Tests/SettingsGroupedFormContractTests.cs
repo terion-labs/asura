@@ -264,7 +264,7 @@ public sealed class SettingsGroupedFormContractTests
     {
         var root = Load("SettingsView.axaml");
         var items = root.Descendants().Where(element => Is(element, "ShellNavigationItem")).ToArray();
-        Assert.Equal(14, items.Length);
+        Assert.Equal(15, items.Length);
         foreach (var item in items)
         {
             Assert.Matches(
@@ -297,8 +297,8 @@ public sealed class SettingsGroupedFormContractTests
     public void The_settings_window_opens_at_system_settings_size_with_its_buttons_dimmed()
     {
         var window = Load("SettingsWindow.axaml");
-        Assert.Equal("850", Attribute(window, "Width"));
-        Assert.Equal("800", Attribute(window, "Height"));
+        Assert.Equal("1100", Attribute(window, "Width"));
+        Assert.Equal("820", Attribute(window, "Height"));
         Assert.Equal("False", Attribute(window, "CanMinimize"));
         Assert.Equal("False", Attribute(window, "CanMaximize"));
         Assert.Null(Attribute(window, "SizeToContent"));

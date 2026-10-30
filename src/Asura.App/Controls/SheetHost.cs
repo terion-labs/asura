@@ -176,6 +176,26 @@ internal sealed class SheetHost
 }
 
 /// <summary>
+/// A window that shows an editor as a page of its own rather than as a sheet
+/// over it — Settings, which opens an item in place of the page it is on, as
+/// System Settings does.
+/// </summary>
+internal interface IDialogPageHost
+{
+    /// <summary>
+    /// Shows <paramref name="card"/> as a page, or says no — when another
+    /// page is already open, the editor is a sheet over it instead.
+    /// </summary>
+    bool TryShowDialogPage(SheetCard card);
+
+    /// <summary>Renames the page as the dialog's title changes.</summary>
+    void RetitleDialogPage(SheetCard card, string title);
+
+    /// <summary>Takes the page down.</summary>
+    void HideDialogPage(SheetCard card);
+}
+
+/// <summary>
 /// One sheet: the wash over the whole window and the card centred on it. The
 /// card is as wide and as tall as the dialog's window would have been, and
 /// gives way to the window when the window is smaller; a dialog that sized
@@ -249,14 +269,18 @@ internal sealed class SheetLayout : Panel
         Math.Max(0, size.Height - (2 * WindowMargin)));
 }
 
-/// <summary>The card a sheet's dialog stands on. Tab stays inside it.</summary>
+/// <summary>
+/// The card a sheet's dialog stands on, or the plain ground of a dialog shown
+/// as a page. Tab stays inside it.
+/// </summary>
 internal sealed class SheetCard : Border
 {
-    public SheetCard(DialogWindow dialog, Control content)
+    public SheetCard(DialogWindow dialog, Control content, bool isPage = false)
     {
         Dialog = dialog;
         Child = content;
-        Classes.Add("Sheet");
+        IsPage = isPage;
+        Classes.Add(isPage ? "SheetPage" : "Sheet");
         ClipToBounds = true;
         Focusable = true;
         KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
@@ -264,6 +288,9 @@ internal sealed class SheetCard : Border
     }
 
     public DialogWindow Dialog { get; }
+
+    /// <summary>Whether the dialog is shown as a page of its window rather than over it.</summary>
+    public bool IsPage { get; }
 
     /// <summary>Styled as a <see cref="Border"/>, which is what the theme's sheet rule names.</summary>
     protected override Type StyleKeyOverride => typeof(Border);

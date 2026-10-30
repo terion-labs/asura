@@ -75,8 +75,8 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// An editor Settings opens — the workspace editor, the layout designer —
-    /// lives in this window, so this window comes in front of Settings.
+    /// Something Settings asks for that this window shows — the onboarding
+    /// review in its launcher — so this window comes in front of Settings.
     /// </summary>
     private void BringForwardForEditor()
     {
@@ -410,6 +410,13 @@ public sealed partial class MainWindow
             return false;
         }
 
+        // An item on show — a workspace, a connection — is left first, as
+        // Back leaves it; a page asked for while editing waits for that.
+        if (viewModel.IsSettingsVisible && !await LeaveOtherSettingsItemAsync(null))
+        {
+            return false;
+        }
+
         if (viewModel.IsSettingsVisible
             && SettingsPanes.SidebarPage(page) != SettingsPanes.SidebarPage(viewModel.SettingsPage)
             && !await ConfirmLeavingSettingsPageAsync(SettingsDialogOwner))
@@ -498,6 +505,9 @@ public sealed partial class MainWindow
 
     private void OnFilesSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.Files);
+
+    private void OnConnectionSettingsClick(object? sender, RoutedEventArgs e) =>
+        _ = RequestSettingsPageAsync(SettingsPage.Connections);
 
     private void OnBrowserSettingsClick(object? sender, RoutedEventArgs e) =>
         _ = RequestSettingsPageAsync(SettingsPage.Browser);
@@ -899,63 +909,6 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         _ = await ViewModel.SaveKeybindingEditorAsync(_lifetime.Token);
-    }
-
-    private async void OnAddFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await ShowFileProviderEditorAsync(null);
-    }
-
-    private async void OnEditFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is Control { DataContext: FileProviderProfileItemViewModel profile })
-        {
-            await ShowFileProviderEditorAsync(profile.Id);
-        }
-    }
-
-    private async void OnDeleteFileProviderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is not Control { DataContext: FileProviderProfileItemViewModel profile })
-        {
-            return;
-        }
-
-        // At once, with Undo, like every other saved connection.
-        var result = await ViewModel.DeleteConnectionWithUndoAsync(
-            new DefinitionKey(FileProviderProfile.Kind, profile.Id.Value),
-            profile.Revision,
-            _lifetime.Token);
-        if (result.IsSuccess)
-        {
-            FocusDefinitionDeleteUndo(sender);
-        }
-    }
-
-    private async Task ShowFileProviderEditorAsync(FileProviderProfileId? profileId)
-    {
-        try
-        {
-            await ViewModel.RefreshSecretsAsync(_lifetime.Token);
-            var editor = ViewModel.CreateUnifiedConnectionEditor(
-                SavedConnectionFamily.Files,
-                fileProfileId: profileId,
-                initialFamily: SavedConnectionFamily.Files);
-            var result = await new ConnectionEditorDialog(editor)
-                .ShowDialog<UnifiedConnectionEditorResult?>(SettingsDialogOwner);
-            if (result is UnifiedConnectionEditorResult.Files files)
-            {
-                _ = await ViewModel.SaveFileProviderProfileAsync(files.Request, _lifetime.Token);
-            }
-        }
-        catch (InvalidOperationException exception)
-        {
-            ViewModel.SetError(ShellFailureText.ConnectionEditor(exception));
-        }
     }
 
     private async void OnAddAiProviderClick(object? sender, RoutedEventArgs e)

@@ -13,52 +13,52 @@ using Dock.Avalonia.Controls;
 namespace Asura.App.Views;
 
 /// <summary>
-/// The workspace editor and the Layout Designer, each in a window of its own
-/// beside this one. An edit session begins in the view model; this part shows
-/// it in its window, brings that window forward when the same edit is asked
-/// for again, closes it when the edit ends inside it, and ends the edit when
-/// the window is closed — asking to save first when there is something to
-/// save.
+/// The workspace editor and the Layout Designer, each shown in Settings in
+/// place of the Workspaces page they belong to, as System Settings opens an
+/// item: the title band names it, and Back returns to the page. They were
+/// windows of their own, which fell behind the main window and took Settings
+/// with them. An edit session begins in the view model; this part shows it,
+/// takes it down when the edit ends inside it, and ends the edit when Back is
+/// chosen — asking to save first when there is something to save.
 /// </summary>
 public sealed partial class MainWindow
 {
-    private WorkspaceEditorWindow? _workspaceEditorWindow;
-    private LayoutDesignerWindow? _layoutDesignerWindow;
     private WorkspaceEditorViewModel? _titledWorkspaceEditor;
-    private bool _closingWithEditorWindows;
+    private LayoutDesignerViewModel? _titledLayoutDesigner;
 
-    /// <summary>This window's workspace editor window, while one is open.</summary>
-    internal WorkspaceEditorWindow? OpenWorkspaceEditorWindow => _workspaceEditorWindow;
+    /// <summary>Whether Settings shows this window's workspace editor.</summary>
+    internal bool IsWorkspaceEditorShown =>
+        _workspaceDefinitionEditor is { } editor && ReferenceEquals(_settingsRoute?.DetailContent, editor);
 
-    /// <summary>This window's Layout Designer window, while one is open.</summary>
-    internal LayoutDesignerWindow? OpenLayoutDesignerWindow => _layoutDesignerWindow;
+    /// <summary>Whether Settings shows this window's Layout Designer.</summary>
+    internal bool IsLayoutDesignerShown =>
+        _layoutDesignerOverlay is { } designer && ReferenceEquals(_settingsRoute?.DetailContent, designer);
+
+    /// <summary>Where an editor's questions go: over Settings, where it is shown.</summary>
+    private Window WorkspaceEditorDialogOwner => SettingsDialogOwner;
+
+    private Window LayoutDesignerDialogOwner => SettingsDialogOwner;
 
     /// <summary>
-    /// Where an editor's alerts go: over the editor's window when it is open,
-    /// so the question appears where the person is working.
-    /// </summary>
-    private Window WorkspaceEditorDialogOwner => _workspaceEditorWindow ?? (Window)this;
-
-    private Window LayoutDesignerDialogOwner => _layoutDesignerWindow ?? (Window)this;
-
-    /// <summary>
-    /// Edits <paramref name="id"/>. The same workspace asked for again brings
-    /// its window forward with the edits as they are; another workspace takes
-    /// the window over once the edits in it are saved, as choosing one in the
-    /// editor's own list does.
+    /// Edits <paramref name="id"/>. The same workspace asked for again shows
+    /// its edits as they are; another workspace takes the editor over once
+    /// the edits in it are saved.
     /// </summary>
     internal async Task EditWorkspaceAsync(WorkspaceId id)
     {
-        BringForwardForEditor();
-        if (_workspaceEditorWindow is not null && ViewModel.WorkspaceEditor is { } editing)
+        if (!await LeaveOtherSettingsItemAsync(_workspaceDefinitionEditor))
+        {
+            return;
+        }
+
+        if (IsWorkspaceEditorShown && ViewModel.WorkspaceEditor is { } editing)
         {
             if (editing.Id == id && !editing.IsNew)
             {
-                PresentWorkspaceEditor();
+                await PresentWorkspaceEditorAsync();
                 return;
             }
 
-            _workspaceEditorWindow.BringForward();
             if (!await CommitWorkspaceEditsBeforeSwitchAsync())
             {
                 return;
@@ -66,77 +66,152 @@ public sealed partial class MainWindow
         }
 
         ViewModel.BeginEditWorkspace(id);
-        PresentWorkspaceEditor();
+        await PresentWorkspaceEditorAsync();
     }
 
     /// <summary>Opens the editor over a new, unsaved workspace.</summary>
     internal async Task CreateWorkspaceAsync()
     {
-        BringForwardForEditor();
-        if (_workspaceEditorWindow is not null)
+        if (!await LeaveOtherSettingsItemAsync(_workspaceDefinitionEditor))
         {
-            _workspaceEditorWindow.BringForward();
-            if (!await CommitWorkspaceEditsBeforeSwitchAsync())
-            {
-                return;
-            }
+            return;
+        }
+
+        if (IsWorkspaceEditorShown && !await CommitWorkspaceEditsBeforeSwitchAsync())
+        {
+            return;
         }
 
         ViewModel.BeginCreateWorkspace();
-        PresentWorkspaceEditor();
+        await PresentWorkspaceEditorAsync();
     }
 
     /// <summary>
-    /// Shows the edit session that has just begun in its window, or brings
-    /// the window forward. Nothing opens when the session could not begin.
+    /// Shows the edit session that has just begun in Settings. Nothing opens
+    /// when the session could not begin.
     /// </summary>
-    private void PresentWorkspaceEditor()
+    private async Task PresentWorkspaceEditorAsync()
     {
         if (!ViewModel.IsDefinitionEditorVisible)
         {
             return;
         }
 
-        if (_workspaceEditorWindow is { } open)
-        {
-            RefreshWorkspaceEditorTitle();
-            open.BringForward();
-            FocusNavigator.FocusDefinitionEditor();
-            return;
-        }
-
         var editor = EnsureWorkspaceEditorView();
-        var window = new WorkspaceEditorWindow();
-        window.Closed += OnWorkspaceEditorWindowClosed;
-        _workspaceEditorWindow = window;
+        await ShowSettingsItemAsync(SettingsPage.Workspaces, editor, WorkspaceEditorTitle(), LeaveWorkspaceEditorAsync);
         RefreshWorkspaceEditorTitle();
-        window.Present(this, editor, ConfirmCloseWorkspaceEditorAsync);
         FocusNavigator.FocusDefinitionEditor();
     }
 
-    /// <summary>Shows the layout design that has just begun in its window.</summary>
-    private void PresentLayoutDesigner()
+    /// <summary>Shows the layout design that has just begun in Settings.</summary>
+    private async Task PresentLayoutDesignerAsync()
     {
         if (!ViewModel.IsLayoutDesignerVisible)
         {
             return;
         }
 
-        if (_layoutDesignerWindow is { } open)
+        var designer = EnsureLayoutDesignerView();
+        var wasShown = IsLayoutDesignerShown;
+        await ShowSettingsItemAsync(SettingsPage.Workspaces, designer, LayoutDesignerTitle(), LeaveLayoutDesignerAsync);
+        RefreshLayoutDesignerTitle();
+        if (!wasShown && IsLayoutDesignerShown && SettingsWindow.Current is { } settings)
         {
-            open.BringForward();
-            FocusNavigator.FocusLayoutDesignerName();
+            TrackDockPresses(settings, track: true);
+            TrackDockPresses(this, track: true);
+        }
+
+        FocusNavigator.FocusLayoutDesignerName();
+    }
+
+    /// <summary>
+    /// Opens Settings on <paramref name="page"/> with <paramref name="item"/>
+    /// in the page's place, bringing the Settings window forward.
+    /// </summary>
+    private async Task ShowSettingsItemAsync(SettingsPage page, Control item, string title, Func<Task> back)
+    {
+        if (SettingsWindow.Current is { Host: { } owner } open && !ReferenceEquals(owner, this))
+        {
+            // The one Settings window shows another window's settings; it
+            // takes this window's over once that window's page lets it go.
+            if (!await owner.ReleaseSettingsWindowAsync())
+            {
+                return;
+            }
+
+            open.Retarget(this, ViewModel, SettingsRoute);
+        }
+
+        var view = SettingsRoute;
+        if (!ViewModel.IsSettingsVisible || SettingsPanes.SidebarPage(ViewModel.SettingsPage) != page)
+        {
+            if (ViewModel.IsSettingsVisible && !await ConfirmLeavingSettingsPageAsync(SettingsDialogOwner))
+            {
+                return;
+            }
+
+            ViewModel.ShowSettings(page);
+        }
+
+        PresentSettingsWindow();
+        SettingsWindow.Current?.BringForward();
+        if (ReferenceEquals(view.DetailContent, item))
+        {
+            view.RetitleDetail(item, title);
             return;
         }
 
-        var designer = EnsureLayoutDesignerView();
-        var window = new LayoutDesignerWindow();
-        window.Closed += OnLayoutDesignerWindowClosed;
-        _layoutDesignerWindow = window;
-        TrackDockPresses(window, track: true);
-        TrackDockPresses(this, track: true);
-        window.Present(this, designer, ConfirmCloseLayoutDesignerAsync);
-        FocusNavigator.FocusLayoutDesignerName();
+        view.ShowDetail(item, title, back);
+    }
+
+    /// <summary>
+    /// Another item is in Settings — a connection being edited, the Layout
+    /// Designer — so it is left first, the way Back leaves it.
+    /// </summary>
+    private async Task<bool> LeaveOtherSettingsItemAsync(Control? item)
+    {
+        if (_settingsRoute is not { HasDetail: true } view
+            || (item is not null && ReferenceEquals(view.DetailContent, item)))
+        {
+            return true;
+        }
+
+        await view.LeaveDetailAsync();
+        return !view.HasDetail;
+    }
+
+    /// <summary>
+    /// Lets the Settings window go to another main window: its item and its
+    /// page's draft are asked about first.
+    /// </summary>
+    internal async Task<bool> ReleaseSettingsWindowAsync()
+    {
+        if (!await LeaveOtherSettingsItemAsync(null))
+        {
+            return false;
+        }
+
+        return await ConfirmLeavingSettingsPageAsync(SettingsDialogOwner);
+    }
+
+    /// <summary>Back from the workspace editor: asks about unsaved edits, then ends the edit.</summary>
+    private async Task LeaveWorkspaceEditorAsync()
+    {
+        if (await ConfirmCloseWorkspaceEditorAsync()
+            && ViewModel.IsDefinitionEditorVisible)
+        {
+            ViewModel.DismissWorkspaceEditor();
+        }
+    }
+
+    /// <summary>Back from the Layout Designer: asks about unsaved edits, then ends the design.</summary>
+    private async Task LeaveLayoutDesignerAsync()
+    {
+        if (await ConfirmCloseLayoutDesignerAsync()
+            && ViewModel.IsLayoutDesignerVisible)
+        {
+            ViewModel.DismissLayoutDesigner();
+        }
     }
 
     private WorkspaceEditorView EnsureWorkspaceEditorView() =>
@@ -164,8 +239,8 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// The window was closed with unsaved edits: Save keeps them, Don't Save
-    /// drops them, and Cancel goes back to editing. True lets the window go.
+    /// Leaving with unsaved edits: Save keeps them, Don't Save drops them,
+    /// and Cancel goes back to editing. True lets the editor go.
     /// </summary>
     private async Task<bool> ConfirmCloseWorkspaceEditorAsync()
     {
@@ -228,7 +303,7 @@ public sealed partial class MainWindow
 
     /// <summary>
     /// Cancel, or Esc, in the Layout Designer: unsaved edits are discarded
-    /// only when the person says so, and the window closes with the session.
+    /// only when the person says so, and the designer goes with the session.
     /// </summary>
     private async void OnLayoutDesignerCancelClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
@@ -253,18 +328,35 @@ public sealed partial class MainWindow
         switch (e.PropertyName)
         {
             case nameof(MainWindowViewModel.IsDefinitionEditorVisible)
-                when !ViewModel.IsDefinitionEditorVisible:
-                _workspaceEditorWindow?.CloseApproved();
+                when !ViewModel.IsDefinitionEditorVisible && _workspaceDefinitionEditor is { } editor:
+                _settingsRoute?.HideDetail(editor);
                 break;
             case nameof(MainWindowViewModel.IsLayoutDesignerVisible)
-                when !ViewModel.IsLayoutDesignerVisible:
-                _layoutDesignerWindow?.CloseApproved();
+                when !ViewModel.IsLayoutDesignerVisible && _layoutDesignerOverlay is { } designer:
+                if (IsLayoutDesignerShown)
+                {
+                    StopTrackingDockPresses();
+                }
+
+                _settingsRoute?.HideDetail(designer);
                 break;
             case nameof(MainWindowViewModel.WorkspaceEditor):
                 RefreshWorkspaceEditorTitle();
                 break;
+            case nameof(MainWindowViewModel.LayoutDesignerEditor):
+                RefreshLayoutDesignerTitle();
+                break;
         }
     }
+
+    /// <summary>The workspace being edited, by name, in the title band.</summary>
+    private string WorkspaceEditorTitle() => ViewModel.WorkspaceEditor is { } editor
+        ? editor.IsNew ? "New Workspace" : string.IsNullOrWhiteSpace(editor.Name) ? "Workspace" : editor.Name.Trim()
+        : "Workspace";
+
+    private string LayoutDesignerTitle() => ViewModel.LayoutDesignerEditor is { } designer
+        ? designer.IsNew ? "New Layout" : string.IsNullOrWhiteSpace(designer.Name) ? "Layout" : designer.Name.Trim()
+        : "Layout Designer";
 
     private void RefreshWorkspaceEditorTitle()
     {
@@ -276,9 +368,9 @@ public sealed partial class MainWindow
             _titledWorkspaceEditor?.PropertyChanged += OnTitledWorkspaceEditorPropertyChanged;
         }
 
-        if (_workspaceEditorWindow is { } window && editor is not null)
+        if (_workspaceDefinitionEditor is { } view && editor is not null)
         {
-            window.Title = WorkspaceEditorWindow.TitleFor(editor.Name, editor.IsNew);
+            _settingsRoute?.RetitleDetail(view, WorkspaceEditorTitle());
         }
     }
 
@@ -291,55 +383,44 @@ public sealed partial class MainWindow
         }
     }
 
-    /// <summary>
-    /// Closing the window ends the edit, and the person is back where they
-    /// were in this window.
-    /// </summary>
-    private void OnWorkspaceEditorWindowClosed(object? sender, EventArgs e)
+    private void RefreshLayoutDesignerTitle()
     {
-        _ = e;
-        if (sender is Window window)
+        var designer = ViewModel.LayoutDesignerEditor;
+        if (!ReferenceEquals(_titledLayoutDesigner, designer))
         {
-            window.Closed -= OnWorkspaceEditorWindowClosed;
+            _titledLayoutDesigner?.PropertyChanged -= OnTitledLayoutDesignerPropertyChanged;
+            _titledLayoutDesigner = designer;
+            _titledLayoutDesigner?.PropertyChanged += OnTitledLayoutDesignerPropertyChanged;
         }
 
-        _workspaceEditorWindow = null;
-        _titledWorkspaceEditor?.PropertyChanged -= OnTitledWorkspaceEditorPropertyChanged;
-        _titledWorkspaceEditor = null;
-        if (DataContext is MainWindowViewModel { IsDefinitionEditorVisible: true } viewModel)
+        if (_layoutDesignerOverlay is { } view && designer is not null)
         {
-            viewModel.DismissWorkspaceEditor();
+            _settingsRoute?.RetitleDetail(view, LayoutDesignerTitle());
         }
-
-        ReturnFromEditorWindow();
     }
 
-    private void OnLayoutDesignerWindowClosed(object? sender, EventArgs e)
+    private void OnTitledLayoutDesignerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        _ = e;
-        if (sender is Window window)
+        _ = sender;
+        if (e.PropertyName is nameof(LayoutDesignerViewModel.Name) or null)
         {
-            window.Closed -= OnLayoutDesignerWindowClosed;
+            RefreshLayoutDesignerTitle();
         }
+    }
 
-        _layoutDesignerWindow = null;
-        if (sender is Window closed)
+    private void StopTrackingDockPresses()
+    {
+        if (SettingsWindow.Current is { } settings)
         {
-            TrackDockPresses(closed, track: false);
+            TrackDockPresses(settings, track: false);
         }
 
         TrackDockPresses(this, track: false);
         (DataContext as MainWindowViewModel)?.SetDockDragOrigin(DockDragOrigin.None);
-        if (DataContext is MainWindowViewModel { IsLayoutDesignerVisible: true } viewModel)
-        {
-            viewModel.DismissLayoutDesigner();
-        }
-
-        ReturnFromEditorWindow();
     }
 
     /// <summary>
-    /// While the designer is open beside the workspace, a press on a panel in
+    /// While the designer is open in Settings beside the workspace, a press on a panel in
     /// one of them stops the other taking drops until the button is let go,
     /// so a slot cannot land in the live workspace or a live panel in the
     /// design. Otherwise both dock as usual.
@@ -377,27 +458,5 @@ public sealed partial class MainWindow
         _ = sender;
         _ = e;
         (DataContext as MainWindowViewModel)?.SetDockDragOrigin(DockDragOrigin.None);
-    }
-
-    private void ReturnFromEditorWindow()
-    {
-        if (_closingWithEditorWindows || _lifetime.IsCancellationRequested)
-        {
-            return;
-        }
-
-        Activate();
-        FocusNavigator.FocusCurrentRoute();
-    }
-
-    /// <summary>
-    /// This window is closing and has asked about unsaved edits already, so
-    /// its editor windows go with it without asking again.
-    /// </summary>
-    private void ApproveEditorWindowsClose()
-    {
-        _closingWithEditorWindows = true;
-        _workspaceEditorWindow?.ApproveClose();
-        _layoutDesignerWindow?.ApproveClose();
     }
 }

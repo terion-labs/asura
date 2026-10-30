@@ -294,7 +294,7 @@ public sealed class SettingsWindowHeadlessTests
     [Theory]
     [InlineData(SettingsPage.Workspaces, "WorkspaceList", "DeleteWorkspaceButton")]
     [InlineData(SettingsPage.Browser, "BrowserProfileList", "DeleteBrowserProfileButton")]
-    [InlineData(SettingsPage.Files, "FileProviderList", "DeleteFileProviderButton")]
+    [InlineData(SettingsPage.Connections, "ConnectionList", "DeleteConnectionButton")]
     public async Task Settings_lists_are_one_card_with_an_evenly_inset_selection(
         SettingsPage page,
         string listName,
