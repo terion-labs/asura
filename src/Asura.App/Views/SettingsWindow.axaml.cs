@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -15,7 +16,7 @@ namespace Asura.App.Views;
 /// forward rather than opening a second one, because the settings themselves
 /// are the application's, not a window's.
 /// </summary>
-public sealed partial class SettingsWindow : Window
+public sealed partial class SettingsWindow : Window, IDialogPageHost
 {
     /// <summary>
     /// How much of the screen's working area the window may take, leaving
@@ -25,13 +26,14 @@ public sealed partial class SettingsWindow : Window
 
     private static SettingsWindowState? s_state;
 
+    private readonly List<SheetCard> _dialogPages = [];
     private MainWindow? _host;
     private MainWindowViewModel? _viewModel;
     private bool _closeApproved;
     private bool _closeInProgress;
 
     /// <summary>The frame a Settings window opens at before it has one to restore.</summary>
-    internal static Size DefaultSize { get; } = new(850, 800);
+    internal static Size DefaultSize { get; } = new(1100, 820);
 
     /// <summary>
     /// The class the window wears while its content runs under the title
@@ -244,9 +246,14 @@ public sealed partial class SettingsWindow : Window
         Close();
     }
 
+    /// <summary>The Settings content on show.</summary>
+    private SettingsView? View => this.FindControl<ContentControl>("SettingsHost")?.Content as SettingsView;
+
     protected override void OnClosing(WindowClosingEventArgs e)
     {
-        if (!_closeApproved && _host is { HasPendingSettingsDraft: true } host)
+        if (!_closeApproved
+            && _host is { } host
+            && (host.HasPendingSettingsDraft || View is { HasDetail: true }))
         {
             e.Cancel = true;
             if (!_closeInProgress)
@@ -256,6 +263,57 @@ public sealed partial class SettingsWindow : Window
         }
 
         base.OnClosing(e);
+    }
+
+    /// <summary>
+    /// An editor opened over Settings is an item of the page it came from,
+    /// shown in the page's place; a second one, opened from inside the first,
+    /// is a sheet over it.
+    /// </summary>
+    bool IDialogPageHost.TryShowDialogPage(SheetCard card)
+    {
+        if (View is not { HasDetail: false } view)
+        {
+            return false;
+        }
+
+        _dialogPages.Add(card);
+        view.ShowDetail(card, card.Dialog.Title ?? string.Empty, () => LeaveDialogPageAsync(card));
+        return true;
+    }
+
+    void IDialogPageHost.RetitleDialogPage(SheetCard card, string title) => View?.RetitleDetail(card, title);
+
+    void IDialogPageHost.HideDialogPage(SheetCard card)
+    {
+        _ = _dialogPages.Remove(card);
+        View?.HideDetail(card);
+    }
+
+    /// <summary>Whether an editor dialog is open as a page.</summary>
+    internal bool HasDialogPage => _dialogPages.Count > 0;
+
+    /// <summary>
+    /// Puts away the editor open as a page, the way Back does: it may ask
+    /// about unsaved edits, and stays when the answer is to keep editing.
+    /// </summary>
+    internal async Task LeaveDialogPagesAsync()
+    {
+        foreach (var page in _dialogPages.ToArray())
+        {
+            await LeaveDialogPageAsync(page);
+        }
+    }
+
+    /// <summary>
+    /// Back from an editor is its Cancel, which may ask about unsaved edits.
+    /// Unasked, the editor closes at once and the page is back once the
+    /// dispatcher has run its close.
+    /// </summary>
+    private static async Task LeaveDialogPageAsync(SheetCard card)
+    {
+        card.Dialog.CancelSheet();
+        await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
     }
 
     /// <summary>
@@ -296,6 +354,14 @@ public sealed partial class SettingsWindow : Window
 
     private void Detach()
     {
+        // An editor open as a page belongs to the main window being let go:
+        // it ends with it rather than staying open with nowhere to show.
+        // The main window's close has put it away already when it could ask.
+        foreach (var page in _dialogPages.ToArray())
+        {
+            page.Dialog.Close();
+        }
+
         _viewModel?.PropertyChanged -= OnViewModelPropertyChanged;
         // The view belongs to its main window, which keeps it for the next
         // time; it must leave this window's tree before then.
@@ -384,6 +450,15 @@ public sealed partial class SettingsWindow : Window
         _closeInProgress = true;
         try
         {
+            if (View is { HasDetail: true } view)
+            {
+                await view.LeaveDetailAsync();
+                if (view.HasDetail)
+                {
+                    return;
+                }
+            }
+
             if (await host.ConfirmLeavingSettingsPageAsync(this))
             {
                 _closeApproved = true;

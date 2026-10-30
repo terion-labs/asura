@@ -26,15 +26,15 @@ namespace Asura.App.Tests;
 public sealed class SettingsSystemLayoutHeadlessTests
 {
     [Fact]
-    public async Task Settings_opens_at_850_by_800_and_keeps_that_frame_on_every_page()
+    public async Task Settings_opens_at_1100_by_820_and_keeps_that_frame_on_every_page()
     {
         await RunInSettingsWindowAsync(SettingsPage.Appearance, async (window, settings, view, viewModel) =>
         {
-            Assert.Equal(850, settings.Width);
-            Assert.Equal(800, settings.Height);
+            Assert.Equal(1100, settings.Width);
+            Assert.Equal(820, settings.Height);
             Assert.Equal(SettingsWindow.DefaultSize, new Size(settings.Width, settings.Height));
-            Assert.Equal(700, settings.MinWidth);
-            Assert.Equal(500, settings.MinHeight);
+            Assert.Equal(900, settings.MinWidth);
+            Assert.Equal(560, settings.MinHeight);
             Assert.False(settings.CanMinimize);
             Assert.False(settings.CanMaximize);
             Assert.Equal(SizeToContent.Manual, settings.SizeToContent);
@@ -52,8 +52,8 @@ public sealed class SettingsSystemLayoutHeadlessTests
                 Assert.True(await window.RequestSettingsPageAsync(page));
                 Dispatcher.UIThread.RunJobs();
                 settings.UpdateLayout();
-                Assert.Equal(850, settings.Width);
-                Assert.Equal(800, settings.Height);
+                Assert.Equal(1100, settings.Width);
+                Assert.Equal(820, settings.Height);
                 // The window's title and the title band both name the page.
                 Assert.Equal(SettingsPanes.Title(page), settings.Title);
                 Assert.Equal(SettingsPanes.Title(page), view.FindControl<TextBlock>("SettingsPageTitle")!.Text);
@@ -130,7 +130,7 @@ public sealed class SettingsSystemLayoutHeadlessTests
             // same family of colour for pages of the same kind.
             string[] tiles =
             [
-                "Graphite", "Green", "Blue", "Gray",
+                "Graphite", "Green", "Sky", "Blue", "Gray",
                 "Sky", "Blue", "DarkGray", "DarkGray", "Orange",
                 "Red", "Gray", "Gray",
                 "Purple", "Gray",

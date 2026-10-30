@@ -11,6 +11,7 @@ public static class SettingsPanes
     [
         SettingsPage.Appearance,
         SettingsPage.Workspaces,
+        SettingsPage.Connections,
         SettingsPage.Networking,
         SettingsPage.Keybindings,
         SettingsPage.Files,
@@ -29,6 +30,7 @@ public static class SettingsPanes
     {
         SettingsPage.Appearance => "Appearance",
         SettingsPage.Workspaces => "Workspaces & Screens",
+        SettingsPage.Connections => "Connections",
         SettingsPage.Networking => "Networking",
         SettingsPage.Keybindings => "Keyboard Shortcuts",
         SettingsPage.Files => "Files & Transfers",
@@ -72,10 +74,12 @@ public sealed class SettingsSearchIndex
                 "theme dark light mode color colour accent text size font scale density corners translucency transparency glass tab bar sidebar palette contrast",
             [SettingsPage.Workspaces] =
                 "workspace screen saved screen layout restore sessions start isolation container import export definition",
+            [SettingsPage.Connections] =
+                "connection connections saved host server ssh local docker wsl kubernetes cluster database sql file provider sftp s3 credential",
             [SettingsPage.Networking] = "network proxy vpn socks tunnel route kill switch connection",
             [SettingsPage.Keybindings] =
                 "keybinding keybindings keyboard shortcut shortcuts hotkey key binding prefix tmux record",
-            [SettingsPage.Files] = "file files transfer provider sftp s3 preview cache download",
+            [SettingsPage.Files] = "file files transfer preview cache download remote",
             [SettingsPage.Browser] = "browser web profile cookies http authentication private",
             [SettingsPage.Terminal] =
                 "terminal shell cursor scrollback clipboard bell ime multiplex tmux screen ssh links keymap close running sessions",

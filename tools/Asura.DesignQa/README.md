@@ -12,7 +12,7 @@ shown off-screen and rendered at their own arranged size, so a capture reflects
 the dialog's real geometry rather than a fixed frame.
 
 A route captures the window its surface is shown in. Settings routes render the
-Settings window at 850 × 800, its default frame (or the taller height a `-full`
+Settings window at 1100 × 820, its default frame (or the taller height a `-full`
 route asks for); the headless platform draws no traffic lights, so the sidebar's
 title band is empty in a capture. `settings-diagnostics` and
 `settings-diagnostics-full` bind the Data & Diagnostics page's own sections —
@@ -31,8 +31,8 @@ route that clicks a segment or a radio button checks it, since a raised click
 event alone toggles nothing. `settings-appearance-override` opens the
 appearance override the way its header does; a route that names a disclosure
 opens it. Workspace-editor routes and
-`overlay-layout-designer` render the editor's own window, opened the way the
-product opens it. `overlay-new-panel`
+`overlay-layout-designer` render the Settings window showing the editor,
+opened the way the product opens it. `overlay-new-panel`
 is the Add Panel popover on the title band's "+".
 
 A route that throws is logged as `FAILED <route>: <error>` and the run carries
@@ -127,11 +127,11 @@ browser preview is example.com as Chromium draws it for a dark color scheme.
 The full-window adapter routes are `workspace-browser`, `workspace-file-viewer`,
 `workspace-statistics`, and `workspace-process-monitor`.
 
-A surface that opens in a window of its own (Settings, the workspace editor,
-the Layout Designer) is captured as that window floating over the workspace:
+A surface that opens in a window of its own (Settings, and the workspace
+editor and Layout Designer it shows) is captured as that window floating over the workspace:
 its own rounded silhouette and shadow, traffic lights where the product shows
 them, and the workspace blurred behind its translucent material. Settings is
-framed at 1180 × 760, wider than its 850 × 800 default.
+framed at 1180 × 760.
 
 ```sh
 ./.dotnet/dotnet run --project tools/Asura.DesignQa -- --website artifacts/design-qa/website

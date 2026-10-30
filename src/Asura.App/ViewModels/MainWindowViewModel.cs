@@ -2290,6 +2290,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool IsWorkspaceSettingsVisible => _navigation.IsWorkspaceSettingsVisible;
 
+    public bool IsConnectionSettingsVisible => _navigation.IsConnectionSettingsVisible;
+
     public bool IsNetworkingSettingsVisible => _navigation.IsNetworkingSettingsVisible;
 
     public bool RestoreSessionsOnStart

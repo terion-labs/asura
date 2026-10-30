@@ -1915,6 +1915,9 @@
       <Style Selector="^[Scrolls=False] /template/ ScrollViewer#PART_Scroll">
         <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
       </Style>
+      <Style Selector="^:page /template/ TextBlock#PART_Title">
+        <Setter Property="IsVisible" Value="False" />
+      </Style>
     </ControlTheme>
 
   </Styles.Resources>

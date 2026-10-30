@@ -20,6 +20,7 @@ public sealed class ShellNavigationViewModelTests
 
     [Theory]
     [InlineData(SettingsPage.Appearance)]
+    [InlineData(SettingsPage.Connections)]
     [InlineData(SettingsPage.Networking)]
     [InlineData(SettingsPage.Files)]
     [InlineData(SettingsPage.Mcp)]
@@ -128,6 +129,7 @@ public sealed class ShellNavigationViewModelTests
         {
             navigation.IsAppearanceSettingsVisible,
             navigation.IsWorkspaceSettingsVisible,
+            navigation.IsConnectionSettingsVisible,
             navigation.IsNetworkingSettingsVisible,
             navigation.IsKeybindingSettingsVisible,
             navigation.IsFilesSettingsVisible,

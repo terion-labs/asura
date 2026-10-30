@@ -123,6 +123,14 @@
                 IsActive="{Binding IsWorkspaceSettingsVisible}"
                 Label="Workspaces &amp; Screens" />
             <components:ShellNavigationItem
+                x:Name="ConnectionsNavigationItem"
+                AutomationName="Connections"
+                Click="OnConnectionSettingsClick"
+                Icon="Server"
+                TileBrush="{DynamicResource ShellSettingsTileSkyBrush}"
+                IsActive="{Binding IsConnectionSettingsVisible}"
+                Label="Connections" />
+            <components:ShellNavigationItem
                 x:Name="NetworkingNavigationItem"
                 AutomationName="Networking"
                 Click="OnNetworkingSettingsClick"
@@ -563,6 +571,98 @@
                 </controls:SettingsGroup.Footer>
               </controls:SettingsGroup>
             </StackPanel>
+            <StackPanel x:Name="ConnectionsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsConnectionSettingsVisible}">
+              <components:SettingsPageHeader
+                  Heading="Connections"
+                  Description="Manage your saved terminal, file, database, and Kubernetes connections." />
+              <!-- The Mac list pattern, as Workspaces: select a row, then –
+                   below the list, its context menu, or Delete removes it,
+                   with Undo. Edit… stays on the row, and a double-click
+                   edits too. The filter narrows the list in place. -->
+              <controls:SettingsGroup Heading="Saved connections">
+                <StackPanel>
+                  <controls:SearchField
+                      x:Name="ConnectionFilter"
+                      Margin="{DynamicResource ShellSettingsRowPadding}"
+                      Text="{Binding Launcher.ConnectionSearchQuery}"
+                      PlaceholderText="Filter connections"
+                      IsVisible="{Binding Launcher.HasConnections}"
+                      AutomationProperties.Name="Filter saved connections" />
+                  <Panel>
+                    <controls:StateOverlay
+                        Margin="{controls:Inset Xl}"
+                        Kind="Empty"
+                        Heading="No saved connections"
+                        Body="Add a connection to reach a server, a cluster, a database, or remote files."
+                        IsVisible="{Binding Launcher.HasNoConnections}" />
+                    <controls:StateOverlay
+                        Margin="{controls:Inset Xl}"
+                        Kind="Empty"
+                        Heading="No matches"
+                        Body="No saved connection matches the filter."
+                        IsVisible="{Binding Launcher.HasNoMatchingConnections}" />
+                    <ListBox
+                        x:Name="ConnectionList"
+                        Classes="Rows Separated"
+                        ItemsSource="{Binding Launcher.FilteredConnections}"
+                        IsVisible="{Binding !Launcher.HasNoFilteredConnections}"
+                        DoubleTapped="OnConnectionListDoubleTapped"
+                        AutomationProperties.Name="Saved connections">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:LauncherConnectionViewModel">
+                          <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Classes="MiddleTruncatedDetail" Title="{Binding Name}" Detail="{Binding AvailabilityDetail}">
+                            <controls:ListItem.ContextMenu>
+                              <ContextMenu>
+                                <MenuItem Header="Edit…" Click="OnEditConnectionClick" />
+                                <Separator />
+                                <MenuItem Header="Delete" Click="OnDeleteConnectionClick" />
+                              </ContextMenu>
+                            </controls:ListItem.ContextMenu>
+                            <controls:ListItem.Leading>
+                              <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="{Binding IconSymbol}" />
+                            </controls:ListItem.Leading>
+                            <controls:ListItem.Trailing>
+                              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceSm}">
+                                <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
+                                <Button Classes="SecondaryButton" Click="OnEditConnectionClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit connection {0}}" />
+                              </StackPanel>
+                            </controls:ListItem.Trailing>
+                          </controls:ListItem>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+                  </Panel>
+                  <Border Classes="ListActionBar">
+                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
+                      <Button
+                          Classes="IconButton"
+                          Click="OnAddConnectionClick"
+                          ToolTip.Tip="Add connection…"
+                          AutomationProperties.Name="Add Connection…">
+                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                      <!-- Deletes at once and leaves Undo, so no "…". -->
+                      <Button
+                          x:Name="DeleteConnectionButton"
+                          Classes="IconButton"
+                          Click="OnDeleteConnectionClick"
+                          IsEnabled="False"
+                          ToolTip.Tip="Delete connection"
+                          AutomationProperties.Name="Delete selected connection">
+                        <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
+                <controls:SettingsGroup.Footer>
+                  <TextBlock
+                      Classes="Muted"
+                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                      TextWrapping="Wrap"
+                      Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Credentials for saved connections stay in {0}.'}" />
+                </controls:SettingsGroup.Footer>
+              </controls:SettingsGroup>
+            </StackPanel>
             <StackPanel x:Name="KeybindingsSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsKeybindingSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Keyboard Shortcuts"
@@ -784,80 +884,7 @@
             <StackPanel x:Name="FilesSettingsPage" Classes="SettingsPage" IsVisible="{Binding IsFilesSettingsVisible}">
               <components:SettingsPageHeader
                   Heading="Files &amp; Transfers"
-                  Description="Manage file locations, transfers, and previews." />
-              <!-- The Mac list pattern, as Workspaces: select a row, then –
-                   below the list, its context menu, or Delete removes it.
-                   Edit… stays on the row. Where credentials are kept closes
-                   the plate. -->
-              <controls:SettingsGroup Heading="Configured providers">
-                <StackPanel>
-                  <ListBox
-                      x:Name="FileProviderList"
-                      Classes="Rows Separated"
-                      ItemsSource="{Binding FileProviderDefinitions}"
-                      AutomationProperties.Name="Configured file providers">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:FileProviderProfileItemViewModel">
-                        <controls:ListItem ContentPadding="{DynamicResource ShellListRowPadding}" Title="{Binding Name}" Detail="{Binding Endpoint}" Metadata="{Binding StatusDetail}">
-                          <controls:ListItem.ContextMenu>
-                            <ContextMenu>
-                              <MenuItem Header="Edit…" Click="OnEditFileProviderClick" />
-                              <Separator />
-                              <MenuItem Header="Delete" Click="OnDeleteFileProviderClick" />
-                            </ContextMenu>
-                          </controls:ListItem.ContextMenu>
-                          <controls:ListItem.Leading>
-                            <controls:IdentityTile TileSize="Small" Tint="{DynamicResource ShellSurfaceHoverBrush}" Foreground="{DynamicResource ShellTextBrush}" Symbol="Folder" />
-                          </controls:ListItem.Leading>
-                          <controls:ListItem.Trailing>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="{DynamicResource ShellSpaceXs}">
-                              <TextBlock VerticalAlignment="Center" Classes="Eyebrow" Text="{Binding Kind}" />
-                              <!-- Neutral until something needs attention: a
-                                   provider still loading is not good news. The
-                                   tone is three classes that never apply
-                                   together, because a Tone pseudo-class is
-                                   declared after the classes and would win. -->
-                              <controls:StatusChip
-                                  Classes.Neutral="{Binding IsStatusNeutral}"
-                                  Classes.Warning="{Binding HasWarning}"
-                                  Classes.Danger="{Binding HasError}"
-                                  Content="{Binding Status}" />
-                              <Button Classes="SecondaryButton" Click="OnEditFileProviderClick" Content="Edit…" AutomationProperties.Name="{Binding Name, StringFormat={}Edit file provider {0}}" />
-                            </StackPanel>
-                          </controls:ListItem.Trailing>
-                        </controls:ListItem>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                  <Border Classes="ListActionBar">
-                    <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
-                      <Button
-                          Classes="IconButton"
-                          Click="OnAddFileProviderClick"
-                          ToolTip.Tip="Add provider…"
-                          AutomationProperties.Name="Add file provider">
-                        <icons:SymbolIcon Symbol="Add" FontSize="{DynamicResource ShellIconSizeSm}" />
-                      </Button>
-                      <Button
-                          x:Name="DeleteFileProviderButton"
-                          Classes="IconButton"
-                          Click="OnDeleteFileProviderClick"
-                          IsEnabled="False"
-                          ToolTip.Tip="Delete provider"
-                          AutomationProperties.Name="Delete selected file provider">
-                        <icons:SymbolIcon Symbol="Subtract" FontSize="{DynamicResource ShellIconSizeSm}" />
-                      </Button>
-                    </StackPanel>
-                  </Border>
-                </StackPanel>
-                <controls:SettingsGroup.Footer>
-                  <TextBlock
-                      Classes="Muted"
-                      FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      TextWrapping="Wrap"
-                      Text="{Binding Source={x:Static core:PlatformTerms.SecretStore}, StringFormat='Home is always available as a built-in local provider. Credentials for saved providers stay in {0}.'}" />
-                </controls:SettingsGroup.Footer>
-              </controls:SettingsGroup>
+                  Description="Choose how remote files are previewed and cached. File connections are on the Connections page." />
               <controls:SettingsGroup Heading="Remote previews">
                 <controls:SettingRow
                     Label="Auto-load previews up to"
@@ -2147,6 +2174,15 @@
             </StackPanel>
         </Grid>
       </ScrollViewer>
+      <!-- An item opened from a page — a workspace, a connection, a layout —
+           takes the page's place, as an item does in System Settings: the
+           title band names it, and Back returns to the page it came from. -->
+      <ContentControl
+          x:Name="SettingsDetailHost"
+          Grid.Row="1"
+          IsVisible="False"
+          HorizontalContentAlignment="Stretch"
+          VerticalContentAlignment="Stretch" />
     </Grid>
   </Grid>
 </UserControl>
