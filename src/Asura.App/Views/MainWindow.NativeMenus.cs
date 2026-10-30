@@ -95,8 +95,9 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
     /// <summary>
     /// While the shell is locked only editing in the unlock field, help and
     /// the window frame stay available: no command may act behind the veil.
-    /// While an overlay is open, the workspace behind it is out of reach
-    /// except for closing what is in front.
+    /// While a sheet is up, the window waits on its answer as it did behind
+    /// a modal dialog. While an overlay is open, the workspace behind it is
+    /// out of reach except for closing what is in front.
     /// </summary>
     bool IApplicationMenuHost.CanExecute(CommandId command, IReadOnlyDictionary<string, string> arguments)
     {
@@ -106,6 +107,11 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
                 || command == BuiltInCommands.About
                 || command == BuiltInCommands.ShowHelp
                 || WindowFrameCommands.Handles(command);
+        }
+
+        if (SheetHost.IsPresenting(this))
+        {
+            return AuxiliaryWindowMenuHost.IsModalSafe(this, command);
         }
 
         if (WindowFrameCommands.Handles(command))
@@ -172,7 +178,17 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
         await CloseActiveTabAsync();
     }
 
-    void IShellCommandPresentation.CloseWindow() => Close();
+    /// <summary>Close cancels a sheet that is up rather than closing the window behind it.</summary>
+    void IShellCommandPresentation.CloseWindow()
+    {
+        if (SheetHost.IsPresenting(this))
+        {
+            SheetHost.For(this).Front?.CancelSheet();
+            return;
+        }
+
+        Close();
+    }
 
     Task IShellCommandPresentation.SelectWorkspaceAsync(int position) =>
         OpenRuntimeWorkspaceAsync(token =>

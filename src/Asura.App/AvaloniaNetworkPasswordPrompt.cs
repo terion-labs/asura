@@ -60,7 +60,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
                 var dialog = new ConfirmationDialog(options);
                 using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() =>
                 {
-                    if (dialog.IsVisible)
+                    if (dialog.IsShowing)
                     {
                         dialog.Close(false);
                     }
@@ -140,7 +140,7 @@ public sealed class AvaloniaNetworkPasswordPrompt : INetworkPasswordPrompt
         using var cancellationRegistration = cancellationToken.Register(() =>
             Dispatcher.UIThread.Post(() =>
             {
-                if (dialog.IsVisible)
+                if (dialog.IsShowing)
                 {
                     dialog.Close(null);
                 }
