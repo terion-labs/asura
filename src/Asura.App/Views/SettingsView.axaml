@@ -2174,6 +2174,15 @@
             </StackPanel>
         </Grid>
       </ScrollViewer>
+      <!-- An item opened from a page — a workspace, a connection, a layout —
+           takes the page's place, as an item does in System Settings: the
+           title band names it, and Back returns to the page it came from. -->
+      <ContentControl
+          x:Name="SettingsDetailHost"
+          Grid.Row="1"
+          IsVisible="False"
+          HorizontalContentAlignment="Stretch"
+          VerticalContentAlignment="Stretch" />
     </Grid>
   </Grid>
 </UserControl>

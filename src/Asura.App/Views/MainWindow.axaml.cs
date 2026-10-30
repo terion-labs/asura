@@ -192,7 +192,6 @@ public sealed partial class MainWindow : Window
         // only ask about sessions that have already ended.
         if (e.CloseReason == WindowCloseReason.ApplicationShutdown && e.IsProgrammatic)
         {
-            ApproveEditorWindowsClose();
             base.OnClosing(e);
             return;
         }
@@ -200,14 +199,10 @@ public sealed partial class MainWindow : Window
         if (!CloseCoordinator.IsWindowCloseApproved)
         {
             e.Cancel = true;
-            if (!CloseCoordinator.IsWindowCloseInProgress)
+            if (!CloseCoordinator.IsWindowCloseInProgress && !_leavingSettingsPagesForClose)
             {
-                _ = CloseCoordinator.RequestWindowCloseAsync();
+                _ = RequestWindowCloseAsync();
             }
-        }
-        else
-        {
-            ApproveEditorWindowsClose();
         }
 
         base.OnClosing(e);
@@ -364,12 +359,54 @@ public sealed partial class MainWindow : Window
         ViewModel.IsWindowFocused = false;
     }
 
+    private bool _leavingSettingsPagesForClose;
+
+    /// <summary>
+    /// An editor dialog open as a page in this window's Settings is put away
+    /// first, asking about its edits as Back does; the window's own close
+    /// then asks about everything else.
+    /// </summary>
+    private async Task RequestWindowCloseAsync()
+    {
+        if (SettingsWindow.Current is { HasDialogPage: true } settings
+            && ReferenceEquals(settings.Host, this))
+        {
+            _leavingSettingsPagesForClose = true;
+            try
+            {
+                await settings.LeaveDialogPagesAsync();
+            }
+            finally
+            {
+                _leavingSettingsPagesForClose = false;
+            }
+
+            if (settings.HasDialogPage)
+            {
+                return;
+            }
+        }
+
+        await CloseCoordinator.RequestWindowCloseAsync();
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         HandOffSettingsWindow();
         if (DataContext is MainWindowViewModel viewModel)
         {
             viewModel.ReleaseAppearanceEditing();
+            // The close asked about unsaved edits already; the editors it
+            // showed in Settings end with the window.
+            if (viewModel.IsDefinitionEditorVisible)
+            {
+                viewModel.DismissWorkspaceEditor();
+            }
+
+            if (viewModel.IsLayoutDesignerVisible)
+            {
+                viewModel.DismissLayoutDesigner();
+            }
         }
 
         Deactivated -= OnWindowDeactivated;
@@ -504,11 +541,16 @@ public sealed partial class MainWindow : Window
 
 
     /// <summary>
-    /// Opens the Layout Designer over a new layout, or brings its window
-    /// forward when a layout is already being designed.
+    /// Opens the Layout Designer in Settings over a new layout, or shows the
+    /// layout already being designed.
     /// </summary>
-    public Task ShowLayoutDesignerAsync()
+    public async Task ShowLayoutDesignerAsync()
     {
+        if (!await LeaveOtherSettingsItemAsync(_layoutDesignerOverlay))
+        {
+            return;
+        }
+
         if (!ViewModel.IsLayoutDesignerVisible)
         {
             // The palette that asked has done its job.
@@ -516,8 +558,7 @@ public sealed partial class MainWindow : Window
             ViewModel.BeginCreateLayout();
         }
 
-        PresentLayoutDesigner();
-        return Task.CompletedTask;
+        await PresentLayoutDesignerAsync();
     }
 
     internal static bool IsExactGlobalGesture(
@@ -766,7 +807,6 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
-        BringForwardForEditor();
         await ShowLayoutDesignerAsync();
     }
 
@@ -1376,12 +1416,16 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        BringForwardForEditor();
+        if (!await LeaveOtherSettingsItemAsync(_layoutDesignerOverlay))
+        {
+            return;
+        }
+
         if (ViewModel.LayoutDesignerEditor is { IsNew: false } designing
             && designing.Id == layout.Id)
         {
-            // The same layout again: its window, with the edits as they are.
-            PresentLayoutDesigner();
+            // The same layout again, with the edits as they are.
+            await PresentLayoutDesignerAsync();
             return;
         }
 
@@ -1393,7 +1437,7 @@ public sealed partial class MainWindow : Window
         }
 
         ViewModel.BeginEditLayout(layout.Id, replaceCurrent: true);
-        PresentLayoutDesigner();
+        await PresentLayoutDesignerAsync();
     }
 
     private void OnLayoutSlotClick(object? sender, RoutedEventArgs e)
@@ -1555,37 +1599,6 @@ public sealed partial class MainWindow : Window
         return await ViewModel.SaveWorkspaceEditorRestartingAsync(
             request,
             _lifetime.Token);
-    }
-
-    /// <summary>
-    /// The rail asked for another workspace. Switching carries the edits in
-    /// progress with it when they are complete — refusing to move because
-    /// something is unsaved would make the rail a list you cannot use — and only
-    /// stops when the workspace could not be saved as it stands.
-    /// </summary>
-    private async void OnWorkspaceSelectionRequested(object? sender, WorkspaceId id)
-    {
-        _ = sender;
-        if (!await CommitWorkspaceEditsBeforeSwitchAsync())
-        {
-            return;
-        }
-
-        ViewModel.BeginEditWorkspace(id);
-        PresentWorkspaceEditor();
-    }
-
-    private async void OnCreateWorkspaceRequested(object? sender, EventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (!await CommitWorkspaceEditsBeforeSwitchAsync())
-        {
-            return;
-        }
-
-        ViewModel.BeginCreateWorkspace();
-        PresentWorkspaceEditor();
     }
 
     private async Task<bool> CommitWorkspaceEditsBeforeSwitchAsync()

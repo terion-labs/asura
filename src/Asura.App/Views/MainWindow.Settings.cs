@@ -75,8 +75,8 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// An editor Settings opens — the workspace editor, the layout designer —
-    /// lives in this window, so this window comes in front of Settings.
+    /// Something Settings asks for that this window shows — the onboarding
+    /// review in its launcher — so this window comes in front of Settings.
     /// </summary>
     private void BringForwardForEditor()
     {
@@ -406,6 +406,13 @@ public sealed partial class MainWindow
         AgentChatViewModel? agentHistoryOwner = null)
     {
         if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return false;
+        }
+
+        // An item on show — a workspace, a connection — is left first, as
+        // Back leaves it; a page asked for while editing waits for that.
+        if (viewModel.IsSettingsVisible && !await LeaveOtherSettingsItemAsync(null))
         {
             return false;
         }

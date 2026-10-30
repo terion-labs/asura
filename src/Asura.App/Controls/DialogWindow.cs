@@ -210,6 +210,14 @@ public class DialogWindow : Window
     };
 
     /// <summary>
+    /// An editor — a connection, a provider, a saved screen — is a page of
+    /// its own where the window offers pages, as an item is in System
+    /// Settings; a question is a sheet over whatever it asks about.
+    /// </summary>
+    private static bool PrefersPage(Control content) =>
+        content is DialogShell { Chrome: DialogChrome.Editor };
+
+    /// <summary>
     /// Return presses the sheet's default button, and only the sheet's: the
     /// window it stands in may mark a default button of its own, and that
     /// one waits behind the sheet like everything else. A field that takes
@@ -250,7 +258,20 @@ public class DialogWindow : Window
         _closeResult = null;
         Content = null;
         var host = SheetHost.For(window);
-        var card = host.Present(this, content);
+        var pages = PrefersPage(content) ? window as IDialogPageHost : null;
+        var page = new SheetCard(this, content, isPage: true);
+        SheetCard card;
+        if (pages?.TryShowDialogPage(page) == true)
+        {
+            card = page;
+        }
+        else
+        {
+            page.Child = null;
+            pages = null;
+            card = host.Present(this, content);
+        }
+
         var styles = Styles.ToArray();
         foreach (var style in styles)
         {
@@ -262,6 +283,15 @@ public class DialogWindow : Window
         _sheetCard = card;
         card.AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
         card.AddHandler(KeyDownEvent, OnSheetReturn, RoutingStrategies.Bubble);
+        void OnTitleChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == TitleProperty && pages is not null)
+            {
+                pages.RetitleDialogPage(card, Title ?? string.Empty);
+            }
+        }
+
+        PropertyChanged += OnTitleChanged;
         Closed += OnClosed;
         try
         {
@@ -279,9 +309,18 @@ public class DialogWindow : Window
         finally
         {
             Closed -= OnClosed;
+            PropertyChanged -= OnTitleChanged;
             card.RemoveHandler(KeyDownEvent, OnDialogKeyDown);
             card.RemoveHandler(KeyDownEvent, OnSheetReturn);
-            host.Dismiss(this);
+            if (pages is not null)
+            {
+                pages.HideDialogPage(card);
+            }
+            else
+            {
+                host.Dismiss(this);
+            }
+
             foreach (var style in styles)
             {
                 _ = card.Styles.Remove(style);

@@ -78,7 +78,7 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     });
 
     [Fact]
-    public Task The_workspace_editor_window_keeps_Save_and_Cancel_on_screen_at_its_minimum() =>
+    public Task The_workspace_editor_keeps_Save_and_Cancel_on_screen_in_Settings_at_its_minimum() =>
         RunInSmallWindowAsync(async window =>
         {
             var viewModel = (MainWindowViewModel)window.DataContext!;
@@ -86,60 +86,54 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
             await window.EditWorkspaceAsync(id);
             Settle(window);
 
-            var editor = Assert.IsType<WorkspaceEditorWindow>(window.OpenWorkspaceEditorWindow);
-            Assert.InRange(editor.MinWidth, 1, SmallWidth);
-            Assert.InRange(editor.MinHeight, 1, SmallHeight);
-            Assert.Same(window, editor.Owner);
-            Assert.StartsWith("Edit Workspace — ", editor.Title, StringComparison.Ordinal);
-            editor.Width = editor.MinWidth;
-            editor.Height = editor.MinHeight;
-            Settle(editor);
+            Assert.True(window.IsWorkspaceEditorShown);
+            var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+            settings.Width = settings.MinWidth;
+            settings.Height = settings.MinHeight;
+            Settle(settings);
 
-            AssertInside(Named<Button>(editor, "SaveButton"), editor);
-            AssertInside(Named<Button>(editor, "CancelButton"), editor);
+            AssertInside(Named<Button>(settings, "SaveButton"), settings);
+            AssertInside(Named<Button>(settings, "CancelButton"), settings);
 
-            // Edit Workspace… for the same workspace brings the same window
-            // forward rather than opening another.
+            // Edit Workspace… for the same workspace shows the same edit.
             await window.EditWorkspaceAsync(id);
             Settle(window);
-            Assert.Same(editor, window.OpenWorkspaceEditorWindow);
+            Assert.True(window.IsWorkspaceEditorShown);
 
-            // Cancel with nothing changed ends the edit and its window.
-            Named<Button>(editor, "CancelButton").RaiseEvent(
+            // Cancel with nothing changed ends the edit and returns to the page.
+            Named<Button>(settings, "CancelButton").RaiseEvent(
                 new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Settle(window);
             Assert.False(viewModel.IsDefinitionEditorVisible);
-            Assert.Null(window.OpenWorkspaceEditorWindow);
+            Assert.False(window.IsWorkspaceEditorShown);
         });
 
     [Fact]
-    public Task The_layout_designer_window_keeps_Save_and_Cancel_on_screen_at_its_minimum() =>
+    public Task The_layout_designer_keeps_Save_and_Cancel_on_screen_in_Settings_at_its_minimum() =>
         RunInSmallWindowAsync(async window =>
         {
             var viewModel = (MainWindowViewModel)window.DataContext!;
             await window.ShowLayoutDesignerAsync();
             Settle(window);
 
-            var designer = Assert.IsType<LayoutDesignerWindow>(window.OpenLayoutDesignerWindow);
-            Assert.Equal("Layout Designer", designer.Title);
-            Assert.InRange(designer.MinWidth, 1, SmallWidth);
-            Assert.InRange(designer.MinHeight, 1, SmallHeight);
-            designer.Width = designer.MinWidth;
-            designer.Height = designer.MinHeight;
-            Settle(designer);
+            Assert.True(window.IsLayoutDesignerShown);
+            var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+            settings.Width = settings.MinWidth;
+            settings.Height = settings.MinHeight;
+            Settle(settings);
 
-            AssertInside(Named<Button>(designer, "SaveButton"), designer);
-            AssertInside(Named<Button>(designer, "CancelButton"), designer);
+            AssertInside(Named<Button>(settings, "SaveButton"), settings);
+            AssertInside(Named<Button>(settings, "CancelButton"), settings);
 
             // The workspace stays usable while a layout is designed: the
             // designer is not an overlay over it.
             Assert.False(viewModel.HasOverlay);
 
-            // Closing the window ends the design.
-            designer.Close();
+            Named<Button>(settings, "CancelButton").RaiseEvent(
+                new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Settle(window);
             Assert.False(viewModel.IsLayoutDesignerVisible);
-            Assert.Null(window.OpenLayoutDesignerWindow);
+            Assert.False(window.IsLayoutDesignerShown);
         });
 
     private static Control ChooserTile(MainWindow window) =>

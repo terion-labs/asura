@@ -15,12 +15,11 @@ namespace Asura.App.Views;
 /// <summary>
 /// Edits one isolated workspace snapshot and reports host-owned save and close intents.
 /// The control applies reversible in-editor operations itself; persistence, discard
-/// confirmation, and switching to another workspace remain the containing window's.
+/// confirmation, and where it is shown remain the host's.
 /// </summary>
 public sealed partial class WorkspaceEditorView : UserControl
 {
     private WorkspaceEditorViewModel? _observedEditor;
-    private bool _syncingPeers;
     private WorkspaceEntryEditorViewModel? _draggingEntry;
 
     public WorkspaceEditorView()
@@ -51,16 +50,6 @@ public sealed partial class WorkspaceEditorView : UserControl
     public event EventHandler? PickAccentRequested;
 
     /// <summary>
-    /// Raised when the rail asks for a different workspace. The editor holds one
-    /// snapshot and cannot swap it for another, so the host decides what happens
-    /// to the edits in progress before opening the next one.
-    /// </summary>
-    public event EventHandler<WorkspaceId>? WorkspaceSelectionRequested;
-
-    /// <summary>Raised when the rail's plus asks for a workspace that does not exist yet.</summary>
-    public event EventHandler? CreateWorkspaceRequested;
-
-    /// <summary>
     /// Asks the platform host to start its workspace-isolation runtime installation flow.
     /// </summary>
     public event EventHandler<RoutedEventArgs>? InstallWorkspaceIsolationRuntimeRequested;
@@ -73,8 +62,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         this.FindControl<TextBox>("WorkspaceNameInput")!.Focus();
 
     private ListBox EntryListControl => this.FindControl<ListBox>("EntryList")!;
-
-    private ListBox PeerListControl => this.FindControl<ListBox>("PeerList")!;
 
     private StackPanel SelectedEntryEditorControl =>
         this.FindControl<StackPanel>("SelectedEntryEditor")!;
@@ -100,7 +87,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         _observedEditor?.PropertyChanged += OnEditorPropertyChanged;
 
         ConfigurePickers();
-        SynchronizePeerSelection();
         // After the binding pass, not during DataContextChanged: the entry
         // list's ItemsSource has not delivered the new editor's entries yet, so
         // selecting the first entry now is coerced back to nothing — which is
@@ -108,7 +94,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             EnsureEntrySelection();
-            SynchronizePeerSelection();
         });
     }
 
@@ -184,13 +169,6 @@ public sealed partial class WorkspaceEditorView : UserControl
     /// </summary>
     public void ApplySampledColor(Color color) => _samplingPicker?.ApplySampled(color);
 
-    private void OnCreateWorkspaceClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        CreateWorkspaceRequested?.Invoke(this, EventArgs.Empty);
-    }
-
     private void OnAddIsolationMountClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;
@@ -232,41 +210,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         }
     }
 
-    private void SynchronizePeerSelection()
-    {
-        var editor = Editor;
-        _syncingPeers = true;
-        try
-        {
-            PeerListControl.SelectedItem = editor?.Peers.FirstOrDefault(peer => peer.IsCurrent);
-        }
-        finally
-        {
-            _syncingPeers = false;
-        }
-    }
-
-    private void OnPeerSelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        _ = e;
-        if (_syncingPeers
-            || Editor is not { } editor
-            || (sender as ListBox)?.SelectedItem is not WorkspaceRailItemViewModel peer)
-        {
-            return;
-        }
-
-        if (peer.Id == editor.Id)
-        {
-            return;
-        }
-
-        WorkspaceSelectionRequested?.Invoke(this, peer.Id);
-        // The host may refuse — an invalid workspace cannot be left behind — so
-        // the rail shows what is actually open rather than what was clicked.
-        Avalonia.Threading.Dispatcher.UIThread.Post(SynchronizePeerSelection);
-    }
-
     /// <summary>
     /// Keeps the selection pointing at a row that still exists, and at nothing
     /// otherwise. Opening the editor selects nothing on purpose: a tab's panels
@@ -292,10 +235,6 @@ public sealed partial class WorkspaceEditorView : UserControl
         if (string.Equals(e.PropertyName, nameof(WorkspaceEditorViewModel.Entries), StringComparison.Ordinal))
         {
             EnsureEntrySelection();
-        }
-        else if (string.Equals(e.PropertyName, nameof(WorkspaceEditorViewModel.Peers), StringComparison.Ordinal))
-        {
-            SynchronizePeerSelection();
         }
     }
 
