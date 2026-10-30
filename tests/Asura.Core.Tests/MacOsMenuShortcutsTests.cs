@@ -20,6 +20,15 @@ public sealed class MacOsMenuShortcutsTests
     }
 
     [Fact]
+    public void Command_R_reloads_the_page_in_a_browser_panel_as_in_Safari()
+    {
+        Assert.Equal(
+            new KeyStroke("R", KeyModifiers.Meta),
+            MacOsMenuShortcuts.For(BuiltInCommands.BrowserReload, NoArguments));
+        Assert.Contains(BuiltInCommands.BrowserReload, BuiltInCommands.PanelContextCommands);
+    }
+
+    [Fact]
     public void Workspace_shortcuts_avoid_the_screenshot_keys()
     {
         for (var position = 0; position < 9; position++)

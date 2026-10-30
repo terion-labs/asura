@@ -19,7 +19,7 @@ public sealed class PanelMenuBarTests
 {
     private static readonly ImmutableDictionary<string, string> NoArguments = [];
 
-    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Files", "Database", "Processes", "Redis"];
+    private static readonly string[] PanelMenus = ["Docker", "Kubernetes", "Browser", "Files", "Database", "Processes", "Redis"];
 
     [Fact]
     public void The_panel_menu_ends_with_one_submenu_per_panel_kind()
@@ -266,6 +266,28 @@ public sealed class PanelCommandTargetHeadlessTests
 
                 // Commands the panel does not run stay dimmed.
                 Assert.False(state[CommandStates.CanExecute(BuiltInCommands.DockerStart)]);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, CancellationToken.None);
+    }
+
+    [Fact]
+    public async Task Reload_Page_stays_available_while_the_address_field_has_focus()
+    {
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        await session.Dispatch(() =>
+        {
+            var address = new TextBox();
+            var target = new FakePanel(BuiltInCommands.BrowserReload) { Content = address };
+            var window = new Window { Content = target };
+            window.Show();
+            try
+            {
+                Assert.True(address.Focus());
+                Assert.True(State(window, address)[CommandStates.CanExecute(BuiltInCommands.BrowserReload)]);
             }
             finally
             {
