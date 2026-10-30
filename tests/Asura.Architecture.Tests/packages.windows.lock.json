@@ -664,16 +664,6 @@
           "SkiaSharp.NativeAssets.Win32": "4.150.1"
         }
       },
-      "SkiaSharp.NativeAssets.Linux": {
-        "type": "Transitive",
-        "resolved": "3.119.4",
-        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
-      },
-      "SkiaSharp.NativeAssets.Linux.NoDependencies": {
-        "type": "Transitive",
-        "resolved": "4.150.1",
-        "contentHash": "2KVadgDky2xQw7lEMRT/u0ftX5K1u8X7MhCN47Em22Z6VM6JJg1c9cwfGuSPAt1oY6+GjGHH18vkeev+nqT9Kw=="
-      },
       "SkiaSharp.NativeAssets.macOS": {
         "type": "Transitive",
         "resolved": "4.150.1",
@@ -914,6 +904,8 @@
           "Microsoft.Extensions.DependencyInjection": "[10.0.10, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.10, )",
           "Microsoft.WindowsAppSDK": "[1.8.260804001, )",
+          "SkiaSharp.NativeAssets.Linux": "[4.150.1, )",
+          "SkiaSharp.NativeAssets.Linux.NoDependencies": "[4.150.1, )",
           "Tmds.DBus.Protocol": "[0.92.0, )"
         }
       },
@@ -1589,6 +1581,18 @@
         "requested": "[0.50.3, )",
         "resolved": "0.50.3",
         "contentHash": "xxpO3UQ7JTtl2CjsCLZqvThjGx7ETcgH93CuzOGnTrspG5C3NmMnTIvyUG3YRh3hSysQm3UQEiXBKF3zOmKPwQ=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "7IZtljoTBp0EH7/6K3p3yey44db3W7hkV9UPdCOaQQ2TxFkmFOpXwOPiQ865DrG+szgp0aKpQs8vYrzRdF83Ng=="
+      },
+      "SkiaSharp.NativeAssets.Linux.NoDependencies": {
+        "type": "CentralTransitive",
+        "requested": "[4.150.1, )",
+        "resolved": "4.150.1",
+        "contentHash": "2KVadgDky2xQw7lEMRT/u0ftX5K1u8X7MhCN47Em22Z6VM6JJg1c9cwfGuSPAt1oY6+GjGHH18vkeev+nqT9Kw=="
       },
       "SMBLibrary": {
         "type": "CentralTransitive",

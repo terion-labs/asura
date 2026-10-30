@@ -58,6 +58,15 @@
     <PackageVersion Include="ReverseMarkdown" Version="6.2.1" />
     <PackageVersion Include="SMBLibrary" Version="1.5.7.1" />
     <PackageVersion Include="SharpCompress" Version="0.50.3" />
+    <!-- Avalonia.Skia 12.0.5 brings SkiaSharp.NativeAssets.Linux 3.119.4 while
+         PDFtoImage brings SkiaSharp 4.150.1 with its .NoDependencies Linux
+         package. NuGet unifies the managed SkiaSharp to 4.150.1 but the two
+         Linux native package ids both ship libSkiaSharp.so, and the publish
+         kept the 3.119 one (milestone 119), which SkiaSharp 4.150 refuses to
+         load. Pin the fontconfig-linked package to the managed version and
+         keep only its native payload. -->
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="4.150.1" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.150.1" />
     <PackageVersion Include="SQLite3MC.PCLRaw.bundle" Version="2.4.0" />
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.7.0" />
     <PackageVersion Include="SshNet.Agent" Version="2026.0.0" />
