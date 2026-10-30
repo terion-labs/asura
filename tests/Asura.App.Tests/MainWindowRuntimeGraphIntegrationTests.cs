@@ -9368,6 +9368,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         {
             viewModel.IsAppearanceSettingsVisible,
             viewModel.IsWorkspaceSettingsVisible,
+            viewModel.IsConnectionSettingsVisible,
             viewModel.IsNetworkingSettingsVisible,
             viewModel.IsKeybindingSettingsVisible,
             viewModel.IsFilesSettingsVisible,

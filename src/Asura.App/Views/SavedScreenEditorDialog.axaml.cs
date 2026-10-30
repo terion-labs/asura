@@ -69,6 +69,8 @@ public sealed partial class SavedScreenEditorDialog : DialogWindow
         base.OnClosed(e);
     }
 
+    protected override Task CancelAsync() => RequestCancelAsync();
+
     private async void OnCancelClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

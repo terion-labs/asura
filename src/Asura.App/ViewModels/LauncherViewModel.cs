@@ -50,11 +50,15 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(FilteredConnections));
                 OnPropertyChanged(nameof(HasNoFilteredConnections));
+                OnPropertyChanged(nameof(HasNoMatchingConnections));
             }
         }
     }
 
     public bool HasNoFilteredConnections => FilteredConnections.Count == 0;
+
+    /// <summary>There are saved connections, and the filter hides them all.</summary>
+    public bool HasNoMatchingConnections => HasConnections && HasNoFilteredConnections;
 
     public IReadOnlyList<LauncherConnectionViewModel> FilteredConnections =>
         [.. Connections.Concat(FileConnections).Concat(DatabaseConnections).Concat(KubernetesConnections)
@@ -228,6 +232,7 @@ public sealed class LauncherViewModel : ObservableObject, IDisposable
     {
         OnPropertyChanged(nameof(FilteredConnections));
         OnPropertyChanged(nameof(HasNoFilteredConnections));
+        OnPropertyChanged(nameof(HasNoMatchingConnections));
         OnPropertyChanged(nameof(HasWorkspaces));
         OnPropertyChanged(nameof(HasNoWorkspaces));
         OnPropertyChanged(nameof(HasConnections));

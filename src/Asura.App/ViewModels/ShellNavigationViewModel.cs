@@ -16,6 +16,7 @@ public enum SettingsPage
 {
     Appearance,
     Workspaces,
+    Connections,
     Networking,
     Keybindings,
     Files,
@@ -81,6 +82,7 @@ public sealed class ShellNavigationViewModel : ObservableObject
             {
                 OnPropertyChanged(nameof(IsAppearanceSettingsVisible));
                 OnPropertyChanged(nameof(IsWorkspaceSettingsVisible));
+                OnPropertyChanged(nameof(IsConnectionSettingsVisible));
                 OnPropertyChanged(nameof(IsNetworkingSettingsVisible));
                 OnPropertyChanged(nameof(IsKeybindingSettingsVisible));
                 OnPropertyChanged(nameof(IsFilesSettingsVisible));
@@ -134,6 +136,8 @@ public sealed class ShellNavigationViewModel : ObservableObject
     public bool IsAppearanceSettingsVisible => SettingsPage == SettingsPage.Appearance;
 
     public bool IsWorkspaceSettingsVisible => SettingsPage == SettingsPage.Workspaces;
+
+    public bool IsConnectionSettingsVisible => SettingsPage == SettingsPage.Connections;
 
     public bool IsNetworkingSettingsVisible => SettingsPage == SettingsPage.Networking;
 

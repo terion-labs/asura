@@ -7,19 +7,21 @@
     xmlns:controls="using:Asura.App.Controls"
     xmlns:components="using:Asura.App.Views.Components"
     Title="Settings"
-    Width="850"
-    Height="800"
-    MinWidth="700"
-    MinHeight="500"
+    Width="1100"
+    Height="820"
+    MinWidth="900"
+    MinHeight="560"
     CanMinimize="False"
     CanMaximize="False"
     WindowStartupLocation="CenterScreen">
   <!--
     Settings… opens this one window, whichever main window asked. It is not
     modal: the workspace stays live beside it, so a terminal setting can be
-    watched taking effect. It is laid out as macOS 26 System Settings: 850 by
-    800 to begin with, the sidebar running the full height under the window's
-    buttons, and the page's title on their line. Its title names the page on
+    watched taking effect. It is laid out as macOS 26 System Settings, the
+    sidebar running the full height under the window's buttons and the page's
+    title on their line. It opens at 1100 by 820, wider than System Settings,
+    because an item opened from a page — a workspace, a connection, the Layout
+    Designer with its canvas — takes the page's place, and needs the room. Its title names the page on
     show, minimize and zoom are dimmed as they are for every Mac settings
     window, it keeps one size whichever page it shows (a long page scrolls),
     and it reopens on the page it was left on, where and as large as it was

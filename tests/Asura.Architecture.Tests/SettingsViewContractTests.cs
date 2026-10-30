@@ -13,7 +13,7 @@ public sealed class SettingsViewContractTests
         {
             ["AboutSettingsRequested"] = "OnAboutSettingsClick",
             ["AddAiProviderRequested"] = "OnAddAiProviderClick",
-            ["AddFileProviderRequested"] = "OnAddFileProviderClick",
+            ["AddConnectionRequested"] = "OnAddConnectionClick",
             ["AddMcpServerRequested"] = "OnAddMcpServerClick",
             ["AgentSettingsRequested"] = "OnAgentSettingsClick",
             ["AppearanceSettingsRequested"] = "OnAppearanceSettingsClick",
@@ -27,7 +27,7 @@ public sealed class SettingsViewContractTests
             ["CreateFileProviderSecretRequested"] = "OnCreateFileProviderSecretClick",
             ["CreateMcpServerSecretRequested"] = "OnCreateMcpServerSecretClick",
             ["DeleteAiProviderRequested"] = "OnDeleteAiProviderClick",
-            ["DeleteFileProviderRequested"] = "OnDeleteFileProviderClick",
+            ["DeleteConnectionRequested"] = "OnDeleteConnectionClick",
             ["DeleteMcpServerRequested"] = "OnDeleteMcpServerClick",
             ["DeleteScreenRequested"] = "OnDeleteScreenClick",
             ["DeleteSecretRequested"] = "OnDeleteSecretClick",
@@ -36,7 +36,7 @@ public sealed class SettingsViewContractTests
             ["DismissSavedScreenDeleteUndoRequested"] =
                 "OnDismissSavedScreenDeleteUndoClick",
             ["EditAiProviderRequested"] = "OnEditAiProviderClick",
-            ["EditFileProviderRequested"] = "OnEditFileProviderClick",
+            ["EditConnectionRequested"] = "OnEditConnectionClick",
             ["EditLayoutRequested"] = "OnEditLayoutClick",
             ["EditMcpServerRequested"] = "OnEditMcpServerClick",
             ["EditScreenRequested"] = "OnEditScreenClick",
@@ -1379,6 +1379,7 @@ public sealed class SettingsViewContractTests
     private static readonly string[] InlineSettingsPageVisibilityBindings =
     [
         "IsWorkspaceSettingsVisible",
+        "IsConnectionSettingsVisible",
         "IsKeybindingSettingsVisible",
         "IsFilesSettingsVisible",
         "IsBrowserSettingsVisible",

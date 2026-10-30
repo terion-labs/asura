@@ -162,6 +162,26 @@ public sealed record LauncherConnectionViewModel(
     public bool HasTags => Tags.Count > 0;
 
     /// <summary>
+    /// The glyph for what the connection reaches, as the panel it opens
+    /// wears: a folder for files, a database, the cloud for a cluster, and
+    /// for a terminal the kind of machine it lands on.
+    /// </summary>
+    public Symbol IconSymbol => Family switch
+    {
+        SavedConnectionFamily.Files => Symbol.Folder,
+        SavedConnectionFamily.Database => Symbol.Database,
+        SavedConnectionFamily.Kubernetes => Symbol.Cloud,
+        _ when Kind.StartsWith("Git", StringComparison.Ordinal) => Symbol.Branch,
+        _ => Kind switch
+        {
+            "Local" => Symbol.Laptop,
+            "Docker" => Symbol.Box,
+            "WSL" => Symbol.WindowConsole,
+            _ => Symbol.Server,
+        },
+    };
+
+    /// <summary>
     /// A row's secondary line: where the connection goes, or, when it can't
     /// be opened, why not. A dimmed row with no reason reads as broken.
     /// </summary>

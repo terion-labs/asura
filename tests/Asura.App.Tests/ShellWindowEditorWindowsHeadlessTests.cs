@@ -14,23 +14,150 @@ using Dock.Avalonia.Controls;
 namespace Asura.App.Tests;
 
 /// <summary>
-/// The workspace editor and Layout Designer windows sit beside the main
-/// window without getting in its way: one close of the main window closes
-/// them too, asking about unsaved edits once, and the workspace keeps docking
-/// while the designer is open.
+/// The workspace editor and the Layout Designer are items of the Workspaces
+/// page in Settings, shown in its place: one at a time, Back leaves them,
+/// one close of the main window takes Settings with it asking about unsaved
+/// edits once, and the workspace keeps docking while the designer is open.
 /// </summary>
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class ShellWindowEditorWindowsHeadlessTests
 {
     [Fact]
-    public Task One_close_takes_the_main_window_and_its_clean_editor_windows() => RunAsync(async (window, viewModel) =>
+    public Task Editors_open_in_Settings_in_place_of_their_page_one_at_a_time() => RunAsync(async (window, viewModel) =>
     {
         await window.EditWorkspaceAsync(viewModel.Workspaces[0].Id);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        Settle(settings);
+        var view = settings.GetVisualDescendants().OfType<SettingsView>().Single();
+        Assert.True(window.IsWorkspaceEditorShown);
+        Assert.Equal(SettingsPage.Workspaces, viewModel.SettingsPage);
+        Assert.Equal(viewModel.WorkspaceEditor!.Name.Trim(), view.FindControl<TextBlock>("SettingsPageTitle")!.Text);
+        Assert.False(view.FindControl<ScrollViewer>("SettingsPageScroll")!.IsVisible);
+        Assert.True(view.FindControl<Button>("SettingsBackButton")!.IsEnabled);
+        Assert.Empty(window.OwnedWindows);
+
+        // The Layout Designer takes the workspace editor's place: an editor
+        // with nothing unsaved goes without asking.
+        await window.ShowLayoutDesignerAsync();
+        Settle(settings);
+        Assert.False(viewModel.IsDefinitionEditorVisible);
+        Assert.True(window.IsLayoutDesignerShown);
+
+        // Back returns to the page.
+        view.FindControl<Button>("SettingsBackButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await UntilAsync(() => !viewModel.IsLayoutDesignerVisible);
+        Settle(settings);
+        Assert.False(view.HasDetail);
+        Assert.True(view.FindControl<ScrollViewer>("SettingsPageScroll")!.IsVisible);
+        Assert.Equal("Workspaces & Screens", view.FindControl<TextBlock>("SettingsPageTitle")!.Text);
+    });
+
+    [Fact]
+    public Task An_editor_asked_over_Settings_opens_in_place_of_the_page_and_Back_cancels_it() => RunAsync(async (window, viewModel) =>
+    {
+        window.NavigateToSettings(SettingsPage.Connections);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        Settle(settings);
+        var view = settings.GetVisualDescendants().OfType<SettingsView>().Single();
+
+        var dialog = new ConnectionEditorDialog(viewModel.CreateUnifiedConnectionEditor());
+        var answer = dialog.ShowDialog<UnifiedConnectionEditorResult?>(settings);
+        await UntilAsync(() => view.HasDetail);
+        Settle(settings);
+        var card = Assert.IsType<SheetCard>(view.DetailContent);
+        Assert.True(card.IsPage);
+        Assert.False(SheetHost.IsPresenting(settings));
+        Assert.Empty(settings.OwnedWindows);
+        Assert.Equal(dialog.Title, view.FindControl<TextBlock>("SettingsPageTitle")!.Text);
+
+        // A question asked from the page is a sheet over Settings.
+        var question = Confirmations.DiscardChanges();
+        var asked = question.ShowDialog<bool>(dialog);
+        await UntilAsync(() => SheetHost.IsPresenting(settings));
+        question.FindControl<Button>("CancelButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(await asked);
+
+        // Back is the editor's Cancel, and the page comes back.
+        view.FindControl<Button>("SettingsBackButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.Null(await answer);
+        await UntilAsync(() => !view.HasDetail);
+        Assert.Equal("Connections", view.FindControl<TextBlock>("SettingsPageTitle")!.Text);
+    });
+
+    [Fact]
+    public Task Closing_the_main_window_ends_an_editor_open_as_a_page_in_its_Settings() => RunAsync(async (window, viewModel) =>
+    {
+        window.NavigateToSettings(SettingsPage.Connections);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        var dialog = new ConnectionEditorDialog(viewModel.CreateUnifiedConnectionEditor());
+        var answer = dialog.ShowDialog<UnifiedConnectionEditorResult?>(settings);
+        await UntilAsync(() => settings.HasDialogPage);
+        var closed = TrackClosed(window, settings, dialog);
+
+        window.Close();
+        _ = await UntilClosedAsync(window, closed, answer: _ => true);
+
+        Assert.All(closed, entry => Assert.True(entry.Value(), $"{entry.Key} is still open."));
+        Assert.Null(await answer);
+    });
+
+    [Fact]
+    public Task A_page_asked_for_while_editing_asks_about_unsaved_edits_first() => RunAsync(async (window, viewModel) =>
+    {
+        await window.EditWorkspaceAsync(viewModel.Workspaces[0].Id);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        viewModel.WorkspaceEditor!.Name += " edited";
+
+        var request = window.RequestSettingsPageAsync(SettingsPage.Terminal);
+        var question = await UntilAsync(() => SheetHost.For(settings).Front as ConfirmationDialog);
+        // Keep editing: the page stays where it was.
+        question.FindControl<Button>("CancelButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        Assert.False(await request);
+        Assert.True(window.IsWorkspaceEditorShown);
+        Assert.Equal(SettingsPage.Workspaces, viewModel.SettingsPage);
+    });
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public Task A_page_asked_for_over_an_editor_that_asks_first_goes_on_with_the_answer(bool discard) => RunAsync(async (window, viewModel) =>
+    {
+        window.NavigateToSettings(SettingsPage.Workspaces);
+        Settle(window);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        // A screen not yet saved: its Cancel asks before it lets the draft go.
+        var dialog = new SavedScreenEditorDialog(
+            viewModel.CreateNewSavedScreenEditor("Draft"),
+            viewModel.SaveSavedScreenAsync);
+        var answer = dialog.ShowDialog<bool>(settings);
+        await UntilAsync(() => settings.HasDialogPage);
+
+        var request = window.RequestSettingsPageAsync(SettingsPage.Terminal);
+        var question = await UntilAsync(() => SheetHost.For(settings).Front as ConfirmationDialog);
+        Assert.False(request.IsCompleted);
+        question.FindControl<Button>(discard ? "ConfirmButton" : "CancelButton")!
+            .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+        Assert.Equal(discard, await request);
+        Assert.Equal(discard ? SettingsPage.Terminal : SettingsPage.Workspaces, viewModel.SettingsPage);
+        Assert.Equal(!discard, settings.HasDialogPage);
+        if (discard)
+        {
+            Assert.False(await answer);
+        }
+    });
+
+    [Fact]
+    public Task One_close_takes_the_main_window_and_Settings_with_a_clean_editor() => RunAsync(async (window, viewModel) =>
+    {
         await window.ShowLayoutDesignerAsync();
         Settle(window);
-        var editor = Assert.IsType<WorkspaceEditorWindow>(window.OpenWorkspaceEditorWindow);
-        var designer = Assert.IsType<LayoutDesignerWindow>(window.OpenLayoutDesignerWindow);
-        var closed = TrackClosed(window, editor, designer);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        var closed = TrackClosed(window, settings);
 
         window.Close();
         var questions = await UntilClosedAsync(window, closed, answer: _ => true);
@@ -40,14 +167,14 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
     });
 
     [Fact]
-    public Task One_close_with_unsaved_edits_asks_once_and_takes_both_windows() => RunAsync(async (window, viewModel) =>
+    public Task One_close_with_unsaved_edits_asks_once_and_takes_Settings() => RunAsync(async (window, viewModel) =>
     {
         await window.EditWorkspaceAsync(viewModel.Workspaces[0].Id);
         Settle(window);
-        var editor = Assert.IsType<WorkspaceEditorWindow>(window.OpenWorkspaceEditorWindow);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
         viewModel.WorkspaceEditor!.Name += " edited";
         Assert.True(viewModel.WorkspaceEditor.IsDirty);
-        var closed = TrackClosed(window, editor);
+        var closed = TrackClosed(window, settings);
 
         window.Close();
         // Discard, and yes to anything else the close asks, such as running
@@ -65,21 +192,21 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
     {
         await window.ShowLayoutDesignerAsync();
         Settle(window);
-        var designer = Assert.IsType<LayoutDesignerWindow>(window.OpenLayoutDesignerWindow);
-        Settle(designer);
+        var settings = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
+        Settle(settings);
         var workspaceDock = window.GetVisualDescendants().OfType<RuntimeDockControl>().First(dock => dock.IsEffectivelyVisible);
-        var designerDock = designer.GetVisualDescendants().OfType<DockControl>().Single(dock => dock.Name == "LayoutDesignerDock");
+        var designerDock = settings.GetVisualDescendants().OfType<DockControl>().Single(dock => dock.Name == "LayoutDesignerDock");
         Assert.True(workspaceDock.IsDockingEnabled);
         Assert.True(designerDock.IsDockingEnabled);
 
         // A press in the designer's canvas: the workspace stops taking drops
         // until the button is let go.
         var inDesigner = designerDock.TranslatePoint(
-            new Point(designerDock.Bounds.Width / 2, designerDock.Bounds.Height / 2), designer)!.Value;
-        designer.MouseDown(inDesigner, MouseButton.Left);
+            new Point(designerDock.Bounds.Width / 2, designerDock.Bounds.Height / 2), settings)!.Value;
+        settings.MouseDown(inDesigner, MouseButton.Left);
         Assert.False(workspaceDock.IsDockingEnabled);
         Assert.True(designerDock.IsDockingEnabled);
-        designer.MouseUp(inDesigner, MouseButton.Left);
+        settings.MouseUp(inDesigner, MouseButton.Left);
         Assert.True(workspaceDock.IsDockingEnabled);
 
         // And the other way round.
@@ -91,10 +218,35 @@ public sealed class ShellWindowEditorWindowsHeadlessTests
         window.MouseUp(inWorkspace, MouseButton.Left);
         Assert.True(designerDock.IsDockingEnabled);
 
-        designer.Close();
+        // Leaving the designer ends the design.
+        await settings.GetVisualDescendants().OfType<SettingsView>().Single().LeaveDetailAsync();
         Settle(window);
+        Assert.False(viewModel.IsLayoutDesignerVisible);
         Assert.True(viewModel.IsWorkspaceDockingEnabled);
     });
+
+    private static async Task UntilAsync(Func<bool> condition)
+    {
+        _ = await UntilAsync(() => condition() ? (object?)true : null);
+    }
+
+    private static async Task<T> UntilAsync<T>(Func<T?> probe)
+        where T : class
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        while (DateTime.UtcNow < deadline)
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (probe() is { } found)
+            {
+                return found;
+            }
+
+            await Task.Delay(10);
+        }
+
+        throw new TimeoutException("The condition was not met.");
+    }
 
     private static Dictionary<string, Func<bool>> TrackClosed(params Window[] windows)
     {

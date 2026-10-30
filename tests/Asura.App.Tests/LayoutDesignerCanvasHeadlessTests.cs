@@ -31,7 +31,8 @@ public sealed class LayoutDesignerCanvasHeadlessTests
             {
                 Settle(window);
                 await window.ShowLayoutDesignerAsync();
-                var designer = Assert.IsType<LayoutDesignerWindow>(window.OpenLayoutDesignerWindow);
+                Assert.True(window.IsLayoutDesignerShown);
+                var designer = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
                 Settle(designer);
 
                 var dock = Assert.Single(designer.GetVisualDescendants().OfType<DockControl>());
@@ -68,7 +69,8 @@ public sealed class LayoutDesignerCanvasHeadlessTests
                 await window.ShowLayoutDesignerAsync();
                 var open = viewModel.Layouts[0];
                 viewModel.BeginEditLayout(open.Id, replaceCurrent: true);
-                var designer = Assert.IsType<LayoutDesignerWindow>(window.OpenLayoutDesignerWindow);
+                Assert.True(window.IsLayoutDesignerShown);
+                var designer = Assert.IsType<SettingsWindow>(SettingsWindow.Current);
                 Settle(designer);
 
                 var rows = designer.GetVisualDescendants()

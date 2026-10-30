@@ -176,6 +176,12 @@ public class DialogWindow : Window
     /// <summary>Cancels the sheet the way its Cancel button does.</summary>
     internal void CancelSheet() => Cancel();
 
+    /// <summary>
+    /// Cancels the dialog the way its Cancel button does, finishing once it
+    /// has decided: closed, or kept open by the answer to a question it asked.
+    /// </summary>
+    internal Task CancelAndDecideAsync() => CancelAsync();
+
     /// <summary>Gives the keyboard to the sheet: its focused field, or its first.</summary>
     internal void FocusSheet()
     {
@@ -208,6 +214,14 @@ public class DialogWindow : Window
         { IsVisible: true } => owner,
         _ => null,
     };
+
+    /// <summary>
+    /// An editor — a connection, a provider, a saved screen — is a page of
+    /// its own where the window offers pages, as an item is in System
+    /// Settings; a question is a sheet over whatever it asks about.
+    /// </summary>
+    private static bool PrefersPage(Control content) =>
+        content is DialogShell { Chrome: DialogChrome.Editor };
 
     /// <summary>
     /// Return presses the sheet's default button, and only the sheet's: the
@@ -250,7 +264,20 @@ public class DialogWindow : Window
         _closeResult = null;
         Content = null;
         var host = SheetHost.For(window);
-        var card = host.Present(this, content);
+        var pages = PrefersPage(content) ? window as IDialogPageHost : null;
+        var page = new SheetCard(this, content, isPage: true);
+        SheetCard card;
+        if (pages?.TryShowDialogPage(page) == true)
+        {
+            card = page;
+        }
+        else
+        {
+            page.Child = null;
+            pages = null;
+            card = host.Present(this, content);
+        }
+
         var styles = Styles.ToArray();
         foreach (var style in styles)
         {
@@ -262,6 +289,15 @@ public class DialogWindow : Window
         _sheetCard = card;
         card.AddHandler(KeyDownEvent, OnDialogKeyDown, RoutingStrategies.Tunnel);
         card.AddHandler(KeyDownEvent, OnSheetReturn, RoutingStrategies.Bubble);
+        void OnTitleChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.Property == TitleProperty && pages is not null)
+            {
+                pages.RetitleDialogPage(card, Title ?? string.Empty);
+            }
+        }
+
+        PropertyChanged += OnTitleChanged;
         Closed += OnClosed;
         try
         {
@@ -279,9 +315,18 @@ public class DialogWindow : Window
         finally
         {
             Closed -= OnClosed;
+            PropertyChanged -= OnTitleChanged;
             card.RemoveHandler(KeyDownEvent, OnDialogKeyDown);
             card.RemoveHandler(KeyDownEvent, OnSheetReturn);
-            host.Dismiss(this);
+            if (pages is not null)
+            {
+                pages.HideDialogPage(card);
+            }
+            else
+            {
+                host.Dismiss(this);
+            }
+
             foreach (var style in styles)
             {
                 _ = card.Styles.Remove(style);
@@ -337,6 +382,17 @@ public class DialogWindow : Window
         {
             invoke.Invoke();
         }
+    }
+
+    /// <summary>
+    /// <see cref="Cancel"/>, for a caller that goes on once the dialog has
+    /// decided. A dialog whose Cancel asks a question first — whether to
+    /// discard its edits — overrides this to finish with the answer.
+    /// </summary>
+    protected virtual Task CancelAsync()
+    {
+        Cancel();
+        return Task.CompletedTask;
     }
 
     /// <summary>
