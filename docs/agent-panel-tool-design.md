@@ -380,6 +380,12 @@ the main-frame/document identity, frame ID, backend DOM node ID, accessibility
 role/state, snapshot nonce, and geometry evidence. Node IDs are never returned
 to the provider.
 
+The host bounds every DevTools reply. When a page's whole tree exceeds that
+bound, the snapshot reads only the page's beginning: one parent's children per
+reply, nearest the document start first, each node once, up to a fixed node
+budget. The result is marked truncated rather than failing, and a filter
+searches only what was read.
+
 A reference expires on top-level navigation, renderer replacement, next
 snapshot, completed mutation, or a short time limit. Before using it, the host
 re-resolves the backend node and rechecks frame, role, visibility, enabled/edit

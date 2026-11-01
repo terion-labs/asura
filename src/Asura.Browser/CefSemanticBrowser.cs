@@ -12,6 +12,16 @@ namespace Asura.Browser;
 internal sealed class CefSemanticBrowser : ICefSemanticBrowser
 {
     private const int MaximumRevealAttempts = 6;
+
+    /// <summary>
+    /// How much of a page too large to read whole is read: far more than a
+    /// snapshot returns, so a filter still finds what is near the start.
+    /// </summary>
+    private const int PartialTreeNodeBudget = 6_000;
+    private const int PartialTreeBatchSize = 64;
+
+    /// <summary>The error the host puts in place of an oversized DevTools reply.</summary>
+    private const string HostByteLimitMessage = "CDP response exceeds the host byte limit.";
     private const double ViewportMarginCss = 12;
     private readonly CefBrowser _browser;
     private readonly CefHumanizedInput _humanizedInput;
@@ -27,30 +37,148 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
             ?? throw new ArgumentNullException(nameof(humanizedInput));
     }
 
-    public async Task<IReadOnlyList<CefSemanticNode>>
-        ReadAccessibilityTreeAsync()
+    public async Task<CefSemanticTree> ReadAccessibilityTreeAsync()
     {
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
         var reply = await _browser.ExecuteDevToolsMethodAsync(
                 "Accessibility.getFullAXTree",
                 "{\"depth\":64}")
             .ConfigureAwait(false);
-        using var document = JsonDocument.Parse(reply);
-        var nodes = document.RootElement
-            .GetProperty("result")
-            .GetProperty("nodes");
+        IReadOnlyList<CefSemanticNode> nodes;
+        bool isPartial;
+        using (var document = JsonDocument.Parse(reply))
+        {
+            if (Result(document, "Accessibility.getFullAXTree") is { } result)
+            {
+                nodes = [.. result.GetProperty("nodes").EnumerateArray().Select(Project)];
+                isPartial = false;
+            }
+            else
+            {
+                nodes = await ReadAccessibilityTreeBeginningAsync().ConfigureAwait(false);
+                isPartial = true;
+            }
+        }
+
         var domReply = await _browser.ExecuteDevToolsMethodAsync(
                 "DOMSnapshot.captureSnapshot", "{\"computedStyles\":[]}")
             .ConfigureAwait(false);
         using var dom = JsonDocument.Parse(domReply);
-        var projected = CefClickableNodes.Augment(
-            [.. nodes.EnumerateArray().Select(Project)], dom.RootElement.GetProperty("result"));
+        // A page too large to snapshot keeps its semantic controls; only
+        // elements that are clickable through a script listener go unnamed.
+        var projected = Result(dom, "DOMSnapshot.captureSnapshot") is { } snapshot
+            ? CefClickableNodes.Augment(nodes, snapshot)
+            : nodes;
         _customClickTargets.Clear();
         foreach (var node in projected)
         {
             if (string.Equals(node.Role, "clickable", StringComparison.Ordinal) && node.BackendNodeId is { } id) { _customClickTargets.Add(id); }
         }
-        return projected;
+        return new CefSemanticTree(projected, isPartial);
+    }
+
+    /// <summary>
+    /// The beginning of a page whose whole tree is larger than the host
+    /// accepts in one reply: nodes are read a parent's children at a time,
+    /// nearest the start of the document first, until the budget is spent.
+    /// Each reply stays bounded by the host's limit, and a parent whose
+    /// children are themselves too many to read is left without them.
+    /// </summary>
+    private async Task<IReadOnlyList<CefSemanticNode>> ReadAccessibilityTreeBeginningAsync()
+    {
+        var rootReply = await _browser.ExecuteDevToolsMethodAsync(
+                "Accessibility.getRootAXNode", "{}")
+            .ConfigureAwait(false);
+        using var rootDocument = JsonDocument.Parse(rootReply);
+        var root = Project(
+            (Result(rootDocument, "Accessibility.getRootAXNode")
+                ?? throw new InvalidOperationException(
+                    "Chromium did not return the page's accessibility root."))
+            .GetProperty("node"));
+        var nodes = new List<CefSemanticNode> { root };
+        // Chromium lists a parent's children by the ids of its full tree;
+        // the children it returns for that parent are what the walk links.
+        var childrenRead = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        // An ignored node's children also come back with its parent's, so one
+        // node can arrive more than once; it is read, and read into, once.
+        var seen = new HashSet<string>(StringComparer.Ordinal) { root.Id };
+        var unread = new List<CefSemanticNode>();
+        if (root.ChildIds.Count > 0)
+        {
+            unread.Add(root);
+        }
+
+        while (unread.Count > 0 && nodes.Count < PartialTreeNodeBudget)
+        {
+            var parents = unread.Take(PartialTreeBatchSize).ToArray();
+            unread.RemoveRange(0, parents.Length);
+            var replies = await Task.WhenAll(parents.Select(parent =>
+                    _browser.ExecuteDevToolsMethodAsync(
+                        "Accessibility.getChildAXNodes",
+                        "{\"id\":\"" + JsonEncodedText.Encode(parent.Id) + "\"}")))
+                .ConfigureAwait(false);
+            var children = new List<CefSemanticNode>();
+            for (var index = 0; index < parents.Length; index++)
+            {
+                using var document = JsonDocument.Parse(replies[index]);
+                if (Result(document, "Accessibility.getChildAXNodes") is not { } result)
+                {
+                    continue;
+                }
+
+                var read = new List<string>();
+                foreach (var child in result.GetProperty("nodes").EnumerateArray())
+                {
+                    var node = Project(child) with { ParentId = parents[index].Id };
+                    read.Add(node.Id);
+                    if (!seen.Add(node.Id))
+                    {
+                        continue;
+                    }
+
+                    nodes.Add(node);
+                    if (node.ChildIds.Count > 0)
+                    {
+                        children.Add(node);
+                    }
+                }
+
+                childrenRead[parents[index].Id] = read;
+            }
+
+            // Read deeper into what came first before moving on, as the
+            // document reads.
+            unread.InsertRange(0, children);
+        }
+
+        var kept = nodes.Count > PartialTreeNodeBudget
+            ? nodes[..PartialTreeNodeBudget]
+            : nodes;
+        return [.. kept.Select(node => childrenRead.TryGetValue(node.Id, out var read)
+            ? node with { ChildIds = read }
+            : node with { ChildIds = [] })];
+    }
+
+    /// <summary>
+    /// A DevTools reply's result; null when the reply was larger than the
+    /// host accepts, which the host reports in its place. Any other error is
+    /// a failure of <paramref name="method"/>.
+    /// </summary>
+    private static JsonElement? Result(JsonDocument reply, string method)
+    {
+        if (reply.RootElement.TryGetProperty("result", out var result))
+        {
+            return result;
+        }
+
+        if (reply.RootElement.TryGetProperty("error", out var error)
+            && error.TryGetProperty("message", out var message)
+            && string.Equals(message.GetString(), HostByteLimitMessage, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        throw new InvalidOperationException($"Chromium refused {method}.");
     }
 
     public async Task<CefSemanticNode?> ReadAccessibilityNodeAsync(
@@ -59,7 +187,7 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         if (_customClickTargets.Contains(backendNodeId))
         {
             var tree = await ReadAccessibilityTreeAsync().ConfigureAwait(false);
-            return tree.FirstOrDefault(node => node.BackendNodeId == backendNodeId);
+            return tree.Nodes.FirstOrDefault(node => node.BackendNodeId == backendNodeId);
         }
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
         var nodes = await _browser.Accessibility

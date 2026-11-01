@@ -6,7 +6,7 @@ namespace Asura.Browser;
 /// </summary>
 internal interface ICefSemanticBrowser
 {
-    Task<IReadOnlyList<CefSemanticNode>> ReadAccessibilityTreeAsync();
+    Task<CefSemanticTree> ReadAccessibilityTreeAsync();
 
     Task<CefSemanticNode?> ReadAccessibilityNodeAsync(int backendNodeId);
 

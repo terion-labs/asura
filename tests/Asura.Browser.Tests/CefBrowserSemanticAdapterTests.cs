@@ -140,6 +140,23 @@ public sealed class CefBrowserSemanticAdapterTests
     }
 
     [Fact]
+    public async Task APageReadOnlyInPartIsATruncatedSnapshotOfItsBeginning()
+    {
+        var browser = BrowserWithInteractiveNodes();
+        var adapter = new CefBrowserSemanticAdapter(browser);
+        Assert.False((await adapter.CaptureSnapshotAsync()).Value!.IsTruncated);
+
+        // Too large to read whole: what was read is usable, and marked as
+        // not being the whole page.
+        browser.TreeIsPartial = true;
+        var result = await adapter.CaptureSnapshotAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.True(result.Value!.IsTruncated);
+        Assert.Contains(result.Value.Nodes, node => string.Equals(node.Role, "button", StringComparison.Ordinal) && node.Handle is not null);
+    }
+
+    [Fact]
     public async Task FilterRunsBeforeNodeCapAndReturnsAUsableLateReference()
     {
         var childIds = Enumerable.Range(2, 700)
@@ -487,10 +504,12 @@ public sealed class CefBrowserSemanticAdapterTests
 
         public int ReplaceTextCount { get; private set; }
 
-        public Task<IReadOnlyList<CefSemanticNode>>
-            ReadAccessibilityTreeAsync() =>
-            Task.FromResult<IReadOnlyList<CefSemanticNode>>(
-                [.. _nodes.Values.Concat(_generatedNodes).OrderBy(node => node.BackendNodeId)]);
+        public bool TreeIsPartial { get; set; }
+
+        public Task<CefSemanticTree> ReadAccessibilityTreeAsync() =>
+            Task.FromResult(new CefSemanticTree(
+                [.. _nodes.Values.Concat(_generatedNodes).OrderBy(node => node.BackendNodeId)],
+                TreeIsPartial));
 
         public Task<CefSemanticNode?> ReadAccessibilityNodeAsync(
             int backendNodeId) =>

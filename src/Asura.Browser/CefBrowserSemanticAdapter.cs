@@ -98,7 +98,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         BrowserSnapshotQuery? query = null)
     {
         query ??= BrowserSnapshotQuery.Lean;
-        IReadOnlyList<CefSemanticNode> source;
+        CefSemanticTree source;
         try
         {
             source = await _browser.ReadAccessibilityTreeAsync()
@@ -113,7 +113,7 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
 
         try
         {
-            return BuildSnapshot(source, query);
+            return BuildSnapshot(source.Nodes, query, source.IsPartial);
         }
         catch (Exception exception)
             when (exception is ArgumentException
@@ -450,7 +450,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
 
     private NativeBrowserSnapshotResult BuildSnapshot(
         IReadOnlyList<CefSemanticNode> source,
-        BrowserSnapshotQuery query)
+        BrowserSnapshotQuery query,
+        bool sourceIsPartial)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(query);
@@ -485,7 +486,8 @@ internal sealed class CefBrowserSemanticAdapter(ICefSemanticBrowser browser)
         var leases = new Dictionary<string, ElementLease>(
             StringComparer.Ordinal);
         var visited = new HashSet<string>(StringComparer.Ordinal);
-        var truncated = false;
+        // Only the beginning of a very large page was read.
+        var truncated = sourceIsPartial;
 
         void Visit(
             CefSemanticNode node,
