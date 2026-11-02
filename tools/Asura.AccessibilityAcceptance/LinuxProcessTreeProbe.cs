@@ -266,6 +266,15 @@ internal sealed class LinuxProcessTreeProbe : IProcessTreeProbe
 
         var fields = stat[(commandEnd + 2)..]
             .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // A zombie has exited; only an init that reaps makes its record go.
+        // Under systemd it is gone at once; in a container whose PID 1 does
+        // not reap, the record stays with state Z, and treating that as a
+        // live process would report a kill that did its work as a leak.
+        if (fields.Length > 0 && string.Equals(fields[0], "Z", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
         if (fields.Length <= 19
             || !int.TryParse(
                 fields[1],

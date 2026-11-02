@@ -21,7 +21,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
             path,
             EncodedImage(SKEncodedImageFormat.Jpeg, width: 3_456, height: 2_234));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        var session = HeadlessSessions.StartNew(typeof(AgentAttachmentHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(
@@ -69,7 +69,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
         await File.WriteAllBytesAsync(path, Bitmap24(1_000, 1_600));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessSessions.StartNew(
-            typeof(SqlEditorHeadlessApplication));
+            typeof(AgentAttachmentHeadlessApplication));
         try
         {
             var completed = await session.Dispatch(
@@ -122,7 +122,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessSessions.StartNew(
-            typeof(SqlEditorHeadlessApplication));
+            typeof(AgentAttachmentHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(
@@ -169,7 +169,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessSessions.StartNew(
-            typeof(SqlEditorHeadlessApplication));
+            typeof(AgentAttachmentHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(
@@ -191,6 +191,11 @@ public sealed class OrdinaryImagePreviewDecoderTests
         }
     }
 
+    /// <summary>
+    /// Drawn by Skia, not the headless stub: the stub hands back whatever
+    /// memory it was given, which happened to be zeroed on macOS and read as
+    /// the black first frame, and is not zeroed on Linux.
+    /// </summary>
     [Fact]
     public async Task Animated_gif_uses_the_first_frame_policy()
     {
@@ -207,7 +212,7 @@ public sealed class OrdinaryImagePreviewDecoderTests
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var session = HeadlessSessions.StartNew(
-            typeof(SqlEditorHeadlessApplication));
+            typeof(AgentAttachmentHeadlessApplication));
         try
         {
             Assert.True(await session.Dispatch(

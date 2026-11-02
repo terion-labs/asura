@@ -327,7 +327,7 @@ Target state after the plan is delivered.
 | LXQt | X11 | SSD | menu bar | portal (lxqt backend) | X11 | Qt family metrics |
 | Sway, Hyprland, river | Wayland (XWayland) | none | menu bar | portal (wlr/hyprland backends have no Settings; env fallback) | portal GlobalShortcuts where provided | generic profile |
 | i3, bspwm, Openbox | X11 | WM decides | menu bar | env fallback | X11 | generic profile; CI harness uses Openbox |
-| No session bus | any | SSD | menu bar | defaults | X11 only | today the app refuses to start (Phase 0 item 8); target: vault unavailable, notifications in-app only |
+| No session bus | any | SSD | menu bar | defaults | X11 only | today the app refuses to start (issue `asura-hkua`); target: vault unavailable, notifications in-app only |
 
 ## 4. Delivery plan
 
@@ -337,89 +337,68 @@ L a week or more.
 
 ### Phase 0: a green Linux lane
 
-Goal: `linux-x64` restores, builds, tests and smoke-runs in CI on every pull
-request; `linux-arm64` builds.
+Done on 2026-11-03: `.github/workflows/linux-lane.yml` runs on every pull
+request, on pushes to `main` and by hand. It is the Linux counterpart of the
+macOS jobs in `repository-gate.yml`, which stays a release workflow:
 
-1. Add `ubuntu-24.04` and `ubuntu-24.04-arm` jobs to `repository-gate.yml`:
-   locked restore for Linux RIDs, Release build, the six test sections with
-   Avalonia headless, `check.sh --quick`. (M)
-2. Build and cache the Linux terminal payload (`build-libghostty-vt.sh --rid
-   linux-x64` and `linux-arm64`) in CI the way the macOS payload is. The
-   checked-out `linux-x64` payload is stale and incomplete; rebuild it with
-   the current patch set and add `libasura_pty.so`, the CEF runtime and the
-   SQL worker so a local Linux `dotnet run` works. (S)
-3. Make `check.sh --full` run its native step on Linux (Porta.Pty descriptor
-   boundary test, libghostty ABI probe), and extend
-   `NativeTerminalBuildContractTests` so the gate's Linux lane is a tested
-   convention like the macOS one. (S)
-4. Fix whatever the first run shows. The Xvfb history records one startup
-   crash from a D-Bus type mismatch; every portal and D-Bus client must be
-   wrapped so a missing bus, missing portal, or unexpected variant never
-   stops startup. (M)
-5. Make the vendored Exclr8CEF shim build on Linux. As of 2026-10-30 it
-   compiles with neither compiler: GCC rejects the ambiguous
-   `WindowOpenDisposition` typedef inherited from two CEF handler bases
-   (`shim/exclr8cef_osr.h`), and the shim's Linux flags add the GCC-only
-   `-Wno-stringop-truncation` under `-Werror`, which clang refuses. Decide
-   the Linux compiler (clang, matching macOS), fix both in the reviewed
-   patch set with the `ASURA-PATCHSET.sha256` manifest and receipt digests
-   updated, and add `bzip2` and `libx11-dev` to the documented CEF build
-   prerequisites. (S)
-6. Keep `linux-x11-packaged-acceptance.sh` runnable: its source copy must
-   carry `native/artifacts/<rid>` (the unanchored `--exclude=artifacts`
-   dropped it), the container must get the SDK `global.json` pins (the
-   floating `dotnet/sdk:10.0` tag has moved past it, and the muxer reads
-   `global.json` from the working directory, so the inner script must run
-   dotnet from the source root), CEF's runtime libraries must be installed,
-   and the driver needs a Secret Service (see item 8). All fixed in the
-   working tree alongside this plan. (S)
-7. Ship one Linux `libSkiaSharp.so`. Avalonia.Skia 12.0.5 depends on
-   `SkiaSharp.NativeAssets.Linux` 3.119.4 while PDFtoImage depends on
-   `SkiaSharp.NativeAssets.Linux.NoDependencies` 4.150.1; NuGet unifies the
-   managed `SkiaSharp` to 4.150.1 but both native package ids survive, and
-   the Linux publish kept the milestone-119 library, which SkiaSharp 4.150
-   refuses to load. Every Avalonia window then fails in `SkiaApi`'s type
-   initializer, including the startup-failure dialog, so the packaged app
-   exited with only secret-safe diagnostic codes. macOS and Windows never hit
-   this because their native packages share one id. Fixed by pinning the
-   fontconfig-linked package to 4.150.1 and excluding the other's native
-   asset; regenerated every lock file except `packages.windows.lock.json`,
-   which only a Windows host can write. (S, done in the working tree)
-8. Decide what Asura does with no Secret Service. A fresh profile bootstraps
-   application encryption by storing its keys in the vault, so with no
-   session bus or no `org.freedesktop.secrets` provider the desktop refuses
-   to start, and the failure dialog cannot explain it when the window stack
-   itself is broken. With a locked keyring and no prompter the app hangs at
-   startup. Minimal window managers, SSH sessions and containers all land
-   here. Options: an explicit "no OS keystore" mode with a passphrase-wrapped
-   file vault, or a clear startup dialog with the install command. The
-   Xvfb harness now provides a passwordless GNOME Keyring on its session bus,
-   which is also the recipe for CI. (M)
-9. Fixed in the working tree, found by the first harness run that got past
-   the window stack: `LinuxSecretServiceSecretVault` closed the `secret-tool`
-   stdin pipe underneath its `StreamWriter`, and the child-process dispose
-   then threw "Cannot access a closed pipe", so every successful store was
-   reported as a vault failure and no fresh profile could open on Linux.
-   macOS never runs this code. Also fixed: the Linux CEF shim's RPATH is the
-   working directory, so `libcef.so` only resolved when Asura was started
-   from its own folder; `BrowserEngineRuntime` now maps `libcef.so` by
-   absolute path before the shim loads. The proper fix is `$ORIGIN` in the
-   vendored CMake, with the patch-set manifest updated. (S, done)
-10. Bring the harness's expectations up to date with the shell. On
-    2026-10-30, with the fixes above, the linux-arm64 run passes startup,
-    PTY, Unicode round trip, viewport resize, the `less` TUI, SGR mouse and
-    the OSC 52 write policy, with no diagnostics in `asura.log`. Three
-    checks still fail for harness reasons that need confirming: the
-    close-confirmation and paste-confirmation checks look for separate X11
-    windows that became in-window sheets in #164, and the Quick Terminal
-    check waits for a window titled `Asura Quick Terminal` while the window
-    is now titled `Quick Terminal`. Update the driver, then re-run to see
-    whether anything real remains behind those three. (S)
-11. Turn `linux-x11-packaged-acceptance.sh` into a CI job on `linux-x64`
-   with Xvfb and Openbox: start the self-contained build, open a PTY, run the
-   bounded terminal checks, take a screenshot artifact. (M)
+| Job | Runner | What it proves |
+|---|---|---|
+| Native payloads (`linux-x64`, `linux-arm64`) | `ubuntu-24.04`, `ubuntu-24.04-arm` | the terminal payload (`build-libghostty-vt.sh`), the CEF runtime (`build-cef-runtime.sh` with clang and `-Wno-unknown-warning-option`), and the SQL language worker (`build-sql-language-worker.sh --docker`) build from the reviewed inputs; cached on a hash of those inputs |
+| Tests (Linux, six sections) | `ubuntu-24.04` | locked restore and every test section through `test-section.sh`, with the native payloads present |
+| Fast repository gate (Linux) | `ubuntu-24.04` | `check.sh --quick`: product naming, UI copy, locked restore, dependency audit, formatting, the warning-free Release build, architecture tests |
+| Package and smoke run (both RIDs) | as above | a self-contained `dotnet publish`, checked for the terminal, CEF and SQL worker files and for unresolved shared libraries, uploaded as `asura-<rid>-package` (a tarball, since zip drops the modes); then `run_linux_x11_xvfb.sh` drives that package under Xvfb and Openbox and uploads its receipt |
 
-Exit: a PR cannot merge if Linux does not build and test.
+What the first runs on Linux taught, all fixed in the same change:
+
+- Governed Git sessions, their agent tools and Docker container control are
+  macOS-only by product definition; their tests now skip (Git) or assert
+  the closed contract (agent tools, Docker) off macOS instead of failing.
+- A killed grandchild that nobody reaps is a zombie, which the runtime still
+  reports as running; `ChildProcessTests` and `LinuxProcessTreeProbe` now
+  read the state from `/proc` so a container whose PID 1 does not reap
+  cannot turn a successful kill into a leak.
+- A read-only directory does not stop root, so the partial-removal artifact
+  test steps aside under a privileged process.
+- The animated-GIF first-frame test drew with the headless stub, which hands
+  back the memory it was given: zeroed on macOS, where it read as black, and
+  not on Linux. It draws with Skia now and the assertion is real.
+- The Xvfb harness: the Quick Terminal hotkey is Ctrl+` (not Super+`), the
+  window is titled "Quick Terminal", Escape stays with the terminal (the
+  hotkey toggles the panel and it hides when the keyboard leaves it, both
+  defaults), the close confirmation is a sheet in the
+  main window that only a session not confirmably idle brings up (so the
+  check runs a foreground command first and answers the sheet from the
+  keyboard), and the paste confirmation left the product on 2026-09-08, so
+  the paste check now proves delivery once with inert control bytes. The
+  runner takes `ASURA_LINUX_RID`, `ASURA_LINUX_PACKAGE` and
+  `ASURA_LINUX_WORK`, and a receipt passes when nothing failed; boundaries
+  it declares it cannot prove stay listed as such.
+
+The tagged release workflow (`repository-gate.yml`) builds the same two
+self-contained Linux packages from the tag through the shared
+`.github/actions/linux-native-payloads` action and attaches
+`Asura-<version>-linux-x64.tar.gz` and `Asura-<version>-linux-arm64.tar.gz`
+with checksums to the GitHub release beside the macOS build. They are
+unsigned and carry no updater; AppImage, `.deb` and `.rpm` with Velopack
+updates are Phase 3.
+
+The gate itself runs on Linux: `check.sh --quick` and the native networking
+module's full checks in the lane, and the Linux-only Native AOT lock
+validation inside `audit-dependencies.sh` is skipped off macOS because that
+reviewed lock carries the macOS host's ILCompiler package.
+
+The vendored CEF shim now links with a `$ORIGIN` runpath on Linux, drops
+the working-directory entry CEF's linker flags add (so the directory Asura
+was started from is never a place to load `libcef.so` from) and accepts
+clang's unknown-warning rule itself; `BrowserEngineRuntime` no longer
+preloads `libcef.so` by absolute path, and the patch-set and
+source-snapshot manifests and the CEF catalog digests are renewed.
+
+Product work this lane exposed but does not own is tracked as issues:
+`asura-hkua` (run without a Secret Service: a fresh profile refuses to start
+or hangs when no `org.freedesktop.secrets` provider answers) and
+`asura-qfo3` (wrap every portal and D-Bus client so startup never depends on
+the bus).
 
 ### Phase 1: baseline desktop integration (X11)
 
@@ -625,8 +604,8 @@ contract, kill switch and route leases as macOS.
   the download page has to say so.
 - **D-Bus variance.** wlroots portals lack `Settings`; some distros start no
   session bus for console logins. Every client must time out fast and report
-  `Unavailable` rather than throw. The Phase 0 wrapping is what prevents the
-  2026-07 startup crash from recurring in another shape.
+  `Unavailable` rather than throw. That wrapping (issue `asura-qfo3`) is
+  what prevents the 2026-07 startup crash from recurring in another shape.
 - **Native AOT on Linux arm64** has had linker regressions in past SDKs. The
   self-contained non-AOT publish stays as the fallback lane and is what the
   current Xvfb evidence was captured with.

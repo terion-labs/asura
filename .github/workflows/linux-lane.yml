@@ -1,0 +1,261 @@
+name: Linux lane
+
+# The Linux counterpart of the macOS jobs in repository-gate.yml, run on
+# every pull request: the native payloads, the locked restore, the warning
+# free Release build, the six test sections, the fast repository gate, a
+# self-contained package for each Linux architecture, and a smoke run of
+# that package under Xvfb. The packages are run artifacts, not releases.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-lane-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+jobs:
+  native-assets:
+    name: Native payloads (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # A cold run downloads Zig, the CEF distribution and the GraalVM builder
+    # images and compiles the terminal, the browser shim and the SQL worker.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Expose the SDK at the repository-local path
+        run: |
+          mkdir -p .dotnet
+          ln -s "$(command -v dotnet)" .dotnet/dotnet
+      - name: Build or restore the native payloads
+        uses: ./.github/actions/linux-native-payloads
+        with:
+          rid: ${{ matrix.rid }}
+      - name: Upload native payloads
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-${{ matrix.rid }}
+          path: |
+            native/artifacts/common
+            native/artifacts/${{ matrix.rid }}
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: true
+
+  tests:
+    name: Tests (Linux, ${{ matrix.section }})
+    needs: native-assets
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        section: [core, agent, app, services, data-browser, terminal-host]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Expose the SDK at the repository-local path
+        run: |
+          mkdir -p .dotnet
+          ln -s "$(command -v dotnet)" .dotnet/dotnet
+      - name: Install the desktop runtime libraries the tests load
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fontconfig fonts-dejavu-core libfontconfig1 libfreetype6 libice6 libsm6 \
+            libx11-6 libxext6 libxrender1 libxi6 libxcursor1 libxrandr2 libgl1 \
+            libsecret-1-0 libdbus-1-3 git
+      - name: Download native payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-linux-x64
+          path: native/artifacts
+      - name: Restore the locked dependency graph
+        shell: bash
+        run: dotnet restore Asura.slnx --locked-mode
+      - name: Run test section
+        shell: bash
+        run: ./scripts/test-section.sh "${{ matrix.section }}" --no-restore
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-results-linux-${{ matrix.section }}
+          path: ".test-results/**/*.trx"
+          if-no-files-found: error
+          include-hidden-files: true
+
+  fast-gate:
+    name: Repository gate (Linux)
+    needs: native-assets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Set up the pinned networking Go toolchain
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.26.3'
+          cache: false
+      - name: Expose the SDK at the repository-local path
+        run: |
+          mkdir -p .dotnet
+          ln -s "$(command -v dotnet)" .dotnet/dotnet
+      - name: Install the desktop runtime libraries the gate's tests load
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            fontconfig fonts-dejavu-core libfontconfig1 libfreetype6 libice6 libsm6 \
+            libx11-6 libxext6 libxrender1 libxi6 libxcursor1 libxrandr2 libgl1 \
+            libsecret-1-0 libdbus-1-3 git
+      - name: Download native payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-linux-x64
+          path: native/artifacts
+      - name: Run the fast repository gate
+        run: ./scripts/check.sh --quick
+      # The rest of the full gate on Linux: the six test sections run in
+      # their own jobs above, and the native networking module's tests, race
+      # detector and vet are what the full gate adds beyond them here.
+      - name: Run the native networking checks
+        run: ./scripts/check-network-native.sh --full
+
+  package:
+    name: Package and smoke run (${{ matrix.rid }})
+    needs: native-assets
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Expose the SDK at the repository-local path
+        run: |
+          mkdir -p .dotnet
+          ln -s "$(command -v dotnet)" .dotnet/dotnet
+      - name: Install the Xvfb desktop the smoke run drives
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            dbus-x11 file fontconfig fonts-dejavu-core fonts-jetbrains-mono \
+            fonts-noto-cjk fonts-noto-color-emoji fonts-noto-core imagemagick jq less \
+            libdbus-1-3 libdrm2 libfontconfig1 libfreetype6 libgbm1 libgl1 libice6 \
+            libsm6 libx11-6 libxcomposite1 libxcursor1 libxext6 libxfixes3 libxi6 \
+            libxinerama1 libxrandr2 libxrender1 ncurses-bin openbox procps python3 \
+            util-linux x11-utils x11-xserver-utils xclip xdotool xterm xvfb \
+            libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \
+            libxkbcommon0 libxdamage1 libpango-1.0-0 libcairo2 libasound2t64 \
+            libxtst6 libexpat1 libglib2.0-0 dbus-daemon gnome-keyring libsecret-tools \
+            x11-apps
+      - name: Download native payloads
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: native-${{ matrix.rid }}
+          path: native/artifacts
+      - name: Restore the locked dependency graph for ${{ matrix.rid }}
+        shell: bash
+        run: >-
+          dotnet restore src/Asura.Desktop/Asura.Desktop.csproj
+          --runtime "${{ matrix.rid }}"
+          --locked-mode
+      - name: Publish the self-contained package
+        shell: bash
+        run: |
+          package="${RUNNER_TEMP}/asura-${{ matrix.rid }}"
+          dotnet publish src/Asura.Desktop/Asura.Desktop.csproj \
+            --configuration Release \
+            --runtime "${{ matrix.rid }}" \
+            --self-contained true \
+            --no-restore \
+            -p:RestoreLockedMode=true \
+            --output "${package}"
+          test -x "${package}/Asura"
+          test -f "${package}/libghostty-vt.so"
+          test -f "${package}/libasura_pty.so"
+          test -f "${package}/libcef.so"
+          test -f "${package}/libexclr8cef.so"
+          test -f "${package}/runtimes/${{ matrix.rid }}/native/asura-sql-language"
+          file "${package}/Asura"
+          # Every shared library the launcher links must resolve on a stock
+          # runner, or the package would start nowhere else either.
+          if ldd "${package}/Asura" | grep -q 'not found'; then
+            ldd "${package}/Asura" >&2
+            exit 1
+          fi
+          mkdir -p artifacts/linux-package
+          tar -C "${RUNNER_TEMP}" -czf \
+            "artifacts/linux-package/asura-${{ matrix.rid }}-${GITHUB_SHA::12}.tar.gz" \
+            "asura-${{ matrix.rid }}"
+          echo "ASURA_PACKAGE=${package}" >> "${GITHUB_ENV}"
+      - name: Upload the package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: asura-${{ matrix.rid }}-package
+          path: artifacts/linux-package
+          if-no-files-found: error
+          retention-days: 14
+      - name: Smoke-run the package under Xvfb
+        shell: bash
+        env:
+          ASURA_LINUX_RID: ${{ matrix.rid }}
+          ASURA_LINUX_WORK: ${{ runner.temp }}/asura-xvfb
+          ASURA_ACCEPTANCE_SYSTEM_NAME: github-${{ matrix.runner }}-xvfb-openbox
+          ASURA_ACCEPTANCE_ENVIRONMENT: GitHub Actions ${{ matrix.runner }} under Xvfb with Openbox (synthetic display)
+        run: |
+          ASURA_LINUX_PACKAGE="${ASURA_PACKAGE}" \
+            ./scripts/acceptance/run_linux_x11_xvfb.sh \
+            "${GITHUB_WORKSPACE}" \
+            "artifacts/platform-acceptance/${{ matrix.rid }}" \
+            "github-actions:${{ matrix.runner }}"
+      - name: Upload the smoke-run evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: xvfb-acceptance-${{ matrix.rid }}
+          path: artifacts/platform-acceptance
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: true

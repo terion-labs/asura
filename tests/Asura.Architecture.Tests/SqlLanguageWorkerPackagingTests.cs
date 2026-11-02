@@ -267,8 +267,15 @@ public sealed class SqlLanguageWorkerPackagingTests
         Assert.Contains("[[ ! -x \"${worker_path}\" ]]", wrapper, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A tagged release publishes the macOS build and the two self-contained
+    /// Linux packages, each with its own SQL language worker built by the
+    /// digest-pinned container builders. Windows has no supported worker or
+    /// sandbox contract yet, so no Windows package leaves the gate, and there
+    /// is no generic portable publish step to add one by accident.
+    /// </summary>
     [Fact]
-    public void Repository_gate_does_not_publish_unsupported_portable_platforms()
+    public void Repository_gate_publishes_linux_packages_and_no_unsupported_portable_platforms()
     {
         var workflow = File.ReadAllText(Path.Combine(
             RepositoryRoot,
@@ -277,8 +284,11 @@ public sealed class SqlLanguageWorkerPackagingTests
             "repository-gate.yml"));
 
         Assert.DoesNotContain("portable-release-publish:", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("linux-x64", workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("linux-arm64", workflow, StringComparison.Ordinal);
+        Assert.Contains("linux-release-packages:", workflow, StringComparison.Ordinal);
+        Assert.Contains("- rid: linux-x64", workflow, StringComparison.Ordinal);
+        Assert.Contains("- rid: linux-arm64", workflow, StringComparison.Ordinal);
+        Assert.Contains("./scripts/build-sql-language-worker.sh --docker --rid", File.ReadAllText(Path.Combine(
+            RepositoryRoot, ".github", "actions", "linux-native-payloads", "action.yml")), StringComparison.Ordinal);
         Assert.DoesNotContain("win-x64", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("win-arm64", workflow, StringComparison.Ordinal);
     }

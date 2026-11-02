@@ -112,6 +112,15 @@ public sealed class DockerPanelSessionFactoryTests
             new SessionId("docker-control"),
             new DockerSessionTarget(BuiltInConnections.Local, 1),
             CancellationToken.None);
+        if (!OperatingSystem.IsMacOS())
+        {
+            // Container control is offered on macOS only; elsewhere the
+            // session opens read-only and never dispatches a mutation.
+            Assert.False(session.Capabilities.Contains(SessionCapabilities.DockerContainerPause));
+            Assert.Equal(0, client.MutationOperationCount);
+            return;
+        }
+
         Assert.True(session.Capabilities.Contains(SessionCapabilities.DockerContainerPause));
         var state = Success(await session.ReadStateAsync(10, CancellationToken.None));
         var container = Assert.Single(state.Containers, item =>

@@ -57,9 +57,17 @@ public sealed partial class RepositoryConventionTests
         var expectedRunners = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["database-viewer-integration.yml"] = ["runs-on: macos-15"],
+            // The Linux lane picks its runner per architecture from a matrix;
+            // the matrix entries are held to the same reviewed list below.
+            ["linux-lane.yml"] = ["runs-on: ubuntu-24.04", "runs-on: ${{ matrix.runner }}"],
             ["macos-product-identity.yml"] = ["runs-on: macos-26"],
-            ["repository-gate.yml"] = ["runs-on: macos-15", "runs-on: macos-26"],
+            ["repository-gate.yml"] = ["runs-on: macos-15", "runs-on: macos-26", "runs-on: ${{ matrix.runner }}"],
             ["website.yml"] = ["runs-on: ubuntu-latest"],
+        };
+        var expectedMatrixRunners = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["linux-lane.yml"] = ["runner: ubuntu-24.04", "runner: ubuntu-24.04-arm"],
+            ["repository-gate.yml"] = ["runner: ubuntu-24.04", "runner: ubuntu-24.04-arm"],
         };
         var workflows = Directory
             .GetFiles(workflowDirectory, "*.yml")
@@ -82,6 +90,22 @@ public sealed partial class RepositoryConventionTests
                 declaration => Assert.Contains(
                     declaration,
                     expectedRunners[Path.GetFileName(workflow)],
+                    StringComparer.Ordinal));
+
+            var matrixRunners = File.ReadLines(workflow)
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("runner:", StringComparison.Ordinal))
+                .ToArray();
+            if (runnerDeclarations.Contains("runs-on: ${{ matrix.runner }}", StringComparer.Ordinal))
+            {
+                Assert.NotEmpty(matrixRunners);
+            }
+
+            Assert.All(
+                matrixRunners,
+                declaration => Assert.Contains(
+                    declaration,
+                    expectedMatrixRunners.GetValueOrDefault(Path.GetFileName(workflow), []),
                     StringComparer.Ordinal));
         }
 

@@ -120,11 +120,17 @@ for runtime_identifier in "${runtime_identifiers[@]}"; do
         --locked-mode \
         --verbosity quiet
 done
-"${dotnet}" restore "${desktop_project}" \
-    --runtime osx-arm64 \
-    --locked-mode \
-    --verbosity quiet \
-    -p:AsuraMacReleaseNativeAot=true
+# The Native AOT graph carries the ILCompiler package for the host that
+# compiles it, so its reviewed lock is the macOS host's: a Linux host would
+# add its own ILCompiler entry and fail the locked restore for a release it
+# cannot produce. Only a macOS host validates it.
+if [[ "$(uname -s)" == Darwin ]]; then
+    "${dotnet}" restore "${desktop_project}" \
+        --runtime osx-arm64 \
+        --locked-mode \
+        --verbosity quiet \
+        -p:AsuraMacReleaseNativeAot=true
+fi
 "${dotnet}" restore "${repository_dir}/Asura.slnx" \
     --locked-mode \
     --verbosity quiet

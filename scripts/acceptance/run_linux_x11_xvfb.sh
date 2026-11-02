@@ -3,19 +3,41 @@ set -euo pipefail
 
 if (($# != 3)); then
   echo "usage: $0 SOURCE_ROOT OUTPUT_DIRECTORY IMAGE_REFERENCE" >&2
+  echo "  ASURA_LINUX_RID      linux-x64 or linux-arm64 (default: this host)" >&2
+  echo "  ASURA_LINUX_PACKAGE  an already published package to run instead of publishing" >&2
+  echo "  ASURA_LINUX_WORK     scratch root for the package, profile and runtime dirs (default /work)" >&2
+  echo "  ASURA_ACCEPTANCE_SYSTEM_NAME / ASURA_ACCEPTANCE_ENVIRONMENT  receipt naming" >&2
   exit 64
 fi
 
 source_root=$1
 output_directory=$2
 image_reference=$3
-package_directory=$(mktemp -d /work/asura-package.XXXXXX)
-runtime_evidence=$(mktemp -d /work/asura-runtime-evidence.XXXXXX)
+work_root=${ASURA_LINUX_WORK:-/work}
+case "${ASURA_LINUX_RID:-}" in
+  linux-x64|linux-arm64) rid=$ASURA_LINUX_RID ;;
+  '')
+    case "$(uname -m)" in
+      x86_64) rid=linux-x64 ;;
+      aarch64|arm64) rid=linux-arm64 ;;
+      *) echo "Unsupported host architecture $(uname -m); set ASURA_LINUX_RID." >&2; exit 64 ;;
+    esac
+    ;;
+  *) echo "ASURA_LINUX_RID must be linux-x64 or linux-arm64." >&2; exit 64 ;;
+esac
+system_name=${ASURA_ACCEPTANCE_SYSTEM_NAME:-"docker-${rid}-xvfb-openbox"}
+environment_description=${ASURA_ACCEPTANCE_ENVIRONMENT:-"Docker Linux ${rid#linux-} under Xvfb with Openbox (synthetic display)"}
+
+mkdir -p "$work_root"
+package_directory=${ASURA_LINUX_PACKAGE:-}
+runtime_evidence=$(mktemp -d "$work_root/asura-runtime-evidence.XXXXXX")
+home_directory="$work_root/home"
+runtime_directory="$work_root/runtime"
 xvfb_log="$output_directory/xvfb.log"
 openbox_log="$output_directory/openbox.log"
 
-mkdir -p "$output_directory" "$runtime_evidence" /work/home /work/runtime
-chmod 700 /work/runtime
+mkdir -p "$output_directory" "$runtime_evidence" "$home_directory" "$runtime_directory"
+chmod 700 "$runtime_directory"
 
 # The SDK muxer resolves global.json from the working directory, not from
 # the project path, so every dotnet command runs from the source root.
@@ -39,32 +61,38 @@ find "$source_root" -type f \
   | awk '{print $1}' >"$output_directory/source-snapshot.sha256"
 source_digest=$(tr -d '\n' <"$output_directory/source-snapshot.sha256")
 
-set +e
-(cd "$source_root" && dotnet restore "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
-  --runtime linux-arm64 \
-  --locked-mode \
-  --disable-build-servers) \
-  >"$output_directory/restore.log" 2>&1
-restore_status=$?
-if ((restore_status != 0)); then
+if [[ -z "$package_directory" ]]; then
+  package_directory=$(mktemp -d "$work_root/asura-package.XXXXXX")
+  set +e
+  (cd "$source_root" && dotnet restore "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
+    --runtime "$rid" \
+    --locked-mode \
+    --disable-build-servers) \
+    >"$output_directory/restore.log" 2>&1
+  restore_status=$?
+  if ((restore_status != 0)); then
+    set -e
+    echo "$rid locked restore failed; see $output_directory/restore.log" >&2
+    exit "$restore_status"
+  fi
+  (cd "$source_root" && dotnet publish "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
+    --configuration Release \
+    --runtime "$rid" \
+    --self-contained true \
+    --no-restore \
+    -p:RestoreLockedMode=true \
+    --output "$package_directory" \
+    --disable-build-servers) \
+    >"$output_directory/publish.log" 2>&1
+  publish_status=$?
   set -e
-  echo "linux-arm64 locked restore failed; see $output_directory/restore.log" >&2
-  exit "$restore_status"
-fi
-(cd "$source_root" && dotnet publish "$source_root/src/Asura.Desktop/Asura.Desktop.csproj" \
-  --configuration Release \
-  --runtime linux-arm64 \
-  --self-contained true \
-  --no-restore \
-  -p:RestoreLockedMode=true \
-  --output "$package_directory" \
-  --disable-build-servers) \
-  >"$output_directory/publish.log" 2>&1
-publish_status=$?
-set -e
-if ((publish_status != 0)); then
-  echo "linux-arm64 self-contained publish failed; see $output_directory/publish.log" >&2
-  exit "$publish_status"
+  if ((publish_status != 0)); then
+    echo "$rid self-contained publish failed; see $output_directory/publish.log" >&2
+    exit "$publish_status"
+  fi
+elif [[ ! -x "$package_directory/Asura" ]]; then
+  echo "ASURA_LINUX_PACKAGE does not hold an executable Asura: $package_directory" >&2
+  exit 66
 fi
 
 file "$package_directory/Asura" >"$output_directory/package-file.txt"
@@ -113,19 +141,20 @@ fi
 
 # A fresh profile bootstraps application encryption by storing its keys in
 # the Secret Service, so the desktop needs one to start at all. The driver
-# gives the app HOME=/work/home; a passwordless login keyring there, served
-# by gnome-keyring on the driver's session bus, stands in for the desktop's.
-keyring_home=/work/home
-keyring_data="$keyring_home/.local/share"
-mkdir -p "$keyring_data/keyrings" "$keyring_home/.cache"
+# gives the app its own HOME; a passwordless login keyring there, served by
+# gnome-keyring on the driver's session bus, stands in for the desktop's.
+keyring_data="$home_directory/.local/share"
+mkdir -p "$keyring_data/keyrings" "$home_directory/.cache"
 printf 'login' >"$keyring_data/keyrings/default"
 printf '[keyring]\ndisplay-name=login\nctime=0\nmtime=0\nlock-on-idle=false\nlock-after=false\n' \
   >"$keyring_data/keyrings/login.keyring"
 
 set +e
+ASURA_ACCEPTANCE_HOME="$home_directory" \
+ASURA_ACCEPTANCE_RUNTIME_DIR="$runtime_directory" \
 dbus-run-session -- bash -c '
-  eval "$(env HOME=/work/home XDG_DATA_HOME=/work/home/.local/share XDG_CACHE_HOME=/work/home/.cache \
-    XDG_RUNTIME_DIR=/work/runtime gnome-keyring-daemon --start --components=secrets 2>/dev/null)"
+  eval "$(env HOME="$ASURA_ACCEPTANCE_HOME" XDG_DATA_HOME="$ASURA_ACCEPTANCE_HOME/.local/share" XDG_CACHE_HOME="$ASURA_ACCEPTANCE_HOME/.cache" \
+    XDG_RUNTIME_DIR="$ASURA_ACCEPTANCE_RUNTIME_DIR" gnome-keyring-daemon --start --components=secrets 2>/dev/null)"
   export GNOME_KEYRING_CONTROL
   exec python3 "$@"
 ' _ "$source_root/scripts/acceptance/linux_x11_xvfb_acceptance.py" \
@@ -134,7 +163,11 @@ dbus-run-session -- bash -c '
   --output "$output_directory" \
   --runtime-evidence "$runtime_evidence" \
   --source-digest "$source_digest" \
-  --image-reference "$image_reference"
+  --image-reference "$image_reference" \
+  --home "$home_directory" \
+  --runtime-dir "$runtime_directory" \
+  --system-name "$system_name" \
+  --environment "$environment_description"
 acceptance_status=$?
 set -e
 

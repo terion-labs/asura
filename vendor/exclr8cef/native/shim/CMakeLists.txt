@@ -31,6 +31,13 @@ endif()
 
 # ---- Shared library: the C ABI surface ------------------------------------
 add_library(${SHIM_LIB} SHARED ${SHIM_SRCS})
+# CEF's Linux linker flags put the working directory on the runpath, which
+# makes whatever directory the host application was started from a place to
+# load libcef.so from. The shim's own directory is the only place; see the
+# runpath settings below.
+if(UNIX AND NOT APPLE)
+    list(REMOVE_ITEM CEF_LINKER_FLAGS "-Wl,-rpath,.")
+endif()
 SET_LIBRARY_TARGET_PROPERTIES(${SHIM_LIB})
 add_dependencies(${SHIM_LIB} libcef_dll_wrapper)
 
@@ -81,9 +88,24 @@ endif()
 
 # GCC 11+ on Linux promotes strncpy "output may be truncated" to an error
 # under CEF's -Werror, but our copy_to() helper null-terminates explicitly.
-# Suppress narrowly on the shim target.
+# Suppress narrowly on the shim target. Clang does not know that warning and,
+# under the same -Werror, refuses the flag unless told to let it pass.
 if(UNIX AND NOT APPLE)
     target_compile_options(${SHIM_LIB} PRIVATE -Wno-stringop-truncation)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(${SHIM_LIB} PRIVATE -Wno-unknown-warning-option)
+    endif()
+endif()
+
+# The flat Linux runtime keeps libcef.so beside the shim, and the shim is
+# loaded from wherever the host application was started; its runpath must
+# name its own directory first. The build-tree entries stay behind it so the
+# version probe below still runs against the extracted CEF distribution.
+if(UNIX AND NOT APPLE)
+    set_target_properties(${SHIM_LIB} PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
 endif()
 
 # On macOS the CEF framework is loaded at runtime via CefScopedLibraryLoader,
@@ -113,6 +135,11 @@ if(OS_MAC)
     set_target_properties(${SHIM_TEST} PROPERTIES
         INSTALL_RPATH "@executable_path"
         BUILD_WITH_INSTALL_RPATH TRUE
+    )
+elseif(UNIX)
+    set_target_properties(${SHIM_TEST} PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
     )
 endif()
 

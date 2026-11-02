@@ -21,6 +21,16 @@ public sealed class GitAgentToolContractTests
 
         var tools = GitAgentToolSet.For(panel);
 
+        // Governed Git sessions exist only on macOS today (GitPanelSessionFactory
+        // refuses every other host), so off macOS the tool set is closed
+        // entirely rather than filtered.
+        if (!OperatingSystem.IsMacOS())
+        {
+            Assert.Empty(tools);
+            Assert.Empty(GitAgentToolSet.ForWorkspace([panel]));
+            return;
+        }
+
         Assert.Equal(
             [
                 GitAgentToolNames.ReadState,
@@ -76,6 +86,20 @@ public sealed class GitAgentToolContractTests
             quarantined: false,
             SessionCapabilities.GitPush,
             SessionCapabilities.GitCommit);
+        if (!OperatingSystem.IsMacOS())
+        {
+            // No governed Git panel can exist off macOS, so every proposal is
+            // rejected before it is typed.
+            Assert.IsType<GitAgentIntentResult.Rejected>(GitAgentToolParser.Parse(
+                await ProposalAsync(
+                    GitAgentToolNames.Push,
+                    """
+                    {"state_ref":"state","remote_state_ref":"observed","remote_ref":"remote","branch_ref":"branch"}
+                    """),
+                panel));
+            return;
+        }
+
         var parsed = Assert.IsType<GitAgentIntentResult.Parsed>(
             GitAgentToolParser.Parse(
                 await ProposalAsync(
