@@ -85,6 +85,11 @@ run_in_session() { sudo -u "$user" env -i HOME="$home" USER="$user" PATH=/usr/lo
 run_in_session bash -c 'echo "desktop=$XDG_CURRENT_DESKTOP session=$XDG_SESSION_TYPE display=$DISPLAY wayland=$WAYLAND_DISPLAY"; for k in color-scheme accent-color font-name monospace-font-name text-scaling-factor scaling-factor cursor-size; do printf "%s=" "$k"; gsettings get org.gnome.desktop.interface $k 2>/dev/null || echo; done; printf "mutter-experimental="; gsettings get org.gnome.mutter experimental-features 2>/dev/null || echo; echo "-- xrandr:"; xrandr 2>/dev/null | head -3; echo "-- xrdb:"; xrdb -query 2>/dev/null | grep -i -E "dpi|scale"; echo "-- xdpyinfo:"; xdpyinfo 2>/dev/null | grep -E "dimensions|resolution"; echo "-- portal:"; timeout 5 gdbus call --session --dest org.freedesktop.portal.Desktop --object-path /org/freedesktop/portal/desktop --method org.freedesktop.portal.Settings.ReadOne org.freedesktop.appearance accent-color 2>&1 | head -2; timeout 5 gdbus call --session --dest org.freedesktop.portal.Desktop --object-path /org/freedesktop/portal/desktop --method org.freedesktop.portal.Settings.ReadOne org.freedesktop.appearance color-scheme 2>&1 | head -1' >"$out/desktop-info.txt" 2>&1
 run_in_session bash -c 'timeout 10 secret-tool store --label=probe asura probe <<<probe-value && timeout 5 secret-tool lookup asura probe' >"$out/secret-service.txt" 2>&1; echo "exit=$?" >>"$out/secret-service.txt"
 
+# XFCE draws GTK 3 themes; pick one worth inheriting when the caller names it.
+if [[ "$session" == xfce && -n "${ASURA_VM_GTK3_THEME:-}" ]]; then
+  run_in_session xfconf-query -c xsettings -p /Net/ThemeName -n -t string -s "$ASURA_VM_GTK3_THEME" >/dev/null 2>&1 || true
+  sleep 2
+fi
 ( cd /opt/asura && run_in_session bash -c 'exec /opt/asura/Asura' >"$out/asura.log" 2>&1 ) &
 sleep "$settle"
 

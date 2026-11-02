@@ -82,7 +82,7 @@ public sealed class LinuxSystemPaletteSourceTests
     public async Task Stop_disposes_the_subscription_and_the_client()
     {
         var client = new FakePortalClient();
-        using var source = new LinuxSystemPaletteSource(client);
+        using var source = new LinuxSystemPaletteSource(client, NoFiles);
         source.Start();
         await source.Initialization;
 
@@ -105,9 +105,12 @@ public sealed class LinuxSystemPaletteSourceTests
         Assert.True(condition());
     }
 
+    private static LinuxDesktopFiles NoFiles { get; } = new(
+        LinuxDesktopFamily.Unknown, "/home/test", "/home/test/.config", null, null, _ => null);
+
     private sealed class Owned(FakePortalClient client) : IDisposable
     {
-        public LinuxSystemPaletteSource Source { get; } = new(client);
+        public LinuxSystemPaletteSource Source { get; } = new(client, NoFiles);
 
         public void Dispose() => Source.Dispose();
     }

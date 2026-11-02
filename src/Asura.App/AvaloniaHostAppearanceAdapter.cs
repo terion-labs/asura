@@ -56,7 +56,12 @@ internal sealed class AvaloniaHostAppearanceAdapter
     {
         var colors = _platformSettings.GetColorValues();
         return Map(
-            colors.ThemeVariant,
+            SystemPalette.PrefersDark switch
+            {
+                true => PlatformThemeVariant.Dark,
+                false => PlatformThemeVariant.Light,
+                null => colors.ThemeVariant,
+            },
             colors.ContrastPreference,
             EffectiveHostAccent(colors.AccentColor1, SystemPalette),
             _capabilities,
@@ -122,6 +127,9 @@ internal sealed class AvaloniaHostAppearanceAdapter
 /// them. Label and separator colours keep their alpha, because that is how the
 /// platform defines them; the mapper composites them over the window.
 /// </summary>
+/// <param name="Sidebar">The host's sidebar surface, where it has one apart from the window.</param>
+/// <param name="Content">The host's content or "view" surface, where it has one apart from the window.</param>
+/// <param name="Raised">The host's popover, dialog or card surface, where it has one.</param>
 public sealed record HostSemanticColors(
     Color WindowBackground,
     Color Label,
@@ -129,7 +137,10 @@ public sealed record HostSemanticColors(
     Color Separator,
     Color Control,
     Color SelectedContentBackground,
-    Color UnemphasizedSelectedContentBackground);
+    Color UnemphasizedSelectedContentBackground,
+    Color? Sidebar = null,
+    Color? Content = null,
+    Color? Raised = null);
 
 /// <summary>
 /// What the host says about colour beyond Avalonia's single accent value.
@@ -143,12 +154,18 @@ public sealed record HostSemanticColors(
 /// The host positively offers no accent: its settings portal has no such key,
 /// or there is no portal to ask. The brand accent stands in.
 /// </param>
+/// <param name="PrefersDark">
+/// The scheme the host's own theme implies when it states no preference
+/// otherwise: a dark GTK 3 theme on a desktop whose portal says nothing.
+/// Null leaves Avalonia's reading in charge.
+/// </param>
 public sealed record HostSystemPalette(
     HostSemanticColors? Light,
     HostSemanticColors? Dark,
     bool AccentIsMulticolor,
     Color? Accent = null,
-    bool AccentIsAbsent = false)
+    bool AccentIsAbsent = false,
+    bool? PrefersDark = null)
 {
     public static HostSystemPalette None { get; } = new(null, null, AccentIsMulticolor: false);
 
@@ -215,12 +232,22 @@ internal sealed record HostPlatformCapabilities(
         ArgumentNullException.ThrowIfNull(values);
         var description = string.Join(':', values.Where(value => !string.IsNullOrWhiteSpace(value)));
         if (description.Contains("KDE", StringComparison.OrdinalIgnoreCase)
-            || description.Contains("PLASMA", StringComparison.OrdinalIgnoreCase))
+            || description.Contains("PLASMA", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("LXQT", StringComparison.OrdinalIgnoreCase))
         {
             return LinuxDesktopEnvironment.Kde;
         }
 
-        if (description.Contains("GNOME", StringComparison.OrdinalIgnoreCase))
+        // The GTK family shares Adwaita's conventions: GNOME itself, the
+        // desktops built on its stack, and COSMIC, whose GTK apps are themed
+        // to match it.
+        if (description.Contains("GNOME", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("XFCE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("CINNAMON", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("MATE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("BUDGIE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("PANTHEON", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("COSMIC", StringComparison.OrdinalIgnoreCase))
         {
             return LinuxDesktopEnvironment.Gnome;
         }
@@ -492,7 +519,11 @@ internal static class EffectiveAppearanceResourceMapper
         Color? hostSelection = null;
         var unemphasizedSelection = hover;
 
-        if (isMacOsProfile && !theme.HighContrast && hostColors is { } host)
+        // A host-native profile takes the host's own colours when a source
+        // supplies them: AppKit on macOS, the portal or theme on GNOME and KDE.
+        var isHostProfile = isMacOsProfile
+            || theme.PlatformProfile is PlatformProfile.Gnome or PlatformProfile.Kde;
+        if (isHostProfile && !theme.HighContrast && hostColors is { } host)
         {
             // The window and its text are what a shell beside Finder is
             // compared against, so they come from AppKit rather than from a
@@ -515,8 +546,27 @@ internal static class EffectiveAppearanceResourceMapper
             // literal: it is what hover and banded rows draw, and a plate as
             // strong as the selection there made every hovered or banded row
             // read as selected.
-            unemphasizedSelection = Opaque(host.UnemphasizedSelectedContentBackground);
+            unemphasizedSelection = Over(host.UnemphasizedSelectedContentBackground, background);
             hostSelection = Opaque(host.SelectedContentBackground);
+            // Desktops that name their sidebar, content and raised surfaces
+            // (libadwaita, kdeglobals, COSMIC) hand them over too; AppKit does
+            // not, and keeps the literal relationship between them.
+            if (host.Sidebar is { } hostSidebar)
+            {
+                sidebar = Over(hostSidebar, background);
+                sidebarBorder = border;
+            }
+
+            if (host.Content is { } hostContent)
+            {
+                surface = Over(hostContent, background);
+            }
+
+            if (host.Raised is { } hostRaised)
+            {
+                raised = Over(hostRaised, background);
+                hover = Blend(text, raised, ControlHoverStep);
+            }
         }
 
         if (theme.HighContrast)

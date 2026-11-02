@@ -175,10 +175,24 @@ i3, river, and unknown → generic profile with the system font. `ThemePreferenc
 keeps `Gnome` and `Kde` as the user-visible profiles; the family only picks the
 automatic default.
 
-Colour values beyond light/dark and accent are not read from GTK or Qt themes.
-Parsing `gtk.css` or kdeglobals colour schemes is brittle and ADR 0006 already
-places surfaces on semantic tokens; the accent and scheme are what make the
-app read as "this desktop's".
+Surfaces are inherited too, through `LinuxSystemPaletteSource` and the
+parsers under `src/Asura.Desktop/LinuxDesktopColors/`, filling the same
+`HostSemanticColors` the macOS profile takes from AppKit (window, label,
+separator, control, selection, plus sidebar, content and raised surfaces):
+
+| Desktop family | Source | Confidence |
+|---|---|---|
+| KDE Plasma | `kdeglobals` colour groups (`Colors:Window`, `View`, `Button`, `Selection`, `Header`) read through the KDE portal as `org.kde.kdeglobals.<Group>`, with change signals | high; structured, no file parsing |
+| GNOME | libadwaita 1.9's named colours (upstream table, Ubuntu's Yaru variant selected by the `gtk-theme` key), overridden by `@define-color` lines in `~/.config/gtk-4.0/gtk.css` | high for stock and Ubuntu; a future libadwaita can move the defaults |
+| COSMIC (Pop!_OS 24.04+) | the `background`, `primary` and `accent` RON parts of `com.system76.CosmicTheme.{Light,Dark}/v1` | medium; written from the file format, not yet run on a COSMIC install |
+| XFCE, Cinnamon, MATE, Budgie | the selected theme's `gtk-3.0/gtk.css` standard names (`theme_bg_color`, `theme_fg_color`, `theme_base_color`, `theme_selected_bg_color`, `borders`), theme from xfconf's `xsettings.xml` or `gtk-3.0/settings.ini` | best effort; a theme without those names yields nothing |
+| Others | nothing beyond scheme and accent | the mapper's own palette |
+
+A dark GTK 3 theme or a dark Plasma scheme also sets the colour scheme when
+the portal states no preference, since on those desktops the theme is the
+user's scheme choice. Parsing stays shallow on purpose: a value the parser
+does not understand is left unset and the mapper's literal applies, and
+every colour still goes through the mapper's contrast handling.
 
 ### 2.6 Secret Service over D-Bus, with honest fallbacks
 
@@ -633,6 +647,17 @@ Notes for the VM tiers:
   integer and fractional XWayland cases.
 - Nested virtualization is not needed by anything in this plan; the
   namespace isolation provider runs inside any of these guests.
+
+### Colour inheritance verified, 2026-11-02
+
+With the sources above in the package: GNOME (Ubuntu, Yaru) draws Yaru's
+dark greys with distinct cards and sidebar; Plasma draws BreezeLight and,
+after `plasma-apply-colorscheme BreezeDark`, BreezeDark's window and view
+surfaces with Breeze blue; XFCE with Greybird-dark selected switches Asura to
+dark and draws Greybird's surfaces with Greybird's selection blue as the
+accent, since its portal has none. COSMIC is implemented from its file
+format and awaits a Pop!_OS run. Captures are in
+`artifacts/linux-desktop-vm/*-inherited.png`.
 
 ### Observations from the desktop VM, 2026-10-30
 

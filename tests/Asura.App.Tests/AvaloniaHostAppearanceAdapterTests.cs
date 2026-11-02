@@ -11,7 +11,11 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     [Theory]
     [InlineData("ubuntu:GNOME", LinuxDesktopEnvironment.Gnome)]
     [InlineData("KDE;plasma", LinuxDesktopEnvironment.Kde)]
-    [InlineData("X-Cinnamon", LinuxDesktopEnvironment.Unknown)]
+    [InlineData("LXQt", LinuxDesktopEnvironment.Kde)]
+    [InlineData("X-Cinnamon", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("XFCE", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("COSMIC", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("sway", LinuxDesktopEnvironment.Unknown)]
     public void Linux_desktop_detection_is_case_insensitive_and_conservative(
         string desktop,
         LinuxDesktopEnvironment expected)
@@ -949,6 +953,37 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Null(host.Accent);
         Assert.Equal(ThemePreference.BrandAccent, effective.Accent);
         Assert.Equal(AccentSource.AsuraFallback, effective.AccentSource);
+    }
+
+    /// <summary>
+    /// A GNOME or KDE profile takes the desktop's own surfaces when a source
+    /// supplies them, the way the macOS profile takes AppKit's.
+    /// </summary>
+    [Fact]
+    public void A_gnome_profile_draws_the_window_and_sidebar_the_desktop_names()
+    {
+        var host = new HostSemanticColors(
+            WindowBackground: Color.Parse("#2c2c2c"),
+            Label: Color.Parse("#f7f7f7"),
+            SecondaryLabel: Color.FromArgb(140, 247, 247, 247),
+            Separator: Color.FromArgb(38, 255, 255, 255),
+            Control: Color.FromArgb(20, 255, 255, 255),
+            SelectedContentBackground: Color.Parse("#E95420"),
+            UnemphasizedSelectedContentBackground: Color.FromArgb(89, 16, 16, 16),
+            Sidebar: Color.Parse("#393939"),
+            Content: Color.Parse("#1d1d20"),
+            Raised: Color.Parse("#3e3e3e"));
+        var effective = ProfilePreference(PlatformProfile.Gnome).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Dark,
+            new RgbColor(0xE9, 0x54, 0x20),
+            LinuxDesktopEnvironment.Gnome));
+
+        var resources = EffectiveAppearanceResourceMapper.Map(effective, host);
+
+        Assert.Equal(Color.Parse("#2c2c2c"), resources.Background);
+        Assert.Equal(Color.Parse("#393939"), resources.SidebarSurface);
+        Assert.Equal(Color.Parse("#1d1d20"), resources.Surface);
     }
 
     [Fact]
