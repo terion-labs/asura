@@ -198,6 +198,41 @@ public sealed class BrowserAgentToolResultJsonTests
     }
 
     [Fact]
+    public void ABranchCutShortSaysWhereItResumes()
+    {
+        var documentBinding = new BrowserDocumentBinding(
+            BrowserAddress.Blank,
+            documentRevision: 1);
+        var snapshot = new BrowserDocumentSnapshot(
+            documentBinding,
+            [
+                new BrowserSnapshotNode(0, "document", "Discussion"),
+                new BrowserSnapshotNode(
+                    1,
+                    "main",
+                    "",
+                    new BrowserElementReference("el_main", documentBinding),
+                    hiddenChildCount: 1415,
+                    nextChildOffset: 85),
+            ],
+            DateTimeOffset.UnixEpoch,
+            isTruncated: true);
+
+        var json = BrowserAgentToolResultJson.Success(
+            new AgentBrowserActionResult.Snapshot(snapshot));
+
+        using var result = JsonDocument.Parse(json);
+        var nodes = result.RootElement.GetProperty("nodes").EnumerateArray().ToArray();
+        Assert.False(nodes[0].TryGetProperty("hidden_children", out _));
+        Assert.Equal(1415, nodes[1].GetProperty("hidden_children").GetInt32());
+        Assert.Equal(85, nodes[1].GetProperty("next_offset").GetInt32());
+        Assert.Contains(
+            "within",
+            result.RootElement.GetProperty("narrow_with").GetString(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SnapshotRedactionExpansionRemainsWithinNodeBounds()
     {
         var name = string.Join(

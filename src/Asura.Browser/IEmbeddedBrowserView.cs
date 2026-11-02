@@ -91,8 +91,13 @@ internal interface IEmbeddedBrowserView : IDisposable
 
     bool StopFind();
 
+    /// <param name="within">
+    /// The resolved <see cref="BrowserSnapshotQuery.Within"/> element, whose
+    /// subtree alone is captured.
+    /// </param>
     Task<NativeBrowserSnapshotResult> CaptureSnapshotAsync(
-        BrowserSnapshotQuery? query = null);
+        BrowserSnapshotQuery? query = null,
+        NativeBrowserElementHandle? within = null);
 
     Task<NativeBrowserClickResult> ClickAsync(
         NativeBrowserElementHandle handle,

@@ -196,7 +196,7 @@ internal static class BrowserAgentToolParser
         IReadOnlyDictionary<string, JsonElement> properties,
         PanelInstanceId? panelId)
     {
-        if (properties.Count > 3)
+        if (properties.Count > 5)
         {
             return Invalid("Browser snapshot received unsupported fields.");
         }
@@ -237,23 +237,50 @@ internal static class BrowserAgentToolParser
             maximumDepth = candidate;
         }
 
+        BrowserElementReferenceId? within = null;
+        if (properties.TryGetValue("within", out var withinElement))
+        {
+            if (!TryGetString(withinElement, out var candidate)
+                || !TryReferenceId(candidate, out var reference))
+            {
+                return Invalid("Browser snapshot within must be an element reference.");
+            }
+
+            within = reference;
+        }
+
+        var offset = 0;
+        if (properties.TryGetValue("offset", out var offsetElement))
+        {
+            if (offsetElement.ValueKind != JsonValueKind.Number
+                || !offsetElement.TryGetInt32(out offset))
+            {
+                return Invalid("Browser snapshot offset must be an integer.");
+            }
+        }
+
         try
         {
             var query = new BrowserSnapshotQuery(
                 interactiveOnly,
                 filter,
-                maximumDepth);
+                maximumDepth,
+                within,
+                offset);
             return new BrowserAgentIntentResult.Parsed(
                 new BrowserAgentIntent.Snapshot(
                     query.InteractiveOnly,
                     query.Filter,
-                    query.MaximumDepth),
+                    query.MaximumDepth,
+                    query.Within,
+                    query.Offset),
                 panelId);
         }
         catch (ArgumentException)
         {
             return Invalid(
-                "Browser snapshot requires a valid bounded filter and max_depth.");
+                "Browser snapshot requires a valid bounded filter and max_depth, "
+                + "and an offset only with within.");
         }
     }
 
@@ -973,6 +1000,22 @@ internal static class BrowserAgentToolParser
 
         reference = referenceValue;
         return true;
+    }
+
+    private static bool TryReferenceId(
+        string value,
+        out BrowserElementReferenceId reference)
+    {
+        try
+        {
+            reference = new BrowserElementReferenceId(value);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            reference = default;
+            return false;
+        }
     }
 
     private static bool TryGetString(

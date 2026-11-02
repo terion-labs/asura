@@ -447,6 +447,41 @@ public sealed class BrowserAgentToolContractTests
         Assert.Equal(6, snapshot.MaximumDepth);
     }
 
+    [Fact]
+    public async Task SnapshotParserOpensABranchFromAnOffset()
+    {
+        var proposal = await ProposalAsync(
+            BuiltInAgentTools.BrowserSnapshot,
+            """
+            {
+              "within": "el_main",
+              "offset": 85
+            }
+            """);
+
+        var parsed = Assert.IsType<BrowserAgentIntentResult.Parsed>(
+            BrowserAgentToolParser.Parse(proposal));
+        var snapshot = Assert.IsType<BrowserAgentIntent.Snapshot>(
+            parsed.Intent);
+
+        Assert.Equal(new BrowserElementReferenceId("el_main"), snapshot.Within);
+        Assert.Equal(85, snapshot.Offset);
+    }
+
+    [Theory]
+    [InlineData("{\"offset\":3}")]
+    [InlineData("{\"within\":\"el main\"}")]
+    [InlineData("{\"within\":\"el_main\",\"offset\":-1}")]
+    public async Task SnapshotParserRefusesAnOffsetOutsideABranch(string arguments)
+    {
+        var proposal = await ProposalAsync(
+            BuiltInAgentTools.BrowserSnapshot,
+            arguments);
+
+        Assert.IsType<BrowserAgentIntentResult.Rejected>(
+            BrowserAgentToolParser.Parse(proposal));
+    }
+
     [Theory]
     [InlineData(
         "{\"timeout_ms\":3600000,\"delay_ms\":1}",

@@ -189,6 +189,45 @@ internal sealed class ProbeApp : Avalonia.Application
             Require(settledAt.Contains(address.Value.AbsoluteUri, StringComparison.Ordinal), "page settled after Back: " + settledAt, null);
             Console.WriteLine("PASS history starts at the first real page, not the renderer's blank page");
 
+            BeginStage("snapshot of a page too large to read whole");
+            var longPage = new BrowserAddress(new Uri(Program.Fixture + "/agent-long-page"));
+            Require((await surface.NavigateWithinOriginAsync(
+                new BrowserOriginConstrainedNavigationRequest.Navigate(longPage),
+                BrowserNavigationOrigin.WorkspaceNetwork,
+                BrowserNavigationStartBinding.FromState(surface.State), deadline.Token)).IsSuccess, "long page", null);
+            await RequireStateAsync(surface, state => state.Address == longPage && state.LoadState == BrowserLoadState.Ready, "long page ready", deadline.Token);
+            var longSnapshot = await surface.CaptureSnapshotAsync(BrowserDocumentBinding.FromState(surface.State), deadline.Token);
+            Require(longSnapshot.IsSuccess
+                && longSnapshot.Value!.IsTruncated
+                && longSnapshot.Value.Nodes.Any(node => node.Name.Contains("Long discussion", StringComparison.Ordinal))
+                && longSnapshot.Value.Nodes.Any(node => string.Equals(node.Name, "Reply 0", StringComparison.Ordinal) && node.Reference is not null),
+                "beginning of the long page", longSnapshot.Error);
+            // The discussion is the branch cut shortest; its last comments
+            // are read within it, from an offset near its end.
+            var discussion = longSnapshot.Value!.Nodes
+                .Where(node => node.HiddenChildCount > 0 && node.Reference is not null)
+                .MaxBy(node => node.HiddenChildCount);
+            Require(discussion is not null, "the cut-short discussion", null);
+            var lastComments = await surface.CaptureSnapshotAsync(
+                BrowserDocumentBinding.FromState(surface.State), deadline.Token,
+                new BrowserSnapshotQuery(
+                    within: discussion!.Reference!.Id,
+                    offset: discussion.NextChildOffset + discussion.HiddenChildCount - 3));
+            Require(lastComments.IsSuccess
+                && lastComments.Value!.Nodes.Any(node => string.Equals(node.Name, "Reply 1499", StringComparison.Ordinal) && node.Reference is not null)
+                && !lastComments.Value.Nodes.Any(node => string.Equals(node.Name, "Reply 0", StringComparison.Ordinal)),
+                "the end of the long discussion", lastComments.Error);
+            var longFiltered = await surface.CaptureSnapshotAsync(
+                BrowserDocumentBinding.FromState(surface.State), deadline.Token, new BrowserSnapshotQuery(filter: "Reply 3"));
+            Require(longFiltered.IsSuccess && longFiltered.Value!.Nodes.Any(node => string.Equals(node.Name, "Reply 3", StringComparison.Ordinal) && node.Reference is not null),
+                "filter near the start of the long page", longFiltered.Error);
+            Require((await surface.NavigateWithinOriginAsync(
+                new BrowserOriginConstrainedNavigationRequest.Navigate(address),
+                BrowserNavigationOrigin.WorkspaceNetwork,
+                BrowserNavigationStartBinding.FromState(surface.State), deadline.Token)).IsSuccess, "back from the long page", null);
+            await RequireStateAsync(surface, state => state.Address == address && state.LoadState == BrowserLoadState.Ready, "form ready again", deadline.Token);
+            Console.WriteLine("PASS a page too large to read whole keeps its shape and opens where it was cut short");
+
             BeginStage("keyboard translation");
             await BrowserKeyboardAcceptance.VerifyAsync(surface, window, deadline.Token);
 

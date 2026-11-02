@@ -174,6 +174,51 @@ public sealed class BrowserSurfaceTests
     }
 
     [Fact]
+    public async Task ASnapshotWithinABranchResolvesItsReferenceAndCarriesWhereItResumes()
+    {
+        var nativeView = new RecordingEmbeddedBrowserView
+        {
+            SnapshotResult = NativeBrowserSnapshotResult.Success(
+                new NativeBrowserSnapshot(
+                    [
+                        new NativeBrowserSnapshotNode(
+                            0,
+                            "main",
+                            "",
+                            BrowserSnapshotNodeState.None,
+                            NativeHandle("0_main"),
+                            HiddenChildCount: 1415,
+                            NextChildOffset: 85),
+                    ],
+                    IsTruncated: true)),
+        };
+        var surface = Surface(nativeView);
+        var document = BrowserDocumentBinding.FromState(surface.State);
+        var first = await surface.CaptureSnapshotAsync(document, CancellationToken.None);
+        var main = Assert.Single(first.Value!.Nodes);
+        Assert.Equal(1415, main.HiddenChildCount);
+        Assert.Equal(85, main.NextChildOffset);
+
+        var within = await surface.CaptureSnapshotAsync(
+            document,
+            CancellationToken.None,
+            new BrowserSnapshotQuery(within: main.Reference!.Id, offset: 85));
+
+        Assert.True(within.IsSuccess);
+        Assert.Equal(NativeHandle("0_main"), nativeView.LastSnapshotWithin);
+        Assert.Equal(85, nativeView.LastSnapshotQuery!.Offset);
+
+        // The first snapshot's references went with the second.
+        var stale = await surface.CaptureSnapshotAsync(
+            document,
+            CancellationToken.None,
+            new BrowserSnapshotQuery(within: main.Reference.Id));
+
+        Assert.Equal(BrowserErrorCode.ElementReferenceStale, stale.Error!.Code);
+        Assert.Equal(2, nativeView.SnapshotCount);
+    }
+
+    [Fact]
     public async Task SnapshotCapturesBoundedNodesAndOpaqueReferences()
     {
         var nativeView = new RecordingEmbeddedBrowserView

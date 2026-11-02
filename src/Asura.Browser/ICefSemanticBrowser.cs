@@ -6,7 +6,14 @@ namespace Asura.Browser;
 /// </summary>
 internal interface ICefSemanticBrowser
 {
-    Task<IReadOnlyList<CefSemanticNode>> ReadAccessibilityTreeAsync();
+    /// <summary>
+    /// The page's accessibility tree, or only the subtree of the element
+    /// <paramref name="withinBackendNodeId"/> from its child at
+    /// <paramref name="offset"/>; null when that element is gone.
+    /// </summary>
+    Task<CefSemanticTree?> ReadAccessibilityTreeAsync(
+        int? withinBackendNodeId = null,
+        int offset = 0);
 
     Task<CefSemanticNode?> ReadAccessibilityNodeAsync(int backendNodeId);
 

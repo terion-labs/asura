@@ -256,7 +256,9 @@ public sealed partial class GovernedAgentRuntime
                     new BrowserSnapshotQuery(
                         snapshot.InteractiveOnly,
                         snapshot.Filter,
-                        snapshot.MaximumDepth)),
+                        snapshot.MaximumDepth,
+                        snapshot.Within,
+                        snapshot.Offset)),
             BrowserAgentIntent.Wait wait =>
                 new AgentBrowserRequest.Wait(
                     new BrowserWaitRequest(

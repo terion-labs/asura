@@ -289,7 +289,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
     }
 
     public async Task<NativeBrowserSnapshotResult> CaptureSnapshotAsync(
-        BrowserSnapshotQuery? query = null)
+        BrowserSnapshotQuery? query = null,
+        NativeBrowserElementHandle? within = null)
     {
         if (!await EnsureRendererReadyAsync().ConfigureAwait(false))
         {
@@ -310,7 +311,8 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         }
 
         return await (_semanticAdapter?.CaptureSnapshotAsync(
-                query ?? BrowserSnapshotQuery.Lean)
+                query ?? BrowserSnapshotQuery.Lean,
+                within)
             ?? Task.FromResult(NativeBrowserSnapshotResult.Unavailable()))
             .ConfigureAwait(false);
     }

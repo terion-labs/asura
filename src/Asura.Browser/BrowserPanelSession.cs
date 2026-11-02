@@ -960,7 +960,9 @@ public sealed partial class BrowserPanelSession : IBrowserPanelSession
                 source.Role,
                 source.Name,
                 reference,
-                source.States);
+                source.States,
+                source.HiddenChildCount,
+                source.NextChildOffset);
         }
 
         return new BrowserDocumentSnapshot(

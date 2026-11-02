@@ -87,6 +87,19 @@ const server = http.createServer((request, response) => {
     response.setHeader('Set-Cookie', 'agentFixture=retained; Path=/; SameSite=Lax');
     response.end(agentForm); return;
   }
+  if (request.url === '/agent-long-page') {
+    // A long discussion: its whole accessibility tree is larger than the
+    // host accepts in one DevTools reply.
+    let body = '<main><h1>Long discussion</h1>';
+    for (let i = 0; i < 1500; i++) {
+      body += `<article><header><b>Commenter ${i}</b> <button>Reply ${i}</button></header>`
+        + `<p>Comment ${i} with <a href="#c${i}">a link</a>, <code>inline code</code> and <em>emphasis</em>.</p>`
+        + `<ul><li>first ${i}</li><li>second ${i}</li><li>third ${i}</li></ul>`
+        + `<pre><code>gh api repos/example/runners --paginate ${i}</code></pre></article>`;
+    }
+    response.end(html(body + '</main>'));
+    return;
+  }
   if (request.url === '/agent-slow-form') {
     response.end(html('<button style="position:fixed;left:40px;top:40px;width:180px;height:50px;margin:0" onclick="location.href=\'/agent-slow-target\'">Slow navigation</button>'));
     return;
