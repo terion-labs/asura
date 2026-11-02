@@ -70,6 +70,8 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
 
     public int SnapshotCount { get; private set; }
 
+    public NativeBrowserElementHandle? LastSnapshotWithin { get; private set; }
+
     public BrowserSnapshotQuery? LastSnapshotQuery { get; private set; }
 
     public int ClickCount { get; private set; }
@@ -318,10 +320,12 @@ internal sealed class RecordingEmbeddedBrowserView : IEmbeddedBrowserView
     }
 
     public Task<NativeBrowserSnapshotResult> CaptureSnapshotAsync(
-        BrowserSnapshotQuery? query = null)
+        BrowserSnapshotQuery? query = null,
+        NativeBrowserElementHandle? within = null)
     {
         SnapshotCount++;
         LastSnapshotQuery = query;
+        LastSnapshotWithin = within;
         if (ThrowOnSnapshot)
         {
             throw new InvalidOperationException(

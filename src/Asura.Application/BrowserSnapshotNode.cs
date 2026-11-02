@@ -30,7 +30,9 @@ public sealed record BrowserSnapshotNode
         string role,
         string name,
         BrowserElementReference? reference = null,
-        BrowserSnapshotNodeState states = BrowserSnapshotNodeState.None)
+        BrowserSnapshotNodeState states = BrowserSnapshotNodeState.None,
+        int hiddenChildCount = 0,
+        int nextChildOffset = 0)
     {
         if (depth is < 0 or > MaximumDepth)
         {
@@ -44,9 +46,17 @@ public sealed record BrowserSnapshotNode
             throw new ArgumentOutOfRangeException(nameof(states));
         }
 
+        if (hiddenChildCount < 0 || nextChildOffset < 0
+            || (hiddenChildCount == 0 && nextChildOffset != 0))
+        {
+            throw new ArgumentOutOfRangeException(nameof(hiddenChildCount));
+        }
+
         Depth = depth;
         Reference = reference;
         States = states;
+        HiddenChildCount = hiddenChildCount;
+        NextChildOffset = nextChildOffset;
     }
 
     public int Depth { get; }
@@ -58,6 +68,15 @@ public sealed record BrowserSnapshotNode
     public BrowserElementReference? Reference { get; }
 
     public BrowserSnapshotNodeState States { get; }
+
+    /// <summary>
+    /// How many of this node's children the snapshot left out to stay within
+    /// its bounds; they are read by a snapshot within this node from
+    /// <see cref="NextChildOffset"/>.
+    /// </summary>
+    public int HiddenChildCount { get; }
+
+    public int NextChildOffset { get; }
 
     private static string CopyRole(string role)
     {

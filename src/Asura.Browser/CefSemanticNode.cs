@@ -14,12 +14,13 @@ internal sealed record CefSemanticNode(
     string Value);
 
 /// <summary>
-/// A page's accessibility tree. <see cref="IsPartial"/> when the page was too
-/// large to read whole and only its beginning, in document order, was read.
+/// An accessibility tree, of the page or of the subtree under
+/// <see cref="RootId"/>. A node whose children are not among
+/// <see cref="Nodes"/> was not read into: the page was too large to read whole.
 /// </summary>
 internal sealed record CefSemanticTree(
     IReadOnlyList<CefSemanticNode> Nodes,
-    bool IsPartial);
+    string? RootId = null);
 
 [StructLayout(LayoutKind.Auto)]
 internal readonly record struct CefSemanticPoint(

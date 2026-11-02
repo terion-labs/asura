@@ -16,7 +16,9 @@ internal abstract record BrowserAgentIntent
     public sealed record Snapshot(
         bool InteractiveOnly,
         string? Filter,
-        int? MaximumDepth) : BrowserAgentIntent;
+        int? MaximumDepth,
+        BrowserElementReferenceId? Within = null,
+        int Offset = 0) : BrowserAgentIntent;
 
     public sealed record Wait(
         BrowserWaitCondition Condition,

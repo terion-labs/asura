@@ -140,20 +140,107 @@ public sealed class CefBrowserSemanticAdapterTests
     }
 
     [Fact]
-    public async Task APageReadOnlyInPartIsATruncatedSnapshotOfItsBeginning()
+    public async Task APageReadOnlyInPartShowsWhereItWasNotReadInto()
     {
         var browser = BrowserWithInteractiveNodes();
         var adapter = new CefBrowserSemanticAdapter(browser);
         Assert.False((await adapter.CaptureSnapshotAsync()).Value!.IsTruncated);
 
-        // Too large to read whole: what was read is usable, and marked as
-        // not being the whole page.
-        browser.TreeIsPartial = true;
+        // Too large to read whole: what was read is usable, and the node
+        // whose children were not read says where they resume.
+        browser.UnreadNodeIds.Add("4");
         var result = await adapter.CaptureSnapshotAsync();
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Value!.IsTruncated);
         Assert.Contains(result.Value.Nodes, node => string.Equals(node.Role, "button", StringComparison.Ordinal) && node.Handle is not null);
+        var root = result.Value.Nodes[0];
+        Assert.Equal(1, root.HiddenChildCount);
+        Assert.Equal(2, root.NextChildOffset);
+        Assert.NotNull(root.Handle);
+    }
+
+    [Fact]
+    public async Task ALongDiscussionKeepsItsShapeAndOpensWhereItWasCutShort()
+    {
+        var browser = new RecordingCefSemanticBrowser(LongDiscussion(links: 300, comments: 1500));
+        var adapter = new CefBrowserSemanticAdapter(browser);
+
+        var result = await adapter.CaptureSnapshotAsync();
+
+        Assert.True(result.IsSuccess);
+        var snapshot = result.Value!;
+        Assert.True(snapshot.IsTruncated);
+        Assert.True(snapshot.Nodes.Count <= BrowserDocumentSnapshot.MaximumNodeCount);
+        // Both branches are shown, each cut short where it says, and the
+        // first comments are shown with their content, not as bare items.
+        var navigation = Assert.Single(snapshot.Nodes, node => node.Role == "navigation");
+        var main = Assert.Single(snapshot.Nodes, node => node.Role == "main");
+        Assert.Contains(snapshot.Nodes, node => node.Name == "Link 0");
+        Assert.True(navigation.HiddenChildCount > 0);
+        Assert.Equal(300 - navigation.HiddenChildCount, navigation.NextChildOffset);
+        Assert.Contains(snapshot.Nodes, node => node.Name == "Commenter 0");
+        Assert.Contains(snapshot.Nodes, node => node.Name == "Body 0");
+        Assert.Contains(snapshot.Nodes, node => node.Name == "Reply 0" && node.Handle is not null);
+        Assert.DoesNotContain(snapshot.Nodes, node => node.Name == "Commenter 1499");
+        Assert.True(main.HiddenChildCount > 0);
+        Assert.True(main.NextChildOffset > 10);
+        Assert.NotNull(main.Handle);
+
+        var within = await adapter.CaptureSnapshotAsync(
+            new BrowserSnapshotQuery(within: new BrowserElementReferenceId("main"), offset: 1490),
+            main.Handle);
+
+        Assert.True(within.IsSuccess);
+        Assert.Equal("main", within.Value!.Nodes[0].Role);
+        Assert.Equal(0, within.Value.Nodes[0].Depth);
+        Assert.Contains(within.Value.Nodes, node => node.Name == "Commenter 1499");
+        Assert.Contains(within.Value.Nodes, node => node.Name == "Reply 1490" && node.Handle is not null);
+        Assert.DoesNotContain(within.Value.Nodes, node => node.Name == "Commenter 0");
+        Assert.False(within.Value.IsTruncated);
+    }
+
+    [Fact]
+    public async Task ASnapshotWithinAnElementFromAnEarlierSnapshotIsStale()
+    {
+        var browser = new RecordingCefSemanticBrowser(LongDiscussion(links: 1, comments: 600));
+        var adapter = new CefBrowserSemanticAdapter(browser);
+        var first = await adapter.CaptureSnapshotAsync();
+        var main = Assert.Single(first.Value!.Nodes, node => node.Role == "main");
+        _ = await adapter.CaptureSnapshotAsync();
+
+        var result = await adapter.CaptureSnapshotAsync(
+            new BrowserSnapshotQuery(within: new BrowserElementReferenceId("main")),
+            main.Handle);
+
+        Assert.Equal(NativeBrowserSnapshotFailure.Stale, result.Failure);
+    }
+
+    private static CefSemanticNode[] LongDiscussion(int links, int comments)
+    {
+        const int MainId = 3;
+        const int FirstLink = 10;
+        var firstComment = FirstLink + links;
+        var nodes = new List<CefSemanticNode>
+        {
+            Node(1, "RootWebArea", "Long discussion", parentId: null, childIds: ["2", "3"]),
+            Node(2, "navigation", "Site", childIds: [.. Enumerable.Range(FirstLink, links).Select(Id)]),
+            Node(MainId, "main", "Discussion", childIds: [.. Enumerable.Range(0, comments).Select(index => Id(firstComment + index * 5))]),
+        };
+        nodes.AddRange(Enumerable.Range(0, links).Select(index => Node(FirstLink + index, "link", $"Link {index}", parentId: "2")));
+        for (var index = 0; index < comments; index++)
+        {
+            var article = firstComment + index * 5;
+            nodes.Add(Node(article, "article", "", parentId: Id(MainId), childIds: [Id(article + 1), Id(article + 2), Id(article + 3)]));
+            nodes.Add(Node(article + 1, "heading", $"Commenter {index}", parentId: Id(article)));
+            nodes.Add(Node(article + 2, "button", $"Reply {index}", parentId: Id(article)));
+            nodes.Add(Node(article + 3, "paragraph", "", parentId: Id(article), childIds: [Id(article + 4)]));
+            nodes.Add(Node(article + 4, "StaticText", $"Body {index}", parentId: Id(article + 3)));
+        }
+
+        return [.. nodes];
+
+        static string Id(int value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 
     [Fact]
@@ -504,12 +591,24 @@ public sealed class CefBrowserSemanticAdapterTests
 
         public int ReplaceTextCount { get; private set; }
 
-        public bool TreeIsPartial { get; set; }
+        /// <summary>Nodes left out of the tree, as from a page too large to read whole.</summary>
+        public HashSet<string> UnreadNodeIds { get; } = new(StringComparer.Ordinal);
 
-        public Task<CefSemanticTree> ReadAccessibilityTreeAsync() =>
-            Task.FromResult(new CefSemanticTree(
-                [.. _nodes.Values.Concat(_generatedNodes).OrderBy(node => node.BackendNodeId)],
-                TreeIsPartial));
+        public Task<CefSemanticTree?> ReadAccessibilityTreeAsync(
+            int? withinBackendNodeId = null,
+            int offset = 0)
+        {
+            if (withinBackendNodeId is { } id && !_nodes.ContainsKey(id))
+            {
+                return Task.FromResult<CefSemanticTree?>(null);
+            }
+
+            return Task.FromResult<CefSemanticTree?>(new CefSemanticTree(
+                [.. _nodes.Values.Concat(_generatedNodes)
+                    .Where(node => !UnreadNodeIds.Contains(node.Id))
+                    .OrderBy(node => node.BackendNodeId)],
+                withinBackendNodeId is { } within ? _nodes[within].Id : null));
+        }
 
         public Task<CefSemanticNode?> ReadAccessibilityNodeAsync(
             int backendNodeId) =>

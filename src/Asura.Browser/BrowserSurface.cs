@@ -2404,12 +2404,23 @@ public sealed partial class BrowserSurface :
                     SnapshotStateChanged()));
         }
 
+        NativeBrowserElementHandle? within = null;
+        if (query.Within is { } withinId
+            && !TryResolveElementReference(
+                new BrowserElementReference(withinId, document),
+                out within))
+        {
+            return Task.FromResult(
+                BrowserResult<BrowserDocumentSnapshot>.Failure(
+                    ElementReferenceStale()));
+        }
+
         InvalidateElementReferences();
         var referenceEpoch = SnapshotReferenceEpoch();
         Task<NativeBrowserSnapshotResult> nativeCompletion;
         try
         {
-            nativeCompletion = _nativeView.CaptureSnapshotAsync(query);
+            nativeCompletion = _nativeView.CaptureSnapshotAsync(query, within);
         }
         catch (Exception)
         {
@@ -2581,10 +2592,12 @@ public sealed partial class BrowserSurface :
 
         if (!nativeResult.IsSuccess)
         {
-            var error = nativeResult.Failure
-                == NativeBrowserSnapshotFailure.Invalid
-                ? SnapshotInvalid()
-                : SnapshotRendererUnavailable();
+            var error = nativeResult.Failure switch
+            {
+                NativeBrowserSnapshotFailure.Invalid => SnapshotInvalid(),
+                NativeBrowserSnapshotFailure.Stale => ElementReferenceStale(),
+                _ => SnapshotRendererUnavailable(),
+            };
             pending.Completion.TrySetResult(
                 BrowserResult<BrowserDocumentSnapshot>.Failure(error));
             return;
@@ -2622,7 +2635,9 @@ public sealed partial class BrowserSurface :
                     nativeNode.Role,
                     nativeNode.Name,
                     reference,
-                    nativeNode.States);
+                    nativeNode.States,
+                    nativeNode.HiddenChildCount,
+                    nativeNode.NextChildOffset);
             }
 
             var snapshot = new BrowserDocumentSnapshot(

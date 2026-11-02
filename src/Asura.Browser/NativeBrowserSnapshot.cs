@@ -13,7 +13,9 @@ internal sealed record NativeBrowserSnapshotNode(
     string Role,
     string Name,
     BrowserSnapshotNodeState States,
-    NativeBrowserElementHandle? Handle);
+    NativeBrowserElementHandle? Handle,
+    int HiddenChildCount = 0,
+    int NextChildOffset = 0);
 
 internal sealed record NativeBrowserElementHandle
 {
@@ -99,10 +101,15 @@ internal sealed record NativeBrowserSnapshotResult
 
     public static NativeBrowserSnapshotResult Unavailable() =>
         new(value: null, NativeBrowserSnapshotFailure.Unavailable);
+
+    /// <summary>The element the snapshot was to be within is gone.</summary>
+    public static NativeBrowserSnapshotResult Stale() =>
+        new(value: null, NativeBrowserSnapshotFailure.Stale);
 }
 
 internal enum NativeBrowserSnapshotFailure
 {
     Invalid,
     Unavailable,
+    Stale,
 }

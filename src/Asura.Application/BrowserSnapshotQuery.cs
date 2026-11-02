@@ -10,6 +10,7 @@ namespace Asura.Application;
 public sealed record BrowserSnapshotQuery
 {
     public const int MaximumFilterBytes = 512;
+    public const int MaximumOffset = 1_000_000;
 
     private static readonly UTF8Encoding StrictUtf8 = new(
         encoderShouldEmitUTF8Identifier: false,
@@ -18,7 +19,9 @@ public sealed record BrowserSnapshotQuery
     public BrowserSnapshotQuery(
         bool interactiveOnly = false,
         string? filter = null,
-        int? maximumDepth = null)
+        int? maximumDepth = null,
+        BrowserElementReferenceId? within = null,
+        int offset = 0)
     {
         if (filter is not null)
         {
@@ -41,8 +44,18 @@ public sealed record BrowserSnapshotQuery
             throw new ArgumentOutOfRangeException(nameof(maximumDepth));
         }
 
+        if (offset is < 0 or > MaximumOffset
+            || (offset > 0 && within is null))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(offset),
+                "A browser snapshot offset counts the children of the element it is within.");
+        }
+
         InteractiveOnly = interactiveOnly;
         MaximumDepth = maximumDepth;
+        Within = within;
+        Offset = offset;
     }
 
     public static BrowserSnapshotQuery Lean { get; } = new();
@@ -56,6 +69,15 @@ public sealed record BrowserSnapshotQuery
     public string? Filter { get; }
 
     public int? MaximumDepth { get; }
+
+    /// <summary>
+    /// An element from the latest snapshot whose subtree alone is captured,
+    /// as when a branch that snapshot cut short is opened.
+    /// </summary>
+    public BrowserElementReferenceId? Within { get; }
+
+    /// <summary>How many of <see cref="Within"/>'s children are skipped.</summary>
+    public int Offset { get; }
 
     private static int GetByteCount(string value)
     {

@@ -20,6 +20,17 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
     private const int PartialTreeNodeBudget = 6_000;
     private const int PartialTreeBatchSize = 64;
 
+    /// <summary>
+    /// The least of the remaining budget each of a parent's children is
+    /// left to read into, so a long list keeps the content of its first
+    /// items instead of spending the budget on the bare list.
+    /// </summary>
+    private const int PartialTreeChildShare = 16;
+
+    /// <summary>As deep as a whole tree is read, and a partial one.</summary>
+    private const int TreeDepth = 64;
+    private const string FullTreeParameters = "{\"depth\":64}";
+
     /// <summary>The error the host puts in place of an oversized DevTools reply.</summary>
     private const string HostByteLimitMessage = "CDP response exceeds the host byte limit.";
     private const double ViewportMarginCss = 12;
@@ -37,27 +48,43 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
             ?? throw new ArgumentNullException(nameof(humanizedInput));
     }
 
-    public async Task<CefSemanticTree> ReadAccessibilityTreeAsync()
+    public async Task<CefSemanticTree?> ReadAccessibilityTreeAsync(
+        int? withinBackendNodeId = null,
+        int offset = 0)
     {
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
         var reply = await _browser.ExecuteDevToolsMethodAsync(
                 "Accessibility.getFullAXTree",
-                "{\"depth\":64}")
+                FullTreeParameters)
             .ConfigureAwait(false);
-        IReadOnlyList<CefSemanticNode> nodes;
-        bool isPartial;
+        IReadOnlyList<CefSemanticNode>? nodes = null;
+        string? rootId = null;
         using (var document = JsonDocument.Parse(reply))
         {
             if (Result(document, "Accessibility.getFullAXTree") is { } result)
             {
                 nodes = [.. result.GetProperty("nodes").EnumerateArray().Select(Project)];
-                isPartial = false;
+                if (withinBackendNodeId is { } id)
+                {
+                    rootId = nodes.FirstOrDefault(node => node.BackendNodeId == id)?.Id;
+                }
             }
-            else
+        }
+
+        // A page too large to read whole, or an element deeper than its
+        // whole tree reaches, is read from its root down, in part.
+        if (nodes is null || (withinBackendNodeId is not null && rootId is null))
+        {
+            var root = withinBackendNodeId is { } id
+                ? await ReadElementNodeAsync(id, fetchRelatives: false).ConfigureAwait(false)
+                : await ReadAccessibilityRootAsync().ConfigureAwait(false);
+            if (root is null)
             {
-                nodes = await ReadAccessibilityTreeBeginningAsync().ConfigureAwait(false);
-                isPartial = true;
+                return null;
             }
+
+            nodes = await ReadAccessibilitySubtreeAsync(root, offset).ConfigureAwait(false);
+            rootId = withinBackendNodeId is null ? null : root.Id;
         }
 
         var domReply = await _browser.ExecuteDevToolsMethodAsync(
@@ -74,27 +101,34 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         {
             if (string.Equals(node.Role, "clickable", StringComparison.Ordinal) && node.BackendNodeId is { } id) { _customClickTargets.Add(id); }
         }
-        return new CefSemanticTree(projected, isPartial);
+        return new CefSemanticTree(projected, rootId);
     }
 
-    /// <summary>
-    /// The beginning of a page whose whole tree is larger than the host
-    /// accepts in one reply: nodes are read a parent's children at a time,
-    /// nearest the start of the document first, until the budget is spent.
-    /// Each reply stays bounded by the host's limit, and a parent whose
-    /// children are themselves too many to read is left without them.
-    /// </summary>
-    private async Task<IReadOnlyList<CefSemanticNode>> ReadAccessibilityTreeBeginningAsync()
+    private async Task<CefSemanticNode> ReadAccessibilityRootAsync()
     {
-        var rootReply = await _browser.ExecuteDevToolsMethodAsync(
+        var reply = await _browser.ExecuteDevToolsMethodAsync(
                 "Accessibility.getRootAXNode", "{}")
             .ConfigureAwait(false);
-        using var rootDocument = JsonDocument.Parse(rootReply);
-        var root = Project(
-            (Result(rootDocument, "Accessibility.getRootAXNode")
+        using var document = JsonDocument.Parse(reply);
+        return Project(
+            (Result(document, "Accessibility.getRootAXNode")
                 ?? throw new InvalidOperationException(
                     "Chromium did not return the page's accessibility root."))
             .GetProperty("node"));
+    }
+
+    /// <summary>
+    /// Part of a subtree whose whole is larger than the host accepts in one
+    /// reply, from <paramref name="root"/>'s child at <paramref name="offset"/>:
+    /// nodes are read a parent's children at a time, nearest the start of
+    /// the document first, until the budget is spent. A node whose children
+    /// were not read keeps their IDs, so what was left unread is known.
+    /// </summary>
+    private async Task<IReadOnlyList<CefSemanticNode>> ReadAccessibilitySubtreeAsync(
+        CefSemanticNode root,
+        int offset)
+    {
+        root = root with { ParentId = null };
         var nodes = new List<CefSemanticNode> { root };
         // Chromium lists a parent's children by the ids of its full tree;
         // the children it returns for that parent are what the walk links.
@@ -102,6 +136,7 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         // An ignored node's children also come back with its parent's, so one
         // node can arrive more than once; it is read, and read into, once.
         var seen = new HashSet<string>(StringComparer.Ordinal) { root.Id };
+        var depths = new Dictionary<string, int>(StringComparer.Ordinal) { [root.Id] = 0 };
         var unread = new List<CefSemanticNode>();
         if (root.ChildIds.Count > 0)
         {
@@ -120,6 +155,7 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
             var children = new List<CefSemanticNode>();
             for (var index = 0; index < parents.Length; index++)
             {
+                var parent = parents[index];
                 using var document = JsonDocument.Parse(replies[index]);
                 if (Result(document, "Accessibility.getChildAXNodes") is not { } result)
                 {
@@ -127,23 +163,29 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
                 }
 
                 var read = new List<string>();
+                var skip = ReferenceEquals(parent, root) ? offset : 0;
+                var room = Math.Max(1, (PartialTreeNodeBudget - nodes.Count) / PartialTreeChildShare);
+                var depth = depths[parent.Id] + 1;
                 foreach (var child in result.GetProperty("nodes").EnumerateArray())
                 {
-                    var node = Project(child) with { ParentId = parents[index].Id };
+                    var node = Project(child) with { ParentId = parent.Id };
                     read.Add(node.Id);
-                    if (!seen.Add(node.Id))
+                    if (read.Count <= skip || room == 0 || !seen.Add(node.Id))
                     {
                         continue;
                     }
 
+                    // The children past a parent's share stay unread.
+                    room--;
                     nodes.Add(node);
-                    if (node.ChildIds.Count > 0)
+                    depths[node.Id] = depth;
+                    if (node.ChildIds.Count > 0 && depth < TreeDepth)
                     {
                         children.Add(node);
                     }
                 }
 
-                childrenRead[parents[index].Id] = read;
+                childrenRead[parent.Id] = read;
             }
 
             // Read deeper into what came first before moving on, as the
@@ -151,12 +193,9 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
             unread.InsertRange(0, children);
         }
 
-        var kept = nodes.Count > PartialTreeNodeBudget
-            ? nodes[..PartialTreeNodeBudget]
-            : nodes;
-        return [.. kept.Select(node => childrenRead.TryGetValue(node.Id, out var read)
+        return [.. nodes.Select(node => childrenRead.TryGetValue(node.Id, out var read)
             ? node with { ChildIds = read }
-            : node with { ChildIds = [] })];
+            : node)];
     }
 
     /// <summary>
@@ -187,11 +226,19 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         if (_customClickTargets.Contains(backendNodeId))
         {
             var tree = await ReadAccessibilityTreeAsync().ConfigureAwait(false);
-            return tree.Nodes.FirstOrDefault(node => node.BackendNodeId == backendNodeId);
+            return tree?.Nodes.FirstOrDefault(node => node.BackendNodeId == backendNodeId);
         }
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
+        return await ReadElementNodeAsync(backendNodeId, fetchRelatives: true)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<CefSemanticNode?> ReadElementNodeAsync(
+        int backendNodeId,
+        bool fetchRelatives)
+    {
         var nodes = await _browser.Accessibility
-            .GetPartialTreeAsync(backendNodeId, fetchRelatives: true)
+            .GetPartialTreeAsync(backendNodeId, fetchRelatives)
             .ConfigureAwait(false);
         var node = nodes.FirstOrDefault(
             candidate => candidate.BackendDomNodeId == backendNodeId);

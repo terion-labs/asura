@@ -19,7 +19,7 @@ before packaging. `ASURA_BUILD_ARTIFACTS_ROOT` keeps generated files outside
 the sealed, read-only source tree.
 
 Checks cover a cold hidden browser surface, navigation, accessibility snapshot
-references, a truncated snapshot of a page too large to read whole, custom
+references, a snapshot of a page too large to read whole and of its end, custom
 onclick controls, viewport PNGs with coordinate bindings,
 fill/check/click, retained cookies, rejection of native menu fallback for browser
 keystrokes, repeated navigation, recovery and persistent numeric diagnostics after

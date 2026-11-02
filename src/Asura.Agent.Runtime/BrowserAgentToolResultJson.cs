@@ -305,6 +305,12 @@ internal static class BrowserAgentToolResultJson
                 writer.WriteString("reference", reference.Value);
             }
 
+            if (node.HiddenChildCount > 0)
+            {
+                writer.WriteNumber("hidden_children", node.HiddenChildCount);
+                writer.WriteNumber("next_offset", node.NextChildOffset);
+            }
+
             writer.WriteEndObject();
             writtenNodes++;
         }
@@ -319,7 +325,8 @@ internal static class BrowserAgentToolResultJson
         {
             writer.WriteString(
                 "narrow_with",
-                "filter, interactive_only, or max_depth; use returned refs and do not guess coordinates");
+                "a snapshot within the reference of a node with hidden_children, from its next_offset; "
+                + "or filter, interactive_only, or max_depth. Use returned refs and do not guess coordinates");
         }
         writer.WriteNumber("redactions", redactionCount);
     }

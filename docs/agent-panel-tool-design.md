@@ -380,10 +380,19 @@ the main-frame/document identity, frame ID, backend DOM node ID, accessibility
 role/state, snapshot nonce, and geometry evidence. Node IDs are never returned
 to the provider.
 
+An unfiltered snapshot keeps the page's tree shape within its node bound.
+Each branch gets a share of the bound: a short branch is shown whole, and a
+long list shows its first items with their content. A branch cut short is
+still shown, with a reference, `hidden_children`, and `next_offset`. A snapshot
+with `within` set to that reference, and `offset` set to `next_offset` or any
+other child index, shows only that branch from that child. References from the
+previous snapshot expire, as they do after any snapshot.
+
 The host bounds every DevTools reply. When a page's whole tree exceeds that
-bound, the snapshot reads only the page's beginning: one parent's children per
-reply, nearest the document start first, each node once, up to a fixed node
-budget. The result is marked truncated rather than failing, and a filter
+bound, the snapshot reads part of it: one parent's children per reply, nearest
+the document start first. Each child of a long list gets a share of a fixed
+node budget, so a long list is not read as bare items. Nodes whose children
+were not read are shown as cut short and can be opened the same way. A filter
 searches only what was read.
 
 A reference expires on top-level navigation, renderer replacement, next

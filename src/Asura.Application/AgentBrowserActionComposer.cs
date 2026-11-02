@@ -181,6 +181,16 @@ public sealed class AgentBrowserActionComposer
                 maximumDepth.ToString(CultureInfo.InvariantCulture)));
         }
 
+        if (query.Within is { } within)
+        {
+            arguments.Add(Argument(
+                "within",
+                RequireIdentifier(within.Value, "element reference ID")));
+            arguments.Add(Argument(
+                "offset",
+                query.Offset.ToString(CultureInfo.InvariantCulture)));
+        }
+
         return Prepared(
             BuiltInAgentTools.BrowserSnapshot,
             SessionCapabilities.BrowserSnapshot,
