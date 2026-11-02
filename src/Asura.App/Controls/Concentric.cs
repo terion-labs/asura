@@ -136,9 +136,12 @@ public static class Concentric
                 return;
             }
 
+            // Asked for at each reconcile: the floor is usually a theme
+            // resource, and a resource applied after the rule was attached
+            // would otherwise never reach it.
             var reconciler = new ConcentricCornerReconciler(
                 element,
-                GetMinimumRadius(element));
+                () => GetMinimumRadius(element));
             element.SetValue(ReconcilerProperty, reconciler);
             element.LayoutUpdated += reconciler.OnLayoutUpdated;
             return;
@@ -285,7 +288,8 @@ public static class ConcentricCorners
             container.Bounds.Size,
             offset,
             element.Bounds.Size,
-            minimumRadius));
+            minimumRadius,
+            element.GetValue(Border.CornerRadiusProperty)));
     }
 
     private static (Visual? Container, double Radius) FindContainer(Control element)
@@ -361,7 +365,8 @@ public static class ConcentricCorners
         Size containerSize,
         Point offsetInContainer,
         Size size,
-        double minimumRadius)
+        double minimumRadius,
+        CornerRadius? authored = null)
     {
         if (outerRadius <= 0
             || size.Width <= 0
@@ -408,8 +413,26 @@ public static class ConcentricCorners
         // a corner worth drawing, and stands aside where it does not, rather
         // than clamping to a floor nothing else in the interface uses.
         var derived = outerRadius - gap;
-        return derived < minimumRadius
-            ? null
-            : new CornerRadius(derived);
+        if (derived >= minimumRadius)
+        {
+            return new CornerRadius(derived);
+        }
+
+        // Standing aside still has a limit: a corner is never rounder than
+        // the one it sits inside. A panel keeping a twelve-point corner in a
+        // window the desktop drew at five read as a shape that had not
+        // noticed where it was — the frame tight, everything inside it
+        // looser. The authored radius is kept up to the container's own.
+        return authored is { } own && Largest(own) > outerRadius
+            ? new CornerRadius(
+                Math.Min(own.TopLeft, outerRadius),
+                Math.Min(own.TopRight, outerRadius),
+                Math.Min(own.BottomRight, outerRadius),
+                Math.Min(own.BottomLeft, outerRadius))
+            : null;
     }
+
+    private static double Largest(CornerRadius corner) => Math.Max(
+        Math.Max(corner.TopLeft, corner.TopRight),
+        Math.Max(corner.BottomLeft, corner.BottomRight));
 }

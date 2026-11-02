@@ -986,6 +986,47 @@ public sealed class AvaloniaHostAppearanceAdapterTests
         Assert.Equal(Color.Parse("#1d1d20"), resources.Surface);
     }
 
+    /// <summary>
+    /// A Linux desktop draws at its own radii, which the Gnome profile's
+    /// numbers only approximate: Breeze at five everywhere, Greybird at three.
+    /// The sidebar takes the card's, as every desktop's does.
+    /// </summary>
+    [Fact]
+    public void A_host_profile_draws_at_the_radii_the_desktop_reports()
+    {
+        var effective = ProfilePreference(PlatformProfile.Kde).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Light,
+            null,
+            LinuxDesktopEnvironment.Kde));
+
+        var resources = EffectiveAppearanceResourceMapper.Map(
+            effective,
+            null,
+            new HostCornerRadii(Window: 5, Control: 5, Card: 5));
+
+        Assert.Equal(new CornerRadius(5), resources.ControlCornerRadius);
+        Assert.Equal(new CornerRadius(5), resources.CardCornerRadius);
+        Assert.Equal(new CornerRadius(5), resources.SidebarCornerRadius);
+    }
+
+    /// <summary>The product's own profile keeps its own shape on every desktop.</summary>
+    [Fact]
+    public void The_asura_profile_ignores_the_desktop_radii()
+    {
+        var effective = ProfilePreference(PlatformProfile.Asura).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Light,
+            null,
+            LinuxDesktopEnvironment.Kde));
+
+        var withHost = EffectiveAppearanceResourceMapper.Map(effective, null, new HostCornerRadii(5, 5, 5));
+        var without = EffectiveAppearanceResourceMapper.Map(effective, null, null);
+
+        Assert.Equal(without.ControlCornerRadius, withHost.ControlCornerRadius);
+        Assert.Equal(without.CardCornerRadius, withHost.CardCornerRadius);
+    }
+
     [Fact]
     public void A_host_accent_read_by_the_palette_source_outranks_the_reported_one()
     {

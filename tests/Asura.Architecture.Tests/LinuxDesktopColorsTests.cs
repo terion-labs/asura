@@ -1,3 +1,4 @@
+using Asura.App;
 using Asura.Desktop;
 using Asura.Desktop.LinuxDesktopColors;
 using Avalonia.Media;
@@ -316,5 +317,111 @@ public sealed class LinuxDesktopColorsTests
         Assert.Null(palette.Light);
         Assert.Null(palette.Dark);
         Assert.True(palette.AccentIsAbsent);
+    }
+
+
+    private const string XfwmDefaultTopLeft = """
+        /* XPM */
+        static char * top_left_active_xpm[] = {
+        "8 6 2 1",
+        "       c None",
+        ".      c #C0C0FF s active_mid_2",
+        "    ....",
+        "  ......",
+        " .......",
+        " .......",
+        "........",
+        "........"};
+        """;
+
+    [Fact]
+    public void An_xfwm4_corner_pixmap_gives_the_frame_radius()
+    {
+        Assert.Equal(4, LinuxDesktopCorners.XpmCornerRadius(XfwmDefaultTopLeft));
+        Assert.Equal(0, LinuxDesktopCorners.XpmCornerRadius("""
+            "2 2 1 1",
+            ". c #000000",
+            "..",
+            ".."
+            """));
+        Assert.Null(LinuxDesktopCorners.XpmCornerRadius("not a pixmap"));
+    }
+
+    [Fact]
+    public void A_gtk3_stylesheet_states_its_button_and_decoration_radii()
+    {
+        const string greybird = """
+            button.titlebutton, button.sidebar-button, button { min-height: 24px; border-radius: 3px; color: #3c3c3c; }
+            button.color colorswatch:only-child { border-radius: 0; }
+            decoration { border-radius: 7px 7px 0 0; margin: 10px; }
+            """;
+
+        Assert.Equal(3, LinuxDesktopCorners.Gtk3RuleRadius(greybird, "button"));
+        Assert.Equal(7, LinuxDesktopCorners.Gtk3RuleRadius(greybird, "decoration"));
+        Assert.Null(LinuxDesktopCorners.Gtk3RuleRadius(greybird, "entry"));
+
+        var corners = LinuxDesktopCorners.FromGtk3(greybird, XfwmDefaultTopLeft);
+        Assert.Equal(new HostCornerRadii(Window: 4, Control: 3, Card: 3), corners);
+        // No window-manager pixmap: the stylesheet's own frame radius.
+        Assert.Equal(7, LinuxDesktopCorners.FromGtk3(greybird, null)!.Window);
+        Assert.Null(LinuxDesktopCorners.FromGtk3(null, null));
+    }
+
+    [Fact]
+    public void Cosmic_corner_radii_come_from_its_theme_scale()
+    {
+        const string ron = """
+            (
+                radius_0: (0.0, 0.0, 0.0, 0.0),
+                radius_xs: (4.0, 4.0, 4.0, 4.0),
+                radius_s: (8.0, 8.0, 8.0, 8.0),
+                radius_m: (16.0, 16.0, 16.0, 16.0),
+                radius_l: (32.0, 32.0, 32.0, 32.0),
+                radius_xl: (160.0, 160.0, 160.0, 160.0),
+            )
+            """;
+
+        Assert.Equal(new HostCornerRadii(Window: 8, Control: 8, Card: 16), LinuxDesktopCorners.FromCosmic(ron));
+        Assert.Null(LinuxDesktopCorners.FromCosmic("(radius_0: (0.0, 0.0, 0.0, 0.0))"));
+    }
+
+    [Fact]
+    public void Each_desktop_family_reports_the_radii_it_draws_at()
+    {
+        var kde = LinuxSystemPaletteSource.Compose(
+            LinuxDesktopFamily.Kde, accent: null, prefersDark: null, gtkTheme: null,
+            gtk4Overrides: null, kdeColors: null, gtk3ThemeCss: null, cosmic: null);
+        var gnome = LinuxSystemPaletteSource.Compose(
+            LinuxDesktopFamily.Gnome, accent: null, prefersDark: null, gtkTheme: "Yaru",
+            gtk4Overrides: null, kdeColors: null, gtk3ThemeCss: null, cosmic: null);
+        var xfce = LinuxSystemPaletteSource.Compose(
+            LinuxDesktopFamily.Gtk3, accent: null, prefersDark: null, gtkTheme: "Greybird",
+            gtk4Overrides: null, kdeColors: null,
+            gtk3ThemeCss: "button { border-radius: 3px; }",
+            cosmic: null,
+            xfwmCornerXpm: XfwmDefaultTopLeft);
+        var unknown = LinuxSystemPaletteSource.Compose(
+            LinuxDesktopFamily.Unknown, accent: null, prefersDark: null, gtkTheme: null,
+            gtk4Overrides: null, kdeColors: null, gtk3ThemeCss: null, cosmic: null);
+
+        Assert.Equal(new HostCornerRadii(5, 5, 5), kde.Corners);
+        Assert.Equal(new HostCornerRadii(12, 9, 12), gnome.Corners);
+        Assert.Equal(new HostCornerRadii(4, 3, 3), xfce.Corners);
+        Assert.Null(unknown.Corners);
+    }
+
+    [Fact]
+    public void The_xfwm4_channel_names_the_window_manager_theme()
+    {
+        const string xml = """
+            <channel name="xfwm4" version="1.0">
+              <property name="general" type="empty">
+                <property name="theme" type="string" value="Greybird"/>
+              </property>
+            </channel>
+            """;
+
+        Assert.Equal("Greybird", Gtk3ThemeColors.ThemeFromXfwmXml(xml));
+        Assert.Null(Gtk3ThemeColors.ThemeFromXfwmXml("<channel/>"));
     }
 }

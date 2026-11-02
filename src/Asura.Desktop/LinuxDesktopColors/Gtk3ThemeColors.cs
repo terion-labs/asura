@@ -27,6 +27,20 @@ internal static partial class Gtk3ThemeColors
         matchTimeoutMilliseconds: 1000)]
     private static partial Regex SettingsIniThemeName();
 
+    [GeneratedRegex(
+        @"<property\s+name=""theme""[^>]*value=""(?<theme>[^""]*)""",
+        RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        matchTimeoutMilliseconds: 1000)]
+    private static partial Regex XfwmThemeName();
+
+    /// <summary>The window-manager theme XFCE's xfwm4 channel names, or null.</summary>
+    internal static string? ThemeFromXfwmXml(string xml)
+    {
+        ArgumentNullException.ThrowIfNull(xml);
+        var match = XfwmThemeName().Match(xml);
+        return match.Success && !string.IsNullOrWhiteSpace(match.Groups["theme"].Value) ? match.Groups["theme"].Value : null;
+    }
+
     /// <summary>The theme XFCE's xsettings channel names, or null.</summary>
     internal static string? ThemeFromXfceXsettings(string xml)
     {

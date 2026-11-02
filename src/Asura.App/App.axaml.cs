@@ -507,7 +507,8 @@ public sealed partial class App : Avalonia.Application
     private EffectiveAppearanceResources MapAppearanceResources(EffectiveTheme theme) =>
         EffectiveAppearanceResourceMapper.Map(
             theme,
-            CurrentHostPalette.For(theme.Appearance));
+            CurrentHostPalette.For(theme.Appearance),
+            CurrentHostPalette.Corners);
 
     private HostSystemPalette CurrentHostPalette =>
         _hostAppearance?.SystemPalette ?? HostSystemPalette.None;
@@ -775,11 +776,13 @@ public sealed partial class App : Avalonia.Application
 
     /// <summary>
     /// What the platform draws the window's own corners at, in points. Not a
-    /// number of ours: this desktop has three, one per kind of window, and the
-    /// corner style decides which kind the shell asks to be.
+    /// number of ours: macOS has three, one per kind of window, and the
+    /// corner style decides which kind the shell asks to be; a Linux desktop
+    /// draws the frame itself, at whatever its window manager's theme says.
     /// </summary>
     public double WindowCornerRadius =>
-        DensityCornerScale.WindowRadius(StoredTheme.Density);
+        CurrentHostPalette.Corners?.Window
+        ?? DensityCornerScale.WindowRadius(StoredTheme.Density);
 
     public InterfaceDensity WindowDensity => StoredTheme.Density;
 
@@ -1143,6 +1146,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardCornerRadius", resources.CardCornerRadius);
         Publish("ShellSidebarCornerRadius", resources.SidebarCornerRadius);
         Publish("ShellCardRadius", resources.CardCornerRadius.TopLeft);
+        Publish("ShellControlRadius", resources.ControlCornerRadius.TopLeft);
         Publish("ShellPillCornerRadius", resources.PillCornerRadius);
         Publish("ShellInnerCornerRadius", resources.InnerCornerRadius);
         Publish("ShellGroupCornerRadius", resources.GroupCornerRadius);

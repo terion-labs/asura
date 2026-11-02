@@ -22,6 +22,7 @@ internal static partial class CosmicThemeColors
     internal const string DarkThemeDirectory = "cosmic/com.system76.CosmicTheme.Dark/v1";
     internal const string LightThemeDirectory = "cosmic/com.system76.CosmicTheme.Light/v1";
     internal const string ModeFile = "cosmic/com.system76.CosmicTheme.Mode/v1/is_dark";
+    internal const string CornerRadiiFile = "corner_radii";
 
     [GeneratedRegex(
         @"\(\s*red\s*:\s*(?<red>[0-9.eE+-]+)\s*,\s*green\s*:\s*(?<green>[0-9.eE+-]+)\s*,\s*blue\s*:\s*(?<blue>[0-9.eE+-]+)\s*,\s*alpha\s*:\s*(?<alpha>[0-9.eE+-]+)\s*,?\s*\)",

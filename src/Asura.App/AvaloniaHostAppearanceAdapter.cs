@@ -123,6 +123,15 @@ internal sealed class AvaloniaHostAppearanceAdapter
 }
 
 /// <summary>
+/// The radii the host draws its own shapes at, in points: the window frame
+/// (<paramref name="Window"/>), a push button or tab (<paramref name="Control"/>)
+/// and a card or frame (<paramref name="Card"/>). Reported where the desktop
+/// publishes or measurably draws them; a host that reports none leaves the
+/// profile's own metrics in charge.
+/// </summary>
+public sealed record HostCornerRadii(double Window, double Control, double Card);
+
+/// <summary>
 /// One appearance's worth of the host's semantic colours, as the host reports
 /// them. Label and separator colours keep their alpha, because that is how the
 /// platform defines them; the mapper composites them over the window.
@@ -165,7 +174,8 @@ public sealed record HostSystemPalette(
     bool AccentIsMulticolor,
     Color? Accent = null,
     bool AccentIsAbsent = false,
-    bool? PrefersDark = null)
+    bool? PrefersDark = null,
+    HostCornerRadii? Corners = null)
 {
     public static HostSystemPalette None { get; } = new(null, null, AccentIsMulticolor: false);
 
@@ -423,7 +433,12 @@ internal static class EffectiveAppearanceResourceMapper
 
     public static EffectiveAppearanceResources Map(
         EffectiveTheme theme,
-        HostSemanticColors? hostColors)
+        HostSemanticColors? hostColors) => Map(theme, hostColors, null);
+
+    public static EffectiveAppearanceResources Map(
+        EffectiveTheme theme,
+        HostSemanticColors? hostColors,
+        HostCornerRadii? hostCorners)
     {
         ArgumentNullException.ThrowIfNull(theme);
         var isLight = theme.Appearance == EffectiveAppearanceMode.Light;
@@ -698,9 +713,14 @@ internal static class EffectiveAppearanceResourceMapper
         // control and a window's base surface do not want the same corner, and
         // the old override gave them the same one plus a fixed nudge.
         var cornerScale = DensityCornerScale.For(theme.Density);
-        var controlRadius = metrics.ControlCornerRadius * cornerScale;
-        var cardRadius = metrics.CardCornerRadius * cornerScale;
-        var sidebarRadius = metrics.SidebarCornerRadius * cornerScale;
+        // A host-native profile draws at the desktop's own radii when the
+        // desktop states them: the profile's numbers are one release of one
+        // desktop, and a Linux theme can be anything from square to a pill.
+        // The sidebar takes the card's, as every desktop's does.
+        var corners = isHostProfile ? hostCorners : null;
+        var controlRadius = (corners?.Control ?? metrics.ControlCornerRadius) * cornerScale;
+        var cardRadius = (corners?.Card ?? metrics.CardCornerRadius) * cornerScale;
+        var sidebarRadius = (corners?.Card ?? metrics.SidebarCornerRadius) * cornerScale;
         var source = theme.AccentSource switch
         {
             AccentSource.Custom => "custom accent",

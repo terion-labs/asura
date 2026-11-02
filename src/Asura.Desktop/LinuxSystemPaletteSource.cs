@@ -146,7 +146,9 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
         string? gtk4Overrides,
         IReadOnlyDictionary<string, string>? kdeColors,
         string? gtk3ThemeCss,
-        CosmicThemeFiles? cosmic)
+        CosmicThemeFiles? cosmic,
+        string? xfwmCornerXpm = null,
+        string? cosmicCornerRadii = null)
     {
         HostSemanticColors? light = null;
         HostSemanticColors? dark = null;
@@ -154,9 +156,11 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
         // Without a portal accent, the theme's own selection colour is what the
         // desktop's other apps highlight with, so it is the accent to follow.
         Color? themeAccent = null;
+        HostCornerRadii? corners = null;
         switch (family)
         {
             case LinuxDesktopFamily.Kde:
+                corners = LinuxDesktopCorners.Breeze;
                 if (kdeColors is not null && KdeGlobalsColors.Resolve(kdeColors) is { } kde)
                 {
                     // One scheme at a time: Plasma switches schemes wholesale,
@@ -178,10 +182,12 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
 
                 break;
             case LinuxDesktopFamily.Cosmic:
+                corners = LinuxDesktopCorners.FromCosmic(cosmicCornerRadii);
                 light = CosmicThemeColors.Resolve(cosmic?.LightBackground, cosmic?.LightPrimary, cosmic?.LightAccent, accent);
                 dark = CosmicThemeColors.Resolve(cosmic?.DarkBackground, cosmic?.DarkPrimary, cosmic?.DarkAccent, accent);
                 break;
             case LinuxDesktopFamily.Gtk3:
+                corners = LinuxDesktopCorners.FromGtk3(gtk3ThemeCss, xfwmCornerXpm);
                 if (gtk3ThemeCss is not null && Gtk3ThemeColors.Resolve(gtk3ThemeCss, accent) is { } gtk3)
                 {
                     // A GTK 3 desktop has no scheme switch of its own; a dark
@@ -202,6 +208,7 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
 
                 break;
             case LinuxDesktopFamily.Gnome:
+                corners = LinuxDesktopCorners.Gnome;
                 // GNOME before 47 has no accent key; its apps are Adwaita blue,
                 // or Yaru orange on Ubuntu.
                 themeAccent = AdwaitaColors.IsYaru(gtkTheme) ? AdwaitaColors.YaruAccent : AdwaitaColors.DefaultAccent;
@@ -227,7 +234,8 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
             AccentIsMulticolor: false,
             Accent: effectiveAccent,
             AccentIsAbsent: effectiveAccent is null,
-            PrefersDark: prefersDark ?? themePrefersDark);
+            PrefersDark: prefersDark ?? themePrefersDark,
+            Corners: corners);
     }
 
     private async Task InitializeAsync()
@@ -381,7 +389,9 @@ internal sealed class LinuxSystemPaletteSource : IHostSystemPaletteSource, IDisp
                 _files.Gtk4Overrides(),
                 kdeColors,
                 _files.Family == LinuxDesktopFamily.Gtk3 ? _files.Gtk3ThemeCss(gtkThemeName) : null,
-                _files.Family == LinuxDesktopFamily.Cosmic ? _files.Cosmic() : null));
+                _files.Family == LinuxDesktopFamily.Cosmic ? _files.Cosmic() : null,
+                _files.Family == LinuxDesktopFamily.Gtk3 ? _files.XfwmCornerXpm() : null,
+                _files.Family == LinuxDesktopFamily.Cosmic ? _files.CosmicCornerRadii() : null));
         }
         finally
         {
@@ -562,6 +572,7 @@ internal sealed class LinuxDesktopFiles
         || path.Contains("gtk-3.0", StringComparison.Ordinal)
         || path.Contains("cosmic", StringComparison.Ordinal)
         || path.Contains("xsettings.xml", StringComparison.Ordinal)
+        || path.Contains("xfwm4.xml", StringComparison.Ordinal)
         || path.EndsWith("kdeglobals", StringComparison.Ordinal);
 
     public string? Gtk4Overrides() => _read(Path.Combine(_configHome, AdwaitaColors.UserOverrideRelativePath));
@@ -596,6 +607,38 @@ internal sealed class LinuxDesktopFiles
 
         return null;
     }
+
+    /// <summary>
+    /// The top-left corner pixmap of the xfwm4 theme in use, or null off XFCE
+    /// or when the theme cannot be found. The theme is named in xfconf's
+    /// <c>xfwm4</c> channel and lives beside the GTK themes.
+    /// </summary>
+    public string? XfwmCornerXpm()
+    {
+        var xml = _read(Path.Combine(_configHome, "xfce4", "xfconf", "xfce-perchannel-xml", "xfwm4.xml"));
+        var theme = xml is null ? null : Gtk3ThemeColors.ThemeFromXfwmXml(xml);
+        if (string.IsNullOrWhiteSpace(theme))
+        {
+            return null;
+        }
+
+        foreach (var stylesheet in Gtk3ThemeColors.CandidateStylesheets(theme, _home, _dataHome, _dataDirs))
+        {
+            // The same theme directories, one folder over from gtk-3.0.
+            var themeRoot = Path.GetDirectoryName(Path.GetDirectoryName(stylesheet));
+            if (themeRoot is not null && _read(Path.Combine(themeRoot, "xfwm4", "top-left-active.xpm")) is { } xpm)
+            {
+                return xpm;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>COSMIC's corner scale, from whichever scheme's file exists.</summary>
+    public string? CosmicCornerRadii() =>
+        _read(Path.Combine(_configHome, CosmicThemeColors.DarkThemeDirectory, CosmicThemeColors.CornerRadiiFile))
+        ?? _read(Path.Combine(_configHome, CosmicThemeColors.LightThemeDirectory, CosmicThemeColors.CornerRadiiFile));
 
     public CosmicThemeFiles Cosmic() => new(
         _read(Path.Combine(_configHome, CosmicThemeColors.LightThemeDirectory, "background")),

@@ -188,6 +188,24 @@ separator, control, selection, plus sidebar, content and raised surfaces):
 | XFCE, Cinnamon, MATE, Budgie | the selected theme's `gtk-3.0/gtk.css` standard names (`theme_bg_color`, `theme_fg_color`, `theme_base_color`, `theme_selected_bg_color`, `borders`), theme from xfconf's `xsettings.xml` or `gtk-3.0/settings.ini` | best effort; a theme without those names yields nothing |
 | Others | nothing beyond scheme and accent | the mapper's own palette |
 
+Corner radii are inherited the same way, as `HostCornerRadii` (window
+frame, control, card) on the palette. The window value replaces the macOS
+window-kind radius that the concentric corner rule measures everything
+against, and the control and card values replace the profile metrics:
+
+| Desktop family | Window frame | Control | Card | Source |
+|---|---|---|---|---|
+| KDE Plasma | 5 | 5 | 5 | Breeze: decoration `Frame_FrameRadius` 2.5 × small spacing 2; widget style `Frame_FrameRadius` 5 |
+| GNOME | 12 (top; bottom square) | 9 | 12 | `mutter-x11-frames` draws server-side frames with GTK 4's decoration style, measured on GNOME 50; libadwaita button and card |
+| XFCE | from the xfwm4 theme's `top-left-active.xpm` (Default 4, Greybird 5) | the theme's `button { border-radius }` (Greybird 3, Adwaita 5) | as control | xfconf `xfwm4.xml` names the theme |
+| Cinnamon, MATE, Budgie | the stylesheet's `decoration { border-radius }`, else 7 | as XFCE | as control | best effort |
+| COSMIC | `radius_s` (8) | `radius_s` | `radius_m` (16) | `corner_radii` in the theme directory |
+
+The concentric rule also learned a limit: a corner that stands aside from
+the rule is still never rounder than the container it sits in, and the
+floating sidebars share a card's floor. Before that a panel kept a twelve
+point corner inside a frame Breeze drew at five.
+
 A dark GTK 3 theme or a dark Plasma scheme also sets the colour scheme when
 the portal states no preference, since on those desktops the theme is the
 user's scheme choice. Parsing stays shallow on purpose: a value the parser
@@ -658,6 +676,14 @@ dark and draws Greybird's surfaces with Greybird's selection blue as the
 accent, since its portal has none. COSMIC is implemented from its file
 format and awaits a Pop!_OS run. Captures are in
 `artifacts/linux-desktop-vm/*-inherited.png`.
+
+### Corner inheritance verified, 2026-11-03
+
+With `HostCornerRadii` in the package: Plasma draws the frame, the rail,
+the panel and the tabs all at Breeze's 5; XFCE (xfwm4 Default theme,
+Greybird-dark GTK theme) draws the frame at 4 and everything inside at
+Greybird's 3. Before, the panel kept a 12-point corner inside both frames.
+Captures: `artifacts/linux-desktop-vm/*-corners.png`.
 
 ### Observations from the desktop VM, 2026-10-30
 
