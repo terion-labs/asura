@@ -18,7 +18,12 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
     /// snapshot returns, so a filter still finds what is near the start.
     /// </summary>
     private const int PartialTreeNodeBudget = 6_000;
-    private const int PartialTreeBatchSize = 64;
+
+    /// <summary>
+    /// How many parents are read at once. Each batch is a round trip to the
+    /// renderer, and the round trips, not the nodes, are what the walk costs.
+    /// </summary>
+    private const int PartialTreeBatchSize = 256;
 
     /// <summary>
     /// The least of the remaining budget each of a parent's children is
@@ -30,6 +35,13 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
     /// <summary>As deep as a whole tree is read, and a partial one.</summary>
     private const int TreeDepth = 64;
     private const string FullTreeParameters = "{\"depth\":64}";
+
+    /// <summary>
+    /// A document with more DOM nodes than this is not read whole: its full
+    /// tree, some 500 bytes a node, is far past the host's 8 MB reply limit,
+    /// and asking for it only spends the time Chromium takes to build it.
+    /// </summary>
+    private const int FullTreeDomNodeLimit = 32_000;
 
     /// <summary>The error the host puts in place of an oversized DevTools reply.</summary>
     private const string HostByteLimitMessage = "CDP response exceeds the host byte limit.";
@@ -53,14 +65,22 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         int offset = 0)
     {
         await EnsureDomainsEnabledAsync().ConfigureAwait(false);
-        var reply = await _browser.ExecuteDevToolsMethodAsync(
-                "Accessibility.getFullAXTree",
-                FullTreeParameters)
+        var domReply = await _browser.ExecuteDevToolsMethodAsync(
+                "DOMSnapshot.captureSnapshot", "{\"computedStyles\":[]}")
             .ConfigureAwait(false);
+        using var dom = JsonDocument.Parse(domReply);
+        var snapshot = Result(dom, "DOMSnapshot.captureSnapshot");
         IReadOnlyList<CefSemanticNode>? nodes = null;
         string? rootId = null;
-        using (var document = JsonDocument.Parse(reply))
+        // A document whose DOM alone is past the host's limit has a larger
+        // accessibility tree still.
+        if (snapshot is { } domSnapshot && DomNodeCount(domSnapshot) <= FullTreeDomNodeLimit)
         {
+            var reply = await _browser.ExecuteDevToolsMethodAsync(
+                    "Accessibility.getFullAXTree",
+                    FullTreeParameters)
+                .ConfigureAwait(false);
+            using var document = JsonDocument.Parse(reply);
             if (Result(document, "Accessibility.getFullAXTree") is { } result)
             {
                 nodes = [.. result.GetProperty("nodes").EnumerateArray().Select(Project)];
@@ -87,14 +107,10 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
             rootId = withinBackendNodeId is null ? null : root.Id;
         }
 
-        var domReply = await _browser.ExecuteDevToolsMethodAsync(
-                "DOMSnapshot.captureSnapshot", "{\"computedStyles\":[]}")
-            .ConfigureAwait(false);
-        using var dom = JsonDocument.Parse(domReply);
         // A page too large to snapshot keeps its semantic controls; only
         // elements that are clickable through a script listener go unnamed.
-        var projected = Result(dom, "DOMSnapshot.captureSnapshot") is { } snapshot
-            ? CefClickableNodes.Augment(nodes, snapshot)
+        var projected = snapshot is { } clickable
+            ? CefClickableNodes.Augment(nodes, clickable)
             : nodes;
         _customClickTargets.Clear();
         foreach (var node in projected)
@@ -103,6 +119,10 @@ internal sealed class CefSemanticBrowser : ICefSemanticBrowser
         }
         return new CefSemanticTree(projected, rootId);
     }
+
+    private static int DomNodeCount(JsonElement snapshot) =>
+        snapshot.GetProperty("documents").EnumerateArray()
+            .Sum(document => document.GetProperty("nodes").GetProperty("nodeType").GetArrayLength());
 
     private async Task<CefSemanticNode> ReadAccessibilityRootAsync()
     {
