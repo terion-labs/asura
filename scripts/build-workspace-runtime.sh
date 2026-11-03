@@ -104,7 +104,9 @@ download "https://codeload.github.com/kata-containers/kata-containers/tar.gz/ref
     "${kata_source_archive}" "${kata_source_sha256}"
 download "https://raw.githubusercontent.com/swiftlang/swift/swift-6.3-RELEASE/LICENSE.txt" \
     SWIFT-LICENSE.txt 770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55
-download "https://git.musl-libc.org/cgit/musl/plain/COPYRIGHT?h=v1.2.5" \
+# musl's own git host can be unreachable for hours; this mirror's
+# v1.2.5 tag carries the same file, and the checksum holds it to that copy.
+download "https://raw.githubusercontent.com/kraj/musl/v1.2.5/COPYRIGHT" \
     MUSL-COPYRIGHT.txt f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af
 
 xcrun swift build --package-path "${package_dir}" --scratch-path "${swift_scratch_dir}" -c release --disable-automatic-resolution
