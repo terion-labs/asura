@@ -1101,6 +1101,11 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{DynamicResource ShellSidebarCornerRadius}" />
     <Setter Property="ClipToBounds" Value="True" />
+    <!-- The same floor as a card's: a sidebar is a surface holding controls,
+         so a derived corner tighter than they are reads as the mistake a card's
+         would. Without it the rail answered a small desktop frame with a four
+         point corner while the panel beside it stood aside at its own. -->
+    <Setter Property="controls:Concentric.MinimumRadius" Value="{DynamicResource ShellControlRadius}" />
   </Style>
 
   <!-- Native title bars already leave space below their centred controls. -->

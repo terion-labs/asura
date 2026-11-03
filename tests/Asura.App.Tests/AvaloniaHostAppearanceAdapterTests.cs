@@ -11,7 +11,11 @@ public sealed class AvaloniaHostAppearanceAdapterTests
     [Theory]
     [InlineData("ubuntu:GNOME", LinuxDesktopEnvironment.Gnome)]
     [InlineData("KDE;plasma", LinuxDesktopEnvironment.Kde)]
-    [InlineData("X-Cinnamon", LinuxDesktopEnvironment.Unknown)]
+    [InlineData("LXQt", LinuxDesktopEnvironment.Kde)]
+    [InlineData("X-Cinnamon", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("XFCE", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("COSMIC", LinuxDesktopEnvironment.Gnome)]
+    [InlineData("sway", LinuxDesktopEnvironment.Unknown)]
     public void Linux_desktop_detection_is_case_insensitive_and_conservative(
         string desktop,
         LinuxDesktopEnvironment expected)
@@ -923,6 +927,114 @@ public sealed class AvaloniaHostAppearanceAdapterTests
             AvaloniaHostAppearanceAdapter.EffectiveHostAccent(
                 Color.Parse("#FF9500"),
                 HostSystemPalette.None));
+    }
+
+    /// <summary>
+    /// A Linux desktop whose portal has no accent key still makes Avalonia
+    /// report its default blue; the palette source's "absent" answer wins.
+    /// </summary>
+    [Fact]
+    public void An_absent_host_accent_falls_back_to_the_brand_accent()
+    {
+        var reported = AvaloniaHostAppearanceAdapter.EffectiveHostAccent(
+            Color.Parse("#0078D7"),
+            HostSystemPalette.None with { AccentIsAbsent = true });
+        var host = AvaloniaHostAppearanceAdapter.Map(
+            PlatformThemeVariant.Light,
+            ColorContrastPreference.NoPreference,
+            reported,
+            new HostPlatformCapabilities(
+                HostOperatingSystem.Linux,
+                LinuxDesktopEnvironment.Unknown,
+                SupportsAdvancedMaterials: false,
+                SupportsLiquidGlass: false));
+        var effective = ThemePreference.Default.Resolve(host);
+
+        Assert.Null(host.Accent);
+        Assert.Equal(ThemePreference.BrandAccent, effective.Accent);
+        Assert.Equal(AccentSource.AsuraFallback, effective.AccentSource);
+    }
+
+    /// <summary>
+    /// A GNOME or KDE profile takes the desktop's own surfaces when a source
+    /// supplies them, the way the macOS profile takes AppKit's.
+    /// </summary>
+    [Fact]
+    public void A_gnome_profile_draws_the_window_and_sidebar_the_desktop_names()
+    {
+        var host = new HostSemanticColors(
+            WindowBackground: Color.Parse("#2c2c2c"),
+            Label: Color.Parse("#f7f7f7"),
+            SecondaryLabel: Color.FromArgb(140, 247, 247, 247),
+            Separator: Color.FromArgb(38, 255, 255, 255),
+            Control: Color.FromArgb(20, 255, 255, 255),
+            SelectedContentBackground: Color.Parse("#E95420"),
+            UnemphasizedSelectedContentBackground: Color.FromArgb(89, 16, 16, 16),
+            Sidebar: Color.Parse("#393939"),
+            Content: Color.Parse("#1d1d20"),
+            Raised: Color.Parse("#3e3e3e"));
+        var effective = ProfilePreference(PlatformProfile.Gnome).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Dark,
+            new RgbColor(0xE9, 0x54, 0x20),
+            LinuxDesktopEnvironment.Gnome));
+
+        var resources = EffectiveAppearanceResourceMapper.Map(effective, host);
+
+        Assert.Equal(Color.Parse("#2c2c2c"), resources.Background);
+        Assert.Equal(Color.Parse("#393939"), resources.SidebarSurface);
+        Assert.Equal(Color.Parse("#1d1d20"), resources.Surface);
+    }
+
+    /// <summary>
+    /// A Linux desktop draws at its own radii, which the Gnome profile's
+    /// numbers only approximate: Breeze at five everywhere, Greybird at three.
+    /// The sidebar takes the card's, as every desktop's does.
+    /// </summary>
+    [Fact]
+    public void A_host_profile_draws_at_the_radii_the_desktop_reports()
+    {
+        var effective = ProfilePreference(PlatformProfile.Kde).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Light,
+            null,
+            LinuxDesktopEnvironment.Kde));
+
+        var resources = EffectiveAppearanceResourceMapper.Map(
+            effective,
+            null,
+            new HostCornerRadii(Window: 5, Control: 5, Card: 5));
+
+        Assert.Equal(new CornerRadius(5), resources.ControlCornerRadius);
+        Assert.Equal(new CornerRadius(5), resources.CardCornerRadius);
+        Assert.Equal(new CornerRadius(5), resources.SidebarCornerRadius);
+    }
+
+    /// <summary>The product's own profile keeps its own shape on every desktop.</summary>
+    [Fact]
+    public void The_asura_profile_ignores_the_desktop_radii()
+    {
+        var effective = ProfilePreference(PlatformProfile.Asura).Resolve(new HostAppearance(
+            HostOperatingSystem.Linux,
+            HostColorScheme.Light,
+            null,
+            LinuxDesktopEnvironment.Kde));
+
+        var withHost = EffectiveAppearanceResourceMapper.Map(effective, null, new HostCornerRadii(5, 5, 5));
+        var without = EffectiveAppearanceResourceMapper.Map(effective, null, null);
+
+        Assert.Equal(without.ControlCornerRadius, withHost.ControlCornerRadius);
+        Assert.Equal(without.CardCornerRadius, withHost.CardCornerRadius);
+    }
+
+    [Fact]
+    public void A_host_accent_read_by_the_palette_source_outranks_the_reported_one()
+    {
+        Assert.Equal(
+            Color.Parse("#3DAEE9"),
+            AvaloniaHostAppearanceAdapter.EffectiveHostAccent(
+                Color.Parse("#0078D7"),
+                HostSystemPalette.None with { Accent = Color.Parse("#3DAEE9") }));
     }
 
     [Fact]

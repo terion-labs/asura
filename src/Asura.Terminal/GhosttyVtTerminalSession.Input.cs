@@ -366,6 +366,14 @@ internal sealed partial class GhosttyVtTerminalSession
         catch (ObjectDisposedException) when (_closed)
         {
         }
+        catch (IOException exception) when (IsPtyHangup(exception))
+        {
+            // Linux reports the end of a pty's output as EIO once the child
+            // has closed its side, where macOS returns end of file. Either
+            // way the process observer, not the reader, publishes the
+            // completed session and its code; it reports a moment later.
+            TryMarkKnownProcessExit();
+        }
         catch (IOException exception)
         {
             if (!TryMarkKnownProcessExit())
@@ -382,6 +390,15 @@ internal sealed partial class GhosttyVtTerminalSession
             ArrayPool<byte>.Shared.Return(bytes);
         }
     }
+
+    /// <summary>
+    /// Reading a pty master whose slave side has gone fails with EIO on
+    /// Linux; .NET carries the errno in the exception's HResult.
+    /// </summary>
+    private static bool IsPtyHangup(IOException exception) =>
+        OperatingSystem.IsLinux() && exception.HResult == LinuxEio;
+
+    private const int LinuxEio = 5;
 
     private async Task WriteLoopAsync(CancellationToken cancellationToken)
     {

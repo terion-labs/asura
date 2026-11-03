@@ -227,6 +227,45 @@ public sealed partial class NativeTerminalBuildContractTests
         Assert.Contains("refs/tags/${ASURA_RELEASE_TAG}", workflow, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The Linux lane and the tagged release build their native payloads the
+    /// same way the macOS gate does: from the reviewed scripts, per runtime,
+    /// through one shared action, and the release only from a verified tag.
+    /// </summary>
+    [Fact]
+    public void Linux_lane_and_release_build_the_reviewed_native_payloads_for_both_runtimes()
+    {
+        var action = File.ReadAllText(Path.Combine(
+            RepositoryRoot, ".github", "actions", "linux-native-payloads", "action.yml"));
+        var lane = File.ReadAllText(Path.Combine(
+            RepositoryRoot, ".github", "workflows", "linux-lane.yml"));
+        var release = File.ReadAllText(Path.Combine(
+            RepositoryRoot, ".github", "workflows", "repository-gate.yml"));
+
+        Assert.Contains("./scripts/build-libghostty-vt.sh --rid \"${{ inputs.rid }}\"", action, StringComparison.Ordinal);
+        Assert.Contains("./scripts/build-cef-runtime.sh --rid \"${{ inputs.rid }}\"", action, StringComparison.Ordinal);
+        Assert.Contains("./scripts/build-sql-language-worker.sh --docker --rid \"${{ inputs.rid }}\"", action, StringComparison.Ordinal);
+        Assert.Contains("'vendor/exclr8cef/ASURA-PATCHSET.sha256'", action, StringComparison.Ordinal);
+        Assert.Contains("'licenses/cef-runtime-components.json'", action, StringComparison.Ordinal);
+
+        foreach (var workflow in new[] { lane, release })
+        {
+            Assert.Contains("uses: ./.github/actions/linux-native-payloads", workflow, StringComparison.Ordinal);
+            Assert.Contains("rid: linux-x64", workflow, StringComparison.Ordinal);
+            Assert.Contains("rid: linux-arm64", workflow, StringComparison.Ordinal);
+            Assert.Contains("--self-contained true", workflow, StringComparison.Ordinal);
+            Assert.Contains("-p:RestoreLockedMode=true", workflow, StringComparison.Ordinal);
+            Assert.Contains("test -f \"${package}/libghostty-vt.so\"", workflow, StringComparison.Ordinal);
+            Assert.Contains("test -f \"${package}/libcef.so\"", workflow, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("./scripts/acceptance/run_linux_x11_xvfb.sh", lane, StringComparison.Ordinal);
+        Assert.Contains("./scripts/check-network-native.sh --full", lane, StringComparison.Ordinal);
+        Assert.Contains("  linux-release-packages:\n    name: Linux release package (${{ matrix.rid }})\n    needs: authorize-release", release, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-x64.tar.gz\"", release, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-arm64.tar.gz.sha256\"", release, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Cef_runtime_build_bounds_native_compiler_concurrency()
     {

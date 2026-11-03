@@ -139,8 +139,11 @@ public sealed class ConnectionCommandExecutorTests
                 docker,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var profile = ConnectionRuntimeTestSupport.Profile(new ConnectionEndpoint.Local());
+            // An empty directory stands in for the minimal PATH a GUI launch
+            // inherits; a real system directory may hold a docker of its own.
+            var inherited = Directory.CreateDirectory(Path.Combine(directory.FullName, "path"));
             var locator = new PathConnectionExecutableLocator(
-                "/usr/bin:/bin:/usr/sbin:/sbin",
+                inherited.FullName,
                 [directory.FullName]);
             var executor = new ConnectionCommandExecutor(new FixedRuntime(profile), locator);
 
@@ -186,8 +189,11 @@ public sealed class ConnectionCommandExecutorTests
                 docker,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             var profile = ConnectionRuntimeTestSupport.Profile(new ConnectionEndpoint.Local());
+            // An empty directory stands in for the minimal PATH a GUI launch
+            // inherits; a real system directory may hold a docker of its own.
+            var inherited = Directory.CreateDirectory(Path.Combine(directory.FullName, "path"));
             var locator = new PathConnectionExecutableLocator(
-                "/usr/bin:/bin:/usr/sbin:/sbin",
+                inherited.FullName,
                 [directory.FullName]);
             var executor = new ConnectionCommandExecutor(new FixedRuntime(profile), locator);
             string[] script = ["-c", "exec docker container logs \"$1\"", "asura-docker-logs", "container"];

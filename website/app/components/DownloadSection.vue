@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { checksumUrl, downloadUrl, platforms, repoUrl } from '~/content/facts'
+import { linuxInstallUrl, platforms, releasesUrl, repoUrl } from '~/content/facts'
 
 const base = useRuntimeConfig().app.baseURL
 </script>
@@ -18,19 +18,19 @@ const base = useRuntimeConfig().app.baseURL
       <h2 data-reveal class="section-title download__title">Get Asura</h2>
       <p data-reveal style="--rd: 1" class="section-lede download__lede">
         Free and open source under the MIT license. A signed and notarized
-        build for {{ platforms.shipped }}. {{ platforms.upcoming }}.
+        build for {{ platforms.shipped }}, and an early build for
+        {{ platforms.linux }}. {{ platforms.upcoming }}.
       </p>
       <div class="ctas download__ctas">
-        <a class="btn btn--primary" :href="downloadUrl">
-          Download for macOS
-          <span class="btn__sub">.zip · Apple silicon</span>
-        </a>
+        <DownloadButton />
         <a class="btn" :href="repoUrl">Source on GitHub</a>
       </div>
       <p class="download__checksum">
-        Verify the archive against its
-        <a :href="checksumUrl">SHA-256 checksum</a>. Updates arrive in-app:
-        Settings, About, Check for Updates.
+        Every archive has a SHA-256 checksum next to it on the
+        <a :href="releasesUrl">release</a>. On macOS, updates arrive in-app:
+        Settings, About, Check for Updates. The Linux archive is unsigned and
+        has no updater; the <a :href="linuxInstallUrl">install steps</a>
+        cover the libraries it needs and the browser sandbox.
       </p>
     </div>
   </section>

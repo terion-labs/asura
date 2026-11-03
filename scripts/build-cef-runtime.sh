@@ -301,7 +301,7 @@ if [[ ! -f "${archive_path}" ]]; then
     cleanup_download() { rm -f -- "${download_path}"; }
     trap cleanup_download EXIT
     echo "Downloading reviewed CEF ${cef_version} (${cef_platform})..."
-    curl -fL --progress-bar -o "${download_path}" "${archive_url}"
+    curl -fL --retry 5 --retry-delay 15 --retry-all-errors --progress-bar -o "${download_path}" "${archive_url}"
     mv -- "${download_path}" "${archive_path}"
     trap - EXIT
 fi

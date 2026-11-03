@@ -56,7 +56,12 @@ internal sealed class AvaloniaHostAppearanceAdapter
     {
         var colors = _platformSettings.GetColorValues();
         return Map(
-            colors.ThemeVariant,
+            SystemPalette.PrefersDark switch
+            {
+                true => PlatformThemeVariant.Dark,
+                false => PlatformThemeVariant.Light,
+                null => colors.ThemeVariant,
+            },
             colors.ContrastPreference,
             EffectiveHostAccent(colors.AccentColor1, SystemPalette),
             _capabilities,
@@ -67,10 +72,14 @@ internal sealed class AvaloniaHostAppearanceAdapter
     /// The accent the host is really offering. Multicolor is the one macOS
     /// accent with no colour of its own, and Avalonia reports it as blue;
     /// answering "no accent" is what lets the brand accent stand in, which is
-    /// what the system asks an app to do.
+    /// what the system asks an app to do. A Linux desktop whose settings
+    /// portal has no accent at all gets the same answer: Avalonia fills that
+    /// gap with its own default blue, which is nobody's choice.
     /// </summary>
     internal static Color EffectiveHostAccent(Color reported, HostSystemPalette palette) =>
-        palette.AccentIsMulticolor ? Colors.Transparent : reported;
+        palette.AccentIsMulticolor || palette.AccentIsAbsent
+            ? Colors.Transparent
+            : palette.Accent ?? reported;
 
     internal static HostAppearance Map(
         PlatformThemeVariant themeVariant,
@@ -114,35 +123,71 @@ internal sealed class AvaloniaHostAppearanceAdapter
 }
 
 /// <summary>
+/// The radii the host draws its own shapes at, in points: the window frame
+/// (<paramref name="Window"/>), a push button or tab (<paramref name="Control"/>)
+/// and a card or frame (<paramref name="Card"/>). Reported where the desktop
+/// publishes or measurably draws them; a host that reports none leaves the
+/// profile's own metrics in charge.
+/// </summary>
+public sealed record HostCornerRadii(double Window, double Control, double Card);
+
+/// <summary>
 /// One appearance's worth of the host's semantic colours, as the host reports
 /// them. Label and separator colours keep their alpha, because that is how the
 /// platform defines them; the mapper composites them over the window.
 /// </summary>
-internal sealed record HostSemanticColors(
+/// <param name="Sidebar">The host's sidebar surface, where it has one apart from the window.</param>
+/// <param name="Content">The host's content or "view" surface, where it has one apart from the window.</param>
+/// <param name="Raised">The host's popover, dialog or card surface, where it has one.</param>
+public sealed record HostSemanticColors(
     Color WindowBackground,
     Color Label,
     Color SecondaryLabel,
     Color Separator,
     Color Control,
     Color SelectedContentBackground,
-    Color UnemphasizedSelectedContentBackground);
+    Color UnemphasizedSelectedContentBackground,
+    Color? Sidebar = null,
+    Color? Content = null,
+    Color? Raised = null);
 
 /// <summary>
 /// What the host says about colour beyond Avalonia's single accent value.
 /// </summary>
-internal sealed record HostSystemPalette(
+/// <param name="Accent">
+/// The accent as the host itself reports it, when the source read it
+/// directly rather than trusting Avalonia's reading; null leaves Avalonia's
+/// value in charge.
+/// </param>
+/// <param name="AccentIsAbsent">
+/// The host positively offers no accent: its settings portal has no such key,
+/// or there is no portal to ask. The brand accent stands in.
+/// </param>
+/// <param name="PrefersDark">
+/// The scheme the host's own theme implies when it states no preference
+/// otherwise: a dark GTK 3 theme on a desktop whose portal says nothing.
+/// Null leaves Avalonia's reading in charge.
+/// </param>
+public sealed record HostSystemPalette(
     HostSemanticColors? Light,
     HostSemanticColors? Dark,
-    bool AccentIsMulticolor)
+    bool AccentIsMulticolor,
+    Color? Accent = null,
+    bool AccentIsAbsent = false,
+    bool? PrefersDark = null,
+    HostCornerRadii? Corners = null)
 {
     public static HostSystemPalette None { get; } = new(null, null, AccentIsMulticolor: false);
 
-    public HostSemanticColors? For(EffectiveAppearanceMode appearance) =>
+    internal HostSemanticColors? For(EffectiveAppearanceMode appearance) =>
         appearance == EffectiveAppearanceMode.Light ? Light : Dark;
 }
 
-/// <summary>A live source of <see cref="HostSystemPalette"/>. Only macOS has one.</summary>
-internal interface IHostSystemPaletteSource
+/// <summary>
+/// A live source of <see cref="HostSystemPalette"/>: AppKit on macOS, the
+/// settings portal on Linux.
+/// </summary>
+public interface IHostSystemPaletteSource
 {
     HostSystemPalette Current { get; }
 
@@ -197,12 +242,22 @@ internal sealed record HostPlatformCapabilities(
         ArgumentNullException.ThrowIfNull(values);
         var description = string.Join(':', values.Where(value => !string.IsNullOrWhiteSpace(value)));
         if (description.Contains("KDE", StringComparison.OrdinalIgnoreCase)
-            || description.Contains("PLASMA", StringComparison.OrdinalIgnoreCase))
+            || description.Contains("PLASMA", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("LXQT", StringComparison.OrdinalIgnoreCase))
         {
             return LinuxDesktopEnvironment.Kde;
         }
 
-        if (description.Contains("GNOME", StringComparison.OrdinalIgnoreCase))
+        // The GTK family shares Adwaita's conventions: GNOME itself, the
+        // desktops built on its stack, and COSMIC, whose GTK apps are themed
+        // to match it.
+        if (description.Contains("GNOME", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("XFCE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("CINNAMON", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("MATE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("BUDGIE", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("PANTHEON", StringComparison.OrdinalIgnoreCase)
+            || description.Contains("COSMIC", StringComparison.OrdinalIgnoreCase))
         {
             return LinuxDesktopEnvironment.Gnome;
         }
@@ -378,7 +433,12 @@ internal static class EffectiveAppearanceResourceMapper
 
     public static EffectiveAppearanceResources Map(
         EffectiveTheme theme,
-        HostSemanticColors? hostColors)
+        HostSemanticColors? hostColors) => Map(theme, hostColors, null);
+
+    public static EffectiveAppearanceResources Map(
+        EffectiveTheme theme,
+        HostSemanticColors? hostColors,
+        HostCornerRadii? hostCorners)
     {
         ArgumentNullException.ThrowIfNull(theme);
         var isLight = theme.Appearance == EffectiveAppearanceMode.Light;
@@ -474,7 +534,11 @@ internal static class EffectiveAppearanceResourceMapper
         Color? hostSelection = null;
         var unemphasizedSelection = hover;
 
-        if (isMacOsProfile && !theme.HighContrast && hostColors is { } host)
+        // A host-native profile takes the host's own colours when a source
+        // supplies them: AppKit on macOS, the portal or theme on GNOME and KDE.
+        var isHostProfile = isMacOsProfile
+            || theme.PlatformProfile is PlatformProfile.Gnome or PlatformProfile.Kde;
+        if (isHostProfile && !theme.HighContrast && hostColors is { } host)
         {
             // The window and its text are what a shell beside Finder is
             // compared against, so they come from AppKit rather than from a
@@ -497,8 +561,27 @@ internal static class EffectiveAppearanceResourceMapper
             // literal: it is what hover and banded rows draw, and a plate as
             // strong as the selection there made every hovered or banded row
             // read as selected.
-            unemphasizedSelection = Opaque(host.UnemphasizedSelectedContentBackground);
+            unemphasizedSelection = Over(host.UnemphasizedSelectedContentBackground, background);
             hostSelection = Opaque(host.SelectedContentBackground);
+            // Desktops that name their sidebar, content and raised surfaces
+            // (libadwaita, kdeglobals, COSMIC) hand them over too; AppKit does
+            // not, and keeps the literal relationship between them.
+            if (host.Sidebar is { } hostSidebar)
+            {
+                sidebar = Over(hostSidebar, background);
+                sidebarBorder = border;
+            }
+
+            if (host.Content is { } hostContent)
+            {
+                surface = Over(hostContent, background);
+            }
+
+            if (host.Raised is { } hostRaised)
+            {
+                raised = Over(hostRaised, background);
+                hover = Blend(text, raised, ControlHoverStep);
+            }
         }
 
         if (theme.HighContrast)
@@ -630,9 +713,14 @@ internal static class EffectiveAppearanceResourceMapper
         // control and a window's base surface do not want the same corner, and
         // the old override gave them the same one plus a fixed nudge.
         var cornerScale = DensityCornerScale.For(theme.Density);
-        var controlRadius = metrics.ControlCornerRadius * cornerScale;
-        var cardRadius = metrics.CardCornerRadius * cornerScale;
-        var sidebarRadius = metrics.SidebarCornerRadius * cornerScale;
+        // A host-native profile draws at the desktop's own radii when the
+        // desktop states them: the profile's numbers are one release of one
+        // desktop, and a Linux theme can be anything from square to a pill.
+        // The sidebar takes the card's, as every desktop's does.
+        var corners = isHostProfile ? hostCorners : null;
+        var controlRadius = (corners?.Control ?? metrics.ControlCornerRadius) * cornerScale;
+        var cardRadius = (corners?.Card ?? metrics.CardCornerRadius) * cornerScale;
+        var sidebarRadius = (corners?.Card ?? metrics.SidebarCornerRadius) * cornerScale;
         var source = theme.AccentSource switch
         {
             AccentSource.Custom => "custom accent",

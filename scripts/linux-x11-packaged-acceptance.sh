@@ -97,17 +97,50 @@ docker exec "$container_name" bash -lc '
     libfreetype6 libgbm1 libgl1 libice6 libsm6 libx11-6 libxcomposite1 \
     libxcursor1 libxext6 libxfixes3 libxi6 libxinerama1 libxrandr2 \
     libxrender1 ncurses-bin openbox procps python3 util-linux x11-utils \
-    x11-xserver-utils xclip xdotool xterm xvfb >/dev/null
+    x11-xserver-utils xclip xdotool xterm xvfb \
+    libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \
+    libxkbcommon0 libxdamage1 libpango-1.0-0 libcairo2 libasound2t64 \
+    libxtst6 libexpat1 libglib2.0-0 \
+    dbus-daemon gnome-keyring libsecret-tools >/dev/null
+'
+
+# global.json pins one exact SDK and the floating image tag moves past it.
+# Install the pinned SDK beside the image's own, through the same reviewed
+# installer bootstrap.sh uses, so the muxer resolves global.json.
+failure_stage=container-sdk-install
+docker exec "$container_name" bash -lc '
+  set -euo pipefail
+  sdk_version=$(sed -n "s/.*\"version\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" /repo/global.json | head -n 1)
+  installer_sha256=$(sed -n "s/^installer_sha256=\"\([0-9a-f]*\)\"$/\1/p" /repo/scripts/bootstrap.sh)
+  if [[ "$(dotnet --version 2>/dev/null)" != "$sdk_version" ]]; then
+    installer=$(mktemp)
+    curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$installer"
+    echo "$installer_sha256  $installer" | sha256sum -c - >/dev/null
+    bash "$installer" --version "$sdk_version" --install-dir /usr/share/dotnet --no-path >/dev/null
+    rm -f "$installer"
+  fi
 '
 
 failure_stage=source-copy
 docker exec "$container_name" bash -lc '
   mkdir -p /work/source
+  # Anchored, so excluding the top-level artifacts tree does not also drop
+  # native/artifacts, which carries the payloads the publish refuses to run
+  # without. Other targets'"'"' native payloads and local caches stay behind.
   tar -C /repo \
-    --exclude=.dotnet \
-    --exclude=.codex-audit \
-    --exclude=artifacts \
-    --exclude=docs/acceptance \
+    --anchored \
+    --exclude=./.dotnet \
+    --exclude=./.nuget \
+    --exclude=./.deps \
+    --exclude=./.test-results \
+    --exclude=./.codex-audit \
+    --exclude=./artifacts \
+    --exclude=./tmp \
+    --exclude=./docs/acceptance \
+    --exclude=./native/artifacts/osx-arm64 \
+    --exclude=./native/artifacts/osx-x64 \
+    --exclude=./native/artifacts/win-x64 \
+    --exclude=./website/node_modules \
     --exclude="*/bin" \
     --exclude="*/bin/*" \
     --exclude="*/obj" \

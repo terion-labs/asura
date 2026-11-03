@@ -49,6 +49,10 @@ public static class DesktopComposition
                     "notification-preferences.json"))));
         services.AddSingleton<IHostAccessibilityPreferencesSource>(_ =>
             HostAccessibilityPreferencesSourceSelector.CreateForCurrentPlatform());
+        if (OperatingSystem.IsLinux())
+        {
+            services.AddSingleton<IHostSystemPaletteSource>(_ => new LinuxSystemPaletteSource());
+        }
         services.AddSingleton<IActiveWindowBoundsSource>(_ =>
             ActiveWindowBoundsSourceSelector.CreateForCurrentPlatform());
         // A dedicated, un-audited vault for application-security material,

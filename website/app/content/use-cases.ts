@@ -78,7 +78,7 @@ export const useCases: UseCase[] = [
         points: [
           'Managed sessions are named asura-* and stay separate from anything else you run on the box.',
           'If continuity is not possible on a host, Asura offers a plain SSH session instead of failing silently.',
-          'A global Quick Terminal drops a shell over whatever you are doing. macOS today; Windows and Linux X11 when those builds ship.',
+          'A global Quick Terminal drops a shell over whatever you are doing. macOS and Linux on X11 today; Windows when that build ships.',
         ],
         shot: 'workspace-file-viewer.webp',
         alt: 'File panel listing a remote directory with a transfer queue',

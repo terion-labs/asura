@@ -1515,6 +1515,45 @@ public sealed class GhosttyVtTerminalSessionTests
         Assert.Equal("The OpenSSH process exited with code 255.", snapshot.StatusDetail);
     }
 
+    /// <summary>
+    /// Linux ends a pty's output with EIO rather than end of file once the
+    /// child has closed its side, a moment before the process observer
+    /// reports the exit. The lane's bounded-command test saw that order
+    /// turn a clean exit into a failed session.
+    /// </summary>
+    [Fact]
+    public async Task Linux_pty_hangup_before_process_exit_keeps_session_active_until_exit_code_is_known()
+    {
+        _ = GhosttyVtTestRuntime.RequireStagedRuntime();
+        var ptyFactory = new FakePortablePtyFactory();
+        ptyFactory.Connection.ReaderOverride = new FailingReadStream(
+            new IOException("Input/output error", hresult: 5));
+        var factory = new GhosttyVtTerminalSessionFactory(ptyFactory);
+        await using var session = await factory.CreateAsync(
+            SessionId.New(),
+            new TerminalLaunchRequest(Environment.CurrentDirectory),
+            default);
+
+        if (!OperatingSystem.IsLinux())
+        {
+            PanelSessionSnapshot failed = null!;
+            await WaitUntilAsync(async () =>
+            {
+                failed = await session.SnapshotAsync(default);
+                return failed.Lifecycle == SessionLifecycle.Failed;
+            });
+            Assert.Equal("ghostty_vt_terminal_read_failed", failed.Failure?.StableCode, StringComparer.Ordinal);
+            return;
+        }
+
+        await Task.Delay(50);
+        Assert.Equal(SessionLifecycle.Active, (await session.SnapshotAsync(default)).Lifecycle);
+        ptyFactory.Connection.Exit(0);
+        var snapshot = await session.SnapshotAsync(default);
+        Assert.Equal(SessionLifecycle.Closed, snapshot.Lifecycle);
+        Assert.Null(snapshot.Failure);
+    }
+
     [Fact]
     public async Task RealOpenSshProcessExitReportsLocalExitCodeWithoutEndpointText()
     {

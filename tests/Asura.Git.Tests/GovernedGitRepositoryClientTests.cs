@@ -8,7 +8,7 @@ namespace Asura.Git.Tests;
 [SupportedOSPlatform("macos")]
 public sealed class GovernedGitRepositoryClientTests
 {
-    [Fact]
+    [GovernedGitFact]
     public async Task CancelledCaptureRemovesPrivateBytesAfterProcessTermination()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -42,7 +42,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(Directory.Exists(capturePath));
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData("worktree")]
     [InlineData("info")]
     [InlineData("global")]
@@ -82,7 +82,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(string.Empty, await repository.RunGitOutputAsync("diff", "--cached", "--name-only"));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedCaptureDoesNotExecuteFilterAddedAfterSnapshot()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -102,7 +102,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(string.Empty, await repository.RunGitOutputAsync("diff", "--cached", "--name-only"));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStageUsesIndexAttributeFallbackAndCharsetNormalization()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -122,7 +122,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal("$Id$\nUnicode: λ", await repository.RunGitOutputAsync("show", ":tracked.txt"));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStagePreservesNewlineAndSpaceInFileName()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -138,7 +138,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal("approved", await repository.RunGitOutputAsync("show", ":" + name));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStagePreservesIndexModeWhenFileModeIsIgnored()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -155,7 +155,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.StartsWith("100644 ", await repository.RunGitOutputAsync("ls-files", "--stage", "tracked.txt"), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task RejectedCaptureDoesNotWriteRacedOutsideContentToSharedObjects()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -184,7 +184,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.NotEqual(0, lookup.ExitCode);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStageRetainsApprovedBytesWhenWorkingFileChangesAtIndexDispatch()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -204,7 +204,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal("unapproved concurrent content\n", await File.ReadAllTextAsync(path));
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GovernedStagePreservesExecutableModeAndBuiltInTextNormalization(bool executable)
@@ -228,7 +228,7 @@ public sealed class GovernedGitRepositoryClientTests
             await repository.RunGitOutputAsync("ls-files", "--stage", "tracked.txt"), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStageCapturesSymlinkTargetWithoutFollowingIt()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -243,7 +243,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.StartsWith("120000 ", await repository.RunGitOutputAsync("ls-files", "--stage", "link.txt"), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStageCapturesSubmoduleCommit()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -264,7 +264,7 @@ public sealed class GovernedGitRepositoryClientTests
             await repository.RunGitOutputAsync("ls-files", "--stage", "module"), StringComparison.Ordinal);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStagePreservesDeletion()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -278,7 +278,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(string.Empty, await repository.RunGitOutputAsync("ls-files", "--stage", "tracked.txt"));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task PassiveStatusDoesNotExecuteRepositoryFsmonitor()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -301,7 +301,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.True(File.Exists(marker));
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData("tracked.txt")]
     [InlineData("untracked.txt")]
     public async Task GovernedStageRejectsContentRewrittenWithTheSameStatus(string path)
@@ -324,7 +324,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(string.Empty, await repository.RunGitOutputAsync("diff", "--cached", "--name-only"));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStateBindsHeadIndexWorktreeAndRefs()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -345,7 +345,7 @@ public sealed class GovernedGitRepositoryClientTests
             StringComparer.Ordinal);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedBranchCreationDoesNotSwitchHeadAndRejectsStaleState()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -372,7 +372,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal("git_state_changed", stale.StableCode);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedCommitDisablesHooksAndReturnsProvenReceipt()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -418,7 +418,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(File.Exists(marker));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedRemoteReadRejectsDestinationDriftBeforeNetworkDispatch()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -434,7 +434,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Empty(transport.RemoteCommands);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedHttpsReadIsSealedAndPushIsWithheld()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -507,7 +507,7 @@ public sealed class GovernedGitRepositoryClientTests
                 || argument.Contains("proxy.invalid", StringComparison.Ordinal));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task Governed_https_read_preserves_the_workspace_proxy_after_scrubbing_untrusted_configuration()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -537,7 +537,7 @@ public sealed class GovernedGitRepositoryClientTests
             throw new NotSupportedException();
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedPushRejectsLocalRemoteBeforeClientOrServerHooks()
     {
         await using var repository = await LocalRepository.CreateAsync(withBareRemote: true);
@@ -575,7 +575,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(File.Exists(serverMarker));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStageRejectsConcurrentUnrelatedIndexWrite()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -604,7 +604,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(GitGovernedMutationDisposition.OutcomeUnknown, receipt.Disposition);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedUnstageRejectsConcurrentUnrelatedIndexWrite()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -634,7 +634,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(GitGovernedMutationDisposition.OutcomeUnknown, receipt.Disposition);
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task GovernedCommitRejectsPostDispatchCommitObjectRace(bool amendTree)
@@ -678,7 +678,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Equal(GitGovernedMutationDisposition.OutcomeUnknown, receipt.Disposition);
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData("filter.evil.clean")]
     [InlineData("filter.evil.smudge")]
     [InlineData("filter.evil.process")]
@@ -706,7 +706,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(File.Exists(marker));
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData("global")]
     [InlineData("system")]
     public async Task GovernedStateIgnoresExecutableConfigurationOutsideTheRepository(
@@ -726,7 +726,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.IsType<GitResult<GitGovernedState>.Success>(result);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStateRejectsExecutableWorktreeConfiguration()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -745,7 +745,7 @@ public sealed class GovernedGitRepositoryClientTests
             Assert.IsType<GitResult<GitGovernedState>.Failure>(result).Error.Code);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedStateSuppressesConfiguredFsmonitorHook()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -765,7 +765,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(File.Exists(marker));
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task GovernedRemoteRejectsHelpersAndSshCommandsBeforeExecution()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -797,7 +797,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.False(File.Exists(marker));
     }
 
-    [Theory]
+    [GovernedGitTheory]
     [InlineData("http.https://example.invalid/.extraHeader", "Authorization: Bearer secret")]
     [InlineData("http.cookieFile", "/tmp/cookie.txt")]
     [InlineData("http.sslCert", "/tmp/client.pem")]
@@ -837,7 +837,7 @@ public sealed class GovernedGitRepositoryClientTests
         Assert.Empty(transport.RemoteCommands);
     }
 
-    [Fact]
+    [GovernedGitFact]
     public async Task PostDispatchExceptionQuarantinesSessionAndInvalidatesReferences()
     {
         await using var repository = await LocalRepository.CreateAsync();
@@ -1210,5 +1210,33 @@ public sealed class GovernedGitRepositoryClientTests
             IProgress<ConnectionProgress>? progress,
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Governed Git sessions exist only on macOS today; off it these are
+    /// skipped with the reason, not failed, so a Linux lane reports them.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method)]
+    private sealed class GovernedGitFactAttribute : FactAttribute
+    {
+        public GovernedGitFactAttribute()
+        {
+            if (!OperatingSystem.IsMacOS())
+            {
+                Skip = "Governed Git integration tests require the supported macOS boundary.";
+            }
+        }
+    }
+
+    [AttributeUsage(AttributeTargets.Method)]
+    private sealed class GovernedGitTheoryAttribute : TheoryAttribute
+    {
+        public GovernedGitTheoryAttribute()
+        {
+            if (!OperatingSystem.IsMacOS())
+            {
+                Skip = "Governed Git integration tests require the supported macOS boundary.";
+            }
+        }
     }
 }

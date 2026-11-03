@@ -34,6 +34,7 @@ public sealed partial class App : Avalonia.Application
     private readonly LocalArtifactControlViewModel? _localArtifactControlViewModel;
     private readonly QuickTerminalController? _quickTerminalController;
     private readonly IHostAccessibilityPreferencesSource? _hostAccessibilityPreferences;
+    private readonly IHostSystemPaletteSource? _providedHostSystemPalette;
     private readonly IScreenColorSampler? _screenColorSampler;
     private readonly AppearancePreviewCoordinator? _appearancePreview;
     private IPlatformSettings? _platformSettings;
@@ -169,7 +170,8 @@ public sealed partial class App : Avalonia.Application
         IScreenColorSampler screenColorSampler,
         AppearancePreviewCoordinator? appearancePreview = null,
         IWindowPlacementStore? windowPlacements = null,
-        ISettingsWindowStateStore? settingsWindowState = null)
+        ISettingsWindowStateStore? settingsWindowState = null,
+        IHostSystemPaletteSource? hostSystemPalette = null)
     {
         ArgumentNullException.ThrowIfNull(mainWindowViewModel);
         ArgumentNullException.ThrowIfNull(mainWindowViewModelFactory);
@@ -200,6 +202,7 @@ public sealed partial class App : Avalonia.Application
         _localArtifactControlViewModel = localArtifactControlViewModel;
         _quickTerminalController = quickTerminalController;
         _hostAccessibilityPreferences = hostAccessibilityPreferences;
+        _providedHostSystemPalette = hostSystemPalette;
         _screenColorSampler = screenColorSampler;
         _appearancePreview = appearancePreview ?? new AppearancePreviewCoordinator();
         _windowPlacements = windowPlacements;
@@ -376,13 +379,15 @@ public sealed partial class App : Avalonia.Application
         var hostAccessibilityPreferences = _hostAccessibilityPreferences
             ?? throw new InvalidOperationException(
                 "The desktop composition root did not provide host accessibility preferences.");
-        // AppKit's semantic colours and the Multicolor accent are read on macOS
-        // only; elsewhere the mapper's literal palette is the answer. The Dock
-        // icon is not touched at runtime: Assets.car carries every appearance
-        // the system can ask for, including Clear and Tinted.
+        // AppKit's semantic colours and the Multicolor accent are read on macOS;
+        // on Linux the composition root hands in the portal's accent, so a
+        // desktop with none gets the brand accent rather than Avalonia's
+        // default blue. Elsewhere the mapper's literal palette is the answer.
+        // The Dock icon is not touched at runtime: Assets.car carries every
+        // appearance the system can ask for, including Clear and Tinted.
         _hostSystemPalette = OperatingSystem.IsMacOS()
             ? new MacOsSystemPaletteSource()
-            : null;
+            : _providedHostSystemPalette;
         _hostAppearance = new AvaloniaHostAppearanceAdapter(
             _platformSettings,
             hostAccessibilityPreferences,
@@ -502,7 +507,8 @@ public sealed partial class App : Avalonia.Application
     private EffectiveAppearanceResources MapAppearanceResources(EffectiveTheme theme) =>
         EffectiveAppearanceResourceMapper.Map(
             theme,
-            CurrentHostPalette.For(theme.Appearance));
+            CurrentHostPalette.For(theme.Appearance),
+            CurrentHostPalette.Corners);
 
     private HostSystemPalette CurrentHostPalette =>
         _hostAppearance?.SystemPalette ?? HostSystemPalette.None;
@@ -770,11 +776,13 @@ public sealed partial class App : Avalonia.Application
 
     /// <summary>
     /// What the platform draws the window's own corners at, in points. Not a
-    /// number of ours: this desktop has three, one per kind of window, and the
-    /// corner style decides which kind the shell asks to be.
+    /// number of ours: macOS has three, one per kind of window, and the
+    /// corner style decides which kind the shell asks to be; a Linux desktop
+    /// draws the frame itself, at whatever its window manager's theme says.
     /// </summary>
     public double WindowCornerRadius =>
-        DensityCornerScale.WindowRadius(StoredTheme.Density);
+        CurrentHostPalette.Corners?.Window
+        ?? DensityCornerScale.WindowRadius(StoredTheme.Density);
 
     public InterfaceDensity WindowDensity => StoredTheme.Density;
 
@@ -1138,6 +1146,7 @@ public sealed partial class App : Avalonia.Application
         Publish("ShellCardCornerRadius", resources.CardCornerRadius);
         Publish("ShellSidebarCornerRadius", resources.SidebarCornerRadius);
         Publish("ShellCardRadius", resources.CardCornerRadius.TopLeft);
+        Publish("ShellControlRadius", resources.ControlCornerRadius.TopLeft);
         Publish("ShellPillCornerRadius", resources.PillCornerRadius);
         Publish("ShellInnerCornerRadius", resources.InnerCornerRadius);
         Publish("ShellGroupCornerRadius", resources.GroupCornerRadius);

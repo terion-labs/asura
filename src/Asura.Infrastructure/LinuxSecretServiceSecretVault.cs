@@ -568,7 +568,7 @@ public sealed class LinuxSecretServiceSecretVault : ISecretVault
                 ? ReadBoundedAsync(process.StandardOutput.BaseStream, cancellationToken)
                 : DrainOutputAsync(process.StandardOutput.BaseStream, cancellationToken);
             var inputTask = standardInput is { } input
-                ? WriteInputAsync(process.StandardInput.BaseStream, input, cancellationToken)
+                ? WriteInputAsync(process.StandardInput, input, cancellationToken)
                 : Task.CompletedTask;
 
             await Task.WhenAll(
@@ -600,13 +600,18 @@ public sealed class LinuxSecretServiceSecretVault : ISecretVault
     }
 
     private static async Task WriteInputAsync(
-        Stream stream,
+        StreamWriter writer,
         ReadOnlyMemory<byte> input,
         CancellationToken cancellationToken)
     {
+        var stream = writer.BaseStream;
         await stream.WriteAsync(input, cancellationToken).ConfigureAwait(false);
         await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-        stream.Close();
+        // Close through the writer, not the pipe beneath it: the process
+        // disposes the writer later, and a writer whose pipe was closed under
+        // it throws "Cannot access a closed pipe" from that flush, which
+        // turned every successful store into a vault failure on Linux.
+        await writer.DisposeAsync().ConfigureAwait(false);
     }
 
     private static async Task DrainAsync(Stream stream, CancellationToken cancellationToken)

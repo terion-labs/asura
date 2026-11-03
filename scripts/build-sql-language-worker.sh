@@ -172,6 +172,12 @@ if [[ "$mode" == "docker" ]]; then
     }
 fi
 
+# The builders run as the invoking user, so everything they write beneath the
+# mounted workspace and staging directory belongs to that user rather than to
+# root; a Linux host cannot chmod, rename or clean root-owned files afterwards.
+# Neither Maven nor Native Image needs more of a home than a writable scratch.
+docker_run_as_caller=(--user "$(id -u):$(id -g)" -e HOME=/tmp -e MAVEN_CONFIG=/tmp/.m2)
+
 verify_native_image_version() {
     local version_line="$1"
     if [[ ! "$version_line" =~ ^native-image[[:space:]]+$EXPECTED_NATIVE_IMAGE_VERSION([[:space:]]|$) ]]; then
@@ -326,7 +332,7 @@ else
         maven_arguments+=(-DskipTests)
     fi
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         -v "$locked_maven_repository:/locked-m2:ro" \
         -v "$WORKER_DIRECTORY:/workspace" \
@@ -334,7 +340,7 @@ else
         "$maven_image" \
         "${maven_arguments[@]}"
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         -v "$locked_maven_repository:/locked-m2:ro" \
         -v "$WORKER_DIRECTORY:/workspace" \
@@ -352,7 +358,7 @@ else
             -DoverWriteSnapshots=true \
             -DoverWriteIfNewer=true
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         -v "$WORKER_DIRECTORY:/workspace" \
         -w /workspace \
@@ -364,7 +370,7 @@ else
             --output target/THIRD-PARTY-NOTICES.md \
             --metadata target/legal-closure.properties
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         -v "$locked_maven_repository:/locked-m2:ro" \
         -v "$WORKER_DIRECTORY:/workspace" \
@@ -377,7 +383,7 @@ else
             -Dlegal.metadata=/workspace/target/legal-closure.properties \
             test
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         --entrypoint native-image \
         -v "$WORKER_DIRECTORY:/workspace" \
@@ -404,7 +410,7 @@ if [[ "$rid" == osx-* ]]; then
     }
 elif [[ "$rid" == linux-* ]]; then
     minimum_glibc_version="$(docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         --entrypoint /bin/bash \
         -v "$staging_directory:/out:ro" \
@@ -434,7 +440,7 @@ if [[ "$mode" == "local" ]]; then
     )
 else
     docker run --rm \
-        --network none \
+        --network none "${docker_run_as_caller[@]}" \
         --platform "$docker_platform" \
         -v "$locked_maven_repository:/locked-m2:ro" \
         -v "$WORKER_DIRECTORY:/workspace" \

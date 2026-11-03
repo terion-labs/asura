@@ -481,7 +481,9 @@ public sealed class FileSystemLocalArtifactControlTests
     [Fact]
     public async Task FailureAfterMutationReportsTheExactPartialRemoval()
     {
-        if (OperatingSystem.IsWindows())
+        // The blocked directory is blocked by its mode, which root ignores:
+        // a container harness running as root would remove everything.
+        if (OperatingSystem.IsWindows() || Environment.IsPrivilegedProcess)
         {
             return;
         }

@@ -310,9 +310,38 @@ public sealed class ChildProcessTests
         try
         {
             using var process = Process.GetProcessById(pid);
-            return !process.HasExited;
+            return !process.HasExited && !IsLinuxZombie(pid);
         }
         catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// A killed grandchild that nobody reaps stays in the process table as a
+    /// zombie, which the runtime still reports as running. Under systemd it
+    /// is gone at once; in a container whose PID 1 does not reap, it is not,
+    /// and the kill still did its work.
+    /// </summary>
+    private static bool IsLinuxZombie(int pid)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return false;
+        }
+
+        try
+        {
+            var stat = File.ReadAllText($"/proc/{pid}/stat");
+            var nameEnd = stat.LastIndexOf(')');
+            return nameEnd >= 0 && stat.AsSpan(nameEnd + 1).TrimStart().StartsWith("Z");
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }

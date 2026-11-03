@@ -293,12 +293,92 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  linux-release-packages:
+    name: Linux release package (${{ matrix.rid }})
+    needs: authorize-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Expose the SDK at the repository-local path
+        run: |
+          mkdir -p .dotnet
+          ln -s "$(command -v dotnet)" .dotnet/dotnet
+      - name: Require the requested tag to identify this commit
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin "refs/tags/${ASURA_RELEASE_TAG}"
+          test "$(git rev-parse 'FETCH_HEAD^{commit}')" = "${GITHUB_SHA}"
+      - name: Build or restore the native payloads
+        uses: ./.github/actions/linux-native-payloads
+        with:
+          rid: ${{ matrix.rid }}
+      - name: Restore the locked dependency graph for ${{ matrix.rid }}
+        shell: bash
+        run: >-
+          dotnet restore src/Asura.Desktop/Asura.Desktop.csproj
+          --runtime "${{ matrix.rid }}"
+          --locked-mode
+      - name: Publish the self-contained release package
+        shell: bash
+        run: |
+          version="${ASURA_RELEASE_TAG#v}"
+          package="${RUNNER_TEMP}/Asura-${version}-${{ matrix.rid }}"
+          dotnet publish src/Asura.Desktop/Asura.Desktop.csproj \
+            --configuration Release \
+            --runtime "${{ matrix.rid }}" \
+            --self-contained true \
+            --no-restore \
+            -p:RestoreLockedMode=true \
+            -p:Version="${version}" \
+            --output "${package}"
+          test -x "${package}/Asura"
+          test -f "${package}/libghostty-vt.so"
+          test -f "${package}/libasura_pty.so"
+          test -f "${package}/libcef.so"
+          test -f "${package}/libexclr8cef.so"
+          test -f "${package}/runtimes/${{ matrix.rid }}/native/asura-sql-language"
+          if ldd "${package}/Asura" | grep -q 'not found'; then
+            ldd "${package}/Asura" >&2
+            exit 1
+          fi
+          distribution="${RUNNER_TEMP}/asura-linux-distribution"
+          mkdir -p "${distribution}"
+          # The archive name carries no version so the release's "latest"
+          # download URL is stable, like Asura-macOS-arm64.zip; the directory
+          # it unpacks to is versioned.
+          archive="${distribution}/Asura-${{ matrix.rid }}.tar.gz"
+          tar -C "${RUNNER_TEMP}" -czf "${archive}" "Asura-${version}-${{ matrix.rid }}"
+          (cd "${distribution}" && sha256sum "$(basename "${archive}")" > "$(basename "${archive}").sha256")
+          echo "ASURA_LINUX_DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
+      - name: Upload the Linux release package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: asura-${{ matrix.rid }}
+          path: ${{ env.ASURA_LINUX_DISTRIBUTION }}
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+
   macos-early-release:
     name: macOS arm64 early release
     # Configure main-only deployments and required reviewers; keep Apple keys
     # exclusively in this environment, never repository-wide secrets.
     environment: release
-    needs: [managed-conformance, macos-release-build, format-and-boundaries, dependency-security-evidence]
+    needs: [managed-conformance, macos-release-build, format-and-boundaries, dependency-security-evidence, linux-release-packages]
     runs-on: macos-26
     # A normal run takes about two hours, but slow macOS runners have needed
     # over three; 300 stays under the hosted-runner ceiling of 360.
@@ -491,6 +571,20 @@ jobs:
         with:
           name: dependency-security-evidence
           path: ${{ runner.temp }}/asura-release-artifacts/dependency-security-evidence
+      - name: Download the Linux release packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: asura-linux-*
+          path: ${{ runner.temp }}/asura-release-artifacts/linux
+          merge-multiple: true
+      - name: Verify the Linux release packages
+        shell: bash
+        run: |
+          cd "${RUNNER_TEMP}/asura-release-artifacts/linux"
+          for rid in linux-x64 linux-arm64; do
+            test -f "Asura-${rid}.tar.gz"
+            shasum -a 256 -c "Asura-${rid}.tar.gz.sha256"
+          done
       - name: Configure Developer ID signing and notarization
         env:
           APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.RELEASE_APPLE_CERTIFICATE_P12_BASE64 }}
@@ -670,6 +764,10 @@ jobs:
             "${ASURA_RELEASE_ARTIFACTS}/distribution/sh.asura-${RELEASE_VERSION}-osx-arm64-stable-full.nupkg.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/releases.osx-arm64-stable.json" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/releases.osx-arm64-stable.json.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.tar.gz" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.tar.gz.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.md" \
@@ -681,8 +779,8 @@ jobs:
             --fail-on-no-commits \
             --generate-notes \
             --latest \
-            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates." \
-            --title "Asura ${RELEASE_VERSION} early macOS release" \
+            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; install steps are in the README." \
+            --title "Asura ${RELEASE_VERSION} early release" \
             --verify-tag
       - name: Remove temporary signing credentials
         if: always()

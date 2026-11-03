@@ -57,9 +57,17 @@ public sealed partial class RepositoryConventionTests
         var expectedRunners = new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
             ["database-viewer-integration.yml"] = ["runs-on: macos-15"],
+            // The Linux lane picks its runner per architecture from a matrix;
+            // the matrix entries are held to the same reviewed list below.
+            ["linux-lane.yml"] = ["runs-on: ubuntu-24.04", "runs-on: ${{ matrix.runner }}"],
             ["macos-product-identity.yml"] = ["runs-on: macos-26"],
-            ["repository-gate.yml"] = ["runs-on: macos-15", "runs-on: macos-26"],
+            ["repository-gate.yml"] = ["runs-on: macos-15", "runs-on: macos-26", "runs-on: ${{ matrix.runner }}"],
             ["website.yml"] = ["runs-on: ubuntu-latest"],
+        };
+        var expectedMatrixRunners = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["linux-lane.yml"] = ["runner: ubuntu-24.04", "runner: ubuntu-24.04-arm"],
+            ["repository-gate.yml"] = ["runner: ubuntu-24.04", "runner: ubuntu-24.04-arm"],
         };
         var workflows = Directory
             .GetFiles(workflowDirectory, "*.yml")
@@ -82,6 +90,22 @@ public sealed partial class RepositoryConventionTests
                 declaration => Assert.Contains(
                     declaration,
                     expectedRunners[Path.GetFileName(workflow)],
+                    StringComparer.Ordinal));
+
+            var matrixRunners = File.ReadLines(workflow)
+                .Select(line => line.Trim())
+                .Where(line => line.StartsWith("runner:", StringComparison.Ordinal))
+                .ToArray();
+            if (runnerDeclarations.Contains("runs-on: ${{ matrix.runner }}", StringComparer.Ordinal))
+            {
+                Assert.NotEmpty(matrixRunners);
+            }
+
+            Assert.All(
+                matrixRunners,
+                declaration => Assert.Contains(
+                    declaration,
+                    expectedMatrixRunners.GetValueOrDefault(Path.GetFileName(workflow), []),
                     StringComparer.Ordinal));
         }
 
@@ -477,6 +501,13 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("archive=\"Asura-macOS-arm64.zip\"", workflow, StringComparison.Ordinal);
         Assert.Contains("distribution/Asura-macOS-arm64.zip.sha256", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("Asura-macOS-arm64-${RELEASE_VERSION}.zip", workflow, StringComparison.Ordinal);
+        // The Linux archives follow the same rule: the website's download
+        // links point at the release's "latest" URL for each name.
+        Assert.Contains("archive=\"${distribution}/Asura-${{ matrix.rid }}.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-x64.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-arm64.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asura-${RELEASE_VERSION}-linux-x64.tar.gz", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asura-${version}-${{ matrix.rid }}.tar.gz", workflow, StringComparison.Ordinal);
         Assert.Contains("package-macos-github-release.sh", workflow, StringComparison.Ordinal);
 
         Assert.Contains("\"${dotnet}\" tool restore", releaseScript, StringComparison.Ordinal);

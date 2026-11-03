@@ -198,4 +198,34 @@ public sealed class ConcentricCornersTests
                 size: new Size(400, 200),
                 minimumRadius: 10));
     }
+
+
+    /// <summary>
+    /// A panel eight points inside a frame the desktop drew at five earns
+    /// nothing, and used to keep its twelve: rounder than the window around
+    /// it. Standing aside stops at the container's own radius.
+    /// </summary>
+    [Fact]
+    public void Standing_aside_never_leaves_a_corner_rounder_than_its_container()
+    {
+        var derived = ConcentricCorners.Derive(
+            outerRadius: 5,
+            containerSize: new Size(1400, 900),
+            offsetInContainer: new Point(70, 70),
+            size: new Size(1322, 822),
+            minimumRadius: 5,
+            authored: new CornerRadius(12));
+
+        Assert.Equal(new CornerRadius(5), derived!.Value);
+    }
+
+    [Fact]
+    public void An_authored_corner_within_the_container_radius_is_left_alone() =>
+        Assert.Null(ConcentricCorners.Derive(
+            outerRadius: 12,
+            containerSize: new Size(1400, 900),
+            offsetInContainer: new Point(8, 8),
+            size: new Size(1384, 884),
+            minimumRadius: 9,
+            authored: new CornerRadius(12)));
 }
