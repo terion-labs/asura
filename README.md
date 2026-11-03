@@ -56,8 +56,46 @@ The terminal is rendered directly through Avalonia on macOS, Windows, and Linux.
 
 Asura is in early alpha.
 
-- **macOS (Apple Silicon):** Download signed and notarized application builds from [GitHub Releases](https://github.com/terion-labs/asura/releases/latest).
-- **Linux and Windows:** On the way. The build steps below are for development on those platforms.
+- **macOS (Apple Silicon):** Download signed and notarized application builds from [GitHub Releases](https://github.com/terion-labs/asura/releases/latest). Updates arrive in-app.
+- **Linux (x64 and arm64):** Download a self-contained archive from the same release and follow the [Linux install steps](#linux) below. The archives are unsigned and have no updater; install a newer release the same way.
+- **Windows:** On the way. The build steps further down are for development on Windows.
+
+### Linux
+
+The Linux build is an early one. It runs on an X11 session, or on Wayland through XWayland, and needs a session D-Bus. Today it has the terminal, browser, files, database, Docker (read-only) and Kubernetes panels and the agent; the Git panel, isolated workspaces and in-app updates are still macOS-only. The global Quick Terminal hotkey works on X11 only. It is built and smoke-tested on Ubuntu 24.04; other distributions need the same libraries under their own package names.
+
+1. Install the libraries the app and its bundled Chromium load, plus `secret-tool`, which stores your passwords in the desktop's Secret Service (GNOME Keyring or KWallet). On Debian and Ubuntu:
+
+   ```bash
+   sudo apt-get install --no-install-recommends fontconfig libasound2t64 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcairo2 libcups2 libdbus-1-3 libdrm2 libexpat1 libfontconfig1 libfreetype6 libgbm1 libgl1 libglib2.0-0 libice6 libnspr4 libnss3 libpango-1.0-0 libsecret-tools libsm6 libx11-6 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxkbcommon0 libxrandr2 libxrender1 libxtst6
+   ```
+
+   On Debian 12 the sound library is `libasound2`. Security keys over FIDO2 additionally need `libfido2-1`.
+
+2. Download the archive for your CPU and check it against its checksum. Replace `linux-x64` with `linux-arm64` on 64-bit Arm:
+
+   ```bash
+   curl -fLO https://github.com/terion-labs/asura/releases/latest/download/Asura-linux-x64.tar.gz
+   curl -fLO https://github.com/terion-labs/asura/releases/latest/download/Asura-linux-x64.tar.gz.sha256
+   sha256sum -c Asura-linux-x64.tar.gz.sha256
+   ```
+
+3. Unpack it into a directory owned by root, and make Chromium's sandbox helper setuid root. The browser panel refuses to run unsandboxed; without this step it needs unprivileged user namespaces, which Ubuntu 24.04 and later restrict by default:
+
+   ```bash
+   sudo mkdir -p /opt/asura
+   sudo tar -xzf Asura-linux-x64.tar.gz -C /opt/asura --strip-components=1
+   sudo chown -R root:root /opt/asura
+   sudo chmod 4755 /opt/asura/chrome-sandbox
+   ```
+
+4. Start it:
+
+   ```bash
+   /opt/asura/Asura
+   ```
+
+   To open a folder straight into a workspace, run `/opt/asura/Asura open PATH`. There is no `.desktop` entry yet; create one pointing at `/opt/asura/Asura` if you want it in the application menu.
 
 ## Build from source
 

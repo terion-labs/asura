@@ -357,7 +357,10 @@ jobs:
           fi
           distribution="${RUNNER_TEMP}/asura-linux-distribution"
           mkdir -p "${distribution}"
-          archive="${distribution}/Asura-${version}-${{ matrix.rid }}.tar.gz"
+          # The archive name carries no version so the release's "latest"
+          # download URL is stable, like Asura-macOS-arm64.zip; the directory
+          # it unpacks to is versioned.
+          archive="${distribution}/Asura-${{ matrix.rid }}.tar.gz"
           tar -C "${RUNNER_TEMP}" -czf "${archive}" "Asura-${version}-${{ matrix.rid }}"
           (cd "${distribution}" && sha256sum "$(basename "${archive}")" > "$(basename "${archive}").sha256")
           echo "ASURA_LINUX_DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
@@ -579,8 +582,8 @@ jobs:
         run: |
           cd "${RUNNER_TEMP}/asura-release-artifacts/linux"
           for rid in linux-x64 linux-arm64; do
-            test -f "Asura-${ASURA_RELEASE_TAG#v}-${rid}.tar.gz"
-            shasum -a 256 -c "Asura-${ASURA_RELEASE_TAG#v}-${rid}.tar.gz.sha256"
+            test -f "Asura-${rid}.tar.gz"
+            shasum -a 256 -c "Asura-${rid}.tar.gz.sha256"
           done
       - name: Configure Developer ID signing and notarization
         env:
@@ -761,10 +764,10 @@ jobs:
             "${ASURA_RELEASE_ARTIFACTS}/distribution/sh.asura-${RELEASE_VERSION}-osx-arm64-stable-full.nupkg.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/releases.osx-arm64-stable.json" \
             "${ASURA_RELEASE_ARTIFACTS}/distribution/releases.osx-arm64-stable.json.sha256" \
-            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-${RELEASE_VERSION}-linux-x64.tar.gz" \
-            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-${RELEASE_VERSION}-linux-x64.tar.gz.sha256" \
-            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-${RELEASE_VERSION}-linux-arm64.tar.gz" \
-            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-${RELEASE_VERSION}-linux-arm64.tar.gz.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.tar.gz" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.tar.gz.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.md" \
@@ -776,7 +779,7 @@ jobs:
             --fail-on-no-commits \
             --generate-notes \
             --latest \
-            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; unpack and run ./Asura." \
+            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; install steps are in the README." \
             --title "Asura ${RELEASE_VERSION} early release" \
             --verify-tag
       - name: Remove temporary signing credentials

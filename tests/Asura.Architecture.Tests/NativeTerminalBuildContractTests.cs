@@ -262,8 +262,8 @@ public sealed partial class NativeTerminalBuildContractTests
         Assert.Contains("./scripts/acceptance/run_linux_x11_xvfb.sh", lane, StringComparison.Ordinal);
         Assert.Contains("./scripts/check-network-native.sh --full", lane, StringComparison.Ordinal);
         Assert.Contains("  linux-release-packages:\n    name: Linux release package (${{ matrix.rid }})\n    needs: authorize-release", release, StringComparison.Ordinal);
-        Assert.Contains("Asura-${RELEASE_VERSION}-linux-x64.tar.gz", release, StringComparison.Ordinal);
-        Assert.Contains("Asura-${RELEASE_VERSION}-linux-arm64.tar.gz.sha256", release, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-x64.tar.gz\"", release, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-arm64.tar.gz.sha256\"", release, StringComparison.Ordinal);
     }
 
     [Fact]

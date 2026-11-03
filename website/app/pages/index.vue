@@ -55,7 +55,7 @@ const faqs = [
   },
   {
     q: 'Which platforms are supported?',
-    a: `macOS, Windows, and Linux from one codebase. The current early release ships a signed, notarized build for ${platforms.shipped}. ${platforms.upcoming}. Workspace isolation needs ${platforms.isolation}.`,
+    a: `macOS, Windows, and Linux from one codebase. The current early release ships a signed, notarized build for ${platforms.shipped} and an unsigned early build for ${platforms.linux}. On Linux the Git panel, isolated workspaces, and in-app updates are not there yet, and the Docker panel is read-only. ${platforms.upcoming}. Workspace isolation needs ${platforms.isolation}.`,
   },
   {
     q: 'Does a workspace VPN affect the rest of my machine?',
@@ -82,8 +82,8 @@ const faqs = [
       <div class="wrap notice__row">
         <span class="notice__badge">Alpha</span>
         <span>
-          Asura is in early alpha and ships for macOS on Apple silicon.
-          Windows and Linux are on the way.
+          Asura is in early alpha and ships for macOS on Apple silicon,
+          with an early Linux build. Windows is on the way.
         </span>
       </div>
     </div>
@@ -106,8 +106,8 @@ const faqs = [
             </p>
             <div class="ctas">
               <a class="btn btn--primary" href="#download">
-                Download for macOS
-                <span class="btn__sub">Apple silicon</span>
+                Download
+                <span class="btn__sub">macOS · Linux</span>
               </a>
               <a class="btn" :href="repoUrl">View on GitHub</a>
             </div>

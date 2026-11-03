@@ -501,6 +501,13 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("archive=\"Asura-macOS-arm64.zip\"", workflow, StringComparison.Ordinal);
         Assert.Contains("distribution/Asura-macOS-arm64.zip.sha256", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("Asura-macOS-arm64-${RELEASE_VERSION}.zip", workflow, StringComparison.Ordinal);
+        // The Linux archives follow the same rule: the website's download
+        // links point at the release's "latest" URL for each name.
+        Assert.Contains("archive=\"${distribution}/Asura-${{ matrix.rid }}.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-x64.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("linux/Asura-linux-arm64.tar.gz\"", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asura-${RELEASE_VERSION}-linux-x64.tar.gz", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("Asura-${version}-${{ matrix.rid }}.tar.gz", workflow, StringComparison.Ordinal);
         Assert.Contains("package-macos-github-release.sh", workflow, StringComparison.Ordinal);
 
         Assert.Contains("\"${dotnet}\" tool restore", releaseScript, StringComparison.Ordinal);

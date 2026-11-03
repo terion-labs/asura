@@ -377,10 +377,13 @@ What the first runs on Linux taught, all fixed in the same change:
 The tagged release workflow (`repository-gate.yml`) builds the same two
 self-contained Linux packages from the tag through the shared
 `.github/actions/linux-native-payloads` action and attaches
-`Asura-<version>-linux-x64.tar.gz` and `Asura-<version>-linux-arm64.tar.gz`
-with checksums to the GitHub release beside the macOS build. They are
-unsigned and carry no updater; AppImage, `.deb` and `.rpm` with Velopack
-updates are Phase 3.
+`Asura-linux-x64.tar.gz` and `Asura-linux-arm64.tar.gz` with checksums to
+the GitHub release beside the macOS build. The archive names carry no version
+so the release's `latest` download URLs stay stable for the website; each
+unpacks to a versioned directory. They are unsigned and carry no updater;
+the README's "Linux" section is the install recipe (runtime libraries, the
+setuid `chrome-sandbox`, `secret-tool`). AppImage, `.deb` and `.rpm` with
+Velopack updates are Phase 3.
 
 The gate itself runs on Linux: `check.sh --quick` and the native networking
 module's full checks in the lane, and the Linux-only Native AOT lock
