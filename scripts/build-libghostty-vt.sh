@@ -181,7 +181,7 @@ zig_archive="${dependencies_dir}/toolchains/zig-${zig_distribution}-${zig_versio
 zig_dir="${dependencies_dir}/toolchains/zig-${zig_distribution}-${zig_version}"
 zig="${zig_dir}/${zig_executable}"
 if [[ ! -x "${zig}" ]]; then
-    curl -fL \
+    curl -fL --retry 5 --retry-delay 15 --retry-all-errors \
         "https://ziglang.org/download/${zig_version}/zig-${zig_distribution}-${zig_version}.${zig_archive_extension}" \
         -o "${zig_archive}"
     actual_archive_sha="$(hash_file "${zig_archive}")"
@@ -268,6 +268,32 @@ if [[ -d "${patches_dir}" ]]; then
     done
 fi
 patch_set_sha="$(hash_file "${patch_manifest}")"
+
+# Every package Ghostty can ask for is fetched before anything is built, so
+# the test and target builds below never touch the network. Ghostty's
+# dependency mirror has answered 500 in the middle of a build; a fetch that
+# fails is retried with a growing pause, and only a sustained outage fails
+# the build.
+fetch_dependencies() {
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        if (
+            cd -- "${build_source_dir}"
+            "${zig}" build --fetch=all \
+                --cache-dir "${local_cache_dir}" \
+                --global-cache-dir "${global_cache_dir}"
+        ); then
+            return 0
+        fi
+        if ((attempt == 5)); then
+            echo "Fetching Ghostty's dependencies failed ${attempt} times; giving up." >&2
+            return 1
+        fi
+        echo "Fetching Ghostty's dependencies failed (attempt ${attempt} of 5); retrying in $((attempt * 15)) s." >&2
+        sleep $((attempt * 15))
+    done
+}
+fetch_dependencies
 
 # Run Ghostty's unit suite after applying the Asura-owned patch set. The
 # extensions carry their tests in the upstream Zig modules they modify, so a

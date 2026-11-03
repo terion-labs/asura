@@ -163,12 +163,31 @@ file_size() {
     fi
 }
 
-fetch_output="$({
-    cd -- "${source_dir}"
-    "${zig}" fetch \
-        --global-cache-dir "${dependencies_dir}/zig-font-global-cache" \
-        "${dependency_url}"
-} | tr -d '\r')"
+# The pinned font package comes from Ghostty's dependency mirror, which has
+# answered 500 in the middle of a build; a fetch that fails is retried with a
+# growing pause, and only a sustained outage fails the build.
+fetch_font_package() {
+    local attempt
+    for attempt in 1 2 3 4 5; do
+        if fetch_output="$(
+            cd -- "${source_dir}"
+            "${zig}" fetch \
+                --global-cache-dir "${dependencies_dir}/zig-font-global-cache" \
+                "${dependency_url}"
+        )"; then
+            fetch_output="${fetch_output//$'\r'/}"
+            return 0
+        fi
+        if ((attempt == 5)); then
+            echo "Fetching the JetBrains Mono package failed ${attempt} times; giving up." >&2
+            return 1
+        fi
+        echo "Fetching the JetBrains Mono package failed (attempt ${attempt} of 5); retrying in $((attempt * 15)) s." >&2
+        sleep $((attempt * 15))
+    done
+}
+fetch_output=""
+fetch_font_package
 if [[ "${fetch_output}" != "${dependency_hash}" ]]; then
     echo "The fetched JetBrains Mono package did not produce its pinned Zig hash." >&2
     exit 1
