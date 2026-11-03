@@ -25,11 +25,14 @@ public sealed class PathConnectionExecutableLocatorTests : IDisposable
     [Fact]
     public void Find_uses_a_supplemental_directory_when_the_gui_path_is_minimal()
     {
+        // A directory of the test's own stands in for the minimal PATH a GUI
+        // launch inherits; a real system directory may hold a docker of its own.
+        var inherited = Directory.CreateDirectory(Path.Combine(_temporaryDirectory.FullName, "path"));
         var supplemental = Directory.CreateDirectory(
             Path.Combine(_temporaryDirectory.FullName, "supplemental"));
         var executable = CreateExecutable(supplemental.FullName, "docker");
         var locator = new PathConnectionExecutableLocator(
-            "/usr/bin:/bin:/usr/sbin:/sbin",
+            inherited.FullName,
             [supplemental.FullName]);
 
         var result = locator.Find("docker");
