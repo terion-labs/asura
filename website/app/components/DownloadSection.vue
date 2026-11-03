@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  downloadUrl,
-  linuxDownloads,
-  linuxInstallUrl,
-  platforms,
-  releasesUrl,
-  repoUrl,
-} from '~/content/facts'
+import { linuxInstallUrl, platforms, releasesUrl, repoUrl } from '~/content/facts'
 
 const base = useRuntimeConfig().app.baseURL
 </script>
@@ -29,19 +22,7 @@ const base = useRuntimeConfig().app.baseURL
         {{ platforms.linux }}. {{ platforms.upcoming }}.
       </p>
       <div class="ctas download__ctas">
-        <a class="btn btn--primary" :href="downloadUrl">
-          Download for macOS
-          <span class="btn__sub">.zip · Apple silicon</span>
-        </a>
-        <a
-          v-for="build in linuxDownloads"
-          :key="build.arch"
-          class="btn"
-          :href="build.url"
-        >
-          Download for Linux
-          <span class="btn__sub">.tar.gz · {{ build.arch }}</span>
-        </a>
+        <DownloadButton />
         <a class="btn" :href="repoUrl">Source on GitHub</a>
       </div>
       <p class="download__checksum">

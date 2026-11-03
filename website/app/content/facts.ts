@@ -4,18 +4,37 @@
 export const siteUrl = 'https://asura.sh'
 export const repoUrl = 'https://github.com/terion-labs/asura'
 export const releasesUrl = `${repoUrl}/releases/latest`
-export const downloadUrl = `${releasesUrl}/download/Asura-macOS-arm64.zip`
-export const checksumUrl = `${downloadUrl}.sha256`
+// README.md, "Linux": the install steps the Linux archives need.
+export const linuxInstallUrl = `${repoUrl}#linux`
 
-// .github/workflows/repository-gate.yml, linux-release-packages. The
-// archive names carry no version so these "latest" links stay valid.
-export const linuxDownloads = [
-  { arch: 'x64', url: `${releasesUrl}/download/Asura-linux-x64.tar.gz` },
-  { arch: 'arm64', url: `${releasesUrl}/download/Asura-linux-arm64.tar.gz` },
+// .github/workflows/repository-gate.yml: the assets a tagged release
+// publishes. Archive names carry no version, so these "latest" links hold.
+export type BuildId = 'macos-arm64' | 'linux-x64' | 'linux-arm64'
+export type BuildOs = 'macOS' | 'Linux'
+
+export interface Build {
+  id: BuildId
+  os: BuildOs
+  /** The CPU the archive is built for, as the button prints it. */
+  arch: string
+  file: '.zip' | '.tar.gz'
+  url: string
+  checksumUrl: string
+}
+
+function build(id: BuildId, os: BuildOs, arch: string, file: Build['file'], asset: string): Build {
+  const url = `${releasesUrl}/download/${asset}`
+  return { id, os, arch, file, url, checksumUrl: `${url}.sha256` }
+}
+
+export const builds: readonly Build[] = [
+  build('macos-arm64', 'macOS', 'Apple silicon', '.zip', 'Asura-macOS-arm64.zip'),
+  build('linux-x64', 'Linux', 'x64', '.tar.gz', 'Asura-linux-x64.tar.gz'),
+  build('linux-arm64', 'Linux', 'arm64', '.tar.gz', 'Asura-linux-arm64.tar.gz'),
 ]
 
-// README.md, "Linux": the install steps the archives need.
-export const linuxInstallUrl = `${repoUrl}#linux`
+/** What the page shows before the visitor's platform is known. */
+export const defaultBuild = builds[0]!
 
 // src/Asura.Core/AiProviderCatalog.cs. Only runtime-supported providers.
 export const providers = [

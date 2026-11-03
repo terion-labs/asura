@@ -105,10 +105,7 @@ const faqs = [
               only after you approve it. Nothing to install on your servers.
             </p>
             <div class="ctas">
-              <a class="btn btn--primary" href="#download">
-                Download
-                <span class="btn__sub">macOS · Linux</span>
-              </a>
+              <DownloadButton />
               <a class="btn" :href="repoUrl">View on GitHub</a>
             </div>
             <ul class="hero__badges">

@@ -43,10 +43,7 @@ const others = useCases.filter((c) => c.slug !== useCase.slug)
             <h1 class="hero__title">{{ useCase.hero.title }}</h1>
             <p class="hero__lede">{{ useCase.hero.lede }}</p>
             <div class="ctas">
-              <a class="btn btn--primary" href="#download">
-                Download
-                <span class="btn__sub">macOS · Linux</span>
-              </a>
+              <DownloadButton />
               <NuxtLink class="btn" to="/">Everything Asura does</NuxtLink>
             </div>
           </div>
