@@ -45,7 +45,7 @@ source_digest="$(python3 "${packager}" source-digest "${repository_dir}")"
     -p:PublishAot=false -p:PublishTrimmed=false -p:UseAppHost=true \
     -p:DebugType=None -p:DebugSymbols=false
 mkdir -p "${staging}/legal"
-runtime_package="${NUGET_PACKAGES}/microsoft.netcore.app.runtime.linux-${architecture}/10.0.11"
+runtime_package="${NUGET_PACKAGES}/microsoft.netcore.app.runtime.linux-${architecture}/10.0.14"
 cp "${runtime_package}/LICENSE.TXT" "${staging}/legal/DOTNET-LICENSE.txt"
 cp "${runtime_package}/THIRD-PARTY-NOTICES.TXT" "${staging}/legal/DOTNET-THIRD-PARTY-NOTICES.txt"
 cp "${repository_dir}/LICENSE" "${staging}/legal/ASURA-LICENSE.txt"

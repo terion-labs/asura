@@ -76,7 +76,7 @@
     <AssemblyName>Asura</AssemblyName>
     <AsuraEffectiveRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</AsuraEffectiveRuntimeIdentifier>
     <AsuraEffectiveRuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</AsuraEffectiveRuntimeIdentifier>
-    <AsuraRuntimePackVersion>10.0.11</AsuraRuntimePackVersion>
+    <AsuraRuntimePackVersion>10.0.14</AsuraRuntimePackVersion>
     <AsuraRuntimePackDirectory>$(NuGetPackageRoot)/microsoft.netcore.app.runtime.$(AsuraEffectiveRuntimeIdentifier)/$(AsuraRuntimePackVersion)</AsuraRuntimePackDirectory>
     <AsuraNativeTerminalLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64'">libghostty-vt.dylib</AsuraNativeTerminalLibrary>
     <AsuraNativeTerminalLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">libghostty-vt.so</AsuraNativeTerminalLibrary>

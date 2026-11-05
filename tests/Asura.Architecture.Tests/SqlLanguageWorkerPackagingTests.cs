@@ -517,7 +517,7 @@ public sealed class SqlLanguageWorkerPackagingTests
             "src",
             "Asura.Desktop",
             "Asura.Desktop.csproj"));
-        Assert.Equal("10.0.11", project.Descendants("AsuraRuntimePackVersion").Single().Value);
+        Assert.Equal("10.0.14", project.Descendants("AsuraRuntimePackVersion").Single().Value);
         Assert.Contains(
             "$(AsuraRuntimePackVersion)",
             project.Descendants("AsuraRuntimePackDirectory").Single().Value,
@@ -537,10 +537,10 @@ public sealed class SqlLanguageWorkerPackagingTests
             RepositoryRoot,
             "global.json")));
         Assert.Equal(
-            "10.0.303",
+            "10.0.403",
             globalConfiguration.RootElement.GetProperty("sdk").GetProperty("version").GetString());
         Assert.Contains(
-            "sdk_version=\"10.0.303\"",
+            "sdk_version=\"10.0.403\"",
             File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "bootstrap.sh")),
             StringComparison.Ordinal);
         var canonicalGate = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "check.sh"));
@@ -557,8 +557,8 @@ public sealed class SqlLanguageWorkerPackagingTests
             .GetProperty("dependencies")
             .GetProperty("net10.0")
             .GetProperty("Microsoft.NET.ILLink.Tasks");
-        Assert.Equal("[10.0.11, )", linkerTasks.GetProperty("requested").GetString());
-        Assert.Equal("10.0.11", linkerTasks.GetProperty("resolved").GetString());
+        Assert.Equal("[10.0.14, )", linkerTasks.GetProperty("requested").GetString());
+        Assert.Equal("10.0.14", linkerTasks.GetProperty("resolved").GetString());
 
         var supportedRids = new[] { "linux-x64", "linux-arm64", "osx-x64", "osx-arm64", "win-x64" };
         var sourceRoot = Path.Combine(RepositoryRoot, "src");
@@ -713,11 +713,11 @@ public sealed class SqlLanguageWorkerPackagingTests
                 "runtimepack",
                 StringComparison.Ordinal)).ToArray();
         Assert.Equal(
-            ["runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.11", "runtimepack.Microsoft.NETCore.App.Runtime.osx-arm64/10.0.11"],
+            ["runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.14", "runtimepack.Microsoft.NETCore.App.Runtime.osx-arm64/10.0.14"],
             runtimeEvidence.Select(item => item.GetProperty("identity").GetString()).Order(StringComparer.Ordinal), StringComparer.Ordinal);
         Assert.All(runtimeEvidence, item =>
         {
-            Assert.Equal("runtimepack." + item.GetProperty("nuGetId").GetString() + "/10.0.11",
+            Assert.Equal("runtimepack." + item.GetProperty("nuGetId").GetString() + "/10.0.14",
                 item.GetProperty("identity").GetString());
             Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("contentHash").GetString()));
             Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("nupkgSha512").GetString()));

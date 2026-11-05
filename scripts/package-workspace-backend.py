@@ -14,7 +14,7 @@ if ARCHITECTURE not in ("arm64", "x64"):
     raise ValueError("Unsupported backend architecture")
 ARCHIVE = f"Asura-workspace-backend-{ARCHITECTURE}.tar.gz"
 EXECUTABLE = "Asura.Backend"
-RUNTIME = "10.0.11"
+RUNTIME = "10.0.14"
 FORBIDDEN = ("avalonia", "exclr8", "libcef", "chromium", "asura.app.", "asura.browser.", "asura.desktop.")
 
 

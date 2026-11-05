@@ -12,7 +12,7 @@
     "status": "accepted-by-project-owner",
     "basis": "documented-engineering-evidence-without-independent-legal-review",
     "reviewedBy": "terion",
-    "reviewedAtUtc": "2026-10-16T08:41:21Z"
+    "reviewedAtUtc": "2026-11-05T10:36:18Z"
   },
   "dispositions": {
     "managedComponents": {
@@ -75,7 +75,7 @@
     },
     {
       "path": "licenses/managed-components.json",
-      "sha256": "31a4ad9448630f9ef8b8572540a977d875ae71441b0262cdcacf241c5ad5cf9e"
+      "sha256": "c55814fb2be1e15ef70b8c68f86ab35eee87cfb73991b796dc1bd7b14097065c"
     },
     {
       "path": "licenses/native-terminal-components.json",

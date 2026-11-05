@@ -850,13 +850,13 @@
       "nuspecLicense": "MIT"
     },
     {
-      "identity": "runtimepack.Microsoft.NETCore.App.Runtime.linux-x64/10.0.11",
+      "identity": "runtimepack.Microsoft.NETCore.App.Runtime.linux-x64/10.0.14",
       "kind": "runtime",
       "depsType": "runtimepack",
       "licenseDeclared": "NOASSERTION",
       "nuGetId": "Microsoft.NETCore.App.Runtime.linux-x64",
-      "contentHash": "/Xtz8tvuLlzWxHTxyMHX761YIU1IXgehZuLmv9hZx94jYksOrI1Mx9yFfUnQZ1PjNFBl9v7LSbRpE67+CQ81tw==",
-      "nupkgSha512": "ef6XpQH4KI7lukxMuXnh0iDM7a60cR0tFiynPPmRK7TnOHZXKpwIlPd341kInZJvMw+u2B3qaHb3rVEMIxLWlQ==",
+      "contentHash": "D1GLoCJT9uVa91+pIx5i0HGFcko4g/+L6T2/0DnjvFc8Ld0qFHIUpw7u8qdcDOOQhPUqeb3QQMA6KyiaVnqmTQ==",
+      "nupkgSha512": "IfDwQKE3gcK9u7iU7C/bOaqLNfoRf6zvXzGLHsJAbsC7Shwn5ztRCRWjD1mKRk5XUrPO9VWSC1+q8oimXRDlsg==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT"
     },

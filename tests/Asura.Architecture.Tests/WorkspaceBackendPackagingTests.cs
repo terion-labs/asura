@@ -151,7 +151,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
             schemaVersion = 1,
             format = "asura-workspace-backend-release-legal-v1",
             platform = "linux-arm64",
-            runtime = "10.0.11",
+            runtime = "10.0.14",
             legalClearance = true,
             releaseBlockers = Array.Empty<string>(),
             review = new { status = "accepted-by-project-owner", basis = "test only", reviewedBy = "test fixture", reviewedAtUtc = "2026-09-08T00:00:00Z" },
@@ -207,7 +207,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         if (architecture is "x64") { header[18] = 0x3e; }
         File.WriteAllBytes(Path.Combine(payload, "Asura.Backend"), header);
         File.WriteAllText(Path.Combine(payload, "Asura.Backend.runtimeconfig.json"),
-            """{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.11"}]}}""");
+            """{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.14"}]}}""");
         return payload;
     }
 
