@@ -145,7 +145,7 @@ bundle; all three copies must match the receipt.
 The isolated workspace backend is a separate on-demand download, never Linux
 code embedded in the macOS app. `./scripts/build-workspace-backend.sh` uses the
 repository-pinned SDK and locked Linux ARM64 dependency graph to publish the
-UI-free `Asura.Backend` with self-contained .NET 10.0.11. It rejects browser
+UI-free `Asura.Backend` with self-contained .NET 10.0.14. It rejects browser
 and Avalonia assemblies, non-ARM64 native libraries, links, and unsafe paths.
 Its deterministic `Asura-workspace-backend-arm64.tar.gz` includes a
 `MANIFEST.sha256` for verifying extracted files; the signed app contains only

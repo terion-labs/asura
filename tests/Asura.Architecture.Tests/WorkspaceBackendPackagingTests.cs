@@ -24,7 +24,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         Task<string> Package(params string[] arguments) => RunForArchitectureAsync(architecture, arguments);
         var sourceDigest = await Package("source-digest", _directory);
         var distribution = Path.Combine(_directory, "distribution");
-        _ = await Package("build", _directory, distribution, payload, sourceDigest, "10.0.111");
+        _ = await Package("build", _directory, distribution, payload, sourceDigest, "10.0.114");
         _ = await Package("verify", _directory, distribution);
         var archive = Path.Combine(distribution, $"Asura-workspace-backend-{architecture}.tar.gz");
         using var receipt = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(distribution, "build-receipt.json")));
@@ -32,7 +32,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         var first = await File.ReadAllBytesAsync(archive);
         File.Delete(Path.Combine(payload, "MANIFEST.sha256"));
         File.SetLastWriteTimeUtc(Path.Combine(payload, "Asura.Backend"), DateTime.UtcNow.AddDays(-30));
-        _ = await Package("build", _directory, distribution, payload, sourceDigest, "10.0.111");
+        _ = await Package("build", _directory, distribution, payload, sourceDigest, "10.0.114");
         Assert.Equal(first, await File.ReadAllBytesAsync(archive));
         using var file = File.OpenRead(archive);
         using var compressed = new GZipStream(file, CompressionMode.Decompress);
@@ -71,7 +71,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(payload, filename), "unexpected payload");
         var sourceDigest = await RunAsync("source-digest", _directory);
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync("build", _directory,
-            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.111"));
+            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.114"));
     }
 
     [Fact]
@@ -87,12 +87,12 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         var correctExecutable = await File.ReadAllBytesAsync(executable);
         await File.WriteAllTextAsync(executable, "not Linux ARM64");
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync("build", _directory,
-            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.111"));
+            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.114"));
         await File.WriteAllBytesAsync(executable, correctExecutable);
         await File.WriteAllTextAsync(Path.Combine(payload, "Asura.Backend.runtimeconfig.json"),
             """{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.1"}]}}""");
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync("build", _directory,
-            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.111"));
+            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.114"));
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
             schemaVersion = 1,
             format = "asura-workspace-backend-release-legal-v1",
             platform = "linux-arm64",
-            runtime = "10.0.11",
+            runtime = "10.0.14",
             legalClearance = true,
             releaseBlockers = Array.Empty<string>(),
             review = new { status = "accepted-by-project-owner", basis = "test only", reviewedBy = "test fixture", reviewedAtUtc = "2026-09-08T00:00:00Z" },
@@ -173,7 +173,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         File.CreateSymbolicLink(Path.Combine(payload, "linked.dll"), Path.Combine(_directory, "src", "input.cs"));
         var sourceDigest = await RunAsync("source-digest", _directory);
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync("build", _directory,
-            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.111"));
+            Path.Combine(_directory, "distribution"), payload, sourceDigest, "10.0.114"));
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public sealed class WorkspaceBackendPackagingTests : IDisposable
         if (architecture is "x64") { header[18] = 0x3e; }
         File.WriteAllBytes(Path.Combine(payload, "Asura.Backend"), header);
         File.WriteAllText(Path.Combine(payload, "Asura.Backend.runtimeconfig.json"),
-            """{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.11"}]}}""");
+            """{"runtimeOptions":{"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.14"}]}}""");
         return payload;
     }
 

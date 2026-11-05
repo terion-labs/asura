@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "format": "asura-workspace-backend-release-legal-v1",
   "platform": "linux-x64",
-  "runtime": "10.0.11",
+  "runtime": "10.0.14",
   "legalClearance": true,
   "releaseBlockers": [],
   "review": {
@@ -12,8 +12,9 @@
     "reviewedAtUtc": "2026-10-16T08:41:21Z"
   },
   "reviewedInputs": {
-    "src/Asura.Backend/packages.linux-x64.lock.json": "b82476ae44e34da90b4b94434646760497d50b6f6cce60c4079e368ae1e4859d",
-    "licenses/workspace-backend-x64-managed-components.json": "7f4668f38049ed90552dc56d7b93912fe35a0ebb95673790dcee46d78acdad64",
+    "src/Asura.Backend/packages.linux-x64.lock.json": "2bebdca843af5c2872eb7789324410d5e49afb5b33304a16244b28fddf3eeb76",
+    "licenses/workspace-backend-x64-managed-components.json": "bf9d6a5db1ca4e815472d9ca2fe3139ec0ad7ff029186016eb6dff1eff9fa3b7",
     "licenses/SMBLIBRARY-SOURCE.json": "f483a52588c84283c277bc7dd078cd1b88cb755292131260ad273de4e8daa7e3"
-  }
+  },
+  "engineeringMaintenance": "Engineering maintenance on 2026-11-04: .NET runtime and Native AOT compiler 10.0.11 to 10.0.14 address CVE-2026-111497 (GHSA-p3jp-9v83-76w9), with SDK 10.0.403. Package identities and MIT nuspec licenses are unchanged. LICENSE and THIRD-PARTY-NOTICES bytes were compared between both runtime versions and are identical for macOS ARM64 .NET/ASP.NET Core and Linux ARM64/x64 .NET runtime packs. Runtime versions, archive/content hashes and reviewed lock graphs are refreshed under the existing dispositions. This records engineering maintenance and does not claim a new owner decision or independent legal review."
 }

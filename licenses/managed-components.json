@@ -1537,38 +1537,38 @@
       "nuspecLicense": "Apache-2.0"
     },
     {
-      "identity": "runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.11",
+      "identity": "runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.14",
       "kind": "runtime",
       "depsType": "runtimepack",
       "licenseDeclared": "NOASSERTION",
       "nuGetId": "Microsoft.AspNetCore.App.Runtime.osx-arm64",
-      "contentHash": "VdfNNYlgOQ1RZcs7VBx16kk5Ue8A8LiIpAavbFltryVL+/NMLDOuBCgr2nCjTyshlI5ICnEVrOI8i957aCA1Ew==",
-      "nupkgSha512": "JnlrGXHx2XqDHf8SX5rclpBOhB9fyOvcjgRmYV1P4g+bqmBP2ELulaXC6VZ4eZA3Yk/281EUNTtm5JRafvfmrA==",
+      "contentHash": "pDlztLFkbpsD3tIfifPWe0OjMQGltdWrM6E6d17heTsUBT8Sc1ZwQj39h/kjBujWslFy5O54VAax3LfkNqdWfQ==",
+      "nupkgSha512": "SrQC9AOp1y3wumvs0zlnP/v3mBxiJtx80fmuIi5BjfLwMfTsM0QS1TwQNoekMjIczddtRnwIJgQkx6TpsQkoPQ==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT",
       "notices": [
         {
           "archivePath": "THIRD-PARTY-NOTICES.TXT",
-          "outputPath": "Microsoft.AspNetCore.App.Runtime.osx-arm64-10.0.11/THIRD-PARTY-NOTICES.TXT",
+          "outputPath": "Microsoft.AspNetCore.App.Runtime.osx-arm64-10.0.14/THIRD-PARTY-NOTICES.TXT",
           "sha256": "52af3d603b6d069e635f8afd08ec44ec01559255b5f3afd161ae9e6fe7e7aa54",
           "minimumBytes": 50000
         },
         {
           "archivePath": "LICENSE.txt",
-          "outputPath": "Microsoft.AspNetCore.App.Runtime.osx-arm64-10.0.11/LICENSE.txt",
+          "outputPath": "Microsoft.AspNetCore.App.Runtime.osx-arm64-10.0.14/LICENSE.txt",
           "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
           "minimumBytes": 1024
         }
       ]
     },
     {
-      "identity": "runtimepack.Microsoft.NETCore.App.Runtime.osx-arm64/10.0.11",
+      "identity": "runtimepack.Microsoft.NETCore.App.Runtime.osx-arm64/10.0.14",
       "kind": "runtime",
       "depsType": "runtimepack",
       "licenseDeclared": "NOASSERTION",
       "nuGetId": "Microsoft.NETCore.App.Runtime.osx-arm64",
-      "contentHash": "zjYmMH4pfOm7QrSWX5iwVG020vv8UlcIlCL8XppJd3yX8dQAvrujkZGDsH2apr8EUY39BYMAXDr5MLgRcAolQg==",
-      "nupkgSha512": "7+/J1t8Daj/Rtrf7ySI0ONwPH/pGXmIClDQKVXnv6L6WBfYBC38azortAsqPRlvJw+UKodGl8nwydxNlxedxCA==",
+      "contentHash": "hgdd/L9R48+xYA1467W8fLP6UDXJcfrvlaK6CXokBxMUWBlGvPtdnyOpb+Xkw1wvpw4aeOrCTaaF/eA163BUFg==",
+      "nupkgSha512": "aaaa/7gTMAMy7wlLle+AU0VZhYoMUBmImsZI9zcdrpSiZvb1GVVzsyQnwp4vEg+TvPRwm6qQuWisowO1q5AhKg==",
       "nuspecLicenseType": "expression",
       "nuspecLicense": "MIT"
     },

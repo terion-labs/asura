@@ -86,7 +86,7 @@ public sealed class MacOsReleaseLegalClosureTests : IDisposable
         var catalog = JsonNode.Parse(File.ReadAllText(source))!;
         var runtime = catalog["dependencies"]!.AsArray().Single(component =>
             component!["identity"]!.GetValue<string>()
-                == "runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.11")!;
+                == "runtimepack.Microsoft.AspNetCore.App.Runtime.osx-arm64/10.0.14")!;
         var notice = runtime["notices"]!.AsArray().Single(item =>
             item!["archivePath"]!.GetValue<string>() == noticeName)!;
         notice["minimumBytes"] = 100;

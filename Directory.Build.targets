@@ -1,15 +1,4 @@
 <Project InitialTargets="RequireExistingRuntimeLockForLockedRestore;RequireLockedRestoreForSelfContainedDesktopPackage">
-  <!-- SDK 10.0.303 bundles ILCompiler 10.0.11, which carries CVE-2026-111497
-       (GHSA-p3jp-9v83-76w9, Brotli decoder out-of-bounds write) in the Native
-       AOT runtime it links into the app. The SDK resolves the compiler and
-       its runtime package from this item, so moving its version here takes the
-       patched 10.0.14 in every PublishAot graph without an explicit package
-       reference, which the compiler's own targets reject. Drop this once the
-       pinned SDK bundles 10.0.14 or later. -->
-  <ItemGroup>
-    <KnownILCompilerPack Update="Microsoft.DotNet.ILCompiler" ILCompilerPackVersion="10.0.14" />
-  </ItemGroup>
-
   <!-- A missing runtime-specific lock is otherwise created even when NuGet is
        asked for locked mode. Reject that state while each restore graph entry
        is evaluated, before package resolution can update the source tree. -->
