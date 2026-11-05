@@ -189,7 +189,7 @@ jobs:
             libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \
             libxkbcommon0 libxdamage1 libpango-1.0-0 libcairo2 libasound2t64 \
             libxtst6 libexpat1 libglib2.0-0 dbus-daemon gnome-keyring libsecret-tools \
-            x11-apps
+            x11-apps rpm desktop-file-utils appstream
       - name: Download native payloads
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -211,6 +211,8 @@ jobs:
             --self-contained true \
             --no-restore \
             -p:RestoreLockedMode=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
             --output "${package}"
           test -x "${package}/Asura"
           test -f "${package}/libghostty-vt.so"
@@ -225,12 +227,37 @@ jobs:
             ldd "${package}/Asura" >&2
             exit 1
           fi
-          mkdir -p artifacts/linux-package
-          tar -C "${RUNNER_TEMP}" -czf \
-            "artifacts/linux-package/asura-${{ matrix.rid }}-${GITHUB_SHA::12}.tar.gz" \
-            "asura-${{ matrix.rid }}"
           echo "ASURA_PACKAGE=${package}" >> "${GITHUB_ENV}"
-      - name: Upload the package
+      - name: Build the portable archive and the Debian and RPM packages
+        shell: bash
+        run: |
+          # The release gate builds the same three downloads from the tagged
+          # source; here they prove the packaging on every change, under a
+          # version no release carries.
+          ./scripts/package-linux.sh \
+            --rid "${{ matrix.rid }}" \
+            --version "0.0.0" \
+            --publish "${ASURA_PACKAGE}" \
+            --output artifacts/linux-package
+          dpkg-deb --info "artifacts/linux-package/Asura-${{ matrix.rid }}.deb"
+          rpm --query --package --info "artifacts/linux-package/Asura-${{ matrix.rid }}.rpm"
+      - name: Install the Debian package and check what it registers
+        shell: bash
+        run: |
+          sudo apt-get install -y "./artifacts/linux-package/Asura-${{ matrix.rid }}.deb"
+          test "$(stat -c '%a %U' /opt/asura/chrome-sandbox)" = "4755 root"
+          test "$(readlink -f /usr/bin/asura)" = "/opt/asura/Asura"
+          desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop
+          appstreamcli validate --no-net /usr/share/metainfo/sh.asura.Asura.metainfo.xml
+          for linked in Asura libcef.so; do
+            if ldd "/opt/asura/${linked}" | grep -q 'not found'; then
+              ldd "/opt/asura/${linked}" >&2
+              exit 1
+            fi
+          done
+          sudo apt-get remove -y asura
+          test ! -e /opt/asura
+      - name: Upload the packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: asura-${{ matrix.rid }}-package

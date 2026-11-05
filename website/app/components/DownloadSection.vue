@@ -26,11 +26,12 @@ const base = useRuntimeConfig().app.baseURL
         <a class="btn" :href="repoUrl">Source on GitHub</a>
       </div>
       <p class="download__checksum">
-        Every archive has a SHA-256 checksum next to it on the
+        Every download has a SHA-256 checksum next to it on the
         <a :href="releasesUrl">release</a>. On macOS, updates arrive in-app:
-        Settings, About, Check for Updates. The Linux archive is unsigned and
-        has no updater; the <a :href="linuxInstallUrl">install steps</a>
-        cover the libraries it needs and the browser sandbox.
+        Settings, About, Check for Updates. On Linux the .deb and .rpm
+        packages install the app, its libraries and the browser sandbox; they
+        are unsigned and have no updater, and the
+        <a :href="linuxInstallUrl">install steps</a> cover the portable archive.
       </p>
     </div>
   </section>

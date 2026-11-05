@@ -1,0 +1,325 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 022
+
+# Turns one self-contained Linux publish of Asura.Desktop into the three
+# release downloads for its runtime identifier: the portable archive, a
+# Debian package and an RPM package. The packages install the publish under
+# /opt/asura, put `asura` on the PATH, register the desktop entry, icons and
+# AppStream metadata, and give Chromium's sandbox helper its setuid bit, so
+# the browser panel runs on kernels that restrict user namespaces.
+#
+# The package dependency lists are reviewed by hand. They are the libraries
+# the launcher, CEF and the .NET runtime link or dlopen on the supported
+# baseline (glibc 2.38: Ubuntu 24.04, Debian 13, Fedora 39 and newer, which
+# the CEF shim's __isoc23_strtol binding sets). The .deb names Debian
+# packages; the .rpm names sonames, which every RPM distribution provides.
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+repository_dir="$(cd -- "${script_dir}/.." && pwd -P)"
+assets_dir="${repository_dir}/assets/linux"
+rid=""
+version=""
+publish_dir=""
+output_dir=""
+install_root="/opt/asura"
+app_id="sh.asura.Asura"
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: ./scripts/package-linux.sh --rid <linux-x64|linux-arm64> --version <x.y.z> --publish <dir> --output <dir>
+
+Packages a self-contained `dotnet publish` output of src/Asura.Desktop into
+  Asura-<rid>.tar.gz   the portable archive, unpacking to Asura-<version>-<rid>/
+  Asura-<rid>.deb      for Debian 13, Ubuntu 24.04 and newer
+  Asura-<rid>.rpm      for Fedora 39, RHEL 10 and newer
+each with a .sha256 file beside it, in the output directory.
+
+The publish must have been made with -p:DebugType=None -p:DebugSymbols=false
+and a stripped CEF payload (scripts/build-cef-runtime.sh does that), which
+this script verifies, so the packages carry no debug symbols.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --rid)
+            [[ $# -ge 2 ]] || { usage; exit 64; }
+            rid="$2"
+            shift 2
+            ;;
+        --version)
+            [[ $# -ge 2 ]] || { usage; exit 64; }
+            version="$2"
+            shift 2
+            ;;
+        --publish)
+            [[ $# -ge 2 ]] || { usage; exit 64; }
+            publish_dir="$2"
+            shift 2
+            ;;
+        --output)
+            [[ $# -ge 2 ]] || { usage; exit 64; }
+            output_dir="$2"
+            shift 2
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage
+            exit 64
+            ;;
+    esac
+done
+
+case "${rid}" in
+    linux-x64)
+        deb_arch="amd64"
+        rpm_arch="x86_64"
+        ;;
+    linux-arm64)
+        deb_arch="arm64"
+        rpm_arch="aarch64"
+        ;;
+    *)
+        echo "--rid must be linux-x64 or linux-arm64." >&2
+        usage
+        exit 64
+        ;;
+esac
+if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "--version must be a release version such as 0.1.96." >&2
+    exit 64
+fi
+if [[ -z "${publish_dir}" || -z "${output_dir}" ]]; then
+    usage
+    exit 64
+fi
+if [[ "$(uname -s)" != "Linux" ]]; then
+    echo "Linux packages are built on Linux; dpkg-deb and rpmbuild produce them." >&2
+    exit 1
+fi
+for command_name in dpkg-deb rpmbuild tar sha256sum file ldd; do
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
+        echo "Packaging requires ${command_name}." >&2
+        exit 1
+    fi
+done
+
+publish_dir="$(cd -- "${publish_dir}" && pwd -P)"
+for required in \
+    Asura \
+    libcef.so \
+    libexclr8cef.so \
+    chrome-sandbox \
+    libghostty-vt.so \
+    libasura_pty.so \
+    "runtimes/${rid}/native/asura-sql-language" \
+    THIRD-PARTY-NOTICES.md; do
+    if [[ ! -f "${publish_dir}/${required}" ]]; then
+        echo "The publish at ${publish_dir} is missing ${required}." >&2
+        exit 1
+    fi
+done
+if [[ ! -x "${publish_dir}/Asura" ]]; then
+    echo "The publish's Asura launcher is not executable." >&2
+    exit 1
+fi
+if find "${publish_dir}" -name '*.pdb' -print -quit | grep -q .; then
+    echo "The publish carries .pdb files; publish with -p:DebugType=None -p:DebugSymbols=false." >&2
+    exit 1
+fi
+if ! file "${publish_dir}/libcef.so" | grep -q ', stripped'; then
+    echo "libcef.so still carries its debug symbols; rebuild the CEF payload with scripts/build-cef-runtime.sh." >&2
+    exit 1
+fi
+# Every library the launcher and the browser engine link must resolve on this
+# host, which installs the same packages the dependency lists name. The CEF
+# shim links only libcef.so, which it finds beside itself, and libraries
+# libcef.so needs too.
+for linked in Asura libcef.so; do
+    if ldd "${publish_dir}/${linked}" | grep -q 'not found'; then
+        ldd "${publish_dir}/${linked}" >&2
+        echo "${linked} links a library this host does not have." >&2
+        exit 1
+    fi
+done
+
+mkdir -p "${output_dir}"
+output_dir="$(cd -- "${output_dir}" && pwd -P)"
+work_dir="$(mktemp -d)"
+trap 'rm -rf -- "${work_dir}"' EXIT
+stage="${work_dir}/root"
+release_date="$(date -u +%Y-%m-%d)"
+
+# One staged file system tree feeds both packages, so they install the same
+# files with the same modes.
+mkdir -p \
+    "${stage}${install_root}" \
+    "${stage}/usr/bin" \
+    "${stage}/usr/share/applications" \
+    "${stage}/usr/share/metainfo" \
+    "${stage}/usr/share/doc/asura"
+cp -a "${publish_dir}/." "${stage}${install_root}/"
+find "${stage}" -type d -exec chmod 0755 {} +
+find "${stage}" -type f -perm /022 -exec chmod go-w {} +
+chmod 4755 "${stage}${install_root}/chrome-sandbox"
+ln -s "../..${install_root}/Asura" "${stage}/usr/bin/asura"
+cp "${assets_dir}/${app_id}.desktop" "${stage}/usr/share/applications/"
+sed -e "s/@VERSION@/${version}/g" -e "s/@DATE@/${release_date}/g" \
+    "${assets_dir}/${app_id}.metainfo.xml" > "${stage}/usr/share/metainfo/${app_id}.metainfo.xml"
+for icon in "${assets_dir}"/icons/hicolor/*/apps/"${app_id}.png"; do
+    size="$(basename "$(dirname "$(dirname "${icon}")")")"
+    mkdir -p "${stage}/usr/share/icons/hicolor/${size}/apps"
+    cp "${icon}" "${stage}/usr/share/icons/hicolor/${size}/apps/"
+done
+cp "${repository_dir}/LICENSE" "${stage}/usr/share/doc/asura/copyright"
+chmod 0644 \
+    "${stage}/usr/share/applications/${app_id}.desktop" \
+    "${stage}/usr/share/metainfo/${app_id}.metainfo.xml" \
+    "${stage}/usr/share/doc/asura/copyright" \
+    "${stage}"/usr/share/icons/hicolor/*/apps/"${app_id}.png"
+
+checksum() {
+    (cd "$(dirname "$1")" && sha256sum "$(basename "$1")" > "$(basename "$1").sha256")
+}
+
+# The archive name carries no version so the release's "latest" download URL
+# is stable, like Asura-macOS-arm64.zip; the directory it unpacks to is
+# versioned. It holds the application directory only; the README's install
+# steps do what the packages do.
+archive="${output_dir}/Asura-${rid}.tar.gz"
+tar -C "${stage}/opt" \
+    --owner=0 --group=0 --numeric-owner \
+    --transform "s,^asura,Asura-${version}-${rid}," \
+    -czf "${archive}" asura
+checksum "${archive}"
+
+summary="Terminal workspace with an AI agent, browser, and developer tools"
+read -r -d '' description <<'EOF' || true
+Asura is a native desktop terminal workspace with an integrated AI agent,
+embedded browser, and developer tools. One window holds your terminals,
+remote servers, Docker containers, Kubernetes clusters, databases, files,
+Git repositories, and system monitors.
+EOF
+
+deb_root="${work_dir}/deb"
+mkdir -p "${deb_root}/DEBIAN"
+chmod 0755 "${deb_root}" "${deb_root}/DEBIAN"
+cp -a "${stage}/." "${deb_root}/"
+installed_size="$(du -sk "${stage}" | cut -f1)"
+{
+    cat <<EOF
+Package: asura
+Version: ${version}
+Section: devel
+Priority: optional
+Architecture: ${deb_arch}
+Installed-Size: ${installed_size}
+Maintainer: Terion Labs <terion-labs@users.noreply.github.com>
+Homepage: https://asura.sh
+Depends: libc6 (>= 2.38), libgcc-s1, libstdc++6, libssl3t64 | libssl3, libicu78 | libicu76 | libicu74, libudev1, libxcb1, libx11-6, libxext6, libxi6, libxcursor1, libxrandr2, libxfixes3, libxinerama1, libxrender1, libxcomposite1, libxdamage1, libxtst6, libxkbcommon0, libice6, libsm6, libgl1, libgbm1, libdrm2, libdbus-1-3, libglib2.0-0t64 | libglib2.0-0, libnss3, libnspr4, libatk1.0-0t64 | libatk1.0-0, libatk-bridge2.0-0t64 | libatk-bridge2.0-0, libatspi2.0-0t64 | libatspi2.0-0, libcups2t64 | libcups2, libpango-1.0-0, libcairo2, libasound2t64 | libasound2, libexpat1, fontconfig, libfontconfig1, libfreetype6, libsecret-tools
+Recommends: libfido2-1, libgssapi-krb5-2
+Description: ${summary}
+EOF
+    printf '%s\n' "${description}" | sed 's/^/ /'
+    cat <<EOF
+ .
+ This package installs the self-contained build under ${install_root} and
+ puts the asura command on the PATH. It has no updater: install a newer
+ release the same way. Third-party notices are in
+ ${install_root}/THIRD-PARTY-NOTICES.md.
+EOF
+} > "${deb_root}/DEBIAN/control"
+deb="${output_dir}/Asura-${rid}.deb"
+dpkg-deb --root-owner-group -Zxz --build "${deb_root}" "${deb}" >/dev/null
+checksum "${deb}"
+
+rpm_top="${work_dir}/rpm"
+mkdir -p "${rpm_top}/SPECS"
+{
+    cat <<EOF
+# The payload is a self-contained .NET and Chromium build: nothing in it is
+# a system library, so rpmbuild neither strips it, nor derives provides and
+# requires from it, nor splits debug packages from it.
+%global __os_install_post %{nil}
+%global debug_package %{nil}
+%global _build_id_links none
+%global _missing_build_ids_terminate_build 0
+
+Name: asura
+Version: ${version}
+Release: 1
+Summary: ${summary}
+License: MIT
+URL: https://asura.sh
+AutoReqProv: no
+EOF
+    # The launcher, CEF and the .NET runtime link these by soname, or dlopen
+    # them (ICU, OpenSSL, OpenGL, the X11 input and session libraries,
+    # freetype and the fido2/Kerberos extras).
+    echo "Requires: libc.so.6(GLIBC_2.38)(64bit)"
+    for soname in \
+        libc.so.6 libm.so.6 libpthread.so.0 libgcc_s.so.1 libdl.so.2 \
+        libstdc++.so.6 librt.so.1 libutil.so.1 libresolv.so.2 libudev.so.1 \
+        libssl.so.3 libcrypto.so.3 \
+        libxcb.so.1 libX11.so.6 libXext.so.6 libXi.so.6 libXcursor.so.1 \
+        libXrandr.so.2 libXfixes.so.3 libXinerama.so.1 libXrender.so.1 \
+        libXcomposite.so.1 libXdamage.so.1 libXtst.so.6 libxkbcommon.so.0 \
+        libICE.so.6 libSM.so.6 libGL.so.1 libgbm.so.1 libdrm.so.2 \
+        libdbus-1.so.3 libglib-2.0.so.0 libgobject-2.0.so.0 libgio-2.0.so.0 \
+        libnss3.so libnssutil3.so libsmime3.so libnspr4.so \
+        libatk-1.0.so.0 libatk-bridge-2.0.so.0 libatspi.so.0 libcups.so.2 \
+        libpango-1.0.so.0 libcairo.so.2 libasound.so.2 libexpat.so.1 \
+        libfontconfig.so.1 libfreetype.so.6; do
+        echo "Requires: ${soname}()(64bit)"
+    done
+    cat <<EOF
+Requires: libicu
+Requires: fontconfig
+Requires: /usr/bin/secret-tool
+Recommends: libfido2.so.1()(64bit)
+Recommends: libgssapi_krb5.so.2()(64bit)
+
+%description
+${description}
+
+This package installs the self-contained build under ${install_root} and
+puts the asura command on the PATH. It has no updater: install a newer
+release the same way. Third-party notices are in
+${install_root}/THIRD-PARTY-NOTICES.md.
+
+%install
+mkdir -p %{buildroot}
+cp -a "${stage}/." %{buildroot}/
+
+%files
+%defattr(-,root,root,-)
+${install_root}
+/usr/bin/asura
+/usr/share/applications/${app_id}.desktop
+/usr/share/icons/hicolor/*/apps/${app_id}.png
+/usr/share/metainfo/${app_id}.metainfo.xml
+%doc /usr/share/doc/asura/copyright
+EOF
+} > "${rpm_top}/SPECS/asura.spec"
+rpmbuild -bb --quiet \
+    --define "_topdir ${rpm_top}" \
+    --define "_binary_payload w6.xzdio" \
+    --target "${rpm_arch}" \
+    "${rpm_top}/SPECS/asura.spec" >/dev/null
+built_rpm="$(find "${rpm_top}/RPMS" -name "asura-${version}-1.${rpm_arch}.rpm" -print -quit)"
+if [[ -z "${built_rpm}" ]]; then
+    echo "rpmbuild produced no asura-${version}-1.${rpm_arch}.rpm." >&2
+    exit 1
+fi
+rpm="${output_dir}/Asura-${rid}.rpm"
+cp "${built_rpm}" "${rpm}"
+checksum "${rpm}"
+
+for package in "${archive}" "${deb}" "${rpm}"; do
+    printf '%s\t%s\n' "$(du -h "${package}" | cut -f1)" "$(basename "${package}")"
+done

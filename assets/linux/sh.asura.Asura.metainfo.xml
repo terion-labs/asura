@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata for the Linux packages. scripts/package-linux.sh
+     fills in the release version and date. -->
+<component type="desktop-application">
+  <id>sh.asura.Asura</id>
+  <name>Asura</name>
+  <summary>Terminal workspace with an AI agent, browser, and developer tools</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="sh.asura">
+    <name>Terion Labs</name>
+  </developer>
+  <description>
+    <p>
+      Asura is a native desktop terminal workspace with an integrated AI
+      agent, embedded browser, and developer tools. One window holds your
+      terminals, remote servers, Docker containers, Kubernetes clusters,
+      databases, files, Git repositories, and system monitors.
+    </p>
+    <p>
+      The agent runs in-process inside the desktop app and connects to remote
+      hosts over standard SSH. Every mutation it proposes needs your approval,
+      and pressing any key takes the terminal back immediately.
+    </p>
+  </description>
+  <launchable type="desktop-id">sh.asura.Asura.desktop</launchable>
+  <provides>
+    <binary>asura</binary>
+  </provides>
+  <url type="homepage">https://asura.sh</url>
+  <url type="bugtracker">https://github.com/terion-labs/asura/issues</url>
+  <url type="vcs-browser">https://github.com/terion-labs/asura</url>
+  <categories>
+    <category>Development</category>
+    <category>TerminalEmulator</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="@VERSION@" date="@DATE@">
+      <url>https://github.com/terion-labs/asura/releases/tag/v@VERSION@</url>
+    </release>
+  </releases>
+</component>

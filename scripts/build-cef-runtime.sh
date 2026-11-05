@@ -150,6 +150,10 @@ for command_name in cmake curl file python3 tar; do
         exit 1
     fi
 done
+if [[ "${target_os}" == "Linux" ]] && ! command -v strip >/dev/null 2>&1; then
+    echo "The Linux CEF build requires strip (binutils) to drop libcef.so's debug symbols." >&2
+    exit 1
+fi
 if [[ ! -f "${catalog}" || -L "${catalog}" ]]; then
     echo "The reviewed CEF runtime catalog is missing or linked." >&2
     exit 1
@@ -465,6 +469,13 @@ else
     )
     for name in "${linux_binaries[@]}"; do
         cp "${cef_root}/Release/${name}" "${cef_artifact_dir}/${name}"
+    done
+    # The CEF distribution ships libcef.so with its debug symbols, which are
+    # most of its 1.3 GB (x64) to 2.2 GB (arm64). Nothing in the package
+    # reads them, so the payload keeps only what the loader needs. This runs
+    # before the receipt hashes the runtime root.
+    for name in libcef.so libEGL.so libGLESv2.so libvk_swiftshader.so libvulkan.so.1; do
+        strip --strip-unneeded "${cef_artifact_dir}/${name}"
     done
     chmod 0755 "${cef_artifact_dir}/chrome-sandbox"
     cp "${cef_root}/Resources/chrome_100_percent.pak" "${cef_artifact_dir}/"

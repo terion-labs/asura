@@ -504,11 +504,23 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("archive=\"Asura-macOS-arm64.zip\"", workflow, StringComparison.Ordinal);
         Assert.Contains("distribution/Asura-macOS-arm64.zip.sha256", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("Asura-macOS-arm64-${RELEASE_VERSION}.zip", workflow, StringComparison.Ordinal);
-        // The Linux archives follow the same rule: the website's download
+        // The Linux downloads follow the same rule: the website's download
         // links point at the release's "latest" URL for each name.
-        Assert.Contains("archive=\"${distribution}/Asura-${{ matrix.rid }}.tar.gz\"", workflow, StringComparison.Ordinal);
-        Assert.Contains("linux/Asura-linux-x64.tar.gz\"", workflow, StringComparison.Ordinal);
-        Assert.Contains("linux/Asura-linux-arm64.tar.gz\"", workflow, StringComparison.Ordinal);
+        var linuxPackaging = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "package-linux.sh"));
+        Assert.Contains("./scripts/package-linux.sh", workflow, StringComparison.Ordinal);
+        Assert.Contains("archive=\"${output_dir}/Asura-${rid}.tar.gz\"", linuxPackaging, StringComparison.Ordinal);
+        Assert.Contains("--transform \"s,^asura,Asura-${version}-${rid},\"", linuxPackaging, StringComparison.Ordinal);
+        Assert.Contains("deb=\"${output_dir}/Asura-${rid}.deb\"", linuxPackaging, StringComparison.Ordinal);
+        Assert.Contains("rpm=\"${output_dir}/Asura-${rid}.rpm\"", linuxPackaging, StringComparison.Ordinal);
+        foreach (var rid in new[] { "linux-x64", "linux-arm64" })
+        {
+            foreach (var extension in new[] { ".tar.gz", ".deb", ".rpm" })
+            {
+                Assert.Contains($"linux/Asura-{rid}{extension}\"", workflow, StringComparison.Ordinal);
+                Assert.Contains($"linux/Asura-{rid}{extension}.sha256\"", workflow, StringComparison.Ordinal);
+            }
+        }
+
         Assert.DoesNotContain("Asura-${RELEASE_VERSION}-linux-x64.tar.gz", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("Asura-${version}-${{ matrix.rid }}.tar.gz", workflow, StringComparison.Ordinal);
         Assert.Contains("package-macos-github-release.sh", workflow, StringComparison.Ordinal);
@@ -531,6 +543,53 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("--latest", workflow, StringComparison.Ordinal);
         Assert.Contains("--verify-tag", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("--prerelease", workflow, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The Linux downloads carry no debug symbols: CEF's libcef.so ships
+    /// with its symbols (most of its size), and a self-contained publish
+    /// copies every first-party .pdb unless told not to. The packages
+    /// install the desktop integration and the setuid sandbox helper the
+    /// README's manual steps otherwise ask for.
+    /// </summary>
+    [Fact]
+    public void Linux_packages_ship_stripped_with_desktop_integration()
+    {
+        var release = File.ReadAllText(Path.Combine(RepositoryRoot, ".github", "workflows", "repository-gate.yml"));
+        var lane = File.ReadAllText(Path.Combine(RepositoryRoot, ".github", "workflows", "linux-lane.yml"));
+        var cefBuild = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "build-cef-runtime.sh"));
+        var packaging = File.ReadAllText(Path.Combine(RepositoryRoot, "scripts", "package-linux.sh"));
+        var assets = Path.Combine(RepositoryRoot, "assets", "linux");
+
+        Assert.Contains("strip --strip-unneeded \"${cef_artifact_dir}/${name}\"", cefBuild, StringComparison.Ordinal);
+        Assert.Contains("if ! file \"${publish_dir}/libcef.so\" | grep -q ', stripped'; then", packaging, StringComparison.Ordinal);
+        Assert.Contains("find \"${publish_dir}\" -name '*.pdb' -print -quit", packaging, StringComparison.Ordinal);
+        foreach (var workflow in new[] { release, lane })
+        {
+            Assert.Contains("-p:DebugType=None \\\n            -p:DebugSymbols=false \\\n", workflow, StringComparison.Ordinal);
+            Assert.Contains("./scripts/package-linux.sh", workflow, StringComparison.Ordinal);
+            Assert.Contains("test \"$(stat -c '%a %U' /opt/asura/chrome-sandbox)\" = \"4755 root\"", workflow, StringComparison.Ordinal);
+            Assert.Contains("desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop", workflow, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("chmod 4755 \"${stage}${install_root}/chrome-sandbox\"", packaging, StringComparison.Ordinal);
+        Assert.Contains("ln -s \"../..${install_root}/Asura\" \"${stage}/usr/bin/asura\"", packaging, StringComparison.Ordinal);
+        Assert.Contains("dpkg-deb --root-owner-group", packaging, StringComparison.Ordinal);
+        Assert.Contains("AutoReqProv: no", packaging, StringComparison.Ordinal);
+        Assert.Contains("Depends: libc6 (>= 2.38)", packaging, StringComparison.Ordinal);
+        Assert.Contains("Requires: libc.so.6(GLIBC_2.38)(64bit)", packaging, StringComparison.Ordinal);
+
+        var desktopEntry = File.ReadAllText(Path.Combine(assets, "sh.asura.Asura.desktop"));
+        Assert.Contains("Exec=asura\n", desktopEntry, StringComparison.Ordinal);
+        Assert.Contains("Icon=sh.asura.Asura\n", desktopEntry, StringComparison.Ordinal);
+        Assert.Contains("StartupWMClass=Asura\n", desktopEntry, StringComparison.Ordinal);
+        var metainfo = File.ReadAllText(Path.Combine(assets, "sh.asura.Asura.metainfo.xml"));
+        Assert.Contains("<id>sh.asura.Asura</id>", metainfo, StringComparison.Ordinal);
+        Assert.Contains("<release version=\"@VERSION@\" date=\"@DATE@\">", metainfo, StringComparison.Ordinal);
+        foreach (var size in new[] { 16, 24, 32, 48, 64, 128, 256, 512 })
+        {
+            Assert.True(File.Exists(Path.Combine(assets, "icons", "hicolor", $"{size}x{size}", "apps", "sh.asura.Asura.png")), $"{size}px icon");
+        }
     }
 
     [Fact]

@@ -1,7 +1,8 @@
-// Which release archive fits the visitor's machine. The prerendered page
+// Which release download fits the visitor's machine. The prerendered page
 // shows the macOS build; after hydration the button switches to the
 // visitor's platform, or to a generic "choose" state where no build fits
-// (Windows, phones, ChromeOS).
+// (Windows, phones, ChromeOS). A browser cannot tell the distribution, so
+// Linux gets the .deb for its CPU and the menu offers the .rpm and archive.
 import { builds, defaultBuild, type Build, type BuildId } from '~/content/facts'
 
 export type DetectedBuild = { state: 'pending' } | { state: 'known'; build: Build } | { state: 'none' }
@@ -28,9 +29,9 @@ export function detectBuildId(userAgent: string, platform: string, hints: Client
     // Chromium freezes its Linux user agent to "x86_64" whatever the CPU;
     // the client hint carries the real architecture when it is available.
     if (hints.architecture) {
-      return hints.architecture.toLowerCase() === 'arm' ? 'linux-arm64' : 'linux-x64'
+      return hints.architecture.toLowerCase() === 'arm' ? 'linux-arm64-deb' : 'linux-x64-deb'
     }
-    return /aarch64|arm64|armv8/i.test(ua) ? 'linux-arm64' : 'linux-x64'
+    return /aarch64|arm64|armv8/i.test(ua) ? 'linux-arm64-deb' : 'linux-x64-deb'
   }
   return null
 }

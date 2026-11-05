@@ -127,7 +127,7 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
           :aria-current="current?.id === build.id ? 'true' : undefined"
           @click="close"
         >
-          <span class="dl__os">{{ build.os }}</span>
+          <span class="dl__os">{{ build.os }} <span class="dl__fits">{{ build.fits }}</span></span>
           <span class="dl__meta">{{ build.arch }} · {{ build.file }}</span>
         </a>
       </li>
@@ -217,6 +217,12 @@ onBeforeUnmount(() => document.removeEventListener('pointerdown', onDocumentPoin
   vertical-align: middle;
   border-radius: 50%;
   background: var(--accent);
+}
+
+.dl__fits {
+  margin-left: 6px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .dl__meta {

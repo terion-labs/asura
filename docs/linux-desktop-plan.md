@@ -72,7 +72,7 @@ decision; three add Linux work items, recorded in the phases below.
 | CEF on Linux | Nothing sets up `chrome-sandbox`, user-namespace detection, or GPU/OSR flags; no `--password-store` switch is chosen; nothing validates the runtime shared-library dependencies |
 | Globalization | Self-contained Linux builds need `libicu` from the distro or an app-local ICU |
 | Native AOT | Only `osx-arm64` has an AOT lock file and an AOT release path |
-| Packaging | `tools/Asura.Packaging` has macOS bundle, Velopack and legal-closure builders only. No AppImage, `.deb`, `.rpm`, `.desktop`, icon theme, or AppStream metadata. The macOS legal record explicitly excludes Linux |
+| Packaging | `scripts/package-linux.sh` builds the portable archive, a `.deb` and an `.rpm` from one publish, with the desktop entry, hicolor icons and AppStream metadata under `assets/linux` and the setuid `chrome-sandbox`. No AppImage or Flatpak, no apt or dnf repository, no package signing. The macOS legal record explicitly excludes Linux |
 | Updates | No `linux-x64-stable` or `linux-arm64-stable` Velopack channel |
 | Connection engines | `AsuraConnectionEnginesSupported` is `osx-arm64` only; OpenVPN 3, OpenConnect, Tailscale and WireGuard engines are not built for Linux |
 | Workspace isolation | Returns `Unavailable` with `LinuxBackendNotPackaged` / `LinuxKvmRequired`. ADR 0053 names the Apple Containerization Linux backend as the thing to prototype |
@@ -375,15 +375,20 @@ What the first runs on Linux taught, all fixed in the same change:
   it declares it cannot prove stay listed as such.
 
 The tagged release workflow (`repository-gate.yml`) builds the same two
-self-contained Linux packages from the tag through the shared
-`.github/actions/linux-native-payloads` action and attaches
-`Asura-linux-x64.tar.gz` and `Asura-linux-arm64.tar.gz` with checksums to
-the GitHub release beside the macOS build. The archive names carry no version
-so the release's `latest` download URLs stay stable for the website; each
-unpacks to a versioned directory. They are unsigned and carry no updater;
-the README's "Linux" section is the install recipe (runtime libraries, the
-setuid `chrome-sandbox`, `secret-tool`). AppImage, `.deb` and `.rpm` with
-Velopack updates are Phase 3.
+self-contained Linux publishes from the tag through the shared
+`.github/actions/linux-native-payloads` action, and
+`scripts/package-linux.sh` turns each into `Asura-linux-<rid>.tar.gz`,
+`Asura-linux-<rid>.deb` and `Asura-linux-<rid>.rpm` with checksums, attached
+to the GitHub release beside the macOS build. The names carry no version so
+the release's `latest` download URLs stay stable for the website; the
+archive unpacks to a versioned directory. The packages install under
+`/opt/asura` with `asura` on the PATH, the desktop entry, icons and
+AppStream metadata from `assets/linux`, and `chrome-sandbox` setuid root;
+their dependency lists are reviewed by hand in the script. The CEF payload
+is stripped (`libcef.so` ships with 1 to 2 GB of debug symbols) and the
+publish drops `.pdb` files. Everything is unsigned and carries no updater;
+the README's "Linux" section is the install recipe. AppImage and Velopack
+updates are Phase 3.
 
 The gate itself runs on Linux: `check.sh --quick` and the native networking
 module's full checks in the lane, and the Linux-only Native AOT lock

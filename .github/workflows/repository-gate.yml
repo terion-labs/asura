@@ -326,6 +326,11 @@ jobs:
         uses: ./.github/actions/linux-native-payloads
         with:
           rid: ${{ matrix.rid }}
+      - name: Install the package builders
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            rpm desktop-file-utils appstream
       - name: Restore the locked dependency graph for ${{ matrix.rid }}
         shell: bash
         run: >-
@@ -343,7 +348,9 @@ jobs:
             --self-contained true \
             --no-restore \
             -p:RestoreLockedMode=true \
-            -p:Version="${version}" \
+            -p:AsuraProductVersion="${version}" \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
             --output "${package}"
           test -x "${package}/Asura"
           test -f "${package}/libghostty-vt.so"
@@ -355,15 +362,43 @@ jobs:
             ldd "${package}/Asura" >&2
             exit 1
           fi
+          echo "ASURA_PACKAGE=${package}" >> "${GITHUB_ENV}"
+      - name: Build the portable archive and the Debian and RPM packages
+        shell: bash
+        run: |
+          version="${ASURA_RELEASE_TAG#v}"
           distribution="${RUNNER_TEMP}/asura-linux-distribution"
-          mkdir -p "${distribution}"
+          ./scripts/package-linux.sh \
+            --rid "${{ matrix.rid }}" \
+            --version "${version}" \
+            --publish "${ASURA_PACKAGE}" \
+            --output "${distribution}"
           # The archive name carries no version so the release's "latest"
           # download URL is stable, like Asura-macOS-arm64.zip; the directory
-          # it unpacks to is versioned.
-          archive="${distribution}/Asura-${{ matrix.rid }}.tar.gz"
-          tar -C "${RUNNER_TEMP}" -czf "${archive}" "Asura-${version}-${{ matrix.rid }}"
-          (cd "${distribution}" && sha256sum "$(basename "${archive}")" > "$(basename "${archive}").sha256")
+          # it unpacks to is versioned. The packages follow the same rule.
+          for name in Asura-${{ matrix.rid }}.tar.gz Asura-${{ matrix.rid }}.deb Asura-${{ matrix.rid }}.rpm; do
+            test -f "${distribution}/${name}"
+            test -f "${distribution}/${name}.sha256"
+          done
+          dpkg-deb --info "${distribution}/Asura-${{ matrix.rid }}.deb"
+          rpm --query --package --info "${distribution}/Asura-${{ matrix.rid }}.rpm"
           echo "ASURA_LINUX_DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
+      - name: Install the Debian package and check what it registers
+        shell: bash
+        run: |
+          sudo apt-get install -y "${ASURA_LINUX_DISTRIBUTION}/Asura-${{ matrix.rid }}.deb"
+          test "$(stat -c '%a %U' /opt/asura/chrome-sandbox)" = "4755 root"
+          test "$(readlink -f /usr/bin/asura)" = "/opt/asura/Asura"
+          desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop
+          appstreamcli validate --no-net /usr/share/metainfo/sh.asura.Asura.metainfo.xml
+          for linked in Asura libcef.so; do
+            if ldd "/opt/asura/${linked}" | grep -q 'not found'; then
+              ldd "/opt/asura/${linked}" >&2
+              exit 1
+            fi
+          done
+          sudo apt-get remove -y asura
+          test ! -e /opt/asura
       - name: Upload the Linux release package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -566,8 +601,10 @@ jobs:
         run: |
           cd "${RUNNER_TEMP}/asura-release-artifacts/linux"
           for rid in linux-x64 linux-arm64; do
-            test -f "Asura-${rid}.tar.gz"
-            shasum -a 256 -c "Asura-${rid}.tar.gz.sha256"
+            for name in "Asura-${rid}.tar.gz" "Asura-${rid}.deb" "Asura-${rid}.rpm"; do
+              test -f "${name}"
+              shasum -a 256 -c "${name}.sha256"
+            done
           done
       - name: Configure Developer ID signing and notarization
         env:
@@ -752,6 +789,14 @@ jobs:
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.tar.gz.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz" \
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.tar.gz.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.deb" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.deb.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.deb" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.deb.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.rpm" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.rpm.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.rpm" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.rpm.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.md" \
@@ -763,7 +808,7 @@ jobs:
             --fail-on-no-commits \
             --generate-notes \
             --latest \
-            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; install steps are in the README." \
+            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux .deb (Debian 13, Ubuntu 24.04 and newer), .rpm (Fedora 39, RHEL 10 and newer) and portable tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; install steps are in the README." \
             --title "Asura ${RELEASE_VERSION} early release" \
             --verify-tag
       - name: Remove temporary signing credentials

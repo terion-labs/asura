@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=Asura
+GenericName=Terminal workspace
+Comment=Terminal workspace with an AI agent, browser, and developer tools
+Exec=asura
+TryExec=/opt/asura/Asura
+Icon=sh.asura.Asura
+Terminal=false
+Categories=Development;TerminalEmulator;
+Keywords=terminal;ssh;docker;kubernetes;database;git;files;agent;
+StartupNotify=true
+StartupWMClass=Asura
