@@ -16,7 +16,7 @@ public sealed partial class WorkspaceMemoriesView : UserControl
         _ = sender; _ = e;
         if (DataContext is not WorkspaceMemoriesViewModel memories || TopLevel.GetTopLevel(this) is not { } top) { return; }
         var file = await top.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        { Title = "Export workspace memories", SuggestedFileName = "workspace-memories.json", DefaultExtension = "json", ShowOverwritePrompt = true });
+        { Title = "Export Workspace Memories", SuggestedFileName = "workspace-memories.json", DefaultExtension = "json", ShowOverwritePrompt = true });
         if (file?.TryGetLocalPath() is { } path) { await memories.ExportAsync(path); }
     }
 
