@@ -35,7 +35,8 @@ Required local toolchain:
 
 Optional toolchain overrides:
   ASURA_XCODE_APP         Full Xcode 26 or newer application directory.
-  ASURA_NATIVE_AOT_LINKER Absolute path to LLVM ld64.lld 22.x.
+  ASURA_NATIVE_AOT_LINKER Absolute path to an alternative linker. Apple's
+                          ld links by default.
 
 This is the local equivalent of the tag release job. It runs the full repository
 gate, builds from a read-only sealed source export, builds every native payload,
@@ -172,17 +173,12 @@ if [[ ! "${native_image_version}" =~ ^native-image[[:space:]]+25\.0\.4([[:space:
 fi
 export JAVA_HOME="${GRAALVM_HOME}"
 
+# Apple's linker links the release since ILCompiler 10.0.14 emits the
+# relocation anchors that keep it from its large-addend assert; LLVM lld 22
+# cannot parse those anchors in __eh_frame. An override must at least exist.
 native_aot_linker="${ASURA_NATIVE_AOT_LINKER:-}"
-if [[ -z "${native_aot_linker}" ]] && command -v brew >/dev/null 2>&1; then
-    native_aot_linker="$(brew --prefix lld@22 2>/dev/null || true)/bin/ld64.lld"
-fi
-if [[ -z "${native_aot_linker}" || ! -x "${native_aot_linker}" ]]; then
-    echo "Release rehearsal requires LLVM ld64.lld 22.x." >&2
-    exit 1
-fi
-linker_version="$("${native_aot_linker}" --version)"
-if [[ ! "${linker_version}" =~ LLD[[:space:]]22\. ]]; then
-    echo "Release rehearsal requires LLVM lld 22.x; found ${linker_version}." >&2
+if [[ -n "${native_aot_linker}" && ! -x "${native_aot_linker}" ]]; then
+    echo "ASURA_NATIVE_AOT_LINKER names no executable linker: ${native_aot_linker}" >&2
     exit 1
 fi
 export ASURA_NATIVE_AOT_LINKER="${native_aot_linker}"

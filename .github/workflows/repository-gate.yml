@@ -453,35 +453,19 @@ jobs:
           distribution: graalvm
           github-token: ${{ secrets.GITHUB_TOKEN }}
           native-image-job-reports: true
-      - name: Set up the Native AOT linker
+      - name: Record the Native AOT linker
         run: |
-          # Formula and every dependency bottle checksum come from this reviewed
-          # immutable tap revision, never the mutable Homebrew JSON API.
-          core_revision=7d510097b9e6d86c103d22054ec80d74b5d70e9a
-          core_tap="$(brew --repository)/Library/Taps/homebrew/homebrew-core"
-          if [[ ! -d "${core_tap}/.git" ]]; then
-            mkdir -p "${core_tap}"
-            git -C "${core_tap}" init
-            git -C "${core_tap}" remote add origin https://github.com/Homebrew/homebrew-core.git
-          fi
-          git -C "${core_tap}" fetch --depth=1 origin "${core_revision}"
-          # Runner images can ship a tap with locally edited formulae; the
-          # pinned revision must replace them, not be refused by them.
-          git -C "${core_tap}" checkout --force --detach "${core_revision}"
-          test "$(git -C "${core_tap}" rev-parse HEAD)" = "${core_revision}"
-          if brew list --versions lld@22 >/dev/null 2>&1; then
-            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22
-          else
-            HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew install lld@22
-          fi
-          linker="$(brew --prefix lld@22)/bin/ld64.lld"
-          linker_version="$("${linker}" --version)"
-          [[ "${linker_version}" =~ ^LLD[[:space:]]+22\.1\.8([[:space:]]|$) ]]
+          # ILCompiler 10.0.14 emits the relocation anchors that keep Apple's
+          # linker from its large-addend assert (dotnet/runtime#119380), and
+          # LLVM lld 22 cannot parse them in __eh_frame, so the release links
+          # with the Xcode toolchain's own ld. Its identity is release evidence.
+          linker="$(xcrun --find ld)"
           {
-            printf '%s\n' "homebrew-core ${core_revision}" "${linker_version}"
+            xcodebuild -version | tr '\n' ' '
+            echo
+            "${linker}" -v 2>&1 | head -1
             shasum -a 256 "${linker}"
           } > "${ASURA_RELEASE_ARTIFACTS}/linker-source.txt"
-          echo "ASURA_NATIVE_AOT_LINKER=${linker}" >> "${GITHUB_ENV}"
       - name: Resolve release version
         id: release
         shell: bash

@@ -24,9 +24,11 @@ ASURA_SKIP_NATIVE=1 ./scripts/bootstrap.sh
 ./scripts/build-cef-runtime.sh --rid osx-arm64
 ```
 
-Install LLVM's `ld64.lld` as well. Asura's Native AOT object exceeds the
-limits of Apple's current linker. Set `ASURA_NATIVE_AOT_LINKER` when the
-linker is not on `PATH`.
+Apple's linker from the Xcode toolchain links the Native AOT application.
+Until .NET 10.0.12 its large-addend assert (dotnet/runtime#119380) needed
+LLVM's `ld64.lld` 22 instead; ILCompiler now emits relocation anchors that
+Apple's linker accepts and that lld 22 cannot parse. `ASURA_NATIVE_AOT_LINKER`
+still names an alternative linker when one is wanted.
 
 Install full Xcode 26 or newer before packaging. CommandLineTools alone does not
 contain `actool` and the release script fails before publishing when full Xcode

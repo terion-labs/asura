@@ -240,10 +240,13 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("packages.${runtime_identifier}.aot.lock.json", packageScript, StringComparison.Ordinal);
         Assert.Contains("--managed-evidence", packageScript, StringComparison.Ordinal);
         Assert.Contains("*.runtimeconfig.json", packageScript, StringComparison.Ordinal);
-        Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew install lld@22", workflow, StringComparison.Ordinal);
-        Assert.Contains("HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_FROM_API=1 brew reinstall lld@22", workflow, StringComparison.Ordinal);
-        Assert.Contains("core_revision=7d510097b9e6d86c103d22054ec80d74b5d70e9a", workflow, StringComparison.Ordinal);
-        Assert.Contains("checkout --force --detach \"${core_revision}\"", workflow, StringComparison.Ordinal);
+        // Apple's linker links the release; its identity is recorded as
+        // evidence, and no Homebrew linker is installed on the runner.
+        Assert.Contains("- name: Record the Native AOT linker", workflow, StringComparison.Ordinal);
+        Assert.Contains("linker=\"$(xcrun --find ld)\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("> \"${ASURA_RELEASE_ARTIFACTS}/linker-source.txt\"", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("lld@22", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("ASURA_NATIVE_AOT_LINKER=", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("<string>Asura.icns</string>", infoPlist, StringComparison.Ordinal);
         Assert.True(File.Exists(Path.Combine(
             RepositoryRoot,

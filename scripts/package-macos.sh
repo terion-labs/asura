@@ -347,16 +347,10 @@ if [[ -n "${source_seal}" ]]; then
     verify_release_source
 fi
 
-if [[ -z "${native_aot_linker}" ]]; then
-    native_aot_linker="$(command -v ld64.lld || true)"
-fi
-if [[ -z "${native_aot_linker}" || ! -x "${native_aot_linker}" ]]; then
-    echo "Native AOT packaging requires LLVM's ld64.lld. Set ASURA_NATIVE_AOT_LINKER to its absolute path." >&2
-    exit 1
-fi
-native_aot_linker_version="$("${native_aot_linker}" --version)"
-if [[ ! "${native_aot_linker_version}" =~ LLD[[:space:]]22\. ]]; then
-    echo "Native AOT packaging requires LLVM lld 22.x; found ${native_aot_linker_version}." >&2
+# Apple's linker links the Native AOT application by default (see
+# docs/macos-packaging.md); ASURA_NATIVE_AOT_LINKER may name another one.
+if [[ -n "${native_aot_linker}" && ! -x "${native_aot_linker}" ]]; then
+    echo "ASURA_NATIVE_AOT_LINKER names no executable linker: ${native_aot_linker}" >&2
     exit 1
 fi
 

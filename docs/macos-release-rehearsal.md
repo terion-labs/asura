@@ -31,9 +31,9 @@ verified commit. `gh release create --verify-tag` only checks that a tag exists.
 
 Release packaging builds the Avalonia native bridge in a fresh private tree.
 The shared developer cache is not an authority for release binaries. The Native
-AOT linker and dependency bottle metadata come from the pinned Homebrew/core
-commit recorded in `linker-source.txt`; updating this pin requires reviewing the
-formula and dependency changes.
+AOT application links with the Xcode toolchain's own linker; `linker-source.txt`
+records the Xcode version, the linker's version line and its SHA-256 with the
+release evidence.
 
 ## Prerequisites
 
@@ -41,7 +41,6 @@ The rehearsal requires:
 - Apple silicon Mac
 - Full Xcode 26 or newer
 - GraalVM Native Image 25.0.4
-- LLVM `ld64.lld` 22.x
 - Apple Developer ID Application certificate and App Store Connect API key
 
 Store local credentials in the ignored `.apple/` directory and configure their shell assignments in the ignored `.env` file at the repository root.
@@ -56,7 +55,6 @@ APPLE_NOTARY_PRIVATE_KEY_BASE64="$(/usr/bin/base64 -i .apple/AuthKey_KEYID.p8 | 
 
 GRAALVM_HOME='/absolute/path/to/graalvm-25.0.4'
 ASURA_XCODE_APP='/Applications/Xcode.app'
-ASURA_NATIVE_AOT_LINKER='/opt/homebrew/opt/lld@22/bin/ld64.lld'
 ```
 
 `APPLE_CERTIFICATE_P12_BASE64` must decode to a password-protected PKCS#12 file containing the Developer ID Application certificate and its matching private key. `APPLE_NOTARY_PRIVATE_KEY_BASE64` must decode to the App Store Connect API `.p8` key used by `notarytool`.
