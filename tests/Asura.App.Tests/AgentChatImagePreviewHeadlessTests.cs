@@ -105,6 +105,21 @@ public sealed partial class AgentChatViewModelTests
             finally { window.Close(); }
         }, typeof(AgentAttachmentHeadlessApplication));
 
+    /// <summary>Clicks the centre of <paramref name="target"/> with the pointer, re-aiming after each layout, until <paramref name="landed"/> holds.</summary>
+    private static async Task ClickUntilAsync(Window window, Control target, Func<bool> landed)
+    {
+        for (var attempt = 0; attempt < 20 && !landed(); attempt++)
+        {
+            window.UpdateLayout();
+            var center = target.TranslatePoint(new Point(target.Bounds.Width / 2, target.Bounds.Height / 2), window)!.Value;
+            window.MouseDown(center, MouseButton.Left);
+            window.MouseUp(center, MouseButton.Left);
+            await Task.Delay(50);
+        }
+
+        Assert.True(landed(), "The pointer click never landed on the target.");
+    }
+
     private static async Task WaitForSettledTranscriptEndAsync(Window window, ScrollViewer transcript)
     {
         var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 10;
@@ -161,16 +176,14 @@ public sealed partial class AgentChatViewModelTests
                 }
                 var first = previews[0];
                 var open = first.FindControl<Button>("OpenPreview")!;
-                // The button turns on once its image loads, and the transcript
-                // lays out again as images arrive: aim only at the settled button.
-                await WaitUntilAsync(() => open.IsEffectivelyEnabled);
-                window.UpdateLayout();
-                var center = open.TranslatePoint(new Avalonia.Point(open.Bounds.Width / 2, open.Bounds.Height / 2), window)!.Value;
-                window.MouseDown(center, MouseButton.Left);
-                window.MouseUp(center, MouseButton.Left);
                 var popup = first.FindControl<Avalonia.Controls.Primitives.Popup>("PreviewPopup")!;
-                // The click opens it on the next dispatcher turn, which a busy machine delays.
-                await WaitUntilAsync(() => popup.IsOpen);
+                // The button turns on once its image loads, and the transcript
+                // keeps scrolling to its end on later dispatcher turns as the
+                // images arrive, so on a slow runner the button can move between
+                // aiming and the click (v0.1.97 release run): aim again until the
+                // click lands and opens the preview.
+                await WaitUntilAsync(() => open.IsEffectivelyEnabled);
+                await ClickUntilAsync(window, open, () => popup.IsOpen);
                 var enlarged = first.FindControl<ZoomableImageView>("EnlargedImage")!;
                 await WaitUntilAsync(() => enlarged.Source is not null);
                 Assert.Equal(1200, enlarged.Source!.PixelSize.Width);
