@@ -189,7 +189,9 @@ jobs:
             libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libatspi2.0-0 libcups2 \
             libxkbcommon0 libxdamage1 libpango-1.0-0 libcairo2 libasound2t64 \
             libxtst6 libexpat1 libglib2.0-0 dbus-daemon gnome-keyring libsecret-tools \
-            x11-apps rpm desktop-file-utils appstream
+            x11-apps rpm desktop-file-utils appstream squashfs-tools
+      - name: Restore the pinned Velopack tool that builds the AppImage
+        run: dotnet tool restore
       - name: Download native payloads
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -228,19 +230,37 @@ jobs:
             exit 1
           fi
           echo "ASURA_PACKAGE=${package}" >> "${GITHUB_ENV}"
-      - name: Build the portable archive and the Debian and RPM packages
+      - name: Build the portable archive, the Debian and RPM packages and the AppImage
         shell: bash
         run: |
-          # The release gate builds the same three downloads from the tagged
+          # The release gate builds the same four downloads from the tagged
           # source; here they prove the packaging on every change, under a
-          # version no release carries.
+          # version no release carries (Velopack rejects 0.0.0).
           ./scripts/package-linux.sh \
             --rid "${{ matrix.rid }}" \
-            --version "0.0.0" \
+            --version "0.0.1" \
             --publish "${ASURA_PACKAGE}" \
             --output artifacts/linux-package
           dpkg-deb --info "artifacts/linux-package/Asura-${{ matrix.rid }}.deb"
           rpm --query --package --info "artifacts/linux-package/Asura-${{ matrix.rid }}.rpm"
+          test -f "artifacts/linux-package/sh.asura-0.0.1-${{ matrix.rid }}-stable-full.nupkg"
+          test -f "artifacts/linux-package/releases.${{ matrix.rid }}-stable.json"
+      - name: Unpack the AppImage and check what it carries
+        shell: bash
+        run: |
+          # The runner has no FUSE for a mount; the AppImage's own extraction
+          # shows the same tree a mount would.
+          unpack="${RUNNER_TEMP}/asura-appimage-unpack"
+          mkdir -p "${unpack}"
+          (cd "${unpack}" && "${GITHUB_WORKSPACE}/artifacts/linux-package/Asura-${{ matrix.rid }}.AppImage" --appimage-extract >/dev/null)
+          app="${unpack}/squashfs-root/usr/bin"
+          test -x "${app}/Asura"
+          test -f "${app}/libcef.so"
+          test -x "${app}/UpdateNix"
+          test -f "${app}/sq.version"
+          test -f "${app}/distribution.json"
+          grep -q '"channel": "${{ matrix.rid }}-stable"' "${app}/distribution.json"
+          test -f "${unpack}/squashfs-root/sh.asura.desktop"
       - name: Install the Debian package and check what it registers
         shell: bash
         run: |

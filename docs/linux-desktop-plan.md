@@ -72,8 +72,8 @@ decision; three add Linux work items, recorded in the phases below.
 | CEF on Linux | Nothing sets up `chrome-sandbox`, user-namespace detection, or GPU/OSR flags; no `--password-store` switch is chosen; nothing validates the runtime shared-library dependencies |
 | Globalization | Self-contained Linux builds need `libicu` from the distro or an app-local ICU |
 | Native AOT | Only `osx-arm64` has an AOT lock file and an AOT release path |
-| Packaging | `scripts/package-linux.sh` builds the portable archive, a `.deb` and an `.rpm` from one publish, with the desktop entry, hicolor icons and AppStream metadata under `assets/linux` and the setuid `chrome-sandbox`. No AppImage or Flatpak, no apt or dnf repository, no package signing. The macOS legal record explicitly excludes Linux |
-| Updates | No `linux-x64-stable` or `linux-arm64-stable` Velopack channel |
+| Packaging | `scripts/package-linux.sh` builds the portable archive, a `.deb`, an `.rpm` and a Velopack AppImage from one publish, with the desktop entry, hicolor icons and AppStream metadata under `assets/linux` and the setuid `chrome-sandbox` in the packages. No Flatpak, no apt or dnf repository, no package signing. The macOS legal record explicitly excludes Linux |
+| Updates | The AppImage updates through the `linux-x64-stable` and `linux-arm64-stable` Velopack channels; the packages and the archive have no updater |
 | Connection engines | `AsuraConnectionEnginesSupported` is `osx-arm64` only; OpenVPN 3, OpenConnect, Tailscale and WireGuard engines are not built for Linux |
 | Workspace isolation | Returns `Unavailable` with `LinuxBackendNotPackaged` / `LinuxKvmRequired`. ADR 0053 names the Apple Containerization Linux backend as the thing to prototype |
 | Biometrics | None (acceptable; the vault authorizes without it) |
@@ -386,9 +386,24 @@ archive unpacks to a versioned directory. The packages install under
 AppStream metadata from `assets/linux`, and `chrome-sandbox` setuid root;
 their dependency lists are reviewed by hand in the script. The CEF payload
 is stripped (`libcef.so` ships with 1 to 2 GB of debug symbols) and the
-publish drops `.pdb` files. Everything is unsigned and carries no updater;
-the README's "Linux" section is the install recipe. AppImage and Velopack
-updates are Phase 3.
+publish drops `.pdb` files. Everything is unsigned; the README's "Linux"
+section is the install recipe.
+
+Since 2026-11-07 the same script also builds `Asura-linux-<rid>.AppImage`
+through the pinned Velopack tool (`vpk pack`, channel `<rid>-stable`), with
+a `distribution.json` beside the executable so the app updates in-app from
+the `sh.asura-<version>-<rid>-stable-full.nupkg` and
+`releases.<rid>-stable.json` published next to it. A mounted AppImage
+cannot carry the setuid helper, so `LinuxChromiumSandbox` asks, before CEF
+starts, whether the helper is setuid root or a `clone(CLONE_NEWUSER)`
+yields a usable namespace (libc's `pause` is the child's entry, so no
+managed code runs in the child; Ubuntu grants the clone but moves the child
+into its capability-less `unprivileged_userns` profile, which the changed
+confinement label reveals), and the browser panel shows the fix otherwise:
+the `.deb`, or an AppArmor profile granting `userns` to the mounted
+executable. Chromium would otherwise abort the whole process, as it did in
+the first VM run: "The SUID sandbox helper binary was found, but is not
+configured correctly ... I'm aborting now."
 
 The gate itself runs on Linux: `check.sh --quick` and the native networking
 module's full checks in the lane, and the Linux-only Native AOT lock
@@ -607,6 +622,21 @@ contract, kill switch and route leases as macOS.
   installs, which are Wayland. Integer scaling is crisp; 125% and 150% are
   not. The honest options are to ship and document, or wait for a Wayland
   backend. Ship and document.
+- **The CEF zygote is the .NET host, and Chromium's zygote must be single
+  threaded.** Found on 2026-11-07 while verifying the AppImage on Ubuntu
+  26.04: with a usable sandbox (the setuid helper from `/opt/asura`, or user
+  namespaces granted through an AppArmor profile) Chromium re-executes
+  `Asura --type=zygote`, the .NET runtime starts its threads, and
+  `EnterLayerOneSandbox` in `content/zygote/zygote_main_linux.cc` hits
+  `CHECK(sandbox::ThreadHelpers::IsSingleThreaded())`, so the zygote dies
+  before its boot message and the browser process aborts with "Check failed
+  ... zygote_host_impl_linux.cc:221". No packaging escapes this; the browser
+  panel has not worked on Linux with the sandbox on. The fix is a native
+  subprocess executable built with the vendored shim (its `Exclr8CefApp`
+  render handlers included), published beside `Asura` and passed as
+  `browser_subprocess_path` on Linux, as CefSharp and CefGlue do. The
+  startup check in `LinuxChromiumSandbox` stays correct and necessary
+  either way.
 - **Chromium sandbox on Ubuntu 24.04 AppImages** leaves the browser panel
   off for a popular target. The `.deb` is the recommended install there and
   the download page has to say so.

@@ -57,12 +57,12 @@ The terminal is rendered directly through Avalonia on macOS, Windows, and Linux.
 Asura is in early alpha.
 
 - **macOS (Apple Silicon):** Download signed and notarized application builds from [GitHub Releases](https://github.com/terion-labs/asura/releases/latest). Updates arrive in-app.
-- **Linux (x64 and arm64):** Install the `.deb` or `.rpm` from the same release, or unpack the portable archive; the [Linux install steps](#linux) are below. The builds are unsigned and have no updater; install a newer release the same way.
+- **Linux (x64 and arm64):** Install the `.deb` or `.rpm` from the same release, run the AppImage, or unpack the portable archive; the [Linux install steps](#linux) are below. The builds are unsigned. The AppImage updates in-app; for the packages and the archive, install a newer release the same way.
 - **Windows:** On the way. The build steps further down are for development on Windows.
 
 ### Linux
 
-The Linux build is an early one. It runs on an X11 session, or on Wayland through XWayland, and needs a session D-Bus. Today it has the terminal, browser, files, database, Docker (read-only) and Kubernetes panels and the agent; the Git panel, isolated workspaces and in-app updates are still macOS-only. The global Quick Terminal hotkey works on X11 only. It needs glibc 2.38 or newer: Ubuntu 24.04, Debian 13, Fedora 39, RHEL 10 or later. It is built and smoke-tested on Ubuntu 24.04.
+The Linux build is an early one. It runs on an X11 session, or on Wayland through XWayland, and needs a session D-Bus. Today it has the terminal, browser, files, database, Docker (read-only) and Kubernetes panels and the agent; the Git panel and isolated workspaces are still macOS-only, and in-app updates exist only in the AppImage. The global Quick Terminal hotkey works on X11 only. It needs glibc 2.38 or newer: Ubuntu 24.04, Debian 13, Fedora 39, RHEL 10 or later. It is built and smoke-tested on Ubuntu 24.04.
 
 Every download below has a `.sha256` file beside it on the release. Replace `linux-x64` with `linux-arm64` on 64-bit Arm.
 
@@ -82,6 +82,33 @@ sudo dnf install ./Asura-linux-x64.rpm
 
 Both packages install the app under `/opt/asura`, put `asura` on the `PATH`, add Asura to the application menu, pull in the libraries it needs, and install Chromium's sandbox helper setuid root, which the browser panel requires on kernels that restrict unprivileged user namespaces (Ubuntu 24.04 and later do by default). Start Asura from the menu or with `asura`; `asura open PATH` opens a folder straight into a workspace. Remove it with `sudo apt remove asura` or `sudo dnf remove asura`.
 
+**AppImage, for any distribution:**
+
+```bash
+curl -fLO https://github.com/terion-labs/asura/releases/latest/download/Asura-linux-x64.AppImage
+chmod +x Asura-linux-x64.AppImage
+./Asura-linux-x64.AppImage
+```
+
+The AppImage needs FUSE (the `fuse3` package most desktops already have) and the same libraries the packages pull in, listed under the portable archive below. It updates itself: Settings, About, Check for Updates downloads the next release and replaces the file in place, so keep it somewhere you can write to. It adds nothing to the application menu or the `PATH`; AppImageLauncher or Gear Lever can integrate it, and `ln -s "$PWD/Asura-linux-x64.AppImage" ~/.local/bin/asura` gives you the `asura` command.
+
+A mounted AppImage cannot carry the setuid sandbox helper, so its browser panel needs unprivileged user namespaces. Ubuntu 24.04 and later restrict those by default, and the browser panel says so instead of starting. Either use the `.deb`, or allow user namespaces for Asura's executable with an AppArmor profile:
+
+```bash
+sudo tee /etc/apparmor.d/asura-appimage >/dev/null <<'EOF'
+abi <abi/4.0>,
+include <tunables/global>
+
+# Lets Asura's AppImage create the user namespaces Chromium's sandbox needs.
+profile asura-appimage /tmp/.mount_Asura*/usr/bin/Asura flags=(unconfined) {
+  userns,
+}
+EOF
+sudo apparmor_parser -r /etc/apparmor.d/asura-appimage
+```
+
+Then open the browser panel again, or press Try Again under its notice.
+
 **Other distributions** can use the portable archive by hand:
 
 1. Install the libraries the app and its bundled Chromium load, plus `secret-tool`, which stores your passwords in the desktop's Secret Service (GNOME Keyring or KWallet). On Debian and Ubuntu:
@@ -100,7 +127,7 @@ Both packages install the app under `/opt/asura`, put `asura` on the `PATH`, add
    sha256sum -c Asura-linux-x64.tar.gz.sha256
    ```
 
-3. Unpack it into a directory owned by root, and make Chromium's sandbox helper setuid root. The browser panel refuses to run unsandboxed; without this step it needs unprivileged user namespaces:
+3. Unpack it into a directory owned by root, and make Chromium's sandbox helper setuid root. The browser panel refuses to run unsandboxed; without this step it needs unprivileged user namespaces, and it says so when it has neither:
 
    ```bash
    sudo mkdir -p /opt/asura

@@ -330,7 +330,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            rpm desktop-file-utils appstream
+            rpm desktop-file-utils appstream squashfs-tools
+      - name: Restore the pinned Velopack tool that builds the AppImage
+        run: dotnet tool restore
       - name: Restore the locked dependency graph for ${{ matrix.rid }}
         shell: bash
         run: >-
@@ -363,7 +365,7 @@ jobs:
             exit 1
           fi
           echo "ASURA_PACKAGE=${package}" >> "${GITHUB_ENV}"
-      - name: Build the portable archive and the Debian and RPM packages
+      - name: Build the portable archive, the Debian and RPM packages and the AppImage
         shell: bash
         run: |
           version="${ASURA_RELEASE_TAG#v}"
@@ -375,14 +377,38 @@ jobs:
             --output "${distribution}"
           # The archive name carries no version so the release's "latest"
           # download URL is stable, like Asura-macOS-arm64.zip; the directory
-          # it unpacks to is versioned. The packages follow the same rule.
-          for name in Asura-${{ matrix.rid }}.tar.gz Asura-${{ matrix.rid }}.deb Asura-${{ matrix.rid }}.rpm; do
+          # it unpacks to is versioned. The packages and the AppImage follow
+          # the same rule; the Velopack full package and feed keep the names
+          # the updater in a running copy asks for.
+          for name in \
+            Asura-${{ matrix.rid }}.tar.gz \
+            Asura-${{ matrix.rid }}.deb \
+            Asura-${{ matrix.rid }}.rpm \
+            Asura-${{ matrix.rid }}.AppImage \
+            "sh.asura-${version}-${{ matrix.rid }}-stable-full.nupkg" \
+            releases.${{ matrix.rid }}-stable.json; do
             test -f "${distribution}/${name}"
             test -f "${distribution}/${name}.sha256"
           done
           dpkg-deb --info "${distribution}/Asura-${{ matrix.rid }}.deb"
           rpm --query --package --info "${distribution}/Asura-${{ matrix.rid }}.rpm"
           echo "ASURA_LINUX_DISTRIBUTION=${distribution}" >> "${GITHUB_ENV}"
+      - name: Unpack the AppImage and check what it carries
+        shell: bash
+        run: |
+          # The runner has no FUSE for a mount; the AppImage's own extraction
+          # shows the same tree a mount would.
+          unpack="${RUNNER_TEMP}/asura-appimage-unpack"
+          mkdir -p "${unpack}"
+          (cd "${unpack}" && "${ASURA_LINUX_DISTRIBUTION}/Asura-${{ matrix.rid }}.AppImage" --appimage-extract >/dev/null)
+          app="${unpack}/squashfs-root/usr/bin"
+          test -x "${app}/Asura"
+          test -f "${app}/libcef.so"
+          test -x "${app}/UpdateNix"
+          test -f "${app}/sq.version"
+          test -f "${app}/distribution.json"
+          grep -q '"channel": "${{ matrix.rid }}-stable"' "${app}/distribution.json"
+          test -f "${unpack}/squashfs-root/sh.asura.desktop"
       - name: Install the Debian package and check what it registers
         shell: bash
         run: |
@@ -600,8 +626,15 @@ jobs:
         shell: bash
         run: |
           cd "${RUNNER_TEMP}/asura-release-artifacts/linux"
+          version="${ASURA_RELEASE_TAG#v}"
           for rid in linux-x64 linux-arm64; do
-            for name in "Asura-${rid}.tar.gz" "Asura-${rid}.deb" "Asura-${rid}.rpm"; do
+            for name in \
+              "Asura-${rid}.tar.gz" \
+              "Asura-${rid}.deb" \
+              "Asura-${rid}.rpm" \
+              "Asura-${rid}.AppImage" \
+              "sh.asura-${version}-${rid}-stable-full.nupkg" \
+              "releases.${rid}-stable.json"; do
               test -f "${name}"
               shasum -a 256 -c "${name}.sha256"
             done
@@ -797,6 +830,18 @@ jobs:
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.rpm.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.rpm" \
             "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.rpm.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.AppImage" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-x64.AppImage.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.AppImage" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/Asura-linux-arm64.AppImage.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/sh.asura-${RELEASE_VERSION}-linux-x64-stable-full.nupkg" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/sh.asura-${RELEASE_VERSION}-linux-x64-stable-full.nupkg.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/sh.asura-${RELEASE_VERSION}-linux-arm64-stable-full.nupkg" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/sh.asura-${RELEASE_VERSION}-linux-arm64-stable-full.nupkg.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/releases.linux-x64-stable.json" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/releases.linux-x64-stable.json.sha256" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/releases.linux-arm64-stable.json" \
+            "${ASURA_RELEASE_ARTIFACTS}/linux/releases.linux-arm64-stable.json.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.json.sha256" \
             "${ASURA_RELEASE_ARTIFACTS}/security-campaign/receipt.md" \
@@ -808,7 +853,7 @@ jobs:
             --fail-on-no-commits \
             --generate-notes \
             --latest \
-            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux .deb (Debian 13, Ubuntu 24.04 and newer), .rpm (Fedora 39, RHEL 10 and newer) and portable tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned, without an updater; install steps are in the README." \
+            --notes "Developer ID signed and notarized Apple Silicon build. The portable archive and Velopack full package/feed contain the same verified app, including the signed updater metadata required for user-initiated in-app updates. The Linux .deb (Debian 13, Ubuntu 24.04 and newer), .rpm (Fedora 39, RHEL 10 and newer), AppImage and portable tarballs are self-contained x64 and arm64 builds of the same tagged source, unsigned. The AppImage updates in-app from the Velopack full package and feed beside it; the packages and tarballs have no updater. Install steps are in the README." \
             --title "Asura ${RELEASE_VERSION} early release" \
             --verify-tag
       - name: Remove temporary signing credentials

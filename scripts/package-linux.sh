@@ -2,12 +2,16 @@
 set -euo pipefail
 umask 022
 
-# Turns one self-contained Linux publish of Asura.Desktop into the three
+# Turns one self-contained Linux publish of Asura.Desktop into the four
 # release downloads for its runtime identifier: the portable archive, a
-# Debian package and an RPM package. The packages install the publish under
-# /opt/asura, put `asura` on the PATH, register the desktop entry, icons and
-# AppStream metadata, and give Chromium's sandbox helper its setuid bit, so
-# the browser panel runs on kernels that restrict user namespaces.
+# Debian package, an RPM package and an AppImage. The packages install the
+# publish under /opt/asura, put `asura` on the PATH, register the desktop
+# entry, icons and AppStream metadata, and give Chromium's sandbox helper its
+# setuid bit, so the browser panel runs on kernels that restrict user
+# namespaces. The AppImage is built by the pinned Velopack, which also gives
+# it in-app updates from the release's `<rid>-stable` channel feed; a
+# mounted AppImage cannot carry a setuid helper, so its browser panel needs
+# unprivileged user namespaces, and the app says so when they are missing.
 #
 # The package dependency lists are reviewed by hand. They are the libraries
 # the launcher, CEF and the .NET runtime link or dlopen on the supported
@@ -30,10 +34,16 @@ usage() {
 Usage: ./scripts/package-linux.sh --rid <linux-x64|linux-arm64> --version <x.y.z> --publish <dir> --output <dir>
 
 Packages a self-contained `dotnet publish` output of src/Asura.Desktop into
-  Asura-<rid>.tar.gz   the portable archive, unpacking to Asura-<version>-<rid>/
-  Asura-<rid>.deb      for Debian 13, Ubuntu 24.04 and newer
-  Asura-<rid>.rpm      for Fedora 39, RHEL 10 and newer
+  Asura-<rid>.tar.gz    the portable archive, unpacking to Asura-<version>-<rid>/
+  Asura-<rid>.deb       for Debian 13, Ubuntu 24.04 and newer
+  Asura-<rid>.rpm       for Fedora 39, RHEL 10 and newer
+  Asura-<rid>.AppImage  for any distribution, with in-app updates, plus the
+                        Velopack full package and channel feed it updates from
 each with a .sha256 file beside it, in the output directory.
+
+The AppImage is built with the repository's pinned Velopack tool through the
+repository SDK (./.dotnet/dotnet, or ASURA_DOTNET); Velopack needs a version
+of 0.0.1 or higher and mksquashfs on the PATH.
 
 The publish must have been made with -p:DebugType=None -p:DebugSymbols=false
 and a stripped CEF payload (scripts/build-cef-runtime.sh does that), which
@@ -90,8 +100,8 @@ case "${rid}" in
         exit 64
         ;;
 esac
-if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "--version must be a release version such as 0.1.96." >&2
+if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "${version}" == 0.0.0 ]]; then
+    echo "--version must be a release version such as 0.1.96 (Velopack rejects 0.0.0)." >&2
     exit 64
 fi
 if [[ -z "${publish_dir}" || -z "${output_dir}" ]]; then
@@ -102,12 +112,17 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     echo "Linux packages are built on Linux; dpkg-deb and rpmbuild produce them." >&2
     exit 1
 fi
-for command_name in dpkg-deb rpmbuild tar sha256sum file ldd; do
+for command_name in dpkg-deb rpmbuild mksquashfs tar sha256sum file ldd; do
     if ! command -v "${command_name}" >/dev/null 2>&1; then
         echo "Packaging requires ${command_name}." >&2
         exit 1
     fi
 done
+dotnet="${ASURA_DOTNET:-${repository_dir}/.dotnet/dotnet}"
+if [[ ! -x "${dotnet}" ]]; then
+    echo "The AppImage needs the repository SDK at ${dotnet}; run scripts/bootstrap.sh or set ASURA_DOTNET." >&2
+    exit 1
+fi
 
 publish_dir="$(cd -- "${publish_dir}" && pwd -P)"
 for required in \
@@ -320,6 +335,68 @@ rpm="${output_dir}/Asura-${rid}.rpm"
 cp "${built_rpm}" "${rpm}"
 checksum "${rpm}"
 
-for package in "${archive}" "${deb}" "${rpm}"; do
+# The AppImage is the same staged application directory with a distribution
+# manifest that tells the app it updates through Velopack from the release's
+# channel feed. Velopack lays the directory out as usr/bin inside the AppDir
+# and adds its UpdateNix helper and package metadata beside the app, so the
+# manifest sits beside the executable, where the app reads it. The packages
+# above carry no manifest: they have no update channel.
+channel="${rid}-stable"
+package_id="sh.asura"
+appimage_pack="${work_dir}/appimage/pack"
+appimage_release="${work_dir}/appimage/release"
+mkdir -p "${appimage_pack}" "${appimage_release}"
+cp -a "${stage}${install_root}/." "${appimage_pack}/"
+# A mounted AppImage is nosuid, so a setuid bit on the helper would only
+# make the app and Chromium trust a helper that cannot gain root; the
+# AppImage's browser runs in the namespace sandbox or not at all.
+chmod 0755 "${appimage_pack}/chrome-sandbox"
+cat > "${appimage_pack}/distribution.json" <<EOF
+{
+  "schemaVersion": 1,
+  "source": "github-release",
+  "updateStrategy": "velopack",
+  "packageId": "${package_id}",
+  "channel": "${channel}",
+  "runtimeIdentifier": "${rid}"
+}
+EOF
+chmod 0644 "${appimage_pack}/distribution.json"
+(
+    cd "${repository_dir}"
+    "${dotnet}" tool restore >/dev/null
+    "${dotnet}" tool run vpk -- pack \
+        --outputDir "${appimage_release}" \
+        --channel "${channel}" \
+        --runtime "${rid}" \
+        --packId "${package_id}" \
+        --packVersion "${version}" \
+        --packDir "${appimage_pack}" \
+        --packAuthors "Asura contributors" \
+        --packTitle Asura \
+        --mainExe Asura \
+        --icon "${assets_dir}/icons/hicolor/512x512/apps/${app_id}.png" \
+        --categories "Development;TerminalEmulator" \
+        --delta None
+)
+# The AppImage name carries no version either; the full package and feed
+# keep Velopack's names, which the updater in a running copy asks for.
+appimage="${output_dir}/Asura-${rid}.AppImage"
+full_package="${package_id}-${version}-${channel}-full.nupkg"
+feed="releases.${channel}.json"
+for expected in "${package_id}-${channel}.AppImage" "${full_package}" "${feed}"; do
+    if [[ ! -f "${appimage_release}/${expected}" || -L "${appimage_release}/${expected}" ]]; then
+        echo "Velopack did not produce ${expected}." >&2
+        exit 1
+    fi
+done
+mv "${appimage_release}/${package_id}-${channel}.AppImage" "${appimage}"
+chmod 0755 "${appimage}"
+mv "${appimage_release}/${full_package}" "${appimage_release}/${feed}" "${output_dir}/"
+checksum "${appimage}"
+checksum "${output_dir}/${full_package}"
+checksum "${output_dir}/${feed}"
+
+for package in "${archive}" "${deb}" "${rpm}" "${appimage}" "${output_dir}/${full_package}" "${output_dir}/${feed}"; do
     printf '%s\t%s\n' "$(du -h "${package}" | cut -f1)" "$(basename "${package}")"
 done

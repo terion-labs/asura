@@ -14,6 +14,7 @@ export type BuildId =
   | 'macos-arm64'
   | `linux-${LinuxCpu}-deb`
   | `linux-${LinuxCpu}-rpm`
+  | `linux-${LinuxCpu}-appimage`
   | `linux-${LinuxCpu}-tar`
 export type BuildOs = 'macOS' | 'Linux'
 
@@ -22,7 +23,7 @@ export interface Build {
   os: BuildOs
   /** The CPU the download is built for, as the button prints it. */
   arch: string
-  file: '.zip' | '.deb' | '.rpm' | '.tar.gz'
+  file: '.zip' | '.deb' | '.rpm' | '.AppImage' | '.tar.gz'
   /** Which systems the download installs on, as the menu prints it. */
   fits: string
   url: string
@@ -38,6 +39,7 @@ function linux(cpu: LinuxCpu): Build[] {
   return [
     build(`linux-${cpu}-deb`, 'Linux', cpu, '.deb', 'Debian, Ubuntu', `Asura-linux-${cpu}.deb`),
     build(`linux-${cpu}-rpm`, 'Linux', cpu, '.rpm', 'Fedora, RHEL', `Asura-linux-${cpu}.rpm`),
+    build(`linux-${cpu}-appimage`, 'Linux', cpu, '.AppImage', 'any distribution, updates in-app', `Asura-linux-${cpu}.AppImage`),
     build(`linux-${cpu}-tar`, 'Linux', cpu, '.tar.gz', 'any distribution', `Asura-linux-${cpu}.tar.gz`),
   ]
 }

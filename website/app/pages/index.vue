@@ -55,7 +55,7 @@ const faqs = [
   },
   {
     q: 'Which platforms are supported?',
-    a: `macOS, Windows, and Linux from one codebase. The current early release ships a signed, notarized build for ${platforms.shipped} and an unsigned early build for ${platforms.linux}. On Linux the Git panel, isolated workspaces, and in-app updates are not there yet, and the Docker panel is read-only. ${platforms.upcoming}. Workspace isolation needs ${platforms.isolation}.`,
+    a: `macOS, Windows, and Linux from one codebase. The current early release ships a signed, notarized build for ${platforms.shipped} and an unsigned early build for ${platforms.linux}. On Linux the Git panel and isolated workspaces are not there yet, in-app updates exist only in the AppImage, and the Docker panel is read-only. ${platforms.upcoming}. Workspace isolation needs ${platforms.isolation}.`,
   },
   {
     q: 'Does a workspace VPN affect the rest of my machine?',

@@ -80,7 +80,11 @@ libraries and manifest, and at least `locales/en-US.pak`. Windows additionally
 requires `chrome_elf.dll`, `d3dcompiler_47.dll`, and the x64 DXIL compiler
 pair. Linux additionally requires an executable `chrome-sandbox`; installer
 ownership/setuid or user-namespace sandbox acceptance remains a release gate
-rather than something the build silently changes. The upstream NuGet staging
+rather than something the build silently changes. At startup
+`LinuxChromiumSandbox` checks for a setuid-root helper or a usable user
+namespace before CEF initializes, because Chromium aborts the process when
+it finds neither; the AppImage, which cannot carry a setuid helper, relies
+on that check to explain itself instead of crashing. The upstream NuGet staging
 script's size-oriented Linux trimming is deliberately not reused for this
 bundled runtime.
 

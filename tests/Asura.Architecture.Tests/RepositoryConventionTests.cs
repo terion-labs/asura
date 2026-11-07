@@ -512,13 +512,19 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("--transform \"s,^asura,Asura-${version}-${rid},\"", linuxPackaging, StringComparison.Ordinal);
         Assert.Contains("deb=\"${output_dir}/Asura-${rid}.deb\"", linuxPackaging, StringComparison.Ordinal);
         Assert.Contains("rpm=\"${output_dir}/Asura-${rid}.rpm\"", linuxPackaging, StringComparison.Ordinal);
+        Assert.Contains("appimage=\"${output_dir}/Asura-${rid}.AppImage\"", linuxPackaging, StringComparison.Ordinal);
         foreach (var rid in new[] { "linux-x64", "linux-arm64" })
         {
-            foreach (var extension in new[] { ".tar.gz", ".deb", ".rpm" })
+            foreach (var extension in new[] { ".tar.gz", ".deb", ".rpm", ".AppImage" })
             {
                 Assert.Contains($"linux/Asura-{rid}{extension}\"", workflow, StringComparison.Ordinal);
                 Assert.Contains($"linux/Asura-{rid}{extension}.sha256\"", workflow, StringComparison.Ordinal);
             }
+
+            // The AppImage updates itself from the Velopack full package and
+            // channel feed, published under the names the updater asks for.
+            Assert.Contains($"linux/sh.asura-${{RELEASE_VERSION}}-{rid}-stable-full.nupkg\"", workflow, StringComparison.Ordinal);
+            Assert.Contains($"linux/releases.{rid}-stable.json\"", workflow, StringComparison.Ordinal);
         }
 
         Assert.DoesNotContain("Asura-${RELEASE_VERSION}-linux-x64.tar.gz", workflow, StringComparison.Ordinal);
@@ -570,7 +576,26 @@ public sealed partial class RepositoryConventionTests
             Assert.Contains("./scripts/package-linux.sh", workflow, StringComparison.Ordinal);
             Assert.Contains("test \"$(stat -c '%a %U' /opt/asura/chrome-sandbox)\" = \"4755 root\"", workflow, StringComparison.Ordinal);
             Assert.Contains("desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop", workflow, StringComparison.Ordinal);
+            // The AppImage is built by the pinned Velopack tool, which needs
+            // mksquashfs, and is unpacked to prove it carries the app, the
+            // updater and the distribution manifest the app reads.
+            Assert.Contains("squashfs-tools", workflow, StringComparison.Ordinal);
+            Assert.Contains("run: dotnet tool restore", workflow, StringComparison.Ordinal);
+            Assert.Contains("--appimage-extract", workflow, StringComparison.Ordinal);
+            Assert.Contains("test -x \"${app}/UpdateNix\"", workflow, StringComparison.Ordinal);
+            Assert.Contains("test -f \"${app}/distribution.json\"", workflow, StringComparison.Ordinal);
         }
+
+        // A mounted AppImage cannot carry a setuid helper, so the app checks
+        // for a usable sandbox before CEF can abort the process over it.
+        var sandbox = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Asura.Browser", "LinuxChromiumSandbox.cs"));
+        var runtime = File.ReadAllText(Path.Combine(RepositoryRoot, "src", "Asura.Browser", "BrowserEngineRuntime.cs"));
+        Assert.Contains("LinuxChromiumSandbox.Require();", runtime, StringComparison.Ordinal);
+        Assert.Contains("CloneNewUser | SigChld", sandbox, StringComparison.Ordinal);
+        Assert.DoesNotContain("no-sandbox", sandbox, StringComparison.Ordinal);
+        Assert.Contains("\"updateStrategy\": \"velopack\"", packaging, StringComparison.Ordinal);
+        Assert.Contains("--channel \"${channel}\"", packaging, StringComparison.Ordinal);
+        Assert.Contains("--delta None", packaging, StringComparison.Ordinal);
 
         Assert.Contains("chmod 4755 \"${stage}${install_root}/chrome-sandbox\"", packaging, StringComparison.Ordinal);
         Assert.Contains("ln -s \"../..${install_root}/Asura\" \"${stage}/usr/bin/asura\"", packaging, StringComparison.Ordinal);

@@ -85,6 +85,14 @@ public static class BrowserEngineRuntime
                     "CEF cannot be initialized again after shutdown.");
             }
 
+            // Chromium aborts the process when it finds no sandbox to run
+            // in; ask first, before anything of CEF is touched, so a refusal
+            // is a message in the browser panel and a retry asks again.
+            if (OperatingSystem.IsLinux())
+            {
+                LinuxChromiumSandbox.Require();
+            }
+
             PrepareProfileLayout(options.ProfileDirectory);
             PreparePrivateDirectory(
                 Path.GetDirectoryName(options.LogFilePath)

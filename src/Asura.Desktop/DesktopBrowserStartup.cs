@@ -202,6 +202,14 @@ internal sealed class DesktopBrowserStartup(
                 SetError(_usingRecoveryBrowser ? Error : null);
                 return true;
             }
+            catch (BrowserSandboxUnavailableException error)
+            {
+                // CEF was not touched: the next retry checks the system
+                // again, so the person can fix it and try without a restart.
+                SecretSafeDiagnosticProjection.WriteStandardError("desktop.cef-sandbox.unavailable", error);
+                SetError(error.Message);
+                return false;
+            }
             catch (Exception error) when (error is not OutOfMemoryException)
             {
                 SecretSafeDiagnosticProjection.WriteStandardError("desktop.cef-initialize.failed", error);
