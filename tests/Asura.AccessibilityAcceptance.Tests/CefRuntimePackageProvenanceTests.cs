@@ -328,6 +328,7 @@ public sealed class CefRuntimePackageProvenanceTests : IDisposable
             :
             [
                 "libexclr8cef.so",
+                "asura-cef-helper",
                 "libcef.so",
                 "libEGL.so",
                 "libGLESv2.so",
@@ -353,7 +354,8 @@ public sealed class CefRuntimePackageProvenanceTests : IDisposable
             else if (!windows
                      && (path.EndsWith(".so", StringComparison.Ordinal)
                          || path.EndsWith(".so.1", StringComparison.Ordinal)
-                         || string.Equals(path, "chrome-sandbox", StringComparison.Ordinal)))
+                         || string.Equals(path, "chrome-sandbox", StringComparison.Ordinal)
+                         || string.Equals(path, "asura-cef-helper", StringComparison.Ordinal)))
             {
                 WriteElf(fullPath, arm64: string.Equals(rid, "linux-arm64", StringComparison.Ordinal));
             }
@@ -362,6 +364,7 @@ public sealed class CefRuntimePackageProvenanceTests : IDisposable
         if (!windows)
         {
             MakeExecutable(Path.Combine(root, "chrome-sandbox"));
+            MakeExecutable(Path.Combine(root, "asura-cef-helper"));
         }
     }
 

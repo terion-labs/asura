@@ -129,6 +129,7 @@ for required in \
     Asura \
     libcef.so \
     libexclr8cef.so \
+    asura-cef-helper \
     chrome-sandbox \
     libghostty-vt.so \
     libasura_pty.so \
@@ -155,7 +156,7 @@ fi
 # host, which installs the same packages the dependency lists name. The CEF
 # shim links only libcef.so, which it finds beside itself, and libraries
 # libcef.so needs too.
-for linked in Asura libcef.so; do
+for linked in Asura libcef.so asura-cef-helper; do
     if ldd "${publish_dir}/${linked}" | grep -q 'not found'; then
         ldd "${publish_dir}/${linked}" >&2
         echo "${linked} links a library this host does not have." >&2

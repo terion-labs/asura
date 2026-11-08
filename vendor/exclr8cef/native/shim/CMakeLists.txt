@@ -3,6 +3,8 @@
 # Layout:
 #   exclr8cef                  - shared library, the C ABI surface
 #   exclr8cef_version_probe    - Stage 1 smoke test (no CEF init)
+#   exclr8cef_subprocess       - Linux subprocess entry point (zygote,
+#                                renderer, GPU, utility)
 
 set(SHIM_LIB exclr8cef)
 set(SHIM_TEST exclr8cef_version_probe)
@@ -148,3 +150,25 @@ add_custom_command(TARGET ${SHIM_TEST} POST_BUILD
         $<TARGET_FILE:${SHIM_LIB}>
         $<TARGET_FILE_DIR:${SHIM_TEST}>
 )
+
+# ---- Linux subprocess entry point ----------------------------------------
+# Chromium's zygote and renderers must be single threaded when they enter
+# their sandboxes, which a managed host process never is. On Linux CEF's
+# subprocesses therefore run this native executable
+# (CefSettings.browser_subprocess_path) instead of the host. It links the
+# shim, so renderers get the same Exclr8CefApp handlers as the browser.
+if(UNIX AND NOT APPLE)
+    set(SHIM_SUBPROCESS exclr8cef_subprocess)
+    add_executable(${SHIM_SUBPROCESS} subprocess_main.c)
+    # libcef.so interposes close() and reaches the real one through
+    # dlsym(RTLD_NEXT). The loader searches an executable's dependencies
+    # breadth first, so libcef.so has to come before libc in the helper's
+    # own needed list, or every subprocess dies with "close symbol missing".
+    # --no-as-needed keeps the otherwise unreferenced libcef.so in that list.
+    target_link_options(${SHIM_SUBPROCESS} PRIVATE "LINKER:--no-as-needed")
+    target_link_libraries(${SHIM_SUBPROCESS} PRIVATE libcef_lib ${SHIM_LIB})
+    set_target_properties(${SHIM_SUBPROCESS} PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()

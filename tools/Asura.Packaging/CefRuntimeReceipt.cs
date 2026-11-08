@@ -424,9 +424,13 @@ internal static class CefRuntimeReceipt
             return;
         }
 
+        // asura-cef-helper is the native entry point CEF's Linux subprocesses
+        // run; the managed host cannot be the zygote because Chromium's
+        // sandboxes demand a single-threaded process.
         RequireFiles(
             paths,
             "libexclr8cef.so",
+            "asura-cef-helper",
             "libcef.so",
             "libEGL.so",
             "libGLESv2.so",
@@ -441,10 +445,12 @@ internal static class CefRuntimeReceipt
             "v8_context_snapshot.bin",
             "locales/en-US.pak");
         RequireExecutable(paths["chrome-sandbox"]);
+        RequireExecutable(paths["asura-cef-helper"]);
         foreach (var path in paths.Keys.Where(path =>
                      path.EndsWith(".so", StringComparison.Ordinal)
                      || path.EndsWith(".so.1", StringComparison.Ordinal)
-                     || string.Equals(path, "chrome-sandbox", StringComparison.Ordinal)))
+                     || string.Equals(path, "chrome-sandbox", StringComparison.Ordinal)
+                     || string.Equals(path, "asura-cef-helper", StringComparison.Ordinal)))
         {
             ValidateElf(paths[path], rid);
         }

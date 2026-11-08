@@ -28,9 +28,8 @@ internal static class BrowserNativeCheckboxProbe
         var initialized = false;
         try
         {
-            var helperPath = AvaloniaSetup.LocateMacHelper(
-                "Asura Helper");
-            if (OperatingSystem.IsMacOS() && helperPath is null)
+            var helperPath = BrowserEngineRuntime.LocateSubprocessHelper();
+            if (BrowserEngineRuntime.RequiresSubprocessHelper && helperPath is null)
             {
                 SecretSafeDiagnosticProjection.WriteStandardError(
                     "browser.native-checkbox-probe.helper-missing",

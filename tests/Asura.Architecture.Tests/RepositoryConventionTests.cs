@@ -598,6 +598,12 @@ public sealed partial class RepositoryConventionTests
         Assert.Contains("--delta None", packaging, StringComparison.Ordinal);
 
         Assert.Contains("chmod 4755 \"${stage}${install_root}/chrome-sandbox\"", packaging, StringComparison.Ordinal);
+        // CEF's Linux subprocesses run a native helper, never the managed
+        // host, so every Linux package carries it beside the executable.
+        Assert.Contains("    asura-cef-helper \\\n", packaging, StringComparison.Ordinal);
+        Assert.Contains("for linked in Asura libcef.so asura-cef-helper; do", packaging, StringComparison.Ordinal);
+        Assert.Contains("cmake_targets+=(exclr8cef_subprocess)", cefBuild, StringComparison.Ordinal);
+        Assert.Contains("linux_helper_name=\"asura-cef-helper\"", cefBuild, StringComparison.Ordinal);
         Assert.Contains("ln -s \"../..${install_root}/Asura\" \"${stage}/usr/bin/asura\"", packaging, StringComparison.Ordinal);
         Assert.Contains("dpkg-deb --root-owner-group", packaging, StringComparison.Ordinal);
         Assert.Contains("AutoReqProv: no", packaging, StringComparison.Ordinal);

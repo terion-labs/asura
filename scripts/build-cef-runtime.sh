@@ -364,9 +364,15 @@ fi
 
 echo "Building Exclr8CEF ${binding_version}..."
 EXCLR8CEF_PLATFORM="${cef_platform}" cmake "${cmake_options[@]}"
+cmake_targets=(exclr8cef_version_probe exclr8cef_demo)
+if [[ "${target_os}" == "Linux" ]]; then
+    # The native entry point CEF's Linux subprocesses run; the managed host
+    # cannot be the zygote, which Chromium requires to be single threaded.
+    cmake_targets+=(exclr8cef_subprocess)
+fi
 cmake --build "${build_run_dir}/build" \
     --config Release \
-    --target exclr8cef_version_probe exclr8cef_demo \
+    --target "${cmake_targets[@]}" \
     --parallel "${cef_build_jobs}"
 
 find_built_file() {
@@ -478,6 +484,9 @@ else
         strip --strip-unneeded "${cef_artifact_dir}/${name}"
     done
     chmod 0755 "${cef_artifact_dir}/chrome-sandbox"
+    linux_helper_name="asura-cef-helper"
+    cp -L "$(find_built_file exclr8cef_subprocess)" "${cef_artifact_dir}/${linux_helper_name}"
+    chmod 0755 "${cef_artifact_dir}/${linux_helper_name}"
     cp "${cef_root}/Resources/chrome_100_percent.pak" "${cef_artifact_dir}/"
     cp "${cef_root}/Resources/chrome_200_percent.pak" "${cef_artifact_dir}/"
     cp "${cef_root}/Resources/resources.pak" "${cef_artifact_dir}/"
@@ -527,6 +536,7 @@ elif [[ "${target_os}" == "Windows" ]]; then
     require_architecture "${cef_artifact_dir}/libcef.dll"
 else
     require_architecture "${cef_artifact_dir}/libcef.so"
+    require_architecture "${cef_artifact_dir}/${linux_helper_name}"
 fi
 
 host_arch="$(uname -m)"
@@ -555,6 +565,15 @@ if [[ "${target_rid}" == "${host_rid}" ]]; then
         set -e
         if [[ ${helper_exit} -ne 255 ]]; then
             echo "The macOS CEF helper did not return the main-process sentinel." >&2
+            exit 1
+        fi
+    elif [[ "${target_os}" == "Linux" ]]; then
+        set +e
+        "${cef_artifact_dir}/${linux_helper_name}"
+        helper_exit=$?
+        set -e
+        if [[ ${helper_exit} -ne 255 ]]; then
+            echo "The Linux CEF helper did not return the main-process sentinel." >&2
             exit 1
         fi
     fi

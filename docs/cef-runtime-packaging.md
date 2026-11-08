@@ -78,7 +78,11 @@ Windows and Linux require the shim, `libcef`, ICU data, both scale-factor
 resource packs, the V8 context snapshot, EGL/GLES and SwiftShader/Vulkan
 libraries and manifest, and at least `locales/en-US.pak`. Windows additionally
 requires `chrome_elf.dll`, `d3dcompiler_47.dll`, and the x64 DXIL compiler
-pair. Linux additionally requires an executable `chrome-sandbox`; installer
+pair. Linux additionally requires `asura-cef-helper`, the native executable
+CEF's subprocesses run (Chromium's zygote and renderers must be single
+threaded when they enter their sandboxes, which the managed host never is;
+the helper only calls the shim's process entry point), and an executable
+`chrome-sandbox`; installer
 ownership/setuid or user-namespace sandbox acceptance remains a release gate
 rather than something the build silently changes. At startup
 `LinuxChromiumSandbox` checks for a setuid-root helper or a usable user

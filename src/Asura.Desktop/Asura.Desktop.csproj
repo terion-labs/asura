@@ -268,6 +268,12 @@
     <Content Include="$(AsuraCefRuntimeArtifactDirectory)/$(AsuraCefShimLibrary)" Link="$(AsuraCefShimLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" Condition="Exists('$(AsuraCefRuntimeArtifactDirectory)/$(AsuraCefShimLibrary)')" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">
+    <!-- CEF's Linux subprocesses run this native helper instead of the managed
+         host; see BrowserEngineRuntime.LocateSubprocessHelper. -->
+    <AsuraCefRequiredFile Include="$(AsuraCefRuntimeArtifactDirectory)/asura-cef-helper" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(AsuraCefFlatRuntime)' == 'true'">
     <Content Include="$(AsuraCefRuntimeArtifactDirectory)/**/*" Link="%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../../licenses/cef-runtime-components.json" Link="cef-runtime-components.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

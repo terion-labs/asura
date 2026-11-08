@@ -66,3 +66,11 @@ losing .NET's handler leaves managed children unreaped and command probes hangin
 When no custom handler exists, Chromium's handler remains installed. The native
 browser acceptance gate starts managed children both before and after CEF startup
 and verifies their output and exit status alongside real browser activity.
+
+The Linux build adds `exclr8cef_subprocess`, a native executable that only
+calls `excef_execute_process`. Chromium's zygote and renderers must be single
+threaded when they enter their sandboxes, and a managed host process never
+is, so CEF's Linux subprocesses start from this helper
+(`CefSettings.browser_subprocess_path`) instead of re-executing the host. It
+links the shim library, so renderers run the same `Exclr8CefApp` handlers as
+the browser process. The native ABI is unchanged.

@@ -631,12 +631,12 @@ contract, kill switch and route leases as macOS.
   `CHECK(sandbox::ThreadHelpers::IsSingleThreaded())`, so the zygote dies
   before its boot message and the browser process aborts with "Check failed
   ... zygote_host_impl_linux.cc:221". No packaging escapes this; the browser
-  panel has not worked on Linux with the sandbox on. The fix is a native
-  subprocess executable built with the vendored shim (its `Exclr8CefApp`
-  render handlers included), published beside `Asura` and passed as
-  `browser_subprocess_path` on Linux, as CefSharp and CefGlue do. The
-  startup check in `LinuxChromiumSandbox` stays correct and necessary
-  either way.
+  panel had not worked on Linux with the sandbox on. Fixed on 2026-11-09:
+  the vendored shim builds `exclr8cef_subprocess`, staged as
+  `asura-cef-helper` beside `Asura`, which only calls the shim's process
+  entry point and is passed as `browser_subprocess_path` on Linux, as
+  CefSharp and CefGlue do. The startup check in `LinuxChromiumSandbox`
+  stays: without a usable sandbox Chromium still aborts the process.
 - **Chromium sandbox on Ubuntu 24.04 AppImages** leaves the browser panel
   off for a popular target. The `.deb` is the recommended install there and
   the download page has to say so.

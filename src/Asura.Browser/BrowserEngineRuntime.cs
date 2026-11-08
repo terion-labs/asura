@@ -38,6 +38,37 @@ public static class BrowserEngineRuntime
     /// </summary>
     public static int ExecuteSubprocess() => Cef.ExecuteProcess();
 
+    /// <summary>The native CEF subprocess entry point beside the Linux executable.</summary>
+    internal const string LinuxHelperFileName = "asura-cef-helper";
+
+    /// <summary>
+    /// macOS and Linux run CEF's subprocesses from a native helper. On
+    /// Linux the host itself cannot be the zygote: Chromium's sandboxes
+    /// demand a single-threaded process and the .NET runtime never is one.
+    /// </summary>
+    internal static bool RequiresSubprocessHelper =>
+        OperatingSystem.IsMacOS() || OperatingSystem.IsLinux();
+
+    /// <summary>
+    /// The subprocess executable CEF launches, or null where there is none
+    /// to find: the helper is missing, or the platform re-executes the host.
+    /// </summary>
+    internal static string? LocateSubprocessHelper()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            return AvaloniaSetup.LocateMacHelper("Asura Helper");
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, LinuxHelperFileName);
+            return File.Exists(path) ? path : null;
+        }
+
+        return null;
+    }
+
     /// <summary>
     /// Adds CEF's external message pump to the Avalonia application builder.
     /// </summary>
@@ -100,13 +131,12 @@ public static class BrowserEngineRuntime
                     "The CEF log path must have a parent directory.",
                     nameof(options)));
 
-            var helperPath = AvaloniaSetup.LocateMacHelper(
-                "Asura Helper");
-            if (OperatingSystem.IsMacOS() && helperPath is null)
+            var helperPath = LocateSubprocessHelper();
+            if (RequiresSubprocessHelper && helperPath is null)
             {
                 throw new FileNotFoundException(
-                    "The Asura CEF helper bundle is missing from "
-                    + "Contents/Frameworks. Build or package a complete CEF runtime payload.");
+                    "The Asura CEF helper is missing from the application. "
+                    + "Build or package a complete CEF runtime payload.");
             }
 
             var versions = Cef.GetVersions();
