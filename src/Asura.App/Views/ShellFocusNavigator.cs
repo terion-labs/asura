@@ -195,7 +195,7 @@ internal sealed class ShellFocusNavigator(
             .FirstOrDefault();
         var rail = currentTile?.GetVisualAncestors()
             .OfType<Border>()
-            .FirstOrDefault(border => border.Classes.Contains("FloatingSidebar"));
+            .FirstOrDefault(border => border.Classes.Contains("WorkspaceRail"));
         if (currentTile is not null && rail is not null)
         {
             yield return new FocusArea(rail, () => _ = FocusFirst(currentTile) || FocusFirst(rail));
