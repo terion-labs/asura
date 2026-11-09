@@ -720,7 +720,7 @@ public sealed partial class GovernedAgentRuntime :
                 ProvisionalReasoningSummary = string.Empty,
                 Status = _session is null
                     ? "Resolving the selected panel scope…"
-                    : "Waiting for the provider…",
+                    : "Thinking…",
                 PendingApproval = null,
                 PendingQuestion = null,
                 PendingCapabilityRequest = null,
@@ -2015,6 +2015,8 @@ public sealed partial class GovernedAgentRuntime :
                 break;
             }
 
+            PublishTranscript(session, turnCancellation);
+
             // PI's loop treats a settled tool result as a stable transcript
             // boundary. Run maintenance here, before another provider request,
             // so long tool workflows cannot outrun the model context window.
@@ -2346,6 +2348,8 @@ public sealed partial class GovernedAgentRuntime :
             new(false, false, code, message);
     }
 
+    private CancellationTokenSource? _titleCancellation;
+
     private async ValueTask GenerateConversationTitleIfNeededAsync(
         NativeAgentSession session,
         CancellationToken cancellationToken)
@@ -2355,12 +2359,24 @@ public sealed partial class GovernedAgentRuntime :
             return;
         }
 
+        // The answer is already on screen while the title is requested, so a
+        // message sent now must not wait behind it. Queuing one cancels the
+        // request; the title is asked for again after a later turn.
+        using var titleCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         AgentModelSelection selection;
         lock (_gate)
         {
             selection = _effectivePolicy.TitleModel;
+            if (_queuedFollowUps.Count > 0)
+            {
+                return;
+            }
+
+            _titleCancellation = titleCancellation;
         }
 
+        SetStreamingStatus("Naming the conversation…");
         try
         {
             var generator = new ProviderConversationTitleGenerator(
@@ -2369,7 +2385,7 @@ public sealed partial class GovernedAgentRuntime :
                 _chatSecrets);
             var title = await generator.GenerateAsync(
                     session.Snapshot().Transcript,
-                    cancellationToken)
+                    titleCancellation.Token)
                 .ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(title))
             {
@@ -2381,6 +2397,13 @@ public sealed partial class GovernedAgentRuntime :
             // Title generation is optional metadata. Keep the completed turn
             // if the configured title route fails.
             _ = exception;
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _titleCancellation = null;
+            }
         }
     }
 
@@ -2640,7 +2663,7 @@ public sealed partial class GovernedAgentRuntime :
         CancellationTokenSource turnCancellation,
         bool allowSteering = false)
     {
-        SetStreamingStatus("Waiting for the provider…", clearProvisional: true);
+        SetStreamingStatus("Thinking…", clearProvisional: true);
         var afterSequence = session.Snapshot().LastSequence;
         var pendingOperation = operation();
         var generation = new ProviderGeneration(session.Snapshot().Generation);
@@ -3826,7 +3849,7 @@ public sealed partial class GovernedAgentRuntime :
                 CapabilityNotice = CapabilityNotice(
                     terminals.Length,
                     mutationPanels),
-                Status = "Waiting for the provider…",
+                Status = "Thinking…",
             };
         }
 
@@ -4820,6 +4843,31 @@ public sealed partial class GovernedAgentRuntime :
         {
             NotifyChanged();
         }
+    }
+
+    /// <summary>
+    /// Shows what the session has committed so far. Without it, an answered
+    /// question or a returned tool result stayed out of the transcript until
+    /// the next provider response finished.
+    /// </summary>
+    private void PublishTranscript(
+        NativeAgentSession session,
+        CancellationTokenSource turnCancellation)
+    {
+        lock (_gate)
+        {
+            if (_disposed || !ReferenceEquals(_turnCancellation, turnCancellation))
+            {
+                return;
+            }
+
+            _snapshot = _snapshot with
+            {
+                Messages = CopyMessages(ProjectMessages(session)),
+            };
+        }
+
+        NotifyChanged();
     }
 
     private void SetStreamingStatus(

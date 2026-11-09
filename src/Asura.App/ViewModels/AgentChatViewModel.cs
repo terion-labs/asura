@@ -1368,6 +1368,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _status, value))
             {
                 OnPropertyChanged(nameof(ShowFooterStatus));
+                OnPropertyChanged(nameof(WorkingStatus));
             }
         }
     }
@@ -1393,6 +1394,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(HasProvisionalAgentContent));
                 OnPropertyChanged(nameof(ShowProvisionalReasoningLoader));
+                OnPropertyChanged(nameof(ExpandProvisionalReasoning));
+                OnPropertyChanged(nameof(ProvisionalReasoningTitle));
+                OnPropertyChanged(nameof(ShowWorkingIndicator));
                 NotifyContentChanged();
             }
         }
@@ -1407,9 +1411,9 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(HasProvisionalReasoningSummary));
                 OnPropertyChanged(nameof(ProvisionalReasoningSummaryDisplay));
-                OnPropertyChanged(nameof(ProvisionalReasoningStageDisplay));
                 OnPropertyChanged(nameof(HasProvisionalAgentContent));
                 OnPropertyChanged(nameof(ShowProvisionalReasoningLoader));
+                OnPropertyChanged(nameof(ShowWorkingIndicator));
                 NotifyContentChanged();
             }
         }
@@ -1418,9 +1422,6 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public string ProvisionalReasoningSummaryDisplay =>
         AgentReasoningSummaryPresentation.Format(ProvisionalReasoningSummary);
 
-    public string ProvisionalReasoningStageDisplay =>
-        AgentReasoningSummaryPresentation.LatestStage(ProvisionalReasoningSummary);
-
     public bool HasProvisionalReasoningSummary =>
         ProvisionalReasoningSummary.Length > 0;
 
@@ -1428,6 +1429,27 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         State == GovernedAgentState.StreamingProvider
         && HasProvisionalReasoningSummary
         && !HasProvisionalAssistantText;
+
+    /// <summary>
+    /// Reasoning reads as it streams, the way other chat apps show thinking,
+    /// and folds away once the answer starts so the answer leads.
+    /// </summary>
+    public bool ExpandProvisionalReasoning => !HasProvisionalAssistantText;
+
+    public string ProvisionalReasoningTitle => HasProvisionalAssistantText
+        ? "Thought"
+        : "Thinking…";
+
+    /// <summary>
+    /// Between sending and the first streamed word the transcript says what
+    /// the run is doing, where the reply will appear, instead of a footer
+    /// line under the composer.
+    /// </summary>
+    public bool ShowWorkingIndicator =>
+        State == GovernedAgentState.StreamingProvider
+        && !HasProvisionalAgentContent;
+
+    public string WorkingStatus => Status.Length > 0 ? Status : "Thinking…";
 
     public bool HasProvisionalAgentContent =>
         HasProvisionalAssistantText || HasProvisionalReasoningSummary;
@@ -1445,6 +1467,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(ShowProvisionalReasoningLoader));
                 OnPropertyChanged(nameof(CanCancelActiveAction));
                 OnPropertyChanged(nameof(ShowFooterStatus));
+                OnPropertyChanged(nameof(ShowWorkingIndicator));
                 NotifyQuestionAvailabilityChanged();
                 NotifyCapabilityRequestAvailabilityChanged();
             }
@@ -1917,14 +1940,18 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         || HasPendingApproval
         || HasActiveTool
         || HasCurrentProgress
-        || HasAuditActivity;
+        || HasAuditActivity
+        || ShowWorkingIndicator;
 
     public bool HasNoConversation => !HasAgentContent;
 
     public bool HasFailedTurn =>
         State == GovernedAgentState.Failed && !HasConversation;
 
-    public bool ShowFooterStatus => Status.Length > 0 && !HasFailedTurn;
+    public bool ShowFooterStatus =>
+        Status.Length > 0
+        && !HasFailedTurn
+        && State != GovernedAgentState.StreamingProvider;
 
     public string FailureHeading => SelectedModel is null
         ? "The response failed"

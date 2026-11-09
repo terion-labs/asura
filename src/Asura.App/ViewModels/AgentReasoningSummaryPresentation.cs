@@ -70,18 +70,4 @@ internal static class AgentReasoningSummaryPresentation
         formatted = string.Join("\n\n", stages);
         return true;
     }
-
-    public static string LatestStage(string? summary)
-    {
-        var formatted = Format(summary);
-        if (formatted.Length == 0)
-        {
-            return string.Empty;
-        }
-
-        var boundary = formatted.LastIndexOf("\n\n", StringComparison.Ordinal);
-        return boundary < 0
-            ? formatted
-            : formatted[(boundary + 2)..].Trim();
-    }
 }

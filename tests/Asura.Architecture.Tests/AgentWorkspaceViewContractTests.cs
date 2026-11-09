@@ -298,14 +298,14 @@ public sealed class AgentWorkspaceViewContractTests
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "MarkdownPreviewView"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "Text")
-, "{Binding AgentChat.ProvisionalReasoningStageDisplay}", StringComparison.Ordinal));
+, "{Binding AgentChat.ProvisionalReasoningSummaryDisplay}", StringComparison.Ordinal));
         var reasoningLoader = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "ProgressBar"
 , StringComparison.Ordinal) && string.Equals(AttributeValue(element, "AutomationProperties.Name")
 , "Reasoning in progress", StringComparison.Ordinal));
         Assert.Equal("1", AttributeValue(reasoningLoader, "Grid.Row"));
-        Assert.Equal("2", AttributeValue(reasoningLoader, "Grid.ColumnSpan"));
+        Assert.Equal("3", AttributeValue(reasoningLoader, "Grid.ColumnSpan"));
         Assert.Equal("0", AttributeValue(reasoningLoader, "MinWidth"));
         Assert.Equal("Stretch", AttributeValue(reasoningLoader, "HorizontalAlignment"));
         Assert.Equal(

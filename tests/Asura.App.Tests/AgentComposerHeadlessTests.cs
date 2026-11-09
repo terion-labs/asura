@@ -1509,7 +1509,9 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Equal(
                     "**Checking step 498****Checking step 499**",
                     viewModel.ProvisionalReasoningSummary);
-                Assert.Equal("Checking step 499", viewModel.ProvisionalReasoningStageDisplay);
+                Assert.Equal(
+                    "Checking step 498\n\nChecking step 499",
+                    viewModel.ProvisionalReasoningSummaryDisplay);
                 Assert.False(viewModel.ShowProvisionalReasoningLoader);
                 Assert.False(reasoningLoader.IsEffectivelyVisible);
                 Assert.InRange(dispatcher.InvocationCount, 1, 8);
@@ -1519,21 +1521,24 @@ public sealed partial class AgentChatViewModelTests
                 Assert.Contains(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),
                     block => block.Text.Contains("step 499", StringComparison.Ordinal));
-                Assert.DoesNotContain(
-                    view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),
-                    block => block.Text.Contains("step 498", StringComparison.Ordinal));
                 var disclosure = Assert.Single(
                     view.GetVisualDescendants().OfType<ToggleButton>(),
                     toggle => AutomationProperties.GetName(toggle)
                         == "Show or hide reasoning in progress"
                         && toggle.IsEffectivelyVisible);
-                Assert.True(disclosure.IsChecked);
-                disclosure.IsChecked = false;
-                window.UpdateLayout();
+                Assert.False(disclosure.IsChecked);
                 Assert.DoesNotContain(
                     view.GetVisualDescendants().OfType<SelectableMarkdownDocument>(),
                     block => block.IsEffectivelyVisible
                         && block.Text.Contains("step 499", StringComparison.Ordinal));
+                disclosure.IsChecked = true;
+                _ = await WaitForVisualAsync<SelectableMarkdownDocument>(
+                    view,
+                    window,
+                    block => block.IsEffectivelyVisible
+                        && block.Text.Contains("step 498", StringComparison.Ordinal)
+                        && block.Text.Contains("step 499", StringComparison.Ordinal),
+                    "the whole reasoning trace");
             }
             finally
             {
