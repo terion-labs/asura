@@ -125,7 +125,7 @@ public sealed class WorkspacesMenuHeadlessTests
             // At the foot of the rail, below every workspace and the add
             // tile, however few workspaces there are.
             var rail = gear.FindAncestorOfType<Border>(includeSelf: false)!;
-            while (!rail.Classes.Contains("FloatingSidebar"))
+            while (!rail.Classes.Contains("WorkspaceRail"))
             {
                 rail = rail.FindAncestorOfType<Border>()!;
             }

@@ -321,7 +321,8 @@ public sealed class WorkspaceViewContractTests
                     AttributeValue(element, "DockPanel.Dock"),
                     "{Binding WorkspacePanelDock}",
                     StringComparison.Ordinal));
-        Assert.True(HasClass(rail, "FloatingSidebar"));
+        Assert.True(HasClass(rail, "WorkspaceRail"));
+        Assert.False(HasClass(rail, "FloatingSidebar"));
         Assert.Equal(
             "{Binding IsWorkspaceRailVisible}",
             AttributeValue(rail, "IsVisible"));

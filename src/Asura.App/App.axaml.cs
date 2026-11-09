@@ -1113,6 +1113,14 @@ public sealed partial class App : Avalonia.Application
             + (resources.Spacing.Small * 2)
             + 2);
 
+        // The workspace rail has no surface of its own: its tiles rest on the
+        // window. A tile and the inset on the window's side are all it needs,
+        // because the canvas beside it already keeps the gap on its own side.
+        Publish(
+            "ShellWorkspaceRailWidth",
+            Math.Round(resources.ControlMinHeight * 1.05)
+            + resources.Spacing.Small);
+
         // The rail tile's outline, and how wide it opens when it offers to close
         // the workspace. Twice its own width, so the action it reveals is the
         // same size as the tile it belongs to rather than a sliver beside it.
