@@ -190,7 +190,7 @@ public sealed partial class GovernedAgentRuntime
                         ? lease.Generation.Generation
                         : null,
                     Status = canRetry
-                        ? "Waiting for the provider…"
+                        ? "Thinking…"
                         : _snapshot.Status,
                 };
                 changed = true;
@@ -387,7 +387,7 @@ public sealed partial class GovernedAgentRuntime
                 {
                     SteeringAvailable = true,
                     SteeringGeneration = lease.Generation.Generation,
-                    Status = "Waiting for the provider…",
+                    Status = "Thinking…",
                 };
                 changed = true;
             }

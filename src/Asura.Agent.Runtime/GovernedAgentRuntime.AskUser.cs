@@ -47,9 +47,34 @@ public sealed partial class GovernedAgentRuntime
             awaiter.ResponseStarted = true;
             expired = _timeProvider.GetUtcNow().ToUniversalTime()
                 >= awaiter.Question.ExpiresAtUtc;
+            // The card closes now, so the exchange moves into the transcript
+            // now, as a sent prompt does. Committing the tool result later
+            // projects the same two messages; a response that is not applied
+            // takes them back out (WithdrawShownAnswerUnsafe).
+            var messages = !expired
+                && response is GovernedAgentQuestionResponse.Submitted submitted
+                    ? CopyMessages(_snapshot.Messages.Concat(
+                    [
+                        new AgentChatMessage(
+                            AgentChatMessageRole.Assistant,
+                            awaiter.Question.Question,
+                            Kind: AgentChatMessageKind.Question),
+                        new AgentChatMessage(
+                            AgentChatMessageRole.User,
+                            submitted.Answer,
+                            Kind: AgentChatMessageKind.Answer),
+                    ]))
+                    : _snapshot.Messages;
+            if (!ReferenceEquals(messages, _snapshot.Messages))
+            {
+                awaiter.MessagesBeforeAnswer = _snapshot.Messages;
+                awaiter.MessagesWithAnswer = messages;
+            }
+
             _snapshot = _snapshot with
             {
                 State = GovernedAgentState.StreamingProvider,
+                Messages = messages,
                 PendingQuestion = null,
                 Status = expired
                     ? "That question expired before the response was accepted."
@@ -278,6 +303,11 @@ public sealed partial class GovernedAgentRuntime
             if (ReferenceEquals(_questionAwaiter, awaiter))
             {
                 _questionAwaiter = null;
+                if (!result.IsAccepted)
+                {
+                    WithdrawShownAnswerUnsafe(awaiter);
+                }
+
                 _snapshot = _snapshot with
                 {
                     State = GovernedAgentState.StreamingProvider,
@@ -305,6 +335,7 @@ public sealed partial class GovernedAgentRuntime
             if (ReferenceEquals(_questionAwaiter, awaiter))
             {
                 _questionAwaiter = null;
+                WithdrawShownAnswerUnsafe(awaiter);
                 _snapshot = _snapshot with
                 {
                     PendingQuestion = null,
@@ -321,7 +352,29 @@ public sealed partial class GovernedAgentRuntime
     {
         var awaiter = _questionAwaiter;
         _questionAwaiter = null;
+        if (awaiter is not null)
+        {
+            WithdrawShownAnswerUnsafe(awaiter);
+        }
+
         return awaiter;
+    }
+
+    /// <summary>
+    /// Takes back the question and answer shown when the answer was claimed,
+    /// for an answer that will not reach the provider. A transcript projected
+    /// since then already reflects what was committed and is left alone.
+    /// </summary>
+    private void WithdrawShownAnswerUnsafe(QuestionAwaiter awaiter)
+    {
+        if (awaiter.MessagesBeforeAnswer is { } before
+            && ReferenceEquals(_snapshot.Messages, awaiter.MessagesWithAnswer))
+        {
+            _snapshot = _snapshot with { Messages = before };
+        }
+
+        awaiter.MessagesBeforeAnswer = null;
+        awaiter.MessagesWithAnswer = null;
     }
 
     private static void CancelDetachedQuestionAwaiter(
@@ -375,5 +428,9 @@ public sealed partial class GovernedAgentRuntime
         } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public bool ResponseStarted { get; set; }
+
+        public IReadOnlyList<AgentChatMessage>? MessagesBeforeAnswer { get; set; }
+
+        public IReadOnlyList<AgentChatMessage>? MessagesWithAnswer { get; set; }
     }
 }

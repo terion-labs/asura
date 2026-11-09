@@ -68,6 +68,8 @@ public sealed partial class GovernedAgentRuntime
                     _queuedFollowUpBytes = checked(_queuedFollowUpBytes + byteCount);
                     _acceptedFollowUpsThisTurn++;
                     UpdateQueuedFollowUpsSnapshotUnsafe();
+                    // A title is optional; the message someone just sent is not.
+                    _titleCancellation?.Cancel();
                     result = new GovernedAgentFollowUpResult(
                         true,
                         request.Delivery == GovernedAgentFollowUpDelivery.Steering

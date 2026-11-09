@@ -598,6 +598,31 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
+          <!--
+            The reply in progress takes the place the reply will occupy. Until
+            the first streamed word it says what the run is doing; reasoning
+            then streams in full and folds away once the answer starts, as
+            chat apps show thinking.
+          -->
+          <StackPanel
+              x:Name="AgentWorkingIndicator"
+              Margin="{controls:Inset Bottom=Sm}"
+              Spacing="{DynamicResource ShellSpaceXs}"
+              IsVisible="{Binding AgentChat.ShowWorkingIndicator, FallbackValue=False}"
+              AutomationProperties.Name="AI agent working">
+            <TextBlock
+                Classes="Muted"
+                FontSize="{DynamicResource ShellSecondaryFontSize}"
+                Text="{Binding AgentChat.WorkingStatus}"
+                TextWrapping="Wrap"
+                AutomationProperties.Name="AI agent working status" />
+            <ProgressBar
+                MinWidth="0"
+                Height="2"
+                HorizontalAlignment="Stretch"
+                IsIndeterminate="True"
+                AutomationProperties.Name="AI agent working" />
+          </StackPanel>
           <StackPanel Spacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding AgentChat.HasProvisionalAgentContent, FallbackValue=False}">
             <StackPanel
                 IsVisible="{Binding AgentChat.HasProvisionalReasoningSummary, FallbackValue=False}"
@@ -605,26 +630,32 @@
               <ToggleButton
                   x:Name="ProvisionalReasoningDisclosure"
                   Classes="ReasoningTraceDisclosure"
-                  IsChecked="True"
+                  IsChecked="{Binding AgentChat.ExpandProvisionalReasoning, Mode=OneWay, FallbackValue=True}"
                   AutomationProperties.Name="Show or hide reasoning in progress">
                 <Grid
                     RowDefinitions="Auto,Auto"
-                    ColumnDefinitions="*,Auto"
+                    ColumnDefinitions="Auto,*,Auto"
                     ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                  <icons:SymbolIcon
+                      VerticalAlignment="Center"
+                      Symbol="BrainCircuit"
+                      FontSize="{DynamicResource ShellIconSizeSm}"
+                      Foreground="{DynamicResource ShellMutedBrush}" />
                   <TextBlock
+                      Grid.Column="1"
                       Classes="Muted"
                       FontSize="{DynamicResource ShellSecondaryFontSize}"
-                      Text="Reasoning"
+                      Text="{Binding AgentChat.ProvisionalReasoningTitle}"
                       AutomationProperties.Name="Reasoning status" />
                   <icons:SymbolIcon
-                      Grid.Column="1"
+                      Grid.Column="2"
                       VerticalAlignment="Center"
                       Symbol="ChevronDown"
                       FontSize="{DynamicResource ShellIconSizeSm}"
                       Foreground="{DynamicResource ShellMutedBrush}"
                       IsVisible="{Binding !IsChecked, ElementName=ProvisionalReasoningDisclosure}" />
                   <icons:SymbolIcon
-                      Grid.Column="1"
+                      Grid.Column="2"
                       VerticalAlignment="Center"
                       Symbol="ChevronUp"
                       FontSize="{DynamicResource ShellIconSizeSm}"
@@ -632,7 +663,7 @@
                       IsVisible="{Binding IsChecked, ElementName=ProvisionalReasoningDisclosure}" />
                   <ProgressBar
                       Grid.Row="1"
-                      Grid.ColumnSpan="2"
+                      Grid.ColumnSpan="3"
                       MinWidth="0"
                       Height="2"
                       Margin="{controls:Inset Top=Xs}"
@@ -650,7 +681,7 @@
                   IsVisible="{Binding IsChecked, ElementName=ProvisionalReasoningDisclosure}">
                 <components:MarkdownPreviewView
                     ContinuousSelection="True"
-                    Text="{Binding AgentChat.ProvisionalReasoningStageDisplay}" />
+                    Text="{Binding AgentChat.ProvisionalReasoningSummaryDisplay}" />
               </Border>
             </StackPanel>
             <components:MarkdownPreviewView

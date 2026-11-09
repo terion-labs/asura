@@ -30,7 +30,7 @@ public sealed partial class AgentChatViewModelTests
             ImmediateUiThreadDispatcher.Instance);
         runtime.Snapshot = runtime.Snapshot with
         {
-            Status = "Waiting for the provider…",
+            Status = "Thinking…",
             PersistenceError = null,
         };
         runtime.RaiseChanged();
@@ -355,7 +355,7 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
-    public async Task Provisional_reasoning_presents_only_the_latest_stage()
+    public async Task Provisional_reasoning_streams_in_full_and_folds_when_the_answer_starts()
     {
         using var runtime = new StubGovernedRuntime
         {
@@ -374,8 +374,10 @@ public sealed partial class AgentChatViewModelTests
         Assert.Equal(
             "Reading the request\n\nInspecting the workspace\n\nWriting the answer",
             viewModel.ProvisionalReasoningSummaryDisplay);
-        Assert.Equal("Writing the answer", viewModel.ProvisionalReasoningStageDisplay);
         Assert.True(viewModel.ShowProvisionalReasoningLoader);
+        Assert.True(viewModel.ExpandProvisionalReasoning);
+        Assert.Equal("Thinking…", viewModel.ProvisionalReasoningTitle);
+        Assert.False(viewModel.ShowWorkingIndicator);
 
         runtime.Snapshot = runtime.Snapshot with
         {
@@ -385,6 +387,8 @@ public sealed partial class AgentChatViewModelTests
         await WaitUntilAsync(() => viewModel.HasProvisionalAssistantText);
 
         Assert.False(viewModel.ShowProvisionalReasoningLoader);
+        Assert.False(viewModel.ExpandProvisionalReasoning);
+        Assert.Equal("Thought", viewModel.ProvisionalReasoningTitle);
     }
 
     [Fact]
