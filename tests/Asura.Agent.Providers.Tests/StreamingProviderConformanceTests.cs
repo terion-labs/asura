@@ -1075,6 +1075,102 @@ public sealed class StreamingProviderConformanceTests
         Assert.Empty(session.Snapshot().Conversation);
     }
 
+    [Theory]
+    [InlineData("reasoning_content")]
+    [InlineData("reasoning")]
+    [InlineData("reasoning_text")]
+    public async Task OpenAiCompatibleReasoningIsShownAndNeverSentBack(string field)
+    {
+        var stream = $$"""
+            data: {"choices":[{"index":0,"delta":{"role":"assistant","{{field}}":"Weighing "},"finish_reason":null}]}
+
+            data: {"choices":[{"index":0,"delta":{"{{field}}":"the options."},"finish_reason":null}]}
+
+            data: {"choices":[{"index":0,"delta":{"content":"Done."},"finish_reason":null}]}
+
+            data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """;
+        using var vault = new InMemorySecretVault();
+        var profile = CreateLoopbackProfile(AiProviderKind.OpenAiCompatible);
+        using var handler = new StubHttpMessageHandler(
+            (_, _) => Task.FromResult(SseResponse(stream)));
+        using var factory = new AiProviderFactory(vault, handler);
+        var session = CreateSession();
+
+        var first = await session.RunTurnAsync("Decide.", [], factory.Create(profile), CancellationToken.None);
+        Assert.True(first.Succeeded);
+        var reply = session.Snapshot().Conversation[^1];
+        Assert.Equal("Done.", reply.Content);
+        Assert.Equal("Weighing the options.", reply.ReasoningSummary);
+
+        // It is the model's own scratch work, shown and kept, not history
+        // the provider expects back: DeepSeek rejects a request carrying it.
+        var second = await session.RunTurnAsync("Again.", [], factory.Create(profile), CancellationToken.None);
+        Assert.True(second.Succeeded);
+        Assert.DoesNotContain("Weighing", handler.LastRequest!.Body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task OpenAiCompatibleReasoningUnderTwoNamesIsShownOnceAndOtherShapesAreSkipped()
+    {
+        const string stream = """
+            data: {"choices":[{"index":0,"delta":{"reasoning_content":"Once.","reasoning":"Once."},"finish_reason":null}]}
+
+            data: {"choices":[{"index":0,"delta":{"reasoning":{"effort":"high"},"reasoning_details":[{"type":"reasoning.text"}]},"finish_reason":null}]}
+
+            data: {"choices":[{"index":0,"delta":{"content":"Done."},"finish_reason":"stop"}]}
+
+            data: [DONE]
+
+
+            """;
+        using var vault = new InMemorySecretVault();
+        var profile = CreateLoopbackProfile(AiProviderKind.OpenAiCompatible);
+        using var handler = new StubHttpMessageHandler(
+            (_, _) => Task.FromResult(SseResponse(stream)));
+        using var factory = new AiProviderFactory(vault, handler);
+        var session = CreateSession();
+
+        var result = await session.RunTurnAsync("Decide.", [], factory.Create(profile), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Once.", session.Snapshot().Conversation[^1].ReasoningSummary);
+    }
+
+    [Fact]
+    public async Task OpenAiCompatibleLongReasoningIsCutInsteadOfFailingTheTurn()
+    {
+        var fragment = new string('x', 1000);
+        var stream = new StringBuilder();
+        for (var index = 0; index < 200; index++)
+        {
+            stream.Append("data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"")
+                .Append(fragment)
+                .Append("\"},\"finish_reason\":null}]}\n\n");
+        }
+
+        stream.Append("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Done.\"},\"finish_reason\":\"stop\"}]}\n\n");
+        stream.Append("data: [DONE]\n\n");
+        using var vault = new InMemorySecretVault();
+        var profile = CreateLoopbackProfile(AiProviderKind.OpenAiCompatible);
+        using var handler = new StubHttpMessageHandler(
+            (_, _) => Task.FromResult(SseResponse(stream.ToString())));
+        using var factory = new AiProviderFactory(vault, handler);
+        var session = CreateSession();
+
+        var result = await session.RunTurnAsync("Think long.", [], factory.Create(profile), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var reasoning = session.Snapshot().Conversation[^1].ReasoningSummary!;
+        Assert.EndsWith("\n\n…", reasoning, StringComparison.Ordinal);
+        Assert.True(Encoding.UTF8.GetByteCount(reasoning) <= 128 * 1024, $"bytes={Encoding.UTF8.GetByteCount(reasoning)}");
+        Assert.True(reasoning.Length > 120_000);
+    }
+
     [Fact]
     public async Task OpenAiRejectsContentAfterFinishReason()
     {

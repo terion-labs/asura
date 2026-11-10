@@ -47,7 +47,7 @@ public sealed partial class OpenAiResponsesProviderTests
         Assert.Equal(777, root.GetProperty("max_output_tokens").GetInt32());
         Assert.True(root.GetProperty("parallel_tool_calls").GetBoolean());
         var reasoning = root.GetProperty("reasoning");
-        Assert.Equal("detailed", reasoning.GetProperty("summary").GetString());
+        Assert.Equal("auto", reasoning.GetProperty("summary").GetString());
         Assert.False(reasoning.TryGetProperty("effort", out _));
         Assert.Equal("Be concise.", root.GetProperty("instructions").GetString());
         var input = Assert.Single(root.GetProperty("input").EnumerateArray());
@@ -412,7 +412,7 @@ public sealed partial class OpenAiResponsesProviderTests
     }
 
     [Fact]
-    public async Task RawReasoningRemainsPrivateWhileVisibleConversationCheckpoints()
+    public async Task RawReasoningIsShownAndKeptButItsReplayAtomsAreNotCheckpointed()
     {
         using var vault = new InMemorySecretVault();
         var profile = await CreateProfileAsync(vault);
@@ -431,25 +431,25 @@ public sealed partial class OpenAiResponsesProviderTests
             provider,
             CancellationToken.None);
         var proposal = Assert.Single(first.ToolProposals);
-        Assert.Null(session.Snapshot().Conversation[^1].ReasoningSummary);
+
+        // The raw text is the reasoning the chat shows, streamed once even
+        // though the done event repeats it, and kept with the reply.
+        Assert.Equal("private thought", session.Snapshot().Conversation[^1].ReasoningSummary);
         Assert.True((await SubmitResultAsync(session, proposal, tools, provider)).Succeeded);
 
         var checkpoint = session.CaptureCheckpoint();
         Assert.True(checkpoint.Succeeded);
         Assert.DoesNotContain(
-            "private thought",
-            checkpoint.Checkpoint!.PayloadJson,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain(
             "opaque-raw",
-            checkpoint.Checkpoint.PayloadJson,
+            checkpoint.Checkpoint!.PayloadJson,
             StringComparison.Ordinal);
         var restored = Assert.IsType<NativeAgentSession>(
             NativeAgentSession.RestoreCheckpoint(checkpoint.Checkpoint).Session);
-        _ = Assert.Single(
+        var reasoned = Assert.Single(
             restored.Snapshot().Conversation,
             message => message.Role == AgentMessageRole.Assistant
                 && message.ToolCalls.Length > 0);
+        Assert.Equal("private thought", reasoned.ReasoningSummary);
         Assert.Contains(
             restored.Snapshot().Conversation,
             message => message.Role == AgentMessageRole.Assistant
@@ -1110,7 +1110,7 @@ public sealed partial class OpenAiResponsesProviderTests
         using var body = JsonDocument.Parse(handler.LastRequest!.Body);
         var reasoning = body.RootElement.GetProperty("reasoning");
         Assert.Equal("high", reasoning.GetProperty("effort").GetString());
-        Assert.Equal("detailed", reasoning.GetProperty("summary").GetString());
+        Assert.Equal("auto", reasoning.GetProperty("summary").GetString());
     }
 
     [Fact]
@@ -1168,7 +1168,7 @@ public sealed partial class OpenAiResponsesProviderTests
                 .GetProperty("effort")
                 .GetString());
         Assert.Equal(
-            "detailed",
+            "auto",
             body.RootElement
                 .GetProperty("reasoning")
                 .GetProperty("summary")
