@@ -409,8 +409,11 @@
           BringIntoViewOnFocusChange="False"
           ScrollChanged="OnAgentChatTranscriptScrollChanged"
           AutomationProperties.Name="AI agent activity">
+        <!-- The inset at the foot keeps whatever ends the transcript — a
+             running action's card, the activity record — off the status line
+             and the composer below it. -->
         <StackPanel
-            Margin="{controls:Inset Horizontal=Md}"
+            Margin="{controls:Inset Horizontal=Md, Bottom=Sm}"
             Spacing="{DynamicResource ShellSpaceSm}">
           <!--
             What you said is a bubble; what the agent said is the page. Giving both
@@ -606,7 +609,6 @@
           -->
           <StackPanel
               x:Name="AgentWorkingIndicator"
-              Margin="{controls:Inset Bottom=Sm}"
               Spacing="{DynamicResource ShellSpaceXs}"
               IsVisible="{Binding AgentChat.ShowWorkingIndicator, FallbackValue=False}"
               AutomationProperties.Name="AI agent working">
@@ -788,7 +790,6 @@
               IsVisible="{Binding AgentChat.HasPendingApproval, FallbackValue=False}" />
           <Expander
               x:Name="AgentRunAudit"
-              Margin="{controls:Inset Bottom=Sm}"
               HorizontalContentAlignment="Stretch"
               IsExpanded="{Binding AgentChat.IsAuditExpanded, Mode=TwoWay}"
               IsVisible="{Binding AgentChat.HasAuditActivity, FallbackValue=False}"

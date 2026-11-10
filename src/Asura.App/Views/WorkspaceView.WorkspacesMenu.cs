@@ -16,16 +16,18 @@ namespace Asura.App.Views;
 /// <summary>
 /// The Workspaces menu in the title bar: every workspace, the one in front
 /// checked, and a Terminate Workspace submenu on its own below them that
-/// names each workspace that can be ended.
+/// names each workspace that can be ended, and last the sidebar's own
+/// Show Sidebar / Hide Sidebar, as in the View menu.
 ///
 /// It used to be a popover of buttons, each row with its own terminate cross
-/// beside Open and a switch for the rail at the bottom. Arrow keys did not
-/// walk it, VoiceOver heard buttons, and ending a workspace was one slip away
-/// from opening one.
+/// beside Open. Arrow keys did not walk it, VoiceOver heard buttons, and
+/// ending a workspace was one slip away from opening one.
 /// </summary>
 public sealed partial class WorkspaceView
 {
     internal const string TerminateWorkspaceHeader = "Terminate Workspace";
+    internal const string ShowSidebarHeader = "Show Sidebar";
+    internal const string HideSidebarHeader = "Hide Sidebar";
 
     /// <summary>The items, built as the menu opens from the workspaces as they are then.</summary>
     private void OnWorkspacesMenuOpening(object? sender, EventArgs e)
@@ -98,8 +100,48 @@ public sealed partial class WorkspaceView
 
         terminate.IsEnabled = terminate.Items.Count > 0;
         items.Add(terminate);
+
+        // The button stands at the rail's corner, so the rail's switch is
+        // here as well as in the View menu: hiding the sidebar should not
+        // take a trip to the menu bar to undo. A window too narrow for the
+        // rail hides it whatever this says, so there it has nothing to do.
+        items.Add(new Separator());
+        var sidebar = new MenuItem
+        {
+            Header = IsSidebarShown ? HideSidebarHeader : ShowSidebarHeader,
+            IsEnabled = CanToggleSidebar,
+        };
+        sidebar.Click += OnWorkspacesMenuSidebarClick;
+        items.Add(sidebar);
+
         return items;
     }
+
+    public static readonly StyledProperty<bool> IsSidebarShownProperty =
+        AvaloniaProperty.Register<WorkspaceView, bool>(nameof(IsSidebarShown));
+
+    public static readonly StyledProperty<bool> CanToggleSidebarProperty =
+        AvaloniaProperty.Register<WorkspaceView, bool>(nameof(CanToggleSidebar), defaultValue: true);
+
+    /// <summary>Whether the sidebar is switched on, which the menu's switch names.</summary>
+    public bool IsSidebarShown
+    {
+        get => GetValue(IsSidebarShownProperty);
+        set => SetValue(IsSidebarShownProperty, value);
+    }
+
+    /// <summary>False while the window is too narrow for the rail to show at all.</summary>
+    public bool CanToggleSidebar
+    {
+        get => GetValue(CanToggleSidebarProperty);
+        set => SetValue(CanToggleSidebarProperty, value);
+    }
+
+    /// <summary>Show Sidebar / Hide Sidebar from the Workspaces menu; the shell flips the setting.</summary>
+    public event EventHandler<RoutedEventArgs>? ToggleSidebarRequested;
+
+    private void OnWorkspacesMenuSidebarClick(object? sender, RoutedEventArgs e) =>
+        ToggleSidebarRequested?.Invoke(sender, e);
 
     /// <summary>
     /// The name, and the robot when an agent is at work in it: the mark the

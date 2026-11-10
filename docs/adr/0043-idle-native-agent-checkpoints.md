@@ -87,10 +87,17 @@ Capture or storage failures publish a persistent conversation-save notice during
 active work as well as after completion; subsequent progress cannot hide it.
 Provider raw reasoning that was intentionally suppressed from user-visible
 reasoning summaries can exist only in volatile memory for its immediate tool
-continuation. This includes Anthropic thinking and OpenAI reasoning text;
-encrypted OpenAI continuity data remains eligible. Checkpoint capture keeps the
-committed visible conversation but removes an assistant message's entire
-provider-private replay state when that state contains suppressed raw reasoning.
+continuation. This includes Anthropic thinking returned without a summarized
+display; encrypted OpenAI continuity data remains eligible. Raw reasoning text
+that a provider streams in place of a summary — OpenAI Responses
+`reasoning_text`, and the `reasoning_content`, `reasoning` or `reasoning_text`
+deltas of Chat Completions servers — is instead shown live and committed as the
+message's visible reasoning, bounded at 128 KiB per response, and is never
+sent back to the provider. Its OpenAI replay item keeps its raw-reasoning
+classification, so checkpoint handling of the provider atom is unchanged.
+Checkpoint capture keeps the committed visible conversation but removes an
+assistant message's entire provider-private replay state when that state
+contains raw reasoning.
 The restored transcript therefore remains readable and continuable without
 making hidden reasoning durable or replaying a partially stripped provider atom.
 Restore decodes replay bytes with strict UTF-8, derives the unsafe

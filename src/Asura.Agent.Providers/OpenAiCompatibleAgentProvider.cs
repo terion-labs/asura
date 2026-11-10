@@ -329,7 +329,11 @@ internal sealed class OpenAiCompatibleAgentProvider(
 
     private sealed class OpenAiStreamState(int maximumFragmentBytes)
     {
+        private static readonly string[] ReasoningPropertyNames =
+            ["reasoning_content", "reasoning", "reasoning_text"];
+
         private readonly List<OpenAiToolCall> _toolCalls = [];
+        private readonly ShownRawReasoning _rawReasoning = new();
         private AgentProviderStopReason? _stopReason;
         private AgentTokenUsage? _usage;
         private bool _done;
@@ -379,6 +383,7 @@ internal sealed class OpenAiCompatibleAgentProvider(
                     throw ProtocolError();
                 }
 
+                AppendReasoning(delta, events);
                 AppendText(delta, "content", events);
                 AppendText(delta, "refusal", events);
                 if (delta.TryGetProperty("tool_calls", out var toolCalls)
@@ -522,6 +527,39 @@ internal sealed class OpenAiCompatibleAgentProvider(
             }
 
             return count;
+        }
+
+        /// <summary>
+        /// The model's reasoning as it streams, under whichever name the
+        /// server gives it: DeepSeek, Moonshot, xAI, vLLM and LM Studio say
+        /// <c>reasoning_content</c>, OpenRouter and Ollama <c>reasoning</c>,
+        /// GitHub Copilot <c>reasoning_text</c>. Some servers send the same
+        /// text under two names, so only the first is read. It is display
+        /// only — never sent back to the provider — so a value of another
+        /// shape is skipped rather than failing the turn.
+        /// </summary>
+        private void AppendReasoning(
+            JsonElement delta,
+            ICollection<AgentProviderEvent> events)
+        {
+            foreach (var name in ReasoningPropertyNames)
+            {
+                if (!delta.TryGetProperty(name, out var property)
+                    || property.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
+
+                var value = property.GetString()!;
+                ValidateFragment(value, maximumFragmentBytes);
+                var shown = _rawReasoning.Accept(value);
+                if (shown.Length > 0)
+                {
+                    events.Add(new AgentProviderEvent.ReasoningSummaryDelta(shown));
+                }
+
+                return;
+            }
         }
 
         private void AppendText(

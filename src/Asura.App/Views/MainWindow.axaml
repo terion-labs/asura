@@ -469,6 +469,7 @@
         OpenWorkspaceRequested="OnOpenWorkspaceClick"
         CloseWorkspaceRequested="OnCloseWorkspaceClick"
         TerminateWorkspaceRequested="OnTerminateWorkspaceClick"
+        ToggleSidebarRequested="OnToggleSidebarClick"
         SaveWorkspaceLayoutRequested="OnSaveWorkspaceLayoutClick"
         EditWorkspaceRequested="OnEditWorkspaceClick"
         CreateWorkspaceRequested="OnCreateWorkspaceClick"

@@ -40,13 +40,16 @@ public sealed class WorkspaceOrderHeadlessTests
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
             var items = flyout.Items.OfType<MenuItem>().ToArray();
 
-            // One checkable item per workspace, the one in front checked, and
-            // the Terminate Workspace submenu on its own after a separator.
-            Assert.Equal(model.Workspaces.Count + 1, items.Length);
-            Assert.All(items[..^1], item => Assert.Equal(MenuItemToggleType.Radio, item.ToggleType));
-            Assert.True(Assert.Single(items[..^1], item => ReferenceEquals(item.DataContext, main)).IsChecked);
+            // One checkable item per workspace, the one in front checked, the
+            // Terminate Workspace submenu on its own after a separator, and
+            // the sidebar's switch after another.
+            Assert.Equal(model.Workspaces.Count + 2, items.Length);
+            Assert.All(items[..^2], item => Assert.Equal(MenuItemToggleType.Radio, item.ToggleType));
+            Assert.True(Assert.Single(items[..^2], item => ReferenceEquals(item.DataContext, main)).IsChecked);
+            Assert.IsType<Separator>(flyout.Items[^4]);
             Assert.IsType<Separator>(flyout.Items[^2]);
-            var terminate = items[^1];
+            Assert.Equal(WorkspaceView.HideSidebarHeader, items[^1].Header);
+            var terminate = items[^2];
             Assert.Equal(WorkspaceView.TerminateWorkspaceHeader, terminate.Header);
 
             // It names every workspace that can be ended, in front or not,
@@ -73,7 +76,8 @@ public sealed class WorkspaceOrderHeadlessTests
             background.IsOpen = false;
             flyout.ShowAt(menu);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
-            terminate = flyout.Items.OfType<MenuItem>().Last();
+            terminate = flyout.Items.OfType<MenuItem>()
+                .Single(item => Equals(item.Header, WorkspaceView.TerminateWorkspaceHeader));
             Assert.False(terminate.IsEnabled);
             Assert.Empty(terminate.Items);
         }
@@ -342,6 +346,15 @@ public sealed class WorkspaceOrderHeadlessTests
                     })]
                     };
                     return ValueTask.FromResult<DefinitionStoreError?>(null);
+                case nameof(IDefinitionCatalog.SaveThemeAsync):
+                    var theme = Assert.IsType<ThemePreference>(args![0]);
+                    var saved = new StoredDefinition<ThemePreference>(
+                        theme, _snapshot.Themes.Count + 1, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+                    _snapshot = _snapshot with
+                    {
+                        Themes = [.. _snapshot.Themes.Where(item => item.Value.Id != theme.Id), saved],
+                    };
+                    return ValueTask.FromResult(DefinitionStoreResult<StoredDefinition<ThemePreference>>.Success(saved));
                 default: throw new NotSupportedException(targetMethod?.Name);
             }
         }

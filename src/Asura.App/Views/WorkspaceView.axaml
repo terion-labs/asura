@@ -1,6 +1,8 @@
 <UserControl
     x:Class="Asura.App.Views.WorkspaceView"
     x:DataType="vm:MainWindowViewModel"
+    IsSidebarShown="{Binding ShowWorkspacesPanel}"
+    CanToggleSidebar="{Binding !IsCompactWindow}"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:Asura.App.ViewModels"
@@ -105,9 +107,9 @@
              A menu, not a popover of buttons: arrow keys and type-select walk
              it, VoiceOver hears menu items, and the workspace in front is the
              checked one. Ending a workspace is its own item, apart from the
-             list and last, so it is never one slip away from opening one. The
-             rail's own switch lives in the View menu with the other sidebars.
-             The items are built as the menu opens, from the workspaces as they
+             list, so it is never one slip away from opening one. Last comes the
+             rail's own switch, as in the View menu: this button is where the
+             rail was, so it is where you look to bring it back. The items are built as the menu opens, from the workspaces as they
              are then. -->
         <Button
             x:Name="WorkspacesMenuButton"

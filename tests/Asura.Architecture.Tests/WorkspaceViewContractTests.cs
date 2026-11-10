@@ -49,6 +49,7 @@ public sealed class WorkspaceViewContractTests
             ["ShowSettingsRequested"] = "OnShowSettingsClick",
             ["SubmitAgentQuestionRequested"] = "OnSubmitAgentQuestionClick",
             ["TerminateWorkspaceRequested"] = "OnTerminateWorkspaceClick",
+            ["ToggleSidebarRequested"] = "OnToggleSidebarClick",
             ["ToggleAgentRequested"] = "OnToggleAgentClick",
         };
 

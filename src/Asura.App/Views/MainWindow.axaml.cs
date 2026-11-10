@@ -870,6 +870,13 @@ public sealed partial class MainWindow : Window
     /// is busy and the rail's close would end it at once — and having asked,
     /// does not ask the running-session question a second time.
     /// </summary>
+    private void OnToggleSidebarClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ((IShellCommandPresentation)this).ToggleSidebar();
+    }
+
     private async void OnTerminateWorkspaceClick(object? sender, RoutedEventArgs e)
     {
         _ = e;

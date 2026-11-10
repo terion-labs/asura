@@ -1,6 +1,7 @@
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
+using Asura.Application;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -165,11 +166,85 @@ public sealed class WorkspacesMenuHeadlessTests
         finally { window.Close(); }
     });
 
+    [Fact]
+    public Task The_Workspaces_menu_hides_and_shows_the_sidebar() => RunAsync(async () =>
+    {
+        using var model = WorkspaceOrderHeadlessTests.CreateModel(out var catalog);
+        var (view, window, _) = Show(model);
+        // The shell's part, as the main window does it.
+        view.ToggleSidebarRequested += (_, _) => model.ShowWorkspacesPanel = !model.ShowWorkspacesPanel;
+        try
+        {
+            Assert.True(model.IsWorkspaceRailVisible);
+            var button = view.FindControl<Button>("WorkspacesMenuButton")!;
+            var flyout = Assert.IsType<DynamicMenuFlyout>(button.Flyout);
+
+            await ChooseSidebarItem(WorkspaceView.HideSidebarHeader);
+            await Published(() => !model.ShowWorkspacesPanel);
+            Assert.False(model.IsWorkspaceRailVisible);
+
+            await ChooseSidebarItem(WorkspaceView.ShowSidebarHeader);
+            await Published(() => model.ShowWorkspacesPanel);
+            Assert.True(model.IsWorkspaceRailVisible);
+
+            // Too narrow a window hides the rail whatever the switch says,
+            // so the switch has nothing to do there.
+            model.UpdateWindowWidth(700);
+            await Settle(window);
+            flyout.ShowAt(button);
+            await Settle(window);
+            Assert.False(SidebarItem(flyout).IsEnabled);
+            flyout.Hide();
+
+            // The choice is saved, and the shell hears of it as the catalog
+            // publishes the saved theme back.
+            async Task Published(Func<bool> condition)
+            {
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                while (!condition())
+                {
+                    Assert.True(DateTime.UtcNow < deadline, "The sidebar setting was never saved.");
+                    await Task.Delay(10);
+                    model.AppearanceSettings.ApplyCatalog(((IDefinitionCatalog)(object)catalog).Snapshot);
+                    await Settle(window);
+                }
+            }
+
+            async Task ChooseSidebarItem(string header)
+            {
+                var center = Center(button, window);
+                window.MouseDown(center, MouseButton.Left);
+                window.MouseUp(center, MouseButton.Left);
+                await Settle(window);
+                Assert.True(flyout.IsOpen);
+                var item = SidebarItem(flyout);
+                Assert.Equal(header, item.Header);
+                Assert.True(item.IsEnabled);
+                var root = TopLevel.GetTopLevel(item)!;
+                var at = Center(item, root);
+                root.MouseDown(at, MouseButton.Left);
+                root.MouseUp(at, MouseButton.Left);
+                await Settle(window);
+                Assert.False(flyout.IsOpen);
+            }
+        }
+        finally { window.Close(); }
+    });
+
+    private static MenuItem SidebarItem(MenuFlyout flyout)
+    {
+        var presenter = Assert.IsType<MenuFlyoutPresenter>(flyout.Popup.Child);
+        var item = Assert.IsType<MenuItem>(presenter.GetRealizedContainers().Last());
+        Assert.True(item.IsEffectivelyVisible && item.Bounds.Height > 0, $"item={item.Bounds}");
+        return item;
+    }
+
     private static MenuItem[] DrawnWorkspaceItems(MenuFlyout flyout, MainWindowViewModel model)
     {
         var presenter = Assert.IsType<MenuFlyoutPresenter>(flyout.Popup.Child);
-        // One row per workspace, a separator, and Terminate Workspace.
-        Assert.Equal(model.Workspaces.Count + 2, presenter.ItemCount);
+        // One row per workspace, a separator, Terminate Workspace, a
+        // separator, and the sidebar's switch.
+        Assert.Equal(model.Workspaces.Count + 4, presenter.ItemCount);
         Assert.True(presenter.Bounds.Width >= 120, $"presenter={presenter.Bounds}");
         var items = presenter.GetRealizedContainers().OfType<MenuItem>()
             .Where(item => item.DataContext is LauncherWorkspaceViewModel)

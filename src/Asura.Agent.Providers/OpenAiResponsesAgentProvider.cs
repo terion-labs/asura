@@ -279,7 +279,7 @@ internal sealed class OpenAiResponsesAgentProvider(
             if (SupportsReasoningSummary())
             {
                 writer.WriteStartObject("reasoning");
-                writer.WriteString("summary", "detailed");
+                writer.WriteString("summary", ReasoningSummaryMode);
                 writer.WriteEndObject();
             }
 
@@ -303,11 +303,19 @@ internal sealed class OpenAiResponsesAgentProvider(
             });
         if (effort != AgentReasoningEffort.Off && SupportsReasoningSummary())
         {
-            writer.WriteString("summary", "detailed");
+            writer.WriteString("summary", ReasoningSummaryMode);
         }
 
         writer.WriteEndObject();
     }
+
+    /// <summary>
+    /// "auto" asks for the most detailed summarizer the model has. The
+    /// ChatGPT sign-in's Codex backend streams no summary at all when asked
+    /// for "detailed" on its newer models, which left the chat with nothing
+    /// to show while the model thought.
+    /// </summary>
+    private const string ReasoningSummaryMode = "auto";
 
     private bool SupportsReasoningSummary() =>
         !string.Equals(
@@ -700,6 +708,8 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
         private readonly Dictionary<int, StringBuilder> _reasoningSummaryByOutputIndex = [];
         private readonly Dictionary<int, int> _reasoningSummaryBytesByOutputIndex = [];
         private readonly HashSet<int> _reasoningSummaryPartsAwaitingBreak = [];
+        private readonly HashSet<int> _rawReasoningStreamedOutputIndexes = [];
+        private readonly ShownRawReasoning _rawReasoning = new();
         private AgentProviderStopReason? _stopReason;
         private bool _created;
         private bool _done;
@@ -775,10 +785,10 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                     AppendReasoningSummary(root, events);
                     break;
                 case "response.reasoning_text.delta":
-                    ObserveRawReasoning(root, "delta");
+                    ObserveRawReasoning(root, "delta", events);
                     break;
                 case "response.reasoning_text.done":
-                    ObserveRawReasoning(root, "text");
+                    ObserveRawReasoning(root, "text", events);
                     break;
                 default:
                     // OpenAI adds stream events as models gain features, and
@@ -887,7 +897,17 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
             }
         }
 
-        private void ObserveRawReasoning(JsonElement root, string valueProperty)
+        /// <summary>
+        /// Raw reasoning text, which some models send instead of a summary,
+        /// is shown and kept with the reply like a summary. The item is still
+        /// marked as carrying raw reasoning, so a checkpoint keeps its
+        /// provider replay atoms out of storage as before. The done event
+        /// repeats the deltas, so it is shown only when no delta came.
+        /// </summary>
+        private void ObserveRawReasoning(
+            JsonElement root,
+            string valueProperty,
+            ICollection<AgentProviderEvent> events)
         {
             var outputIndex = OutputIndex(root);
             if (!_replaySlots.TryGetValue(outputIndex, out var slot)
@@ -902,8 +922,22 @@ string.Equals(role, "assistant", StringComparison.Ordinal) ? "output_text" : "in
                 throw ProtocolError();
             }
 
-            _ = RequiredFragment(root, valueProperty, maximumFragmentBytes);
+            var value = RequiredFragment(root, valueProperty, maximumFragmentBytes);
             slot.MarkSuppressedRawReasoning();
+            var isDelta = string.Equals(valueProperty, "delta", StringComparison.Ordinal);
+            if (isDelta)
+            {
+                _rawReasoningStreamedOutputIndexes.Add(outputIndex);
+            }
+            else if (_rawReasoningStreamedOutputIndexes.Contains(outputIndex))
+            {
+                return;
+            }
+
+            if (_rawReasoning.Accept(value) is { Length: > 0 } shown)
+            {
+                AddBoundedReasoningEvents(shown, events);
+            }
         }
 
         private void AppendReasoningSummary(
