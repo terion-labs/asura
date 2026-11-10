@@ -204,6 +204,34 @@ public sealed partial record AgentContextPanel
         return FromGraph(graph, tab, panel, session, isCurrentPanelSession: true);
     }
 
+    /// <summary>
+    /// A graph panel still linked to a session that has ended. It carries no
+    /// session metadata, so nothing can be done through it.
+    /// </summary>
+    public static AgentContextPanel ForGraphPanelWhoseSessionEnded(
+        WorkspaceGraphSnapshot graph,
+        TabInstanceId tabId,
+        PanelInstanceId panelId)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        var tab = graph.Workspace.Tabs.SingleOrDefault(candidate => candidate.Id == tabId)
+            ?? throw new ArgumentException(
+                "The context tab must belong to the supplied workspace graph.",
+                nameof(tabId));
+        var panel = tab.Panels.SingleOrDefault(candidate => candidate.Id == panelId)
+            ?? throw new ArgumentException(
+                "The context panel must belong to the supplied tab.",
+                nameof(panelId));
+        if (panel.SessionId is null)
+        {
+            throw new ArgumentException(
+                "Only a panel linked to a session can have an ended session.",
+                nameof(panelId));
+        }
+
+        return FromGraph(graph, tab, panel, session: null, isCurrentPanelSession: false);
+    }
+
     public static AgentContextPanel ForExactSession(
         SessionDescriptor session,
         WorkspaceGraphSnapshot? graph = null)

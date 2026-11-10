@@ -165,6 +165,55 @@ public sealed class AgentContextOperationTests
     }
 
     [Fact]
+    public async Task A_panel_whose_session_ended_leaves_the_rest_of_its_workspace_usable()
+    {
+        await using var harness = new SessionHostTestHarness();
+        harness.Factory.ThrowWhenClosing = true;
+        await RegisterAsync(harness, harness.WindowId, PrimaryWorkspace(harness));
+        await harness.OpenAsync();
+
+        // A close that fails leaves the panel linked to a failed session.
+        var closed = (await harness.Client.CloseAsync(
+            CloseScopeRequest.Panel(harness.PanelId, CloseDecision.Request),
+            harness.HumanContext(),
+            CancellationToken.None)).Value();
+        Assert.Equal(
+            SessionCloseOutcome.EngineFailed,
+            Assert.Single(Assert.IsType<CloseScopeResult.Completed>(closed).Sessions).Outcome);
+
+        var workspace = await InspectAsync(
+            harness,
+            new AgentTarget.Workspace(harness.WindowId, harness.WorkspaceId));
+        var tab = await InspectAsync(
+            harness,
+            new AgentTarget.OpenTab(harness.WindowId, harness.WorkspaceId, harness.TabId));
+        var exact = await InspectAsync(
+            harness,
+            new AgentTarget.Panel(
+                harness.WindowId,
+                harness.WorkspaceId,
+                harness.TabId,
+                harness.PanelId));
+
+        Assert.Equal(
+            [
+                new PanelInstanceId("panel-files"),
+                harness.PanelId,
+                new PanelInstanceId("panel-browser"),
+            ],
+            PanelIds(workspace));
+        Assert.Equal([new PanelInstanceId("panel-files"), harness.PanelId], PanelIds(tab));
+        foreach (var ended in new[] { workspace.Panels[1], tab.Panels[1], Assert.Single(exact.Panels) })
+        {
+            Assert.Equal(harness.PanelId, ended.PanelId);
+            Assert.Null(ended.SessionId);
+            Assert.Null(ended.Lifecycle);
+            Assert.False(ended.IsCurrentPanelSession);
+            Assert.Empty(ended.Capabilities);
+        }
+    }
+
+    [Fact]
     public async Task Terminal_context_preserves_launch_boundary_and_refreshes_current_directory()
     {
         await using var harness = new SessionHostTestHarness();
