@@ -158,25 +158,30 @@ public sealed partial class InMemorySessionHostClient
                 graph.Revision);
         }
 
+        // A panel whose session ended (a shell that exited, a dropped
+        // connection) keeps its link until the panel restarts or closes. It
+        // is listed without a session, so it can't be acted on but doesn't
+        // take the rest of its tab or workspace down with it.
         SessionDescriptor? session = null;
-        if (panel.SessionId is { } sessionId)
+        if (panel.SessionId is { } sessionId
+            && sessions.TryGetValue(sessionId, out var linked)
+            && linked.Lifecycle is not (SessionLifecycle.Closed or SessionLifecycle.Failed))
         {
-            if (!sessions.TryGetValue(sessionId, out session)
-                || session.Lifecycle is SessionLifecycle.Closed or SessionLifecycle.Failed)
-            {
-                return InvalidAgentContext(
-                    "A workspace panel links to a session that is no longer live.",
-                    graph.Revision);
-            }
+            session = linked;
         }
 
         try
         {
-            panels.Add(AgentContextPanel.ForGraphPanel(
-                graph,
-                tabId,
-                panel.Id,
-                session));
+            panels.Add(session is null && panel.SessionId is not null
+                ? AgentContextPanel.ForGraphPanelWhoseSessionEnded(
+                    graph,
+                    tabId,
+                    panel.Id)
+                : AgentContextPanel.ForGraphPanel(
+                    graph,
+                    tabId,
+                    panel.Id,
+                    session));
             return null;
         }
         catch (ArgumentException)
