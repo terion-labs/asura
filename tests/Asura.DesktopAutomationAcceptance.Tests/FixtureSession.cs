@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
 using Asura.Application;
@@ -86,10 +87,10 @@ internal sealed class FixtureSession : IDisposable
             "--quit-after",
             "300");
         var pidFile = Path.Combine(runDirectory, "fixture.pid");
-        var deadline = DateTimeOffset.UtcNow + EventWait;
+        var elapsed = Stopwatch.StartNew();
         while (!File.Exists(pidFile) || new FileInfo(pidFile).Length == 0)
         {
-            Assert.True(DateTimeOffset.UtcNow < deadline, "The fixture copy did not report ready.");
+            Assert.True(elapsed.Elapsed < EventWait, "The fixture copy did not report ready.");
             Thread.Sleep(50);
         }
 
@@ -138,7 +139,8 @@ internal sealed class FixtureSession : IDisposable
 
     public JsonElement WaitFor(Func<JsonElement, bool> predicate, TimeSpan? timeout = null)
     {
-        var deadline = DateTimeOffset.UtcNow + (timeout ?? EventWait);
+        var budget = timeout ?? EventWait;
+        var elapsed = Stopwatch.StartNew();
         while (true)
         {
             var match = Events().Where(predicate).ToArray();
@@ -147,7 +149,7 @@ internal sealed class FixtureSession : IDisposable
                 return match[^1];
             }
 
-            Assert.True(DateTimeOffset.UtcNow < deadline, "The fixture did not log the expected event.");
+            Assert.True(elapsed.Elapsed < budget, "The fixture did not log the expected event.");
             Thread.Sleep(50);
         }
     }
@@ -249,7 +251,7 @@ internal sealed class FixtureSession : IDisposable
 
         var engine = EvidenceLibraries.Engine(EvidenceFlavor.Release);
         var run = AgentRunId.New();
-        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(20);
+        var elapsed = Stopwatch.StartNew();
         try
         {
             while (true)
@@ -270,7 +272,7 @@ internal sealed class FixtureSession : IDisposable
                 }
 
                 Assert.True(
-                    DateTimeOffset.UtcNow < deadline,
+                    elapsed.Elapsed < TimeSpan.FromSeconds(20),
                     "The fixture window never became accessible: "
                         + ((AgentDesktopExecutionResult.Failed)result).Failure.Code + ".");
                 Thread.Sleep(250);

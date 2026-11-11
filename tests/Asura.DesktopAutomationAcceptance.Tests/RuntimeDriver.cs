@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Asura.Agent.Runtime;
 using Asura.Application;
 using Asura.Core;
@@ -19,7 +20,8 @@ internal static class RuntimeDriver
     {
         var cards = new List<GovernedAgentApproval>();
         var sending = runtime.SendAsync(prompt, CancellationToken.None).AsTask();
-        var deadline = DateTimeOffset.UtcNow + TurnBudget;
+        // Monotonic: a Mac that sleeps mid-run must not read as a stalled turn.
+        var elapsed = Stopwatch.StartNew();
         AgentApprovalId? answered = null;
         while (!sending.IsCompleted)
         {
@@ -32,7 +34,7 @@ internal static class RuntimeDriver
                 Assert.True((await runtime.DecideAsync(card.Id, approve, CancellationToken.None)).IsAccepted);
             }
 
-            if (DateTimeOffset.UtcNow >= deadline)
+            if (elapsed.Elapsed >= TurnBudget)
             {
                 throw new TimeoutException("The governed turn did not finish.");
             }
