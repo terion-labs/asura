@@ -228,6 +228,22 @@ public static class BuiltInAgentTools
     public const string GitCommit = GitAgentToolNames.Commit;
     public const string GitPush = GitAgentToolNames.Push;
     public const string McpCall = "mcp.call";
+    public const string DesktopListApps = DesktopAgentToolNames.ListApps;
+    public const string DesktopListWindows = DesktopAgentToolNames.ListWindows;
+    public const string DesktopSnapshot = DesktopAgentToolNames.Snapshot;
+    public const string DesktopWait = DesktopAgentToolNames.Wait;
+    public const string DesktopClick = DesktopAgentToolNames.Click;
+    public const string DesktopSetValue = DesktopAgentToolNames.SetValue;
+    public const string DesktopTypeText = DesktopAgentToolNames.TypeText;
+    public const string DesktopClear = DesktopAgentToolNames.Clear;
+    public const string DesktopSelect = DesktopAgentToolNames.Select;
+    public const string DesktopToggle = DesktopAgentToolNames.Toggle;
+    public const string DesktopExpand = DesktopAgentToolNames.Expand;
+    public const string DesktopScroll = DesktopAgentToolNames.Scroll;
+    public const string DesktopPressKey = DesktopAgentToolNames.PressKey;
+    public const string DesktopFocusWindow = DesktopAgentToolNames.FocusWindow;
+    public const string DesktopLaunchApp = DesktopAgentToolNames.LaunchApp;
+    public const string DesktopCloseApp = DesktopAgentToolNames.CloseApp;
 
     public static AgentToolCatalog Catalog { get; } = new(
     [
@@ -650,6 +666,22 @@ public static class BuiltInAgentTools
             "Run MCP tool",
             AgentCapability.McpTools,
             AgentActionRisk.Mutation),
+        Tool(DesktopListApps, "List desktop applications", AgentCapability.DesktopData, AgentActionRisk.Observation),
+        Tool(DesktopListWindows, "List desktop windows", AgentCapability.DesktopData, AgentActionRisk.Observation),
+        Tool(DesktopSnapshot, "Read desktop app controls", AgentCapability.DesktopData, AgentActionRisk.Observation),
+        Tool(DesktopWait, "Wait for desktop app state", AgentCapability.DesktopData, AgentActionRisk.Routine, TimeSpan.FromMinutes(2)),
+        Tool(DesktopClick, "Click desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopSetValue, "Set desktop app control value", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopTypeText, "Type into desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopClear, "Clear desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopSelect, "Select desktop app item", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopToggle, "Toggle desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopExpand, "Expand or collapse desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopScroll, "Scroll desktop app control", AgentCapability.DesktopInteraction, AgentActionRisk.Mutation),
+        Tool(DesktopPressKey, "Press key in desktop app", AgentCapability.DesktopControl, AgentActionRisk.Destructive),
+        Tool(DesktopFocusWindow, "Focus desktop app window", AgentCapability.DesktopControl, AgentActionRisk.Destructive),
+        Tool(DesktopLaunchApp, "Launch desktop application", AgentCapability.DesktopControl, AgentActionRisk.Destructive),
+        Tool(DesktopCloseApp, "Quit desktop application", AgentCapability.DesktopControl, AgentActionRisk.Destructive),
     ]);
 
     private static AgentToolDescriptor Tool(

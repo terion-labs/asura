@@ -30,6 +30,16 @@ public sealed class AgentToolOutcomePolicyTests
                 nameof(AgentToolOutcomeDisposition.Reconcile)
             },
             {
+                AgentDesktopStableCodes.ActionOutcomeUnknown,
+                nameof(AgentToolOutcomeDisposition.Reconcile)
+            },
+            {
+                AgentDesktopStableCodes.AdapterFaulted,
+                nameof(AgentToolOutcomeDisposition.Reconcile)
+            },
+            { AgentDesktopStableCodes.StaleRef, nameof(AgentToolOutcomeDisposition.Continue) },
+            { AgentDesktopStableCodes.TimeoutBeforeDelivery, nameof(AgentToolOutcomeDisposition.Continue) },
+            {
                 AgentActionFailureCodes.CompletionAuditUnavailable,
                 nameof(AgentToolOutcomeDisposition.Quarantine)
             },
@@ -46,5 +56,24 @@ public sealed class AgentToolOutcomePolicyTests
         string expected)
     {
         Assert.Equal(expected, AgentToolOutcomePolicy.Classify(stableCode).ToString());
+    }
+
+    [Fact]
+    public void EveryDesktopCodeThatLeavesTheDesktopUnknownReconcilesAndNoOtherDoes()
+    {
+        var codes = typeof(AgentDesktopStableCodes)
+            .GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+            .Where(field => field.IsLiteral)
+            .Select(field => (string)field.GetRawConstantValue()!)
+            .ToArray();
+
+        Assert.Contains(AgentDesktopStableCodes.ActionOutcomeUnknown, codes, StringComparer.Ordinal);
+        Assert.All(
+            codes,
+            code => Assert.Equal(
+                AgentDesktopStableCodes.RequiresReconciliation(code)
+                    ? AgentToolOutcomeDisposition.Reconcile
+                    : AgentToolOutcomeDisposition.Continue,
+                AgentToolOutcomePolicy.Classify(code)));
     }
 }

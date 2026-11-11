@@ -38,6 +38,7 @@ public sealed partial class GovernedAgentRuntimeTests
             "GitToolContribution",
             "FileToolContribution",
             "McpToolContribution",
+            "DesktopToolContribution",
         ],
             contributions);
     }

@@ -23,6 +23,7 @@ public sealed partial class GovernedAgentRuntime
         new GitToolContribution(this),
         new FileToolContribution(this),
         new McpToolContribution(this),
+        new DesktopToolContribution(this),
     ];
 
     private ResolvedAgentToolContribution? ResolveToolContribution(
@@ -100,7 +101,8 @@ public sealed partial class GovernedAgentRuntime
         IReadOnlySet<PanelInstanceId> ResizeEligiblePanelIds,
         IReadOnlySet<PanelInstanceId> BrowserEligiblePanelIds,
         IReadOnlyDictionary<PanelInstanceId, FileSessionMetadata> FileMetadata,
-        AgentMcpRunManifest? McpManifest)
+        AgentMcpRunManifest? McpManifest,
+        bool DesktopAccessGranted)
     {
         public bool HasExactTarget => Context.Target
             is AgentTarget.Panel or AgentTarget.ConnectionSession;

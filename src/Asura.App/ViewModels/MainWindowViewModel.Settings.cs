@@ -24,6 +24,20 @@ public sealed record SettingsDraft(SettingsPage Page, string Heading, string Det
 public sealed partial class MainWindowViewModel
 {
     /// <summary>
+    /// Reads the desktop automation state when the AI page is the one on
+    /// show: on opening it, and when the Settings window comes back in front,
+    /// which is how someone returns from granting access in System Settings.
+    /// The reading asks the system for nothing.
+    /// </summary>
+    public void RefreshAgentDesktopAccess()
+    {
+        if (IsAgentSettingsVisible)
+        {
+            _ = AgentDesktopAccess.RefreshAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     /// What leaving <paramref name="page"/> now would discard, or null when
     /// everything on it is already applied.
     /// </summary>

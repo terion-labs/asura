@@ -776,6 +776,128 @@ public sealed class AgentCapabilityBroker :
         }
     }
 
+    /// <summary>
+    /// Records a refusal the session host made before policy was consulted,
+    /// such as the desktop self-operation guard (ADR 0061). The action is
+    /// claimed and denied under one gate entry, so a later request for the
+    /// same proposal is a duplicate and no approval or authorization can be
+    /// issued for it. The denied phase carries the host's stable result code
+    /// and no authorization error, because the broker itself rejected nothing.
+    /// Both phases record the decision as denied: policy was never evaluated,
+    /// and the run audit reader only accepts an action whose phases agree on
+    /// their decision.
+    /// </summary>
+    public async ValueTask<AgentAuthorizationError?> RefuseAsync(
+        AgentActionProposal proposal,
+        string stableCode,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(proposal);
+        ArgumentException.ThrowIfNullOrWhiteSpace(stableCode);
+
+        // Checked before the action is claimed: a code the audit details
+        // reject after the requested phase would leave a trail with no end.
+        if (!IsAuditResultCode(stableCode))
+        {
+            throw new ArgumentException(
+                "A refusal's stable code must be a bounded stable identifier.",
+                nameof(stableCode));
+        }
+
+        if (!await EnterGateAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return Cancelled();
+        }
+
+        try
+        {
+            if (_disposed)
+            {
+                return BrokerDisposed();
+            }
+
+            var now = _timeProvider.GetUtcNow();
+            if (_claimedActions.ContainsKey(proposal.Id))
+            {
+                return DenialError(
+                    await DenyDuplicateAsync(proposal, now, cancellationToken)
+                        .ConfigureAwait(false));
+            }
+
+            if (!_tools.TryGet(proposal.ToolName, out var tool) || tool is null)
+            {
+                return DenialError(
+                    await DenyUntrustedAsync(
+                            proposal,
+                            Error(
+                                AgentAuthorizationErrorCode.UnknownTool,
+                                "The refused tool is not in the trusted tool catalog."),
+                            now,
+                            cancellationToken)
+                        .ConfigureAwait(false));
+            }
+
+            if (!_runs.TryGetValue(proposal.RunId, out var run))
+            {
+                return DenialError(
+                    await DenyUntrustedAsync(
+                            proposal,
+                            _cancelledRuns.ContainsKey(proposal.RunId)
+                                ? RunCancelled()
+                                : RunNotFound(),
+                            now,
+                            cancellationToken)
+                        .ConfigureAwait(false));
+            }
+
+            // Claimed before anything is written, unlike a request: the host
+            // has refused the action whether or not the store answers, so a
+            // refusal that could not be recorded must still never become an
+            // approval once the store recovers.
+            if (_claimedActions.Count < MaximumClaimCount)
+            {
+                _claimedActions.Add(proposal.Id, proposal.RunId);
+            }
+
+            var permission = run.Policy.GetPermission(tool.Capability);
+            var requestedAuditError = await AppendKnownAuditAsync(
+                    proposal,
+                    tool,
+                    permission,
+                    AgentPolicyDecision.Denied,
+                    AuditOutcome.Requested,
+                    run.Agent,
+                    authorizationSource: null,
+                    errorCode: null,
+                    resultCode: null,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (requestedAuditError is not null)
+            {
+                return requestedAuditError;
+            }
+
+            return await AppendKnownAuditAsync(
+                    proposal,
+                    tool,
+                    permission,
+                    AgentPolicyDecision.Denied,
+                    AuditOutcome.Denied,
+                    proposal.Actor,
+                    authorizationSource: null,
+                    errorCode: null,
+                    stableCode,
+                    now,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async ValueTask<AgentAuthorizationResult> DecideAsync(
         AgentApprovalDecision decision,
         CancellationToken cancellationToken)
@@ -2610,6 +2732,20 @@ public sealed class AgentCapabilityBroker :
 
     private static AgentPermitResult PermitDenied(AgentAuthorizationError error) =>
         new AgentPermitResult.Denied(error);
+
+    /// <summary>
+    /// The result-code rule <see cref="AuditDetails.ForAgentAction"/> enforces.
+    /// </summary>
+    private static bool IsAuditResultCode(string code) =>
+        code.Length <= 128
+        && code.All(character =>
+            character is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '_' or '-');
+
+    private static AgentAuthorizationError DenialError(AgentAuthorizationResult result) =>
+        result is AgentAuthorizationResult.Denied denied
+            ? denied.Error
+            : throw new InvalidOperationException(
+                "Denying a refused action must produce a denial.");
 
     private static AgentMcpRunAuthorityResult McpRunDenied(
         AgentAuthorizationError error) =>

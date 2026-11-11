@@ -58,7 +58,7 @@ public sealed record WorkspaceDefinition : IDurableDefinition
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         Accent = string.IsNullOrWhiteSpace(accent) ? null : accent.Trim();
         Entries = Array.AsReadOnly(entries?.ToArray() ?? throw new ArgumentNullException(nameof(entries)));
-        AgentPolicyOverride = agentPolicyOverride?.WithMissingKubernetesPermissionsOff();
+        AgentPolicyOverride = agentPolicyOverride?.WithMissingKubernetesPermissionsOff().WithMissingDesktopPermissionsOff();
         Icon = string.IsNullOrWhiteSpace(icon) ? DefaultIcon : icon.Trim();
         AutoSave = autoSave;
         Color = string.IsNullOrWhiteSpace(color) ? null : color.Trim();

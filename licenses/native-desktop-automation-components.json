@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "format": "asura-native-desktop-automation-component-catalog-v1",
+  "catalogId": "asura-agent-desktop-20261110",
+  "releaseReadiness": "BLOCKED",
+  "legalClearance": false,
+  "releaseBlockers": [
+    "ADR 0061 is proposed, not accepted: its threat-model amendments and macOS evidence are outstanding, including a signed and notarized bundle whose Accessibility grant survives an in-app update.",
+    "The exact transitive Rust source and license closure linked into libagent_desktop_ffi and its helper has not completed independent release review, and macos-release-legal.json records no project-owner disposition for it."
+  ],
+  "component": {
+    "identity": "agent-desktop-ffi/1.2.0",
+    "sourceRepository": "https://github.com/vercel-labs/agent-desktop.git",
+    "sourceCommit": "2b0a7334fc111730454b726e6800aa41cdafc093",
+    "sourceTag": "v1.2.0",
+    "licenseDeclared": "Apache-2.0",
+    "licenseEvidenceFile": "AGENT-DESKTOP-LICENSE",
+    "licenseEvidenceSha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "upstreamNoticeFile": null,
+    "abiMajor": 7
+  },
+  "helper": {
+    "identity": "agent-desktop-helper/1.2.0",
+    "macosExecutable": "agent-desktop-macos-helper",
+    "linuxExecutable": "agent-desktop-linux-clipboard-owner",
+    "licenseDeclared": "Apache-2.0",
+    "licenseEvidenceFile": "AGENT-DESKTOP-LICENSE"
+  },
+  "toolchain": {
+    "identity": "rust-standard-library/1.89.0",
+    "rustVersion": "1.89.0",
+    "rustcCommit": "29483883eed69d5fb4db01964cdf2af4d86e9cb2",
+    "cargoProfile": "release-ffi",
+    "panicStrategy": "unwind",
+    "licenseDeclared": "MIT OR Apache-2.0",
+    "licenseEvidenceFile": "RUST-STANDARD-LIBRARY-COPYRIGHT.html"
+  },
+  "dependencies": {
+    "identity": "agent-desktop-linked-crates/1.2.0",
+    "registry": "https://github.com/rust-lang/crates.io-index",
+    "cargoLockSha256": "0d3af3b5fc17bb9f7f44ebbaa7fc1f898d909397031e5d21c410feca19cf8b53",
+    "licensesAllowed": [
+      "Apache-2.0",
+      "Apache-2.0 WITH LLVM-exception",
+      "MIT",
+      "MPL-2.0",
+      "Unicode-3.0",
+      "Unlicense"
+    ],
+    "licenseEvidenceFile": "AGENT-DESKTOP-THIRD-PARTY-NOTICES.md"
+  }
+}

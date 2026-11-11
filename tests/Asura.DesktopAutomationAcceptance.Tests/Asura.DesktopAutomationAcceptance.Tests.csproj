@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- ADR 0061 acceptance evidence: the desktop.* family driven through the
+       real runtime, broker, SQLite audit store, session host, composer and
+       native engine. scripts/acceptance/desktop-automation/collect-evidence.sh
+       runs it and writes the receipt; docs/acceptance/adr-0061-desktop-automation.md
+       says which tests prove which evidence item. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- Program.cs supplies the entry point the evidence host needs; under
+         dotnet test the test host loads the assembly and never calls it. -->
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The release build is loaded the way Asura loads it, from the
+         application directory, which for these tests is their own output.
+         src/Asura.Desktop copies it for the application; this copies the same
+         staged pair for the RID the tests run on. EvidenceLibraries proves the
+         copy is the receipted build. -->
+    <AsuraAgentDesktopRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</AsuraAgentDesktopRid>
+    <AsuraAgentDesktopRid Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</AsuraAgentDesktopRid>
+    <AsuraAgentDesktopArtifactDirectory>$(MSBuildThisFileDirectory)../../native/artifacts/$(AsuraAgentDesktopRid)/agent-desktop</AsuraAgentDesktopArtifactDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(AsuraAgentDesktopRid.StartsWith('osx-')) and Exists('$(AsuraAgentDesktopArtifactDirectory)/libagent_desktop_ffi.dylib') and Exists('$(AsuraAgentDesktopArtifactDirectory)/agent-desktop-macos-helper')">
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/libagent_desktop_ffi.dylib" Link="libagent_desktop_ffi.dylib" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/agent-desktop-macos-helper" Link="agent-desktop-macos-helper" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <!-- The evidence host: Program.cs runs this assembly's tests in-process
+         while the main thread services AppKit's run loop, as Asura does. -->
+    <PackageReference Include="xunit.runner.utility" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SecurityCampaignCanaries.cs"
+             Link="Shared\SecurityCampaignCanaries.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Asura.Agent.Runtime\Asura.Agent.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\Asura.Application\Asura.Application.csproj" />
+    <ProjectReference Include="..\..\src\Asura.Core\Asura.Core.csproj" />
+    <ProjectReference Include="..\..\src\Asura.DesktopAutomation\Asura.DesktopAutomation.csproj" />
+    <ProjectReference Include="..\..\src\Asura.Infrastructure\Asura.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Asura.SessionHost\Asura.SessionHost.csproj" />
+  </ItemGroup>
+
+</Project>

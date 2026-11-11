@@ -64,6 +64,60 @@ jobs:
           retention-days: 1
           include-hidden-files: true
 
+  # A job and an artifact of its own, so the test jobs below keep the native
+  # directory they have always had: the desktop automation tests run where
+  # the library is staged, and they have not been run on Linux.
+  desktop-automation-native-assets:
+    name: Desktop automation library (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    # A cold run installs the Rust toolchain and compiles the pinned
+    # agent-desktop dependency graph.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the native build toolchain
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential ca-certificates curl file git python3
+      - name: Restore verified desktop automation payload cache
+        id: desktop-automation-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/artifacts/${{ matrix.rid }}/agent-desktop
+          key: >-
+            desktop-automation-${{ matrix.rid }}-${{ hashFiles(
+              'scripts/build-agent-desktop.sh',
+              'native/agent-desktop/**',
+              'licenses/native-desktop-automation-components.json') }}
+      # No toolchain action is involved: the script installs Rust 1.89.0
+      # through the runner's rustup, or through a rustup it pins by SHA-256
+      # when the runner has none, and refuses any other compiler.
+      - name: Build verified desktop automation payload
+        if: steps.desktop-automation-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: ./scripts/build-agent-desktop.sh --rid "${{ matrix.rid }}"
+      - name: Verify the staged release payload
+        shell: bash
+        run: ./scripts/build-agent-desktop.sh --verify-staged --rid "${{ matrix.rid }}"
+      - name: Upload the desktop automation library
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: desktop-automation-native-${{ matrix.rid }}
+          path: native/artifacts/${{ matrix.rid }}/agent-desktop
+          if-no-files-found: error
+          retention-days: 1
+
   tests:
     name: Tests (Linux, ${{ matrix.section }})
     needs: native-assets
@@ -154,7 +208,7 @@ jobs:
 
   package:
     name: Package and smoke run (${{ matrix.rid }})
-    needs: native-assets
+    needs: [native-assets, desktop-automation-native-assets]
     strategy:
       fail-fast: false
       matrix:
@@ -197,6 +251,18 @@ jobs:
         with:
           name: native-${{ matrix.rid }}
           path: native/artifacts
+      - name: Download the desktop automation library
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: desktop-automation-native-${{ matrix.rid }}
+          path: native/artifacts/${{ matrix.rid }}/agent-desktop
+      - name: Restore the modes the artifact transfer drops and verify the payload
+        shell: bash
+        run: |
+          chmod 755 \
+            "native/artifacts/${{ matrix.rid }}/agent-desktop/libagent_desktop_ffi.so" \
+            "native/artifacts/${{ matrix.rid }}/agent-desktop/agent-desktop-linux-clipboard-owner"
+          ./scripts/build-agent-desktop.sh --verify-staged --rid "${{ matrix.rid }}"
       - name: Restore the locked dependency graph for ${{ matrix.rid }}
         shell: bash
         run: >-
@@ -219,6 +285,8 @@ jobs:
           test -x "${package}/Asura"
           test -f "${package}/libghostty-vt.so"
           test -f "${package}/libasura_pty.so"
+          test -f "${package}/libagent_desktop_ffi.so"
+          test -x "${package}/agent-desktop-linux-clipboard-owner"
           test -f "${package}/libcef.so"
           test -f "${package}/libexclr8cef.so"
           test -f "${package}/runtimes/${{ matrix.rid }}/native/asura-sql-language"
@@ -256,6 +324,10 @@ jobs:
           app="${unpack}/squashfs-root/usr/bin"
           test -x "${app}/Asura"
           test -f "${app}/libcef.so"
+          test -f "${app}/libagent_desktop_ffi.so"
+          test -x "${app}/agent-desktop-linux-clipboard-owner"
+          test -f "${app}/AGENT-DESKTOP-LICENSE"
+          test ! -e "${app}/agent-desktop-evidence"
           test -x "${app}/UpdateNix"
           test -f "${app}/sq.version"
           test -f "${app}/distribution.json"
@@ -267,6 +339,11 @@ jobs:
           sudo apt-get install -y "./artifacts/linux-package/Asura-${{ matrix.rid }}.deb"
           test "$(stat -c '%a %U' /opt/asura/chrome-sandbox)" = "4755 root"
           test "$(readlink -f /usr/bin/asura)" = "/opt/asura/Asura"
+          test -f /opt/asura/libagent_desktop_ffi.so
+          test "$(stat -c '%a %U' /opt/asura/agent-desktop-linux-clipboard-owner)" = "755 root"
+          for notice in AGENT-DESKTOP-LICENSE AGENT-DESKTOP-THIRD-PARTY-NOTICES.md RUST-STANDARD-LIBRARY-COPYRIGHT.html; do
+            test -f "/opt/asura/${notice}"
+          done
           desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop
           appstreamcli validate --no-net /usr/share/metainfo/sh.asura.Asura.metainfo.xml
           for linked in Asura libcef.so; do

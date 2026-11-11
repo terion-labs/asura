@@ -59,6 +59,11 @@ internal static class NativeMacVerifier
             licenses,
             Path.Combine(nativeLicenses, "native-terminal-components.json"),
             Path.Combine(nativeLicenses, "native-terminal-build-receipt.json"));
+        AgentDesktopPackageProvenance.ValidateAfterCodeSigning(
+            executable,
+            licenses,
+            Path.Combine(nativeLicenses, "native-desktop-automation-components.json"),
+            Path.Combine(nativeLicenses, "agent-desktop-build-receipt.json"));
     }
 
     private static string Run(string fileName, IReadOnlyList<string> arguments)

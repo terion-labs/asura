@@ -89,7 +89,7 @@ public sealed class SettingsSearchIndex
             [SettingsPage.Secrets] =
                 "security secret secrets credential credentials password keychain encryption pin lock history privacy",
             [SettingsPage.Diagnostics] = "data diagnostics export support recovery onboarding storage logs",
-            [SettingsPage.Agent] = "ai agent model provider prompt mcp server tools llm compaction permissions",
+            [SettingsPage.Agent] = "ai agent model provider prompt mcp server tools llm compaction permissions desktop automation accessibility",
             [SettingsPage.About] = "about version update updates license licenses acknowledgments",
         };
 

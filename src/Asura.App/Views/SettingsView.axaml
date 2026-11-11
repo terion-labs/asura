@@ -1740,7 +1740,9 @@
                               AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
                             <RadioButton Content="Off" />
                             <RadioButton Content="Ask" />
-                            <RadioButton Content="Auto" />
+                            <!-- Disabled, not removed, for a capability that always needs
+                                 approval, so the segments of every row line up. -->
+                            <RadioButton Content="Auto" IsEnabled="{Binding OffersAuto}" />
                           </controls:SegmentedControl>
                         </Grid>
                       </DataTemplate>
@@ -1765,6 +1767,43 @@
                     </MultiBinding>
                   </TextBlock.IsVisible>
                 </TextBlock>
+              </controls:SettingsGroup>
+
+              <!-- The grant is the system's to give: this row reads it and
+                   leads to the list where it is given. Asura asks for it
+                   nowhere else, and reading it shows no system prompt. -->
+              <controls:SettingsGroup
+                  x:Name="AgentDesktopAccessGroup"
+                  x:DataType="vm:AgentDesktopAccessSettingsViewModel"
+                  DataContext="{Binding AgentDesktopAccess}"
+                  Heading="Desktop automation"
+                  Description="The agent can read and operate other apps through accessibility once the system allows it and you turn on the desktop app permissions.">
+                <controls:SettingRow
+                    Label="Status"
+                    Description="{Binding StateDetail}">
+                  <StackPanel
+                      HorizontalAlignment="Right"
+                      Orientation="Horizontal"
+                      Spacing="{DynamicResource ShellSpaceSm}">
+                    <Ellipse
+                        Width="8"
+                        Height="8"
+                        VerticalAlignment="Center"
+                        controls:StatusToneBrush.Fill="{Binding StateTone}" />
+                    <TextBlock
+                        x:Name="AgentDesktopAccessStateLabel"
+                        VerticalAlignment="Center"
+                        Text="{Binding StateLabel}"
+                        AutomationProperties.LiveSetting="Polite" />
+                    <Button
+                        x:Name="OpenAccessibilitySystemSettingsButton"
+                        Classes="SecondaryButton"
+                        Click="OnOpenAccessibilitySystemSettingsClick"
+                        Content="Open System Settings…"
+                        IsVisible="{Binding OffersSystemSettings}"
+                        AutomationProperties.Name="{Binding OpenSystemSettingsName}" />
+                  </StackPanel>
+                </controls:SettingRow>
               </controls:SettingsGroup>
 
               <controls:SettingsGroup

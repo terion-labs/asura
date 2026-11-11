@@ -756,7 +756,8 @@ public sealed partial class GovernedAgentRuntime
                 : null)
             .OfType<AgentToolDescriptor>()
             .Where(descriptor =>
-                runPolicy.GetPermission(descriptor.Capability)
+                IsRequestableCapability(descriptor.Capability)
+                && runPolicy.GetPermission(descriptor.Capability)
                     == AgentPermission.Off
                 &&
                 effectivePolicy.GetPermission(descriptor.Capability)
@@ -773,6 +774,15 @@ public sealed partial class GovernedAgentRuntime
                     candidate.Capability),
                 StringComparer.Ordinal)];
     }
+
+    /// <summary>
+    /// Whether the model may ask for a capability to go from Off to Ask.
+    /// Desktop control (keys, window focus, launching and quitting other
+    /// applications) is never offered: the user enables it in policy
+    /// themselves (ADR 0061).
+    /// </summary>
+    private static bool IsRequestableCapability(AgentCapability capability) =>
+        capability != AgentCapability.DesktopControl;
 
     private async ValueTask<GovernedAgentCapabilityDecision?>
         AwaitCapabilityDecisionAsync(

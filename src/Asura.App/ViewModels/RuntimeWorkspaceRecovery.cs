@@ -684,7 +684,10 @@ internal sealed record RuntimeAgentPolicyRecoveryPayload(
             Permissions.ToImmutableDictionary().SetItem(AgentCapability.KubernetesData,
                 Permissions.GetValueOrDefault(AgentCapability.KubernetesData, AgentPermission.Off))
                 .SetItem(AgentCapability.KubernetesExec, Permissions.GetValueOrDefault(AgentCapability.KubernetesExec, AgentPermission.Off))
-                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off)))
+                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopData, Permissions.GetValueOrDefault(AgentCapability.DesktopData, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopInteraction, Permissions.GetValueOrDefault(AgentCapability.DesktopInteraction, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopControl, Permissions.GetValueOrDefault(AgentCapability.DesktopControl, AgentPermission.Off)))
         {
             CompactionModel = CompactionModel,
             TitleModel = TitleModel,
@@ -710,7 +713,10 @@ internal sealed record RuntimeAgentPolicyRecoveryPayload(
                 Permissions.ToImmutableDictionary().SetItem(AgentCapability.KubernetesData,
                 Permissions.GetValueOrDefault(AgentCapability.KubernetesData, AgentPermission.Off))
                 .SetItem(AgentCapability.KubernetesExec, Permissions.GetValueOrDefault(AgentCapability.KubernetesExec, AgentPermission.Off))
-                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off)))
+                .SetItem(AgentCapability.KubernetesControl, Permissions.GetValueOrDefault(AgentCapability.KubernetesControl, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopData, Permissions.GetValueOrDefault(AgentCapability.DesktopData, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopInteraction, Permissions.GetValueOrDefault(AgentCapability.DesktopInteraction, AgentPermission.Off))
+                .SetItem(AgentCapability.DesktopControl, Permissions.GetValueOrDefault(AgentCapability.DesktopControl, AgentPermission.Off)))
             {
                 CompactionModel = CompactionModel,
                 TitleModel = TitleModel,

@@ -146,6 +146,8 @@ Then open the browser panel again, or press Try Again under its notice.
 - Pinned .NET 10 SDK (installed locally via bootstrap script)
 - Zig 0.16.x (downloaded automatically during the native build)
 - Host C compiler (Clang or GCC)
+- Rust 1.89.0 through rustup, for the desktop automation library. `build-agent-desktop.sh` installs the pinned toolchain with the rustup already on the machine, or with a pinned, checksum-verified rustup it keeps under `.deps/toolchains` when there is none. It also needs `python3` and `curl`.
+- macOS: the Xcode command line tools. Linux: `build-essential` (the C linker and `readelf`)
 
 ### Setup and build
 
@@ -162,9 +164,10 @@ Then open the browser panel again, or press Try Again under its notice.
    ```bash
    ./scripts/build-libghostty-vt.sh
    ./scripts/build-cef-runtime.sh --rid osx-arm64  # replace with your target RID
+   ./scripts/build-agent-desktop.sh
    ```
 
-   The first build downloads the pinned Zig toolchain and Ghostty source, applies the reviewed patch overlay, runs the VT test suite, and outputs libraries to `native/artifacts/`.
+   The first build downloads the pinned Zig toolchain and Ghostty source, applies the reviewed patch overlay, runs the VT test suite, and outputs libraries to `native/artifacts/`. `build-agent-desktop.sh` builds the pinned agent-desktop library and its helper, which the agent's desktop tools use to read and operate other applications. A build without them runs normally and never offers those tools.
 
 3. Run the quick validation check and start the desktop app:
 

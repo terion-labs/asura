@@ -48,6 +48,11 @@ of 0.0.1 or higher and mksquashfs on the PATH.
 The publish must have been made with -p:DebugType=None -p:DebugSymbols=false
 and a stripped CEF payload (scripts/build-cef-runtime.sh does that), which
 this script verifies, so the packages carry no debug symbols.
+
+The publish must also carry the desktop automation library and its helper
+from this checkout's native/artifacts/<rid>/agent-desktop
+(scripts/build-agent-desktop.sh stages them); the packages add its license
+and notices from there.
 EOF
 }
 
@@ -112,7 +117,7 @@ if [[ "$(uname -s)" != "Linux" ]]; then
     echo "Linux packages are built on Linux; dpkg-deb and rpmbuild produce them." >&2
     exit 1
 fi
-for command_name in dpkg-deb rpmbuild mksquashfs tar sha256sum file ldd; do
+for command_name in dpkg-deb rpmbuild mksquashfs tar sha256sum file ldd cmp python3; do
     if ! command -v "${command_name}" >/dev/null 2>&1; then
         echo "Packaging requires ${command_name}." >&2
         exit 1
@@ -125,6 +130,19 @@ if [[ ! -x "${dotnet}" ]]; then
 fi
 
 publish_dir="$(cd -- "${publish_dir}" && pwd -P)"
+# agent-desktop's library is loaded into Asura itself and launches its helper
+# from its own directory, so both sit beside the launcher (ADR 0061). The test
+# builds under agent-desktop-evidence are never read here.
+agent_desktop_dir="${repository_dir}/native/artifacts/${rid}/agent-desktop"
+agent_desktop_code_files=(
+    libagent_desktop_ffi.so
+    agent-desktop-linux-clipboard-owner
+)
+agent_desktop_legal_files=(
+    AGENT-DESKTOP-LICENSE
+    AGENT-DESKTOP-THIRD-PARTY-NOTICES.md
+    RUST-STANDARD-LIBRARY-COPYRIGHT.html
+)
 for required in \
     Asura \
     libcef.so \
@@ -133,6 +151,7 @@ for required in \
     chrome-sandbox \
     libghostty-vt.so \
     libasura_pty.so \
+    "${agent_desktop_code_files[@]}" \
     "runtimes/${rid}/native/asura-sql-language" \
     THIRD-PARTY-NOTICES.md; do
     if [[ ! -f "${publish_dir}/${required}" ]]; then
@@ -142,6 +161,18 @@ for required in \
 done
 if [[ ! -x "${publish_dir}/Asura" ]]; then
     echo "The publish's Asura launcher is not executable." >&2
+    exit 1
+fi
+"${script_dir}/build-agent-desktop.sh" --verify-staged --rid "${rid}"
+for required in "${agent_desktop_code_files[@]}"; do
+    if [[ -L "${publish_dir}/${required}" || ! -x "${publish_dir}/${required}" ]] \
+        || ! cmp -s "${agent_desktop_dir}/${required}" "${publish_dir}/${required}"; then
+        echo "The published desktop automation file ${required} is linked, not executable, or not the verified build." >&2
+        exit 1
+    fi
+done
+if find "${publish_dir}" -name 'agent-desktop-evidence*' -print -quit | grep -q .; then
+    echo "An agent-desktop test build leaked into the publish." >&2
     exit 1
 fi
 if find "${publish_dir}" -name '*.pdb' -print -quit | grep -q .; then
@@ -157,6 +188,15 @@ fi
 # shim links only libcef.so, which it finds beside itself, and libraries
 # libcef.so needs too.
 for linked in Asura libcef.so asura-cef-helper; do
+    if ldd "${publish_dir}/${linked}" | grep -q 'not found'; then
+        ldd "${publish_dir}/${linked}" >&2
+        echo "${linked} links a library this host does not have." >&2
+        exit 1
+    fi
+done
+# The desktop automation library and its helper need the C library alone,
+# which their build verified; this holds the published copies to this host.
+for linked in "${agent_desktop_code_files[@]}"; do
     if ldd "${publish_dir}/${linked}" | grep -q 'not found'; then
         ldd "${publish_dir}/${linked}" >&2
         echo "${linked} links a library this host does not have." >&2
@@ -183,6 +223,12 @@ cp -a "${publish_dir}/." "${stage}${install_root}/"
 find "${stage}" -type d -exec chmod 0755 {} +
 find "${stage}" -type f -perm /022 -exec chmod go-w {} +
 chmod 4755 "${stage}${install_root}/chrome-sandbox"
+# The license of the desktop automation library and the notices of the crates
+# and standard library linked into it travel beside it.
+for legal in "${agent_desktop_legal_files[@]}"; do
+    cp "${agent_desktop_dir}/${legal}" "${stage}${install_root}/${legal}"
+    chmod 0644 "${stage}${install_root}/${legal}"
+done
 ln -s "../..${install_root}/Asura" "${stage}/usr/bin/asura"
 cp "${assets_dir}/${app_id}.desktop" "${stage}/usr/share/applications/"
 sed -e "s/@VERSION@/${version}/g" -e "s/@DATE@/${release_date}/g" \

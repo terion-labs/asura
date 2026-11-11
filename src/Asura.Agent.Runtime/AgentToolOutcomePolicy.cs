@@ -46,6 +46,13 @@ internal static class AgentToolOutcomePolicy
                 AgentToolOutcomeDisposition.Reconcile,
             WorkspaceLayoutAgentToolResultJson.OutcomeUnknownStableCode =>
                 AgentToolOutcomeDisposition.Reconcile,
+
+            // A faulted adapter also ends the run; that is decided where the
+            // batch is committed, after the remainder has been skipped here.
+            AgentDesktopStableCodes.ActionOutcomeUnknown
+                or AgentDesktopStableCodes.AdapterFaulted
+                or AgentDesktopStableCodes.SelfTargetLaunched =>
+                AgentToolOutcomeDisposition.Reconcile,
             _ => AgentToolOutcomeDisposition.Continue,
         };
     }

@@ -188,7 +188,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         ILocalMcpServerControl? localMcpServerControl = null,
         IBrowserStartupRecovery? browserStartupRecovery = null,
         IBrowserHistory? browserHistory = null,
-        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null)
+        IKubernetesPanelSessionFactory? kubernetesPanelSessionFactory = null,
+        IAgentDesktopSessionHost? agentDesktopSessionHost = null)
     {
         SessionClient = sessionClient ?? throw new ArgumentNullException(nameof(sessionClient));
         _workspaceDefinitionOccupancy = workspaceDefinitionOccupancy
@@ -197,6 +198,11 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         LocalMcpServerSettings = new(localMcpServerControl, _uiThreadDispatcher);
         NotificationSettings = new(
             nativeNotificationService as INativeNotificationSettings,
+            _uiThreadDispatcher);
+        // A build that composes no desktop automation registers no desktop
+        // host; the row then reads Unavailable.
+        AgentDesktopAccess = AgentDesktopAccessSettingsViewModel.ForThisPlatform(
+            agentDesktopSessionHost,
             _uiThreadDispatcher);
         BrowserStartupRecovery = new(browserStartupRecovery, _uiThreadDispatcher);
         _workspaceNetworkRuntime = workspaceNetworkRuntime;
@@ -514,6 +520,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     public LocalMcpServerSettingsViewModel LocalMcpServerSettings { get; }
 
     public NotificationSettingsViewModel NotificationSettings { get; }
+
+    public AgentDesktopAccessSettingsViewModel AgentDesktopAccess { get; }
 
     public DatabaseConnectionSettingsCoordinator DatabaseConnectionSettings { get; }
 
@@ -2706,6 +2714,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             // System Settings and come back.
             _ = NotificationSettings.RefreshAuthorizationAsync(CancellationToken.None);
         }
+
+        RefreshAgentDesktopAccess();
     }
 
     /// <summary>The Settings window this view model was showing closed.</summary>

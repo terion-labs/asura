@@ -831,6 +831,13 @@
           "System.Security.Cryptography.Pkcs": "[9.0.21, )"
         }
       },
+      "asura.desktopautomation": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )"
+        }
+      },
       "asura.docker": {
         "type": "Project",
         "dependencies": {

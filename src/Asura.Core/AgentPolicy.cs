@@ -105,6 +105,24 @@ public enum AgentCapability
 
     /// <summary>Preview and explicitly commit exact Kubernetes resource changes.</summary>
     KubernetesControl,
+
+    /// <summary>
+    /// Accessibility-tree observations of other desktop applications: app and
+    /// window listings, snapshots, and bounded waits.
+    /// </summary>
+    DesktopData,
+
+    /// <summary>
+    /// Headless semantic element actions in other desktop applications, such as
+    /// click, set value, toggle, and scroll on a snapshot ref.
+    /// </summary>
+    DesktopInteraction,
+
+    /// <summary>
+    /// Key presses, window focus, and launching or closing other desktop
+    /// applications.
+    /// </summary>
+    DesktopControl,
 }
 
 public enum AgentPermission
@@ -128,11 +146,27 @@ public sealed record AgentPolicy(
     ImmutableDictionary<AgentCapability, AgentPermission> Permissions)
 {
     /// <summary>Upgrades pre-Kubernetes policy records without granting new authority.</summary>
-    public AgentPolicy WithMissingKubernetesPermissionsOff()
+    public AgentPolicy WithMissingKubernetesPermissionsOff() =>
+        WithMissingPermissionsOff(
+            [AgentCapability.KubernetesData, AgentCapability.KubernetesExec, AgentCapability.KubernetesControl]);
+
+    /// <summary>
+    /// Upgrades policy records written before desktop automation existed. The
+    /// three desktop capabilities become Off, so an old policy gains no
+    /// authority over other applications.
+    /// </summary>
+    public AgentPolicy WithMissingDesktopPermissionsOff() =>
+        WithMissingPermissionsOff(DesktopCapabilities);
+
+    /// <summary>The capabilities introduced by ADR 0061, in declaration order.</summary>
+    public static ImmutableArray<AgentCapability> DesktopCapabilities { get; } =
+        [AgentCapability.DesktopData, AgentCapability.DesktopInteraction, AgentCapability.DesktopControl];
+
+    private AgentPolicy WithMissingPermissionsOff(ImmutableArray<AgentCapability> capabilities)
     {
         if (Permissions is null) { return this; }
         var permissions = Permissions;
-        foreach (var capability in new[] { AgentCapability.KubernetesData, AgentCapability.KubernetesExec, AgentCapability.KubernetesControl })
+        foreach (var capability in capabilities)
         {
             if (!permissions.ContainsKey(capability)) { permissions = permissions.Add(capability, AgentPermission.Off); }
         }
@@ -178,6 +212,9 @@ public sealed record AgentPolicy(
             [AgentCapability.KubernetesData] = AgentPermission.Off,
             [AgentCapability.KubernetesExec] = AgentPermission.Off,
             [AgentCapability.KubernetesControl] = AgentPermission.Off,
+            [AgentCapability.DesktopData] = AgentPermission.Off,
+            [AgentCapability.DesktopInteraction] = AgentPermission.Off,
+            [AgentCapability.DesktopControl] = AgentPermission.Off,
         }.ToImmutableDictionary();
 
     public static AgentPolicy Default { get; } = new(

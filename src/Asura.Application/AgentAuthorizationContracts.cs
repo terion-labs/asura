@@ -313,6 +313,23 @@ public interface IAgentAuthorizationConsumer
         AgentActionPermit permit,
         AgentActionCompletion completion,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Puts a refusal the host made before any authority was requested on the
+    /// audit trail. The action is claimed and closed as <c>denied</c> with the
+    /// host's stable result code, so the same proposal can never reach an
+    /// approval or an authorization afterwards. Null means the denial is
+    /// durable. A consumer without an audit trail reports that rather than
+    /// letting the host believe the refusal was recorded.
+    /// </summary>
+    ValueTask<AgentAuthorizationError?> RefuseAsync(
+        AgentActionProposal proposal,
+        string stableCode,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromResult<AgentAuthorizationError?>(
+            new AgentAuthorizationError(
+                AgentAuthorizationErrorCode.AuditUnavailable,
+                "This authorization consumer cannot record a pre-authority refusal."));
 }
 
 public interface IAgentCapabilityBroker : IAgentAuthorizationConsumer

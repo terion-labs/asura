@@ -63,6 +63,7 @@ internal static partial class ManagedComponentEvidenceBuilder
         "Asura.ConnectionBackend.dll",
         "Asura.Core.dll",
         "Asura.Databases.dll",
+        "Asura.DesktopAutomation.dll",
         "Asura.Docker.dll",
         "Asura.Docking.dll",
         "Asura.Files.dll",

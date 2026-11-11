@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- AgentDesktopNativeText reads C strings through pointers; its bounds
+         are only testable by handing it one. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- The native tests load the release build the way Asura does, from the
+         application directory, which for these tests is their own output.
+         src/Asura.Desktop selects the payload for the application; this copies
+         the same staged pair for the RID the tests run on, as
+         Asura.DesktopAutomationAcceptance.Tests does. Without a staged build
+         nothing is copied and the native tests skip. -->
+    <AsuraAgentDesktopRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</AsuraAgentDesktopRid>
+    <AsuraAgentDesktopRid Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</AsuraAgentDesktopRid>
+    <AsuraAgentDesktopArtifactDirectory>$(MSBuildThisFileDirectory)../../native/artifacts/$(AsuraAgentDesktopRid)/agent-desktop</AsuraAgentDesktopArtifactDirectory>
+  </PropertyGroup>
+
+  <ItemGroup Condition="$(AsuraAgentDesktopRid.StartsWith('osx-')) and Exists('$(AsuraAgentDesktopArtifactDirectory)/libagent_desktop_ffi.dylib') and Exists('$(AsuraAgentDesktopArtifactDirectory)/agent-desktop-macos-helper')">
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/libagent_desktop_ffi.dylib" Link="libagent_desktop_ffi.dylib" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/agent-desktop-macos-helper" Link="agent-desktop-macos-helper" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\SecurityCampaignCanaries.cs"
+             Link="Shared\SecurityCampaignCanaries.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Asura.DesktopAutomation\Asura.DesktopAutomation.csproj" />
+  </ItemGroup>
+
+</Project>

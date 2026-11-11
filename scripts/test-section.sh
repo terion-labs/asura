@@ -33,6 +33,8 @@ agent_projects=(
     "tests/Asura.Agent.Providers.Tests/Asura.Agent.Providers.Tests.csproj"
     "tests/Asura.Agent.Runtime.Tests/Asura.Agent.Runtime.Tests.csproj"
     "tests/Asura.Agent.Tests/Asura.Agent.Tests.csproj"
+    "tests/Asura.DesktopAutomation.Tests/Asura.DesktopAutomation.Tests.csproj"
+    "tests/Asura.DesktopAutomationAcceptance.Tests/Asura.DesktopAutomationAcceptance.Tests.csproj"
     "tests/Asura.Mcp.Tests/Asura.Mcp.Tests.csproj"
     "tests/Asura.Mcp.Server.Tests/Asura.Mcp.Server.Tests.csproj"
 )

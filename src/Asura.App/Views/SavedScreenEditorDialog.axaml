@@ -218,7 +218,9 @@
                       AutomationProperties.Name="{Binding DisplayName, StringFormat={}{0} permission}">
                     <RadioButton Content="Off" />
                     <RadioButton Content="Ask" />
-                    <RadioButton Content="Auto" />
+                    <!-- Disabled, not removed, for a capability that always needs
+                         approval, so the segments of every row line up. -->
+                    <RadioButton Content="Auto" IsEnabled="{Binding OffersAuto}" />
                   </controls:SegmentedControl>
                 </Grid>
               </DataTemplate>

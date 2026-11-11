@@ -59,6 +59,43 @@ connection_engine_legal_files=(
     OPENVPN-THIRD-PARTY-NOTICES.txt
 )
 connection_engine_source="sources/openconnect-9.21.tar.gz"
+# agent-desktop's library is loaded into Asura itself and launches its helper
+# from its own directory, so both sit beside the executable (ADR 0061). The
+# test builds under agent-desktop-evidence are never read here.
+agent_desktop_directory="${repository_dir}/native/artifacts/osx-arm64/agent-desktop"
+agent_desktop_catalog="${repository_dir}/licenses/native-desktop-automation-components.json"
+agent_desktop_code_files=(
+    libagent_desktop_ffi.dylib
+    agent-desktop-macos-helper
+)
+agent_desktop_legal_files=(
+    AGENT-DESKTOP-LICENSE
+    AGENT-DESKTOP-THIRD-PARTY-NOTICES.md
+    RUST-STANDARD-LIBRARY-COPYRIGHT.html
+)
+agent_desktop_receipt="agent-desktop-build-receipt.json"
+
+# The published and the bundled copies must be the verified build byte for
+# byte; release signing rewrites them only after the last comparison.
+verify_agent_desktop_code() {
+    local code_directory="$1" description="$2" required
+    for required in "${agent_desktop_code_files[@]}"; do
+        if [[ ! -f "${code_directory}/${required}" \
+            || -L "${code_directory}/${required}" \
+            || ! -x "${code_directory}/${required}" ]] \
+            || ! /usr/bin/cmp -s \
+                "${agent_desktop_directory}/${required}" \
+                "${code_directory}/${required}"; then
+            echo "The ${description} desktop automation file ${required} is missing, linked, non-executable, or altered." >&2
+            exit 1
+        fi
+    done
+    # agent-desktop refuses to launch a helper that has a second hard link.
+    if [[ "$(/usr/bin/stat -f '%l' "${code_directory}/agent-desktop-macos-helper")" != "1" ]]; then
+        echo "The ${description} desktop automation helper has more than one hard link." >&2
+        exit 1
+    fi
+}
 
 # Assets and their legal evidence move to separate bundle roots; compare each
 # staged byte against the verified build payload before release signing.
@@ -429,6 +466,7 @@ for required in "${required_native[@]}"; do
         exit 1
     fi
 done
+"${repository_dir}/scripts/build-agent-desktop.sh" --verify-staged --rid osx-arm64
 "${repository_dir}/scripts/build-workspace-runtime.sh" --verify
 "${repository_dir}/scripts/build-workspace-backend.sh" --verify
 ASURA_BACKEND_ARCH=x64 "${repository_dir}/scripts/build-workspace-backend.sh" --verify
@@ -719,6 +757,8 @@ required_publish=(
     "${publish_dir}/libghostty-vt.dylib"
     "${publish_dir}/GHOSTTY-LICENSE"
     "${publish_dir}/ghostty-vt-required-exports.txt"
+    "${publish_dir}/libagent_desktop_ffi.dylib"
+    "${publish_dir}/agent-desktop-macos-helper"
     "${publish_dir}/runtimes/osx-arm64/native/asura-sql-language"
     "${publish_dir}/runtimes/osx-arm64/native/THIRD-PARTY-NOTICES.md"
     "${publish_dir}/runtimes/osx-arm64/native/runtime-dependencies.txt"
@@ -757,6 +797,7 @@ for required in "${required_publish[@]}"; do
     fi
 done
 
+verify_agent_desktop_code "${publish_dir}" "published"
 published_connection_engine_code="${publish_dir}/runtimes/osx-arm64/connection-engines"
 verify_workspace_runtime_copy "${publish_dir}/runtimes/osx-arm64/workspace-runtime" "${publish_dir}/workspace-runtime-legal"
 published_connection_engine_legal="${publish_dir}/connection-engine-legal"
@@ -838,6 +879,7 @@ first_party_assemblies=(
     "Asura.ConnectionBackend.dll"
     "Asura.Core.dll"
     "Asura.Databases.dll"
+    "Asura.DesktopAutomation.dll"
     "Asura.Docker.dll"
     "Asura.Docking.dll"
     "Asura.Files.dll"
@@ -1063,6 +1105,29 @@ if [[ "${candidate_sql_language_dependencies_sha}" != "${sql_language_expected_d
     echo "The packaged SQL language worker legal files do not match its build receipt." >&2
     exit 1
 fi
+
+verify_agent_desktop_code "${candidate}/Contents/MacOS" "packaged"
+if find "${candidate}" -name 'agent-desktop-evidence*' -print -quit | grep -q .; then
+    echo "An agent-desktop test build leaked into the app." >&2
+    exit 1
+fi
+# The license, the notices of the crates and standard library linked into the
+# two binaries, and the provenance that names their source and build travel
+# with them. They are added here rather than published because everything
+# published beside the executable must be code.
+candidate_licenses="${candidate}/Contents/Resources/Licenses"
+for required in "${agent_desktop_legal_files[@]}"; do
+    /bin/cp "${agent_desktop_directory}/${required}" "${candidate_licenses}/${required}"
+    /bin/chmod 644 "${candidate_licenses}/${required}"
+done
+/bin/mkdir -p "${candidate_licenses}/Native"
+/bin/cp "${agent_desktop_catalog}" \
+    "${candidate_licenses}/Native/native-desktop-automation-components.json"
+/bin/cp "${agent_desktop_directory}/${agent_desktop_receipt}" \
+    "${candidate_licenses}/Native/${agent_desktop_receipt}"
+/bin/chmod 644 \
+    "${candidate_licenses}/Native/native-desktop-automation-components.json" \
+    "${candidate_licenses}/Native/${agent_desktop_receipt}"
 
 candidate_fluent_notice="${candidate}/Contents/Resources/Licenses/FLUENT-UI-ICONS-MIT.txt"
 if [[ ! -f "${candidate_fluent_notice}" || -L "${candidate_fluent_notice}" ]] \

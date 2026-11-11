@@ -106,6 +106,13 @@ required_nested=(
     "${frameworks}/libexclr8cef.dylib"
     "${app}/Contents/MacOS/libexclr8cef.dylib"
     "${app}/Contents/MacOS/libghostty-vt.dylib"
+    # agent-desktop's library is loaded into Asura itself and launches its
+    # helper from beside it (ADR 0061). Both are signed below like every other
+    # Mach-O file in Contents/MacOS: hardened runtime, no entitlements. The
+    # helper only reads and writes the pasteboard, and Accessibility is a TCC
+    # grant to the application bundle, not an entitlement.
+    "${app}/Contents/MacOS/libagent_desktop_ffi.dylib"
+    "${app}/Contents/MacOS/agent-desktop-macos-helper"
     "${frameworks}/Asura Helper.app"
     "${frameworks}/Asura Helper (Alerts).app"
     "${frameworks}/Asura Helper (GPU).app"
@@ -190,6 +197,19 @@ if [[ "${identity}" != "-" ]]; then
         echo "The signing team does not own the configured application storage group." >&2
         exit 1
     fi
+    # Asura has no library-validation exemption, so the hardened process loads
+    # the automation library only under this team's signature; a refusal would
+    # leave desktop automation silently unavailable. The helper beside it must
+    # be hardened for notarization and needs no entitlement.
+    for nested in libagent_desktop_ffi.dylib agent-desktop-macos-helper; do
+        nested_signature="$(/usr/bin/codesign --display --verbose=4 "${app}/Contents/MacOS/${nested}" 2>&1)"
+        if [[ "$(sed -n 's/^TeamIdentifier=//p' <<< "${nested_signature}")" != "${signing_team}" ]] \
+            || ! grep -Eq '^CodeDirectory .*flags=0x[0-9a-f]+\(([a-z-]+,)*runtime(,[a-z-]+)*\)' <<< "${nested_signature}" \
+            || [[ -n "$(/usr/bin/codesign --display --entitlements - "${app}/Contents/MacOS/${nested}" 2>/dev/null)" ]]; then
+            echo "${nested} must carry the signing team, the hardened runtime and no entitlements." >&2
+            exit 1
+        fi
+    done
 fi
 /usr/bin/codesign --verify --deep --strict --verbose=2 "${app}"
 
