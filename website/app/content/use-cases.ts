@@ -134,6 +134,7 @@ export const useCases: UseCase[] = [
         points: [
           'Four levels per capability: Off, Ask, Auto for observation and routine actions, and a time-bounded Full access you grant on purpose.',
           'Kubernetes capabilities start Off. Git pushes, Docker lifecycle actions, and file writes each have their own switch.',
+          'Desktop app capabilities on macOS start Off, and Auto never covers them: each click, keystroke, launch, or quit in another app waits for your approval.',
           'Start typing in a terminal the agent is using and its input lease is revoked immediately.',
         ],
         shot: 'workspace-agent-approval.webp',
@@ -179,7 +180,11 @@ export const useCases: UseCase[] = [
     faqs: [
       {
         q: 'What does the agent actually control?',
-        a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for a click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and explicit. Kubernetes capabilities are Off until you turn them on.',
+        a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for a click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and explicit. Kubernetes and desktop app capabilities are Off until you turn them on.',
+      },
+      {
+        q: 'Can the agent use my other apps?',
+        a: 'On macOS, yes, once you allow it. It reads an app window as an accessibility snapshot and clicks, fills, toggles, and selects controls by reference, and a reference from an older snapshot is refused. Reading apps can run on Auto. Clicking, typing, and launching or quitting apps always wait for your approval. It never touches Asura\'s own windows, refuses to type into password fields, and will not quit an app it sees asking to save changes. macOS asks you once to allow Asura in Privacy & Security, and Settings shows whether it is allowed.',
       },
       {
         q: 'Which models can I use?',
