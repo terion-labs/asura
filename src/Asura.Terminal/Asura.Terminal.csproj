@@ -16,14 +16,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <PropertyGroup>
-    <AsuraPtyRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</AsuraPtyRid>
-    <AsuraPtyRid Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</AsuraPtyRid>
-    <AsuraPtyLibrary Condition="$(AsuraPtyRid.StartsWith('osx-'))">libasura_pty.dylib</AsuraPtyLibrary>
-    <AsuraPtyLibrary Condition="$(AsuraPtyRid.StartsWith('linux-'))">libasura_pty.so</AsuraPtyLibrary>
-  </PropertyGroup>
-  <ItemGroup Condition="'$(AsuraPtyLibrary)' != ''">
-    <Content Include="../../native/artifacts/$(AsuraPtyRid)/$(AsuraPtyLibrary)" Link="$(AsuraPtyLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('../../native/artifacts/$(AsuraPtyRid)/$(AsuraPtyLibrary)')" />
-  </ItemGroup>
+  <!-- PortablePtyRuntime loads libasura_pty from the application directory,
+       but this library project never learns the RID being published: the SDK
+       does not pass it to project references, so a payload selected here would
+       be the build host's. src/Asura.Desktop selects the payload by its
+       effective RID; tests/Asura.Terminal.Tests copies it for the test host. -->
 
 </Project>

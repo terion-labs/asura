@@ -85,6 +85,8 @@
     <AsuraNativeTerminalRequired Condition="'$(AsuraNativeTerminalLibrary)' != ''">true</AsuraNativeTerminalRequired>
     <AsuraNativeTerminalArtifactDirectory>$(MSBuildThisFileDirectory)../../native/artifacts/$(AsuraEffectiveRuntimeIdentifier)</AsuraNativeTerminalArtifactDirectory>
     <AsuraNativeTerminalShellIntegrationDirectory>$(AsuraNativeTerminalArtifactDirectory)/ghostty/shell-integration</AsuraNativeTerminalShellIntegrationDirectory>
+    <AsuraPtyLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64'">libasura_pty.dylib</AsuraPtyLibrary>
+    <AsuraPtyLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">libasura_pty.so</AsuraPtyLibrary>
     <AsuraSqlLanguageSupported Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'win-x64'">true</AsuraSqlLanguageSupported>
     <AsuraSqlLanguageRequired Condition="'$(AsuraSqlLanguageRequired)' == ''">false</AsuraSqlLanguageRequired>
     <AsuraSqlLanguageWorkerName Condition="'$(AsuraSqlLanguageSupported)' == 'true' and '$(AsuraEffectiveRuntimeIdentifier)' == 'win-x64'">asura-sql-language.exe</AsuraSqlLanguageWorkerName>
@@ -250,6 +252,9 @@
     <AsuraNativeTerminalRequiredFile Include="$(AsuraNativeTerminalShellIntegrationDirectory)/zsh/ghostty-integration" />
 
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/$(AsuraNativeTerminalLibrary)" Link="$(AsuraNativeTerminalLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Selected here, by the RID this application is built or published
+         for: Asura.Terminal, where PortablePtyRuntime lives, never learns it. -->
+    <Content Include="$(AsuraNativeTerminalArtifactDirectory)/$(AsuraPtyLibrary)" Link="$(AsuraPtyLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(AsuraPtyLibrary)' != ''" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/PORTA-PTY-LICENSE" Link="PORTA-PTY-LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="!$(AsuraEffectiveRuntimeIdentifier.StartsWith('win-'))" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/GHOSTTY-LICENSE" Link="GHOSTTY-LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/ghostty-vt-required-exports.txt" Link="ghostty-vt-required-exports.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
