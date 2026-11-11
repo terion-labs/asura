@@ -85,8 +85,21 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # GitHub's Ubuntu images already carry these tools, so the package
+      # mirrors are touched only when one is missing; a mirror outage then
+      # cannot fail the build.
       - name: Install the native build toolchain
+        shell: bash
         run: |
+          missing=()
+          for tool in cc readelf curl file git python3; do
+            command -v "${tool}" >/dev/null 2>&1 || missing+=("${tool}")
+          done
+          if (( ${#missing[@]} == 0 )); then
+            echo "The native build toolchain is already installed."
+            exit 0
+          fi
+          echo "Installing the native build toolchain for: ${missing[*]}"
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential ca-certificates curl file git python3
