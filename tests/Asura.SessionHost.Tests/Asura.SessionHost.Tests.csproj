@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\SecurityCampaignCanaries.cs"
+             Link="Shared\SecurityCampaignCanaries.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Asura.Application\Asura.Application.csproj" />
     <ProjectReference Include="..\..\src\Asura.Core\Asura.Core.csproj" />
     <ProjectReference Include="..\..\src\Asura.SessionHost\Asura.SessionHost.csproj" />

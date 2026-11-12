@@ -50,6 +50,7 @@ public sealed partial class GovernedAgentRuntime
         var resize = await InspectResizeAttachmentsAsync(context, cancellationToken).ConfigureAwait(false);
         var browser = await InspectBrowserAttachmentsAsync(context, cancellationToken).ConfigureAwait(false);
         var files = await InspectFileSessionsAsync(context, cancellationToken).ConfigureAwait(false);
+        await RefreshDesktopAccessAsync(context, cancellationToken).ConfigureAwait(false);
         // Only native catalog entries cross this boundary. Rebuild the sequence enum
         // from those entries so a restored downstream MCP manifest cannot leak into it.
         ImmutableArray<AgentToolDefinition> native = [.. BuildAgentTools(

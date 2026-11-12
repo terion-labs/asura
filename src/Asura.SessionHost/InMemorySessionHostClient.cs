@@ -22,6 +22,7 @@ public sealed partial class InMemorySessionHostClient :
     IAgentKubernetesSessionHost,
     IAgentGitSessionHost,
     IAgentWebToolSessionHost,
+    IAgentDesktopSessionHost,
     IAsyncDisposable
 {
     private const int DefaultEventRetention = 256;
@@ -68,6 +69,8 @@ public sealed partial class InMemorySessionHostClient :
     private readonly AgentGitActionComposer? _agentGitActionComposer;
     private readonly AgentWebToolActionComposer? _agentWebToolActionComposer;
     private readonly IAgentWebToolExecutor? _agentWebToolExecutor;
+    private readonly AgentDesktopActionComposer? _agentDesktopActionComposer;
+    private readonly IAgentDesktopAutomationEngine? _agentDesktopAutomationEngine;
     private readonly IAgentAuthorizationConsumer? _agentAuthorizationConsumer;
     private readonly int _eventRetention;
     private readonly CapabilitySet _hostCapabilities;
@@ -106,7 +109,9 @@ public sealed partial class InMemorySessionHostClient :
         AgentGitActionComposer? agentGitActionComposer = null,
         IKubernetesHostedPanelSessionFactory? kubernetesPanelFactory = null,
         AgentKubernetesReadActionComposer? agentKubernetesReadActionComposer = null,
-        IKubernetesTerminalSessionFactory? kubernetesTerminalFactory = null)
+        IKubernetesTerminalSessionFactory? kubernetesTerminalFactory = null,
+        AgentDesktopActionComposer? agentDesktopActionComposer = null,
+        IAgentDesktopAutomationEngine? agentDesktopAutomationEngine = null)
     {
         ArgumentNullException.ThrowIfNull(terminalFactory);
         ArgumentNullException.ThrowIfNull(lifecyclePolicy);
@@ -146,6 +151,8 @@ public sealed partial class InMemorySessionHostClient :
         _agentGitActionComposer = agentGitActionComposer;
         _agentWebToolActionComposer = agentWebToolActionComposer;
         _agentWebToolExecutor = agentWebToolExecutor;
+        _agentDesktopActionComposer = agentDesktopActionComposer;
+        _agentDesktopAutomationEngine = agentDesktopAutomationEngine;
         _agentAuthorizationConsumer = agentAuthorizationConsumer;
         _eventRetention = eventRetention;
         _workspaceGraphs = new WorkspaceGraphRegistry(_eventRetention, _timeProvider);

@@ -36,6 +36,9 @@ public static class AgentCapabilityProtocol
     public const string KubernetesData = "kubernetes_data";
     public const string KubernetesControl = "kubernetes_control";
     public const string KubernetesExec = "kubernetes_exec";
+    public const string DesktopData = "desktop_data";
+    public const string DesktopInteraction = "desktop_interaction";
+    public const string DesktopControl = "desktop_control";
 
     public static string GetToken(AgentCapability capability) =>
         capability switch
@@ -69,6 +72,9 @@ public static class AgentCapabilityProtocol
             AgentCapability.KubernetesData => KubernetesData,
             AgentCapability.KubernetesExec => KubernetesExec,
             AgentCapability.KubernetesControl => KubernetesControl,
+            AgentCapability.DesktopData => DesktopData,
+            AgentCapability.DesktopInteraction => DesktopInteraction,
+            AgentCapability.DesktopControl => DesktopControl,
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         };
 
@@ -161,6 +167,15 @@ public static class AgentCapabilityProtocol
                 return true;
             case KubernetesData:
                 capability = AgentCapability.KubernetesData;
+                return true;
+            case DesktopData:
+                capability = AgentCapability.DesktopData;
+                return true;
+            case DesktopInteraction:
+                capability = AgentCapability.DesktopInteraction;
+                return true;
+            case DesktopControl:
+                capability = AgentCapability.DesktopControl;
                 return true;
             default:
                 capability = default;

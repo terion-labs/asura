@@ -44,8 +44,10 @@ jobs:
     name: Build macOS terminal runtime
     needs: authorize-release
     runs-on: macos-15
-    # Cold toolchain downloads and native verification can exceed 30 minutes.
-    timeout-minutes: 60
+    # Cold toolchain downloads and native verification can exceed 30 minutes,
+    # and a cold desktop automation build compiles its dependency graph three
+    # times after them.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -77,6 +79,36 @@ jobs:
         run: >-
           ASURA_DOTNET="$(command -v dotnet)"
           ./scripts/build-libghostty-vt.sh --rid osx-arm64
+      # After the terminal payload, whose cache holds the whole runtime
+      # directory: a hit here, or the build, replaces whatever copy of the
+      # library that cache carried.
+      - name: Restore verified desktop automation payload cache
+        id: desktop-automation-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            native/artifacts/osx-arm64/agent-desktop
+            native/artifacts/osx-arm64/agent-desktop-evidence
+          key: >-
+            desktop-automation-osx-arm64-${{ hashFiles(
+              'scripts/build-agent-desktop.sh',
+              'native/agent-desktop/**',
+              'licenses/native-desktop-automation-components.json') }}
+      # No toolchain action is involved: the script installs Rust 1.89.0
+      # through the runner's rustup, or through a rustup it pins by SHA-256
+      # when the runner has none, and refuses any other compiler. The stub
+      # and panic flavors are fixtures for tests/Asura.DesktopAutomation.Tests
+      # and are never packaged.
+      - name: Build verified desktop automation payloads
+        if: steps.desktop-automation-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          for flavor in release stub panic; do
+            ./scripts/build-agent-desktop.sh --rid osx-arm64 --flavor "${flavor}"
+          done
+      - name: Verify the staged desktop automation payload
+        shell: bash
+        run: ./scripts/build-agent-desktop.sh --verify-staged --rid osx-arm64
       - name: Upload terminal font assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -123,6 +155,17 @@ jobs:
         with:
           name: terminal-native-osx-arm64
           path: native/artifacts/osx-arm64
+      # The terminal runtime artifact also carries the desktop automation
+      # library and the two test builds of it that this job's tests load.
+      - name: Restore the modes the artifact transfer drops and verify the payload
+        shell: bash
+        run: |
+          chmod 755 \
+            native/artifacts/osx-arm64/agent-desktop/libagent_desktop_ffi.dylib \
+            native/artifacts/osx-arm64/agent-desktop/agent-desktop-macos-helper \
+            native/artifacts/osx-arm64/agent-desktop-evidence/*/libagent_desktop_ffi.dylib \
+            native/artifacts/osx-arm64/agent-desktop-evidence/*/agent-desktop-macos-helper
+          ./scripts/build-agent-desktop.sh --verify-staged --rid osx-arm64
       - name: Restore the locked dependency graph
         shell: bash
         run: dotnet restore Asura.slnx --locked-mode
@@ -326,6 +369,23 @@ jobs:
         uses: ./.github/actions/linux-native-payloads
         with:
           rid: ${{ matrix.rid }}
+      # After the shared payloads, whose cache holds the whole runtime
+      # directory: a hit here, or the build, replaces whatever copy of the
+      # library that cache carried. The script installs Rust 1.89.0 itself.
+      - name: Restore verified desktop automation payload cache
+        id: desktop-automation-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: native/artifacts/${{ matrix.rid }}/agent-desktop
+          key: >-
+            desktop-automation-${{ matrix.rid }}-${{ hashFiles(
+              'scripts/build-agent-desktop.sh',
+              'native/agent-desktop/**',
+              'licenses/native-desktop-automation-components.json') }}
+      - name: Build verified desktop automation payload
+        if: steps.desktop-automation-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: ./scripts/build-agent-desktop.sh --rid "${{ matrix.rid }}"
       - name: Install the package builders
         run: |
           sudo apt-get update
@@ -357,6 +417,8 @@ jobs:
           test -x "${package}/Asura"
           test -f "${package}/libghostty-vt.so"
           test -f "${package}/libasura_pty.so"
+          test -f "${package}/libagent_desktop_ffi.so"
+          test -x "${package}/agent-desktop-linux-clipboard-owner"
           test -f "${package}/libcef.so"
           test -f "${package}/libexclr8cef.so"
           test -f "${package}/runtimes/${{ matrix.rid }}/native/asura-sql-language"
@@ -404,6 +466,10 @@ jobs:
           app="${unpack}/squashfs-root/usr/bin"
           test -x "${app}/Asura"
           test -f "${app}/libcef.so"
+          test -f "${app}/libagent_desktop_ffi.so"
+          test -x "${app}/agent-desktop-linux-clipboard-owner"
+          test -f "${app}/AGENT-DESKTOP-LICENSE"
+          test ! -e "${app}/agent-desktop-evidence"
           test -x "${app}/UpdateNix"
           test -f "${app}/sq.version"
           test -f "${app}/distribution.json"
@@ -415,6 +481,11 @@ jobs:
           sudo apt-get install -y "${ASURA_LINUX_DISTRIBUTION}/Asura-${{ matrix.rid }}.deb"
           test "$(stat -c '%a %U' /opt/asura/chrome-sandbox)" = "4755 root"
           test "$(readlink -f /usr/bin/asura)" = "/opt/asura/Asura"
+          test -f /opt/asura/libagent_desktop_ffi.so
+          test "$(stat -c '%a %U' /opt/asura/agent-desktop-linux-clipboard-owner)" = "755 root"
+          for notice in AGENT-DESKTOP-LICENSE AGENT-DESKTOP-THIRD-PARTY-NOTICES.md RUST-STANDARD-LIBRARY-COPYRIGHT.html; do
+            test -f "/opt/asura/${notice}"
+          done
           desktop-file-validate /usr/share/applications/sh.asura.Asura.desktop
           appstreamcli validate --no-net /usr/share/metainfo/sh.asura.Asura.metainfo.xml
           for linked in Asura libcef.so; do
@@ -584,6 +655,9 @@ jobs:
         run: |
           cd "${ASURA_RELEASE_SOURCE_ROOT}"
           ./scripts/build-libghostty-vt.sh --rid osx-arm64
+          # Only the release flavor: the test fixtures never enter the sealed
+          # tree a release is packaged from.
+          ./scripts/build-agent-desktop.sh --rid osx-arm64
           ./scripts/build-workspace-network-gateway.sh --rid osx-arm64
           ./scripts/build-workspace-runtime.sh
           ./scripts/build-workspace-backend.sh
@@ -738,6 +812,13 @@ jobs:
           grep -Fq '"AssetType" : "Icon Image"' "${verification_directory}/Assets.info.json"
           grep -Fq '"Name" : "Asura"' "${verification_directory}/Assets.info.json"
           test -x "${verification_directory}/Asura.app/Contents/MacOS/UpdateMac"
+          test -f "${verification_directory}/Asura.app/Contents/MacOS/libagent_desktop_ffi.dylib"
+          test -x "${verification_directory}/Asura.app/Contents/MacOS/agent-desktop-macos-helper"
+          test -f "${verification_directory}/Asura.app/Contents/Resources/Licenses/AGENT-DESKTOP-LICENSE"
+          for nested in libagent_desktop_ffi.dylib agent-desktop-macos-helper; do
+            codesign --verify --strict --verbose=2 \
+              "${verification_directory}/Asura.app/Contents/MacOS/${nested}"
+          done
           test "$(readlink "${verification_directory}/Asura.app/Contents/MacOS/sq.version")" \
             = "../Resources/sq.version"
           echo "ASURA_EXTRACTED_APP=${verification_directory}/Asura.app" >> "${GITHUB_ENV}"

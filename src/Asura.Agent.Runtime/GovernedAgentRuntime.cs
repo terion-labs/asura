@@ -98,6 +98,7 @@ public sealed partial class GovernedAgentRuntime :
     private readonly IAgentGitSessionHost? _agentGitHost;
     private readonly IAgentMcpSessionHost? _agentMcpHost;
     private readonly IAgentWebToolSessionHost? _agentWebToolHost;
+    private readonly IAgentDesktopSessionHost? _agentDesktopHost;
     private readonly AgentTerminalActionComposer _composer;
     private readonly AgentBrowserActionComposer? _browserComposer;
     private readonly AgentFileActionComposer? _fileComposer;
@@ -111,6 +112,8 @@ public sealed partial class GovernedAgentRuntime :
     private readonly AgentGitActionComposer? _gitComposer;
     private readonly AgentMcpToolCallActionComposer? _mcpComposer;
     private readonly AgentWebToolActionComposer? _webToolComposer;
+    private readonly AgentDesktopActionComposer? _desktopComposer;
+    private readonly DesktopAgentObservationLedger _desktopObservations;
     private readonly ImmutableArray<IAgentToolContribution> _toolContributions;
     private readonly AgentToolCatalog _toolCatalog;
     private readonly IAgentProviderResolver _providerResolver;
@@ -147,6 +150,7 @@ public sealed partial class GovernedAgentRuntime :
     private AgentRunPolicyUpdate? _pendingPolicyUpdate;
     private long _policyGeneration = InitialPolicyGeneration;
     private bool _runRegistered;
+    private bool _desktopAccessGranted;
     private bool _policyChangeInFlight;
     private bool _clearing;
     private bool _disposed;
@@ -216,7 +220,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
         IAgentAttachmentService? attachments = null,
-        WorkspaceChatSecrets? chatSecrets = null)
+        WorkspaceChatSecrets? chatSecrets = null,
+        IAgentDesktopSessionHost? agentDesktopHost = null,
+        AgentDesktopActionComposer? desktopComposer = null)
         : this(
             sessionHost,
             broker,
@@ -257,7 +263,9 @@ public sealed partial class GovernedAgentRuntime :
             agentKubernetesHost,
             kubernetesComposer,
             attachments,
-            chatSecrets)
+            chatSecrets,
+            agentDesktopHost,
+            desktopComposer)
     {
     }
 
@@ -316,7 +324,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
         IAgentAttachmentService? attachments = null,
-        WorkspaceChatSecrets? chatSecrets = null)
+        WorkspaceChatSecrets? chatSecrets = null,
+        IAgentDesktopSessionHost? agentDesktopHost = null,
+        AgentDesktopActionComposer? desktopComposer = null)
         : this(
             sessionHost,
             broker,
@@ -345,7 +355,9 @@ public sealed partial class GovernedAgentRuntime :
             agentKubernetesHost: agentKubernetesHost,
             kubernetesComposer: kubernetesComposer,
             attachments: attachments,
-            chatSecrets: chatSecrets)
+            chatSecrets: chatSecrets,
+            agentDesktopHost: agentDesktopHost,
+            desktopComposer: desktopComposer)
     {
     }
 
@@ -389,7 +401,9 @@ public sealed partial class GovernedAgentRuntime :
         IAgentKubernetesSessionHost? agentKubernetesHost = null,
         AgentKubernetesReadActionComposer? kubernetesComposer = null,
         IAgentAttachmentService? attachments = null,
-        WorkspaceChatSecrets? chatSecrets = null)
+        WorkspaceChatSecrets? chatSecrets = null,
+        IAgentDesktopSessionHost? agentDesktopHost = null,
+        AgentDesktopActionComposer? desktopComposer = null)
     {
         _sessionHost = sessionHost ?? throw new ArgumentNullException(nameof(sessionHost));
         _broker = broker ?? throw new ArgumentNullException(nameof(broker));
@@ -409,6 +423,7 @@ public sealed partial class GovernedAgentRuntime :
         _agentGitHost = agentGitHost;
         _agentMcpHost = agentMcpHost;
         _agentWebToolHost = agentWebToolHost;
+        _agentDesktopHost = agentDesktopHost;
         _composer = composer ?? throw new ArgumentNullException(nameof(composer));
         _browserComposer = browserComposer;
         _fileComposer = fileComposer;
@@ -422,6 +437,7 @@ public sealed partial class GovernedAgentRuntime :
         _gitComposer = gitComposer;
         _mcpComposer = mcpComposer;
         _webToolComposer = webToolComposer;
+        _desktopComposer = desktopComposer;
         if ((_agentBrowserHost is null) != (_browserComposer is null))
         {
             throw new ArgumentException(
@@ -486,6 +502,11 @@ public sealed partial class GovernedAgentRuntime :
             throw new ArgumentException(
                 "The governed web tool host and composer must be supplied together.");
         }
+        if ((_agentDesktopHost is null) != (_desktopComposer is null))
+        {
+            throw new ArgumentException(
+                "The governed desktop host and composer must be supplied together.");
+        }
         _toolContributions = CreateToolContributions();
         _toolCatalog = toolCatalog ?? throw new ArgumentNullException(nameof(toolCatalog));
         _providerResolver =
@@ -502,6 +523,7 @@ public sealed partial class GovernedAgentRuntime :
         ArgumentNullException.ThrowIfNull(approvalPrincipal);
         _approvalActor = ValidateApprovalPrincipal(approvalPrincipal.Actor);
         _timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        _desktopObservations = new DesktopAgentObservationLedger(_timeProvider);
         ArgumentNullException.ThrowIfNull(policy);
         if (!policy.IsValidForDurableStorage())
         {
@@ -791,6 +813,8 @@ public sealed partial class GovernedAgentRuntime :
             var fileMetadata = await InspectFileSessionsAsync(
                     context,
                     turnCancellation.Token)
+                .ConfigureAwait(false);
+            await RefreshDesktopAccessAsync(context, turnCancellation.Token)
                 .ConfigureAwait(false);
             setupStage = "run_scope";
             if (!TryPinOrValidateRun(
@@ -1527,6 +1551,10 @@ public sealed partial class GovernedAgentRuntime :
             }
 
             await ReleaseHistoryRetentionAsync().ConfigureAwait(false);
+            if (runId is { } releasedRun)
+            {
+                ReleaseDesktopRun(releasedRun);
+            }
 
             if (deleteStoredConversation
                 && _checkpointStore is not null
@@ -2016,6 +2044,16 @@ public sealed partial class GovernedAgentRuntime :
             }
 
             PublishTranscript(session, turnCancellation);
+            if (string.Equals(
+                    reconciliationCause,
+                    AgentDesktopStableCodes.AdapterFaulted,
+                    StringComparison.Ordinal))
+            {
+                return await CancelRunAfterDesktopAdapterFaultAsync(
+                        session,
+                        turnCancellation)
+                    .ConfigureAwait(false);
+            }
 
             // PI's loop treats a settled tool result as a stable transcript
             // boundary. Run maintenance here, before another provider request,
@@ -3531,7 +3569,8 @@ public sealed partial class GovernedAgentRuntime :
             resizeEligiblePanelIds,
             browserEligiblePanelIds,
             fileMetadata,
-            GetMcpRunManifest());
+            GetMcpRunManifest(),
+            IsDesktopAccessGranted());
         foreach (var contribution in _toolContributions)
         {
             tools.AddRange(contribution.BuildTools(contributionContext));
@@ -5188,6 +5227,7 @@ public sealed partial class GovernedAgentRuntime :
         {
             await CloseMcpRunBestEffortAsync(runId.Value)
                 .ConfigureAwait(false);
+            ReleaseDesktopRun(runId.Value);
         }
     }
 

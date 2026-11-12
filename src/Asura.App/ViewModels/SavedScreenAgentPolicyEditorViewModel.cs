@@ -19,6 +19,9 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
             new PermissionOption(AgentPermission.Auto),
         ]);
 
+    private static readonly IReadOnlyList<PermissionOption> ApprovalPermissionOptions =
+        Array.AsReadOnly([DurablePermissionOptions[0], DurablePermissionOptions[1]]);
+
     private readonly IReadOnlyList<CapabilityEditorViewModel> _capabilities;
     private readonly bool _requiresAvailableProvider;
     private bool _isEnabled;
@@ -115,7 +118,9 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
                     capability,
                     normalized?.GetPermission(capability)
                         ?? AgentPolicy.InitialPermissions[capability],
-                    DurablePermissionOptions))
+                    AgentPolicyPresentation.OffersAuto(capability)
+                        ? DurablePermissionOptions
+                        : ApprovalPermissionOptions))
                 .ToArray());
         foreach (var capability in _capabilities)
         {
@@ -599,10 +604,23 @@ public sealed class SavedScreenAgentPolicyEditorViewModel : ObservableObject, ID
         {
             Capability = capability;
             Options = options;
-            _selectedOption = options.Single(option => option.Permission == permission);
+            // A stored Auto where Auto isn't offered authorizes exactly what
+            // Ask does, so it reads, and is saved again, as Ask.
+            var offered = permission == AgentPermission.Auto
+                && options.All(option => option.Permission != AgentPermission.Auto)
+                ? AgentPermission.Ask
+                : permission;
+            _selectedOption = options.Single(option => option.Permission == offered);
         }
 
         public AgentCapability Capability { get; }
+
+        /// <summary>
+        /// Whether Auto is one of this capability's choices. The permission
+        /// picker keeps the segment in place, disabled, so every row's
+        /// segments line up.
+        /// </summary>
+        public bool OffersAuto => Options.Any(option => option.Permission == AgentPermission.Auto);
 
         public string DisplayName => AgentPolicyPresentation.CapabilityName(Capability);
 

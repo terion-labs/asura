@@ -508,6 +508,57 @@ public sealed partial class NativeTerminalBuildContractTests
     }
 
     [Fact]
+    public void The_pty_library_is_selected_by_the_application_for_its_effective_runtime()
+    {
+        // The SDK does not pass the published RID to project references, so a
+        // native payload selected inside Asura.Terminal is the build host's: an
+        // osx-x64 publish on an arm64 Mac used to ship an arm64 libasura_pty.
+        var terminal = XDocument.Load(
+            Path.Combine(RepositoryRoot, "src", "Asura.Terminal", "Asura.Terminal.csproj"));
+        Assert.DoesNotContain(
+            terminal.Descendants("Content"),
+            element => ((string?)element.Attribute("Include") ?? string.Empty)
+                .Contains("asura_pty", StringComparison.Ordinal));
+        Assert.Empty(terminal.Descendants("AsuraPtyRid"));
+
+        var desktop = XDocument.Load(
+            Path.Combine(RepositoryRoot, "src", "Asura.Desktop", "Asura.Desktop.csproj"));
+        var libraries = desktop.Descendants("AsuraPtyLibrary").ToArray();
+        Assert.Equal(
+            ["libasura_pty.dylib", "libasura_pty.so"],
+            libraries.Select(element => element.Value).Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        Assert.All(
+            libraries,
+            element => Assert.Contains(
+                "$(AsuraEffectiveRuntimeIdentifier)",
+                (string?)element.Attribute("Condition"),
+                StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            libraries,
+            element => ((string?)element.Attribute("Condition") ?? string.Empty)
+                .Contains("$(RuntimeIdentifier)", StringComparison.Ordinal));
+
+        var content = Assert.Single(
+            desktop.Descendants("Content"),
+            element => string.Equals(
+                (string?)element.Attribute("Link"),
+                "$(AsuraPtyLibrary)",
+                StringComparison.Ordinal));
+        Assert.Equal(
+            "$(AsuraNativeTerminalArtifactDirectory)/$(AsuraPtyLibrary)",
+            (string?)content.Attribute("Include"));
+        Assert.Equal("PreserveNewest", (string?)content.Attribute("CopyToPublishDirectory"));
+        Assert.Equal(
+            "'$(AsuraNativeTerminalRequired)' == 'true'",
+            (string?)content.Parent?.Attribute("Condition"));
+        Assert.Contains(
+            "$(AsuraEffectiveRuntimeIdentifier)",
+            (string?)desktop.Descendants("AsuraNativeTerminalArtifactDirectory").Single().Value,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Desktop_build_fails_closed_for_every_supported_native_payload()
     {
         var project = XDocument.Load(

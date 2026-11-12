@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Asura.Application\Asura.Application.csproj" />
     <ProjectReference Include="..\Asura.Browser\Asura.Browser.csproj" />
     <ProjectReference Include="..\Asura.Databases\Asura.Databases.csproj" />
+    <ProjectReference Include="..\Asura.DesktopAutomation\Asura.DesktopAutomation.csproj" />
     <ProjectReference Include="..\Asura.ConnectionBackend\Asura.ConnectionBackend.csproj" />
     <ProjectReference Include="..\Asura.Docker\Asura.Docker.csproj" />
     <ProjectReference Include="..\Asura.Git\Asura.Git.csproj" />
@@ -84,6 +85,8 @@
     <AsuraNativeTerminalRequired Condition="'$(AsuraNativeTerminalLibrary)' != ''">true</AsuraNativeTerminalRequired>
     <AsuraNativeTerminalArtifactDirectory>$(MSBuildThisFileDirectory)../../native/artifacts/$(AsuraEffectiveRuntimeIdentifier)</AsuraNativeTerminalArtifactDirectory>
     <AsuraNativeTerminalShellIntegrationDirectory>$(AsuraNativeTerminalArtifactDirectory)/ghostty/shell-integration</AsuraNativeTerminalShellIntegrationDirectory>
+    <AsuraPtyLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64'">libasura_pty.dylib</AsuraPtyLibrary>
+    <AsuraPtyLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">libasura_pty.so</AsuraPtyLibrary>
     <AsuraSqlLanguageSupported Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'win-x64'">true</AsuraSqlLanguageSupported>
     <AsuraSqlLanguageRequired Condition="'$(AsuraSqlLanguageRequired)' == ''">false</AsuraSqlLanguageRequired>
     <AsuraSqlLanguageWorkerName Condition="'$(AsuraSqlLanguageSupported)' == 'true' and '$(AsuraEffectiveRuntimeIdentifier)' == 'win-x64'">asura-sql-language.exe</AsuraSqlLanguageWorkerName>
@@ -112,6 +115,12 @@
     <AsuraCefShimLibrary Condition="'$(AsuraCefMacRuntime)' == 'true'">libexclr8cef.dylib</AsuraCefShimLibrary>
     <AsuraCefShimLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">libexclr8cef.so</AsuraCefShimLibrary>
     <AsuraCefShimLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'win-x64'">exclr8cef.dll</AsuraCefShimLibrary>
+    <AsuraAgentDesktopLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64'">libagent_desktop_ffi.dylib</AsuraAgentDesktopLibrary>
+    <AsuraAgentDesktopLibrary Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">libagent_desktop_ffi.so</AsuraAgentDesktopLibrary>
+    <AsuraAgentDesktopHelper Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'osx-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'osx-x64'">agent-desktop-macos-helper</AsuraAgentDesktopHelper>
+    <AsuraAgentDesktopHelper Condition="'$(AsuraEffectiveRuntimeIdentifier)' == 'linux-arm64' or '$(AsuraEffectiveRuntimeIdentifier)' == 'linux-x64'">agent-desktop-linux-clipboard-owner</AsuraAgentDesktopHelper>
+    <AsuraAgentDesktopArtifactDirectory>$(MSBuildThisFileDirectory)../../native/artifacts/$(AsuraEffectiveRuntimeIdentifier)/agent-desktop</AsuraAgentDesktopArtifactDirectory>
+    <AsuraAgentDesktopPayloadAvailable Condition="'$(AsuraAgentDesktopLibrary)' != '' and Exists('$(AsuraAgentDesktopArtifactDirectory)/$(AsuraAgentDesktopLibrary)') and Exists('$(AsuraAgentDesktopArtifactDirectory)/$(AsuraAgentDesktopHelper)')">true</AsuraAgentDesktopPayloadAvailable>
   </PropertyGroup>
 
   <!-- Keep Native AOT scoped to the packaged macOS application. Passing
@@ -167,6 +176,18 @@
     <Content Include="$(AsuraWorkspaceGatewayHostDirectory)/workspace-network-gateway-MANIFEST.sha256" Link="runtimes/$(AsuraEffectiveRuntimeIdentifier)/native/workspace-network-gateway-MANIFEST.sha256" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(AsuraWorkspaceGatewayHostDirectory)/workspace-network-gateway-THIRD-PARTY-NOTICES.md" Link="runtimes/$(AsuraEffectiveRuntimeIdentifier)/native/workspace-network-gateway-THIRD-PARTY-NOTICES.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(AsuraWorkspaceGatewayHostDirectory)/workspace-network-gateway-GO-LICENSE.txt" Link="runtimes/$(AsuraEffectiveRuntimeIdentifier)/native/workspace-network-gateway-GO-LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- agent-desktop's C library and the helper it launches from its own
+       directory (ADR 0061), both from the staged build for the RID this
+       application is built for. They are selected here, not in
+       Asura.DesktopAutomation, because the SDK builds that library project
+       without the application's RuntimeIdentifier. A build without the staged
+       pair ships no desktop automation and the tool family reports
+       Unavailable; scripts/package-macos.sh and package-linux.sh require it. -->
+  <ItemGroup Condition="'$(AsuraAgentDesktopPayloadAvailable)' == 'true'">
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/$(AsuraAgentDesktopLibrary)" Link="$(AsuraAgentDesktopLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(AsuraAgentDesktopArtifactDirectory)/$(AsuraAgentDesktopHelper)" Link="$(AsuraAgentDesktopHelper)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(AsuraWorkspaceGatewayRequired)' == 'true' and '$(AsuraWorkspaceGatewaySupported)' == 'true'">
@@ -231,6 +252,9 @@
     <AsuraNativeTerminalRequiredFile Include="$(AsuraNativeTerminalShellIntegrationDirectory)/zsh/ghostty-integration" />
 
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/$(AsuraNativeTerminalLibrary)" Link="$(AsuraNativeTerminalLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Selected here, by the RID this application is built or published
+         for: Asura.Terminal, where PortablePtyRuntime lives, never learns it. -->
+    <Content Include="$(AsuraNativeTerminalArtifactDirectory)/$(AsuraPtyLibrary)" Link="$(AsuraPtyLibrary)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(AsuraPtyLibrary)' != ''" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/PORTA-PTY-LICENSE" Link="PORTA-PTY-LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="!$(AsuraEffectiveRuntimeIdentifier.StartsWith('win-'))" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/GHOSTTY-LICENSE" Link="GHOSTTY-LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(AsuraNativeTerminalArtifactDirectory)/ghostty-vt-required-exports.txt" Link="ghostty-vt-required-exports.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

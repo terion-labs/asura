@@ -14,15 +14,30 @@ full libghostty renderer.
 
 ## Prerequisites
 
-Install the workspace-local .NET SDK and build the pinned native terminal and
-SQL-language runtimes:
+Install the workspace-local .NET SDK and build the pinned native terminal,
+SQL-language, browser and desktop automation runtimes:
 
 ```sh
 ASURA_SKIP_NATIVE=1 ./scripts/bootstrap.sh
 ./scripts/build-libghostty-vt.sh --rid osx-arm64
 ./scripts/build-sql-language-worker.sh --local --rid osx-arm64
 ./scripts/build-cef-runtime.sh --rid osx-arm64
+./scripts/build-agent-desktop.sh --rid osx-arm64
 ```
+
+`build-agent-desktop.sh` builds `libagent_desktop_ffi.dylib` and
+`agent-desktop-macos-helper` from the pinned agent-desktop commit with Rust
+1.89.0 (ADR 0061). It installs that toolchain through the rustup already on the
+machine, or through a pinned, checksum-verified rustup it keeps under
+`.deps/toolchains` when there is none, and it needs `git`, `python3`, `curl`
+and the Xcode command line tools. Packaging runs
+`build-agent-desktop.sh --verify-staged` and places both files in
+`Contents/MacOS` beside `libghostty-vt.dylib`; the application bundle builder
+refuses a publish payload that lacks either of them.
+`licenses/native-desktop-automation-components.json` records the component as
+BLOCKED pending review, as `licenses/native-terminal-components.json` does for
+the terminal library. That state is a record: packaging and release
+publication do not check it.
 
 Apple's linker from the Xcode toolchain links the Native AOT application.
 Until .NET 10.0.12 its large-addend assert (dotnet/runtime#119380) needed

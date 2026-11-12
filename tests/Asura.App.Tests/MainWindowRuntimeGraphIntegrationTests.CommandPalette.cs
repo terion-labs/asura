@@ -1,4 +1,5 @@
 using Asura.App.ViewModels;
+using Asura.Application;
 using Asura.Core;
 
 namespace Asura.App.Tests;
@@ -7,12 +8,18 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
 {
     /// <summary>
     /// A view model with the runtime-graph workspace open, for main window
-    /// tests that run in their own class.
+    /// tests that run in their own class. Its Settings read desktop
+    /// automation from <paramref name="agentDesktopSessionHost"/>, or show it
+    /// Unavailable without one.
     /// </summary>
-    internal static async Task<MainWindowViewModel> CreateViewModelWithOpenWorkspaceAsync()
+    internal static async Task<MainWindowViewModel> CreateViewModelWithOpenWorkspaceAsync(
+        IAgentDesktopSessionHost? agentDesktopSessionHost = null)
     {
         var (client, _) = CreateSessionClient();
-        var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+        var viewModel = CreateViewModel(
+            client,
+            CreateCatalogSnapshot(),
+            agentDesktopSessionHost: agentDesktopSessionHost);
         try
         {
             Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));

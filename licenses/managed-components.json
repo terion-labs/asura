@@ -599,6 +599,13 @@
       "file": "Asura.Databases.dll"
     },
     {
+      "identity": "Asura.DesktopAutomation/${productVersion}",
+      "kind": "project",
+      "depsType": "project",
+      "licenseDeclared": "NOASSERTION",
+      "file": "Asura.DesktopAutomation.dll"
+    },
+    {
       "identity": "Asura.Docker/${productVersion}",
       "kind": "project",
       "depsType": "project",

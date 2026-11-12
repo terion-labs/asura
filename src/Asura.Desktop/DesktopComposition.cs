@@ -9,6 +9,7 @@ using Asura.Browser;
 using Asura.ConnectionBackend;
 using Asura.Core;
 using Asura.Databases;
+using Asura.DesktopAutomation;
 using Asura.Docker;
 using Asura.Files;
 using Asura.Git;
@@ -119,6 +120,7 @@ public static class DesktopComposition
         services.AddSingleton<AgentGitActionComposer>();
         services.AddSingleton<AgentMcpToolCallActionComposer>();
         services.AddSingleton<AgentWebToolActionComposer>();
+        services.AddSingleton<AgentDesktopActionComposer>();
         services.AddSingleton<AgentPanelActionComposer>();
         services.AddSingleton<AgentWorkspaceLayoutActionComposer>();
         services.AddSingleton<AgentWorkspaceGraphActionComposer>();
@@ -269,6 +271,13 @@ public static class DesktopComposition
         services.AddSingleton<IAgentWebToolExecutor>(provider => new AgentWebToolExecutor(
             provider.GetRequiredService<IWorkspaceNetworkRouteResolver>(),
             provider.GetRequiredService<DesktopBrowserStartup>().EnsureRunningAsync));
+        // Created by the container so the loaded library, its worker threads and
+        // the per-run element references are released with it. Where the
+        // library is absent the engine reports Unavailable and the desktop
+        // tools are never offered (ADR 0061).
+        services.AddSingleton<IAgentDesktopAutomationEngine>(_ =>
+            AgentDesktopAutomationEngine.Create(
+                Path.Combine(profile.Data.DataDirectory, "agent-desktop")));
         services.AddSingleton<SystemMonitorPanelSessionFactory>();
         services.AddSingleton<WorkspaceSystemMonitorPanelSessionFactory>();
         services.AddSingleton<ISystemMonitorPanelSessionFactory>(provider =>
@@ -427,6 +436,8 @@ public static class DesktopComposition
             provider.GetRequiredService<InMemorySessionHostClient>());
         services.AddSingleton<IAgentWebToolSessionHost>(provider =>
             provider.GetRequiredService<InMemorySessionHostClient>());
+        services.AddSingleton<IAgentDesktopSessionHost>(provider =>
+            provider.GetRequiredService<InMemorySessionHostClient>());
         services.AddSingleton<IGlobalHotkeyService>(_ =>
             GlobalHotkeyServiceSelector.CreateForCurrentPlatform());
         services.AddSingleton<IScreenColorSampler>(_ =>
@@ -461,11 +472,17 @@ public static class DesktopComposition
                 provider.GetRequiredService<AsuraDataPaths>().DataDirectory,
                 "settings-window.json")));
         services.AddSingleton<Asura.App.App>();
-        return services.BuildServiceProvider(new ServiceProviderOptions
+        var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
             ValidateScopes = true,
         });
+        // The engine hands agent-desktop its state directory through the
+        // native environment, which must not change while other threads may
+        // read it. Create it now, before the UI and browser runtimes start
+        // theirs, rather than whenever SessionHost is first resolved.
+        _ = provider.GetRequiredService<IAgentDesktopAutomationEngine>();
+        return provider;
     }
 
     private static void AddVpnProvider(

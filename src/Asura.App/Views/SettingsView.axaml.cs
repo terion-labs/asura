@@ -750,6 +750,17 @@ public sealed partial class SettingsView : UserControl
     private void OnOpenNotificationSystemSettingsClick(object? sender, RoutedEventArgs e) =>
         OpenNotificationSystemSettingsRequested?.Invoke(sender, e);
 
+    // The row's own view model opens System Settings; nothing of the shell takes
+    // part, so there is no request for the main window to answer.
+    private void OnOpenAccessibilitySystemSettingsClick(object? sender, RoutedEventArgs e)
+    {
+        _ = e;
+        if (sender is Control { DataContext: AgentDesktopAccessSettingsViewModel access })
+        {
+            _ = access.OpenSystemSettingsAsync();
+        }
+    }
+
     // ---- Workspaces and saved screens: select, then "–" or the context menu ----
 
     private void OnWorkspaceListSelectionChanged(object? sender, SelectionChangedEventArgs e)

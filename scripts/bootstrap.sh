@@ -51,6 +51,14 @@ if [[ "${ASURA_SKIP_NATIVE-0}" != "1" ]]; then
     esac
 
     "${script_dir}/build-libghostty-vt.sh" --rid "${native_rid}"
+    # Desktop automation (ADR 0061). The script installs its own pinned Rust
+    # toolchain through rustup. The release flavor is what Asura loads; the
+    # stub and panic flavors are test fixtures that
+    # tests/Asura.DesktopAutomation.Tests loads beside it.
+    for agent_desktop_flavor in release stub panic; do
+        "${script_dir}/build-agent-desktop.sh" \
+            --rid "${native_rid}" --flavor "${agent_desktop_flavor}"
+    done
     if [[ "${build_workspace_network_gateway:-false}" == true ]]; then
         "${script_dir}/build-workspace-network-gateway.sh" --rid osx-arm64
         "${script_dir}/build-workspace-runtime.sh"

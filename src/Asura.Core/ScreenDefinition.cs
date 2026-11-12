@@ -27,7 +27,7 @@ public sealed record ScreenDefinition : IDurableDefinition
         LayoutId = layoutId;
         Panels = Array.AsReadOnly(panels?.ToArray() ?? throw new ArgumentNullException(nameof(panels)));
         Tags = Array.AsReadOnly(tags?.ToArray() ?? []);
-        AgentPolicyOverride = agentPolicyOverride?.WithMissingKubernetesPermissionsOff();
+        AgentPolicyOverride = agentPolicyOverride?.WithMissingKubernetesPermissionsOff().WithMissingDesktopPermissionsOff();
     }
 
     public static DefinitionKind Kind => DefinitionKind.Screen;

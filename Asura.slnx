@@ -12,6 +12,7 @@
     <Project Path="src/Asura.ConnectionBackend/Asura.ConnectionBackend.csproj" />
     <Project Path="src/Asura.Docker/Asura.Docker.csproj" />
     <Project Path="src/Asura.Desktop/Asura.Desktop.csproj" />
+    <Project Path="src/Asura.DesktopAutomation/Asura.DesktopAutomation.csproj" />
     <Project Path="src/Asura.Docking/Asura.Docking.csproj" />
     <Project Path="src/Asura.Files/Asura.Files.csproj" />
     <Project Path="src/Asura.Git/Asura.Git.csproj" />
@@ -41,6 +42,8 @@
     <Project Path="tests/Asura.Core.Tests/Asura.Core.Tests.csproj" />
     <Project Path="tests/Asura.Databases.Tests/Asura.Databases.Tests.csproj" />
     <Project Path="tests/Asura.Databases.IntegrationTests/Asura.Databases.IntegrationTests.csproj" />
+    <Project Path="tests/Asura.DesktopAutomation.Tests/Asura.DesktopAutomation.Tests.csproj" />
+    <Project Path="tests/Asura.DesktopAutomationAcceptance.Tests/Asura.DesktopAutomationAcceptance.Tests.csproj" />
     <Project Path="tests/Asura.Docker.Tests/Asura.Docker.Tests.csproj" />
     <Project Path="tests/Asura.Files.Tests/Asura.Files.Tests.csproj" />
     <Project Path="tests/Asura.SshNet.Tests/Asura.SshNet.Tests.csproj" />

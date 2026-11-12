@@ -30,6 +30,7 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
         "Asura.ConnectionBackend",
         "Asura.Core",
         "Asura.Databases",
+        "Asura.DesktopAutomation",
         "Asura.Docker",
         "Asura.Docking",
         "Asura.Files",
@@ -1129,6 +1130,8 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
 
     [Theory]
     [InlineData("libghostty-vt.dylib")]
+    [InlineData("libagent_desktop_ffi.dylib")]
+    [InlineData("agent-desktop-macos-helper")]
     [InlineData("GHOSTTY-LICENSE")]
     [InlineData("THIRD-PARTY-NOTICES.md")]
     [InlineData("DOTNET-LICENSE.txt")]
@@ -1790,6 +1793,8 @@ public sealed partial class MacOsAppBundleBuilderTests : IDisposable
             $"publish-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
         WriteFile(directory, "Asura", "executable");
+        WriteFile(directory, "libagent_desktop_ffi.dylib", "desktop automation library");
+        WriteFile(directory, "agent-desktop-macos-helper", "desktop automation helper");
         WriteFile(directory, "Asura.runtimeconfig.json", "{}");
         WriteFile(directory, "GHOSTTY-LICENSE", new string('L', 2_048));
         WriteFile(directory, "THIRD-PARTY-NOTICES.md", "notices");

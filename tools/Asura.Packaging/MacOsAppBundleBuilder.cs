@@ -73,6 +73,10 @@ public sealed class MacOsAppBundleBuilder
         "Asura",
         "libghostty-vt.dylib",
         "libasura_pty.dylib",
+        // Without these two the desktop tools are silently never offered
+        // (ADR 0061); a release must not lose them unnoticed.
+        "libagent_desktop_ffi.dylib",
+        "agent-desktop-macos-helper",
         "PORTA-PTY-LICENSE",
         "GHOSTTY-LICENSE",
         "ghostty-vt-required-exports.txt",

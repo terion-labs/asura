@@ -51,7 +51,7 @@ const faqs = [
   },
   {
     q: 'What does the agent actually control?',
-    a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for your click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and granted on purpose. Kubernetes capabilities are Off until you turn them on. If you start typing in a terminal the agent is using, it loses its input lease immediately.',
+    a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for your click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and granted on purpose. Kubernetes and desktop app capabilities are Off until you turn them on, and a click or keystroke in another app always waits for your approval. If you start typing in a terminal the agent is using, it loses its input lease immediately.',
   },
   {
     q: 'Which platforms are supported?',
@@ -205,6 +205,12 @@ const faqs = [
                 snapshot and clicks, fills, and checks elements by reference.
                 Point the browser through an SSH tunnel and that includes
                 your internal web apps.
+              </li>
+              <li>
+                On macOS and Linux it can work your other apps the same way: it reads a
+                window's accessibility tree and clicks, fills, and toggles
+                controls by reference. It never touches Asura's own windows
+                and never types into a password field.
               </li>
               <li>
                 Permissions per capability: Off, Ask, Auto, or a time-bounded

@@ -393,6 +393,7 @@ ASURA_BACKEND_ARCH=x64 python3 ./scripts/package-workspace-backend.py verify-rel
     --source-root . \
     --require-clearance
 ./scripts/build-libghostty-vt.sh --rid osx-arm64
+./scripts/build-agent-desktop.sh --rid osx-arm64
 ./scripts/build-workspace-network-gateway.sh --rid osx-arm64
 ./scripts/build-workspace-runtime.sh
 ./scripts/build-workspace-backend.sh
@@ -437,6 +438,12 @@ assetutil --info "${assets_car}" > "${verification_directory}/Assets.info.json"
 grep -Fq '"AssetType" : "Icon Image"' "${verification_directory}/Assets.info.json"
 grep -Fq '"Name" : "Asura"' "${verification_directory}/Assets.info.json"
 test -x "${extracted_app}/Contents/MacOS/UpdateMac"
+test -f "${extracted_app}/Contents/MacOS/libagent_desktop_ffi.dylib"
+test -x "${extracted_app}/Contents/MacOS/agent-desktop-macos-helper"
+test -f "${extracted_app}/Contents/Resources/Licenses/AGENT-DESKTOP-LICENSE"
+for nested in libagent_desktop_ffi.dylib agent-desktop-macos-helper; do
+    codesign --verify --strict --verbose=2 "${extracted_app}/Contents/MacOS/${nested}"
+done
 test "$(readlink "${extracted_app}/Contents/MacOS/sq.version")" \
     = "../Resources/sq.version"
 

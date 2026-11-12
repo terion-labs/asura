@@ -675,6 +675,7 @@
           "Asura.Browser": "[1.0.0, )",
           "Asura.ConnectionBackend": "[1.0.0, )",
           "Asura.Databases": "[1.0.0, )",
+          "Asura.DesktopAutomation": "[1.0.0, )",
           "Asura.Docker": "[1.0.0, )",
           "Asura.Files": "[1.0.0, )",
           "Asura.Git": "[1.0.0, )",
@@ -790,6 +791,13 @@
           "Oracle.ManagedDataAccess.Core": "[23.7.0, )",
           "SQLite3MC.PCLRaw.bundle": "[2.4.0, )",
           "System.Security.Cryptography.Pkcs": "[9.0.21, )"
+        }
+      },
+      "asura.desktopautomation": {
+        "type": "Project",
+        "dependencies": {
+          "Asura.Application": "[1.0.0, )",
+          "Asura.Core": "[1.0.0, )"
         }
       },
       "asura.docker": {

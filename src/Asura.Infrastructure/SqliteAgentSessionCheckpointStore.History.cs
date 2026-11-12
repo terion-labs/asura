@@ -812,11 +812,9 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         var values = new Dictionary<AgentCapability, AgentPermission>();
         foreach (var property in permissions.EnumerateObject())
         {
-            if (!Enum.TryParse<AgentCapability>(property.Name, out var capability)
-                || !Enum.IsDefined(capability)
+            if (!TryParseEnum<AgentCapability>(property.Name, out var capability)
                 || property.Value.ValueKind != JsonValueKind.String
-                || !Enum.TryParse<AgentPermission>(property.Value.GetString(), out var permission)
-                || !Enum.IsDefined(permission)
+                || !TryParseEnum<AgentPermission>(property.Value.GetString(), out var permission)
                 || !values.TryAdd(capability, permission))
             {
                 throw new InvalidDataException("An agent history permission is malformed.");
@@ -826,6 +824,9 @@ public sealed partial class SqliteAgentSessionCheckpointStore
         values.TryAdd(AgentCapability.KubernetesData, AgentPermission.Off);
         values.TryAdd(AgentCapability.KubernetesExec, AgentPermission.Off);
         values.TryAdd(AgentCapability.KubernetesControl, AgentPermission.Off);
+        values.TryAdd(AgentCapability.DesktopData, AgentPermission.Off);
+        values.TryAdd(AgentCapability.DesktopInteraction, AgentPermission.Off);
+        values.TryAdd(AgentCapability.DesktopControl, AgentPermission.Off);
         if (values.Count != AgentPolicy.Capabilities.Length
             || AgentPolicy.Capabilities.Any(capability => !values.ContainsKey(capability)))
         {
@@ -838,6 +839,15 @@ public sealed partial class SqliteAgentSessionCheckpointStore
             [.. AgentPolicy.Capabilities.Select(capability =>
                 new AgentHistoryCapabilityPermission(capability, values[capability]))]);
     }
+
+    // Enum.TryParse also accepts a number, a padded name and a comma-joined
+    // list. Only the exact name the writer stores is a recorded value, so
+    // "2" can never stand in for Auto or "Ask, Auto" for full access.
+    private static bool TryParseEnum<T>(string? text, out T value)
+        where T : struct, Enum =>
+        Enum.TryParse(text, ignoreCase: false, out value)
+        && Enum.IsDefined(value)
+        && string.Equals(value.ToString(), text, StringComparison.Ordinal);
 
     private static byte[] WriteExport(
         IReadOnlyList<(AgentRunHistoryMetadata Metadata, AgentRunAuditEntry[] Entries)> trails,

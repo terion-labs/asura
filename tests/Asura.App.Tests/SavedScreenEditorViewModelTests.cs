@@ -48,16 +48,29 @@ public sealed class SavedScreenEditorViewModelTests
         Assert.Same(
             editor.AgentPolicy.ProviderOptions.Single(),
             editor.AgentPolicy.SelectedProvider);
+        // Desktop app interaction and control don't offer Auto (ADR 0061):
+        // a stored Auto there authorizes what Ask does and reads as Ask.
+        var expected = permissions.ToImmutableDictionary(
+            pair => pair.Key,
+            pair => pair.Value == AgentPermission.Auto
+                && !AgentPolicyPresentation.OffersAuto(pair.Key)
+                    ? AgentPermission.Ask
+                    : pair.Value);
+        Assert.Contains(
+            permissions,
+            pair => pair.Value == AgentPermission.Auto && !AgentPolicyPresentation.OffersAuto(pair.Key));
         Assert.Equal(AgentPolicy.Capabilities.Length, editor.AgentPolicy.Capabilities.Count);
         Assert.All(
             editor.AgentPolicy.Capabilities,
             capability =>
             {
                 Assert.Equal(
-                    policy.GetPermission(capability.Capability),
+                    expected[capability.Capability],
                     capability.SelectedPermission);
                 Assert.Equal(
-                    [AgentPermission.Off, AgentPermission.Ask, AgentPermission.Auto],
+                    AgentPolicyPresentation.OffersAuto(capability.Capability)
+                        ? [AgentPermission.Off, AgentPermission.Ask, AgentPermission.Auto]
+                        : [AgentPermission.Off, AgentPermission.Ask],
                     capability.Options.Select(option => option.Permission));
                 Assert.DoesNotContain(
                     capability.Options,
@@ -68,7 +81,7 @@ public sealed class SavedScreenEditorViewModelTests
             editor.CreateSaveRequest().Definition.AgentPolicyOverride);
         Assert.Equal(policy.Provider, savedPolicy.Provider);
         Assert.Equal(policy.Model, savedPolicy.Model);
-        Assert.Equal(policy.Permissions, savedPolicy.Permissions);
+        Assert.Equal(expected, savedPolicy.Permissions);
     }
 
     [Fact]

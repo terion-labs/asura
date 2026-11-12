@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Asura.Application\Asura.Application.csproj" />
+    <ProjectReference Include="..\Asura.Core\Asura.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Asura.DesktopAutomation.Tests" />
+    <!-- The evidence harness loads the stub and panic test builds by path and
+         drives the panic export, which nothing outside tests may reach. -->
+    <InternalsVisibleTo Include="Asura.DesktopAutomationAcceptance.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- The native library and its helper are not copied from this project: the
+       SDK builds it without the application's RuntimeIdentifier, so it cannot
+       select the right build. src/Asura.Desktop selects them (ADR 0061). -->
+
+</Project>

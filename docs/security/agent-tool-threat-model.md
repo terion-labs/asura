@@ -26,6 +26,14 @@
   [ADR 0037](../adr/0037-bounded-native-provider-steering.md),
   [ADR 0038](../adr/0038-governed-native-dotnet-mcp-stdio.md), and
   [ADR 0047](../adr/0047-governed-local-git-tools.md)
+- Amended: 2026-11-10 for the proposed desktop automation family,
+  [ADR 0061](../adr/0061-governed-desktop-automation-through-agent-desktop-ffi.md).
+  That record is not accepted. Revised the same day against the composed
+  implementation, and again after the review fixes to the close binding,
+  the pre-authority guard under `Off`, launch classification, already
+  satisfied element actions, and invalidation after an unproven mutation
+  failure: Section 6 states, for each desktop finding, whether it is closed
+  in the code, with the test that covers it, or still open.
 
 ## 1. Security objective
 
@@ -53,8 +61,21 @@ The MCP boundary may launch an explicitly configured local stdio server or
 connect to an explicitly configured Streamable HTTP endpoint, freeze its
 enabled tool manifest, and dispatch one governed tool call. It does not install
 an agent or MCP runtime on a remote terminal target.
-Model output, terminal output, browser content, file content, and MCP results
-are untrusted data. None of them grant authority.
+The desktop automation boundary proposed by ADR 0061 may read another
+application's accessibility tree and deliver one headless, element-scoped
+action to it through a native library loaded into the desktop process. It
+grants no authority over Asura itself, binds no external application as a run
+target, and exposes no coordinate input, clipboard, or screenshot. The family
+is implemented and composed into the application: the typed contracts, the
+trusted catalog entries, the in-process engine, the SessionHost gate, the
+runtime tool set, the Settings row, and the packaging and signing steps exist
+and were read for this amendment. It has not been exercised against a real
+application through the governed path, because the test host has no macOS
+Accessibility grant; the SessionHost and runtime tests use a recording engine
+or a fake host. No signed bundle containing the library has been produced.
+Model output, terminal output, browser content, file content, MCP results, and
+other applications' accessibility trees are untrusted data. None of them grant
+authority.
 
 The security objective is:
 
@@ -277,6 +298,47 @@ The security objective is:
   covers cold hidden navigation, semantic input, cookies, cancellation, and
   authenticated proxy routing. Factory, session, and renderer share one fixed
   capability profile, and renderer attachment rejects capability drift.
+- Desktop automation (ADR 0061, proposed) adds the closed `desktop.*` family
+  under three capabilities that default to `Off` in initial permissions,
+  durable workspace and screen definitions, recovery, and checkpoint history:
+  `DesktopData` for `desktop.list_apps`, `desktop.list_windows`,
+  `desktop.snapshot`, and `desktop.wait`; `DesktopInteraction` for the eight
+  headless element mutations; and `DesktopControl` for the destructive
+  `desktop.press_key`, `desktop.focus_window`, `desktop.launch_app`, and
+  `desktop.close_app`. `Auto` authorizes `DesktopData` only, because the
+  shared policy resolver authorizes observation and routine risk alone; every
+  `DesktopInteraction` and `DesktopControl` action escalates to exact
+  `HumanApproval`. The independent SessionHost desktop gate
+  (`InMemorySessionHostClient.HasDesktopAuthorization`) accepts only
+  `HumanApproval` or an explicitly confirmed run-local `YoloPolicy` for those
+  actions and refuses an `AutoPolicy` permit for them
+  (`AgentDesktopPolicyGateTests.HostRefusesAnAutoPermitForInput`). The trusted
+  composer refuses any target other than the complete Workspace. The runtime
+  advertises the family only when the library loaded and the operating system
+  reports the Accessibility grant, and asks again before every desktop call,
+  so a grant withdrawn mid-run refuses the next call before authority.
+  Asura reads that grant and never requests it on the agent's behalf: the one
+  permission entrypoint it binds reports and does not prompt.
+- Another application is an untrusted content source. Its name, bundle
+  identifier, window titles, and every role, name, value, description, and
+  state in its accessibility tree are written by that application, or by
+  remote content it displays, and are handled like browser page content.
+- An external application cannot be bound as a run target. The run stays
+  pinned to its Workspace; each desktop proposal names its own external
+  process, snapshot, and element, and no approval, capability, or scope
+  choice confines a run to one application. Selecting a narrower Asura scope
+  does not narrow desktop authority, so narrower targets carry no desktop
+  tool at all.
+- The desktop family provides no human-override lease. Terminal input is
+  revoked by the user's own keystrokes; a headless desktop action is not. The
+  interaction lease that agent-desktop takes serializes agent-desktop
+  consumers, not humans, so an approved action lands even while the user is
+  typing in the same application.
+- The automation library is third-party Rust loaded into the desktop process.
+  There is no process boundary between it and the broker, the vault session,
+  or the approval UI, and no fallback to a CLI or MCP child. Asura itself is
+  never a desktop target: the self-operation guard refuses Asura's own
+  processes before any approval card and without an override.
 - Remote machines run no Asura agent. They receive ordinary terminal input
   through an already established connection and return terminal output.
 - Future headless, ACP, A2A, remote browser control, and multi-user hosting must
@@ -295,6 +357,11 @@ The security objective is:
 | Local process metadata | Observation is limited to one authorized hosted local Process Monitor, excludes command lines/paths/users/environment, and never implies remote-host process authority. |
 | MCP server profiles, child processes, remote endpoints, transport secrets, and frozen tool manifests | Only trusted, enabled, revisioned stdio/Streamable-HTTP definitions, broker-authorized opens, and exact allowlisted run-frozen aliases can reach the generic governed call boundary. Imported profiles are forced disabled and untrusted; reviewed trusted profiles may be tested while disabled without becoming agent-selectable. Credential rotation closes every referencing session before returning. |
 | Process mutation, Git, Docker, and network authority | Each family has an independent capability and risk rule. |
+| Other applications' windows, controls, and displayed content | Observation and input reach one named external application through one exact snapshot reference. A read is bounded, redacted, and labeled untrusted; a mutation is one approved, headless, element-scoped action that is never repeated. |
+| Asura's own authority surface: approval cards, Settings, policy controls, the composer, and every Asura process | Never observable or operable through the desktop family, whatever the policy or approval. |
+| The operating-system Accessibility grant held by Asura | The grant belongs to the application bundle, not to a run or a capability. Only the closed desktop tool set may exercise it for the agent, and Asura never requests it on the agent's behalf. |
+| The agent-desktop library and its colocated helper executable on disk | Only the copy built from the pinned commit, staged with its receipt, and signed with Asura's identity is loaded or launched. |
+| The agent-desktop state directory `<profile data directory>/agent-desktop/` | Owned by the user with mode `0700`, private to Asura's runs, never shared with `~/.agent-desktop`, and removed per run. Its reference maps hold other applications' element names and values. |
 | Approval decisions | Decisions are tied to an actor, run, proposal, exact material arguments, target revision, scope, and expiry. |
 | Audit history | Requested, decided, started, and agent-action outcomes are durable, correlated, ordered, and secret-free. |
 | Application availability | Provider streams, output, waits, and tool work are bounded and cancellable. |
@@ -309,7 +376,7 @@ flowchart LR
     Resolver["Target/context resolver"]
     Broker["Policy + approval broker"]
     Host["Session host execution boundary"]
-    Runtime["Terminal / files / browser / process / Docker / MCP"]
+    Runtime["Terminal / files / browser / process / Docker / MCP / desktop automation"]
     Vault["OS credential vault"]
     Audit["SQLite audit store"]
 
@@ -332,6 +399,26 @@ The important boundary is between a model proposal and a session-host
 operation. A proposal is inert data. Only the broker can issue a one-action
 authorization, and only the session host can consume it.
 
+Desktop automation adds four boundaries that the diagram's single runtime node
+hides:
+
+- The library boundary is a C ABI inside the desktop process, not a process
+  boundary. `Asura.DesktopAutomation` is the only project that names an
+  `ad_*` symbol, and it never sees authorization. A memory-safety fault or
+  hard abort in the library is a fault in the process that holds the broker,
+  the vault session, and the Accessibility grant.
+- The boundary to another application is its accessibility tree. Everything
+  that crosses it inbound is attacker-influenced data; everything that crosses
+  it outbound is input that cannot be recalled.
+- The helper executable `agent-desktop-macos-helper` (on Linux
+  `agent-desktop-linux-clipboard-owner`) ships beside the library. In the
+  pinned source the macOS helper is launched only from the clipboard module,
+  which no entrypoint Asura binds reaches; this was read, not exercised. When
+  it does run it is a child of the desktop process and runs as Asura.
+- The state directory is a filesystem boundary shared with every process of
+  the same account. The library reads its reference maps back from it before
+  each action.
+
 ## 5. Entry points and attacker capabilities
 
 ### Entry points
@@ -342,6 +429,17 @@ authorization, and only the session host can consume it.
 - browser DOM/accessibility text, URLs, downloads, dialogs, and page scripts;
 - file names, metadata, previews, repository content, and structured documents;
 - MCP server configuration, tool descriptions, arguments, and results;
+- other applications' names, bundle identifiers, window titles, and
+  accessibility roles, names, values, descriptions, and states, including
+  remote content those applications display;
+- the JSON envelopes, C structures, status codes, and delivery dispositions
+  returned by the agent-desktop library;
+- the desktop process environment at launch, in particular the library's own
+  `AGENT_DESKTOP_MACOS_HELPER_PATH` and `AGENT_DESKTOP_INTERACTION_LEASE_FD`,
+  which Asura removes before the library loads, and the application
+  directory the library is loaded from;
+- the agent-desktop state directory, its reference maps, and its session
+  manifests;
 - user-entered provider, connection, browser, file-provider, and policy
   configuration;
 - durable definitions and runtime-recovery data loaded from SQLite;
@@ -355,6 +453,11 @@ authorization, and only the session host can consume it.
   content;
 - a compromised remote SSH host or container;
 - a malicious MCP server or file provider;
+- a local application that shapes its accessibility tree, names itself after
+  another application or after Asura, or starts at a chosen moment;
+- a local same-user process that sets the desktop process's launch
+  environment, replaces the automation library or helper, or writes the
+  agent-desktop state directory;
 - a local same-user process attempting to reuse durable state or credentials;
 - an operator who enables a broad policy without understanding its effect;
 - accidental races caused by tab/panel/session closure, reconnect, retargeting,
@@ -395,6 +498,322 @@ so a content-level compromise does not automatically become tool authority.
 | T25 | A local process observation is retargeted to a remote terminal, leaks secret-rich metadata, races panel closure, or floods provider/audit context. | High | `processes.list` exists only for an active graph-backed local Process Monitor session and uses `ProcessControl`/`Observation`; it never shells out or accepts a connection, command, session, or continuation token. It accepts only a bounded sort, limit, offset, optional exact PID, and optional bounded name filter. The exact composer binds panel/session/revision/capabilities and all filter/page material. SessionHost resolves and consumes one permit under the graph gate, invokes the captured typed monitor once outside the gate with caller/permit/session-close cancellation, then re-resolves and discards the sample on target drift. Hostile snapshots must satisfy UTC, count, PID uniqueness, finite CPU, memory, and row-limit invariants. Names use strict Unicode, secret/path/control redaction, and a 128-byte rune-safe bound. Provider JSON is measured at 64 KiB and omits command line, executable path, user, environment, open files, cumulative CPU time, and native errors. Audit stores only the stable result, duration, and returned count—not names, PIDs, measurements, source counts, or JSON—and completion reconciliation never recaptures. |
 | T26 | A model uses a clarification to phish a secret, impersonate approval, bind a stale answer, flood the UI, or smuggle authority into a later action. | High | `agent.ask_user` is an intrinsic with a closed one-question schema and no capability, risk, broker, SessionHost, or action-audit path. Question and answer text use strict Unicode, single-line byte limits, and literal-secret rejection. The UI labels model text as untrusted and says that responses are neither approval nor a credential channel. A fresh opaque ID plus `now >= expiry` under the runtime gate atomically claims one response; stale, duplicate, late, cancelled, disposed, or stopped responses fail. The pinned target identity and applicable current topology are revalidated before presentation and after capture; exact/selected membership drift or enclosing-identity loss returns a fixed non-echoing failure. Only a matching successful structured result committed by `NativeAgentSession` can enter provider continuation or visible question/answer history. Questions are sequential, cannot overlap, expire independently, and remain subject to explicit decline or Stop; no call-count or whole-turn limit truncates legitimate workflows. Every later action still requires its own trusted catalog classification and broker authorization. |
 | T27 | A model uses a capability request to self-escalate, grant multiple or unavailable tools, reuse an action approval, race target/policy drift, or retain authority across runs. | Critical | `agent.request_capability` is a native intrinsic outside `AgentToolCatalog`. Its dynamic closed one-token schema is derived only from the final actually advertised ordinary production tools and their trusted catalog mappings whose run-policy permission is currently `Off`; it is absent under YOLO. At most one accepted request reaches a human decision per top-level send. A separate random ID, `AwaitingCapabilityDecision` state, two-minute expiry, authenticated trusted-content card, and one-way claim cannot be substituted for a question or action approval. Pre- and post-decision checks bind the exact run, pinned target identity, applicable current topology and advertised tools, candidate, and policy generation. The broker persists a secret-free Requested event before presentation and exactly one closed terminal decision. Allow performs only run-local `Off`-to-`Ask`; the policy transition carries the same request ID and is durable before success. Audit ambiguity suspends or revokes run authority. The intrinsic returns no model prose, target, IDs, actor, or display text, never calls ordinary broker `RequestAsync`, receives no permit, and never invokes SessionHost. Denial/expiry create no action audit or policy transition, but close the separate capability-request audit chain. Stop, Clear, disposal, or a new run closes/discards the request and grant. Every subsequent action still requires its own trusted classification and exact authorization. |
+| T28 | The agent observes or operates Asura itself or a process that holds Asura's authority: the approval card, Settings, the composer, a CEF helper, the workspace runtime, the sql-language worker, the connection backend, or another child process. | Critical | `AgentDesktopSelfTargetGuard` refuses, before any approval card and with no override, any request whose target process is Asura. The runtime asks for that pre-authority check only when the run's policy leaves the tool's capability on; under `Off` the broker denies the proposal by policy and no native code runs (D13, closed). A process is Asura when it is the desktop process; when its bundle identifier is `sh.asura` or a child of it; when its resolved executable lies inside the install root, which is the `.app` bundle when the executable sits in its `Contents/MacOS` and otherwise the executable's own directory, or inside the application base directory, both roots resolved the way the inspector reports paths and compared without case on macOS; or, on macOS only, when the desktop process is its direct parent. `AgentDesktopSelfTargetGuard.ForProcess` builds that configuration, and `AgentDesktopSelfTargetGuardTests` checks it with a fake inspector on the shipped layouts: CEF helpers under `Contents/Frameworks/Asura Helper*.app` whose parent is launchd are Asura, a helper outside the bundle whose parent is Asura is Asura on macOS only, and in the Linux `/opt/asura` layout an application Asura launched from elsewhere is foreign (`In_the_shipped_bundle_a_CEF_helper_outside_the_application_directory_is_Asura`, `A_helper_Asura_starts_from_outside_its_bundle_is_Asura_on_macOS_only`, `In_the_Linux_layout_the_install_directory_is_Asura_and_launched_children_are_not`). A process whose executable cannot be read is unverifiable and is answered as `desktop_app_not_found`, never treated as foreign. `desktop.list_apps` and unfiltered `desktop.list_windows` omit Asura-owned and unverifiable processes, including a process the listing reports with Asura's bundle identifier and a window whose owner is not listed and cannot be inspected (`AgentDesktopRunSession.ProjectApps` and `ProjectWindows`; `AgentDesktopListProjectionTests` on hand-written listings, because the library never lists the test host). An identifier equal to `Asura`, `Asura.app`, `sh.asura`, or a `sh.asura.` child is refused without consulting the process list, and an identifier that matches any running Asura process is refused even when it also matches a foreign one. The engine repeats the process check inside its one execution call, immediately before the native mutation. Nothing can be checked before a launch creates its process, so after a successful `ad_launch_app_exact` the engine takes a fresh running-application listing and classifies the launched process ID together with the bundle identifier that listing reports for it (`AgentDesktopRunSession.RefuseLaunchedProcess`), which recognizes an Asura copy outside the install root by its identifier. Asura is a `SelfTarget` failure with delivery `delivered_unverified`, which `AgentDesktopStableCodes.For` maps to its own code, `desktop_self_target_launched`: SessionHost audits it `failed` and never retries it. A process ID of 0 or a process whose executable cannot be read is `desktop_action_outcome_unknown`. A listing that cannot be read is also an unknown outcome, or the adapter fault itself, never the listing's own not-delivered refusal. A foreign process is the launch result (`AgentDesktopLaunchClassificationTests`, `AgentDesktopResultTests.ALaunchThatStartedAsuraIsReportedAsALaunchedSelfTargetAndReconciles`, `AgentDesktopSessionHostTests.ALaunchThatStartedAsuraIsAFailedSelfTargetThatIsNeverRetried`). The runtime receives only the stable code, so the launch case has a code distinct from the host guard's refusal: `desktop_self_target_launched` is a reconciliation code, so the batch remainder is skipped as `tool_batch_reconciliation_required` and a fresh snapshot is required, while a plain `desktop_self_target` after permit consumption proves nothing was delivered (`GovernedAgentRuntimeDesktopTests.ALaunchThatReachedAsuraSkipsTheBatchRemainderAndRequiresAFreshSnapshot`, `AHostSelfTargetRefusalOfALaunchProvesNothingWasDelivered`). Snapshots accept seven application-owned surfaces (`Toolbar` was removed because the pinned library does not offer it); the system surfaces are not representable in the request type. SessionHost audits a refusal before authority as `requested` then `denied` through `IAgentAuthorizationConsumer.RefuseAsync`, which claims the action so that no approval card can follow; it repeats the guard on the consumed permit immediately before its one engine call, and a self-target found there is audited `failed` with `desktop_self_target`, because the audit chain has no transition from `started` to `denied` (`AgentDesktopSessionHostTests.SelfTargetFoundAfterPermitConsumptionIsRefusedWithoutDispatch`, the `lifecycle.desktop-self-target-*` campaign cases, `AgentDesktopRefusalAuditTests`). Those host tests use a recording engine; the real guard is tested by `AgentDesktopSelfTargetGuardTests` with a fake inspector and by `AgentDesktopEngineNativeTests.A_target_that_is_this_process_is_refused_before_any_approval` against the real engine. Limits: the guard judges process identity and nothing else. It cannot see an Asura authority surface drawn by another process, such as an operating-system notification or dialog; a second Asura installation outside this install root that reports no `sh.asura` bundle identifier; or, on Linux, a helper started from outside the install root, because the parent rule and bundle identifiers exist only on macOS (D14). At dispatch the engine hands an element reference to the library only when the reference's snapshot was taken by the run's own adapter of the process, generation, and window the proposal names (D1, closed); the library still resolves the reference from its on-disk map, which a same-account process can rewrite (T35). It constrains only Asura's agent: other software can still operate Asura's window (T39). |
+| T29 | Another application shapes its name, window title, or an element's role, name, value, or description to instruct the model, to misdescribe a control on the approval card, or to imitate another application. | Critical | Everything read from an accessibility tree is untrusted provider content. `AgentDesktopDisplayText` is its only carrier: strict Unicode, at most 128 UTF-8 bytes with rune-safe truncation, and whole-value replacement by `[REDACTED]` when the text is malformed, contains control, format, or line-separator characters, or looks like a literal secret. States are kept only when they are short lowercase ASCII words, at most sixteen per node. A reference is kept only when it is well formed and belongs to the snapshot that produced it. Window identifiers and process-generation tokens are bounded single-line tokens. Tree content can change no target, policy, approval, or tool schema: the run target is the Workspace, the tools are the closed catalog, and every mutation needs its own exact authorization. The runtime labels every desktop result `content_origin=untrusted_desktop`, bounds its serialized envelope to 64 KiB (`DesktopAgentToolResultJson`), and builds each element and window target from the host's own snapshot and listing results and the run's own clock, never from model arguments; a model-supplied ref or window identifier is only a lookup key, and only entries that reached the model in a result can be looked up (`DesktopAgentObservationLedger`, `DesktopAgentObservationLedgerTests`, `GovernedAgentRuntimeDesktopTests.AHostileSnapshotReachesTheProviderInsideTheResultBudget`, and, for entries trimmed from a hostile result, `OnlySnapshotNodesTheProviderWasShownBecomeTargets` and `OnlyListedWindowsTheProviderWasShownBecomeTargets`). Limits: bounding and redaction do not make content trustworthy. A browser, mail, or chat window carries remote attacker text into a snapshot without the browser family's address and query handling. The application name, window title, role, and element name on the approval card are the other application's claims; a button can be named `Cancel` and delete. An application chooses its own display name, so an impostor is told apart only by its process ID and by the ambiguity refusal in T30. |
+| T30 | An approved action reaches a different window or process than the one approved: the process ID is reused, the application restarts, two applications share a name, a second instance is running, or a same-named process appears between the application listing and the snapshot. | Critical | agent-desktop resolves an application by name on every call and its ABI exposes no snapshot by process or window ID, so Asura resolves the model's identifier itself against the library's running-application list. `AgentDesktopApplicationResolver` requires exactly one running foreign match, then requires that the match's display name selects exactly one entry of the whole list by name or bundle identifier, unverifiable processes included; anything else is `desktop_ambiguous_target`, and a match that touches Asura is `desktop_self_target`. Asura passes that exact display name to the library and rejects a snapshot whose envelope names a different application. After the walk the engine requires that the name still selects exactly the resolved process, that the envelope's window is one of that process's windows in `ad_list_windows_exact`, and that its generation token is unchanged; otherwise the snapshot is refused as `desktop_ambiguous_target` and nothing of it is returned (`AgentDesktopRunSession.AttributeWalk`, D2, closed). Every element proposal binds the snapshot-qualified reference, the application display text and identity (the listed bundle identifier, else the resolved executable path), the process ID, agent-desktop's process-generation token, the window identifier and title, the role, the element name, and the secure flag into its digest; `desktop.focus_window` binds the application text and identity, window identifier, title, process ID, and token. `desktop.close_app` binds the application text and identity, process ID, and the generation token when a window of that process carried one, all taken from the run's own `desktop.list_apps`, `desktop.list_windows`, or snapshot results; its `app` argument is only a lookup key into them, and a name the run has not observed is `desktop_stale_ref` before authority (`DesktopAgentObservationLedger.ResolveClose`). The approval card shows `bundle_id` or `executable`, the process ID for focus and close, the window where there is one, and `snapshot_age`, `listing_age`, or `observation_age` (D7, closed for these eleven tools). The engine dispatches an element action only for a reference of a snapshot its adapter took of the same process, generation, and window, while a live window of that process still carries the token (D1, closed). The library re-identifies the reference against the process and generation it recorded and answers `STALE_REF` or `AMBIGUOUS_TARGET` rather than guessing. `desktop.focus_window` dispatches only the live window entry whose identifier, process ID, and generation token all equal the proposal's. `desktop.list_windows` for a named application keeps only windows of the resolved process. A reused process ID that now belongs to Asura or to an unreadable process fails the dispatch-time guard. Limits: the application identity is the application's own declaration or a file path, not a verified code signature; it tells applications apart and proves no publisher. A process without a listed window has no readable generation token and is bound by process ID alone. For a surface with no window, such as the menu bar of an application without windows, a same-named process that starts, is walked, and exits again before the second name check is credited to the resolved process; its references then resolve to an exited process and answer stale, so nothing is delivered, but the returned tree content is the other process's. The resolver works on a listing taken before the native call, and the library looks the name up again inside it: when the resolved application quits in between, the snapshot is refused by the checks above, and `desktop.launch_app`, which addresses a running application by its proven name, starts whatever that name resolves to then, classified only after the fact. ABI 7 has no wait or close by process, and `ad_window_op_exact` only moves, resizes, minimizes, maximizes, or restores a window, so `desktop.wait` and `desktop.close_app` hand the library a name: a window-title wait must match a window of the resolved process and a satisfied wait requires the name to still select that process (`AgentDesktopWaitAttributionTests`). Before a close the engine requires that the live process with the bound ID still has the bound identity, that its listed display name selects exactly that process under the resolver's rules, and that its first live window still carries the bound generation token; a process that is gone, changed identity, or has another token is `desktop_stale_ref` with nothing delivered (`AgentDesktopRunSession.ResolveObservedApplication`; `AgentDesktopApplicationResolverTests.An_observed_process_resolves_while_its_live_entry_keeps_the_observed_identity` and `An_observed_process_whose_name_reaches_Asura_or_another_process_is_refused`; against the release library without the grant, `AgentDesktopNativeCallTests.The_refusals_come_before_the_library_is_asked_to_act`). A close is reported as outcome-unknown when any other process answers to the name afterwards (`AgentDesktopApplicationResolverTests.After_a_close_by_name_only_the_closed_process_or_nothing_may_answer_to_that_name`). A replacement that matched or was closed and has exited again before that check leaves no trace. `desktop.launch_app` binds only the identifier the model supplied and its timeout: an application that is not running has no observed identity or process ID to bind (D7, open for it). The close binding is tested by `AgentDesktopActionComposerTests.AClosedApplicationIsBoundAndShownByItsObservedProcessAndIdentity`, the close cases of `DesktopAgentObservationLedgerTests`, and `GovernedAgentRuntimeDesktopTests.ClosingBindsTheListedProcessAndShowsItOnTheCard` and `ATargetTheRunNeverObservedIsRefusedBeforeAuthority`. Snapshots target an application by name with no window identifier, and the library answered `AMBIGUOUS_TARGET` for an application with many windows (reported during implementation, not reproduced for this amendment). |
+| T31 | A password or other secret is read from another application or typed into one: a secure field's value, a secret shown in an ordinary control, text the model supplies, or the element state returned after an action. | Critical | A node is secure when agent-desktop reports the `secure` state or when its role, subrole, or role description contains `secure` or `password`. The projection never reads a secure node's value, places `secure` first so the state cap cannot drop it, and the result type rejects a secure node that carries a value. The state returned after an action withholds its value when the target was secure or has become secure. The pinned library itself withholds the value of a macOS secure text field (read from source). `desktop.set_value`, `desktop.type_text`, `desktop.clear`, and `desktop.press_key` cannot be constructed for a secure target, the runtime refuses them before authority, and the engine refuses them again immediately before dispatch with `desktop_secure_field`; the secure flag is part of the digest (D10, closed). The pinned library has no element-level "protected" state, so `secure` is the only one modelled. Input text is strict Unicode, at most 2,048 UTF-8 bytes, permits only tab and line-break controls, and is rejected when it looks like a literal secret; `desktop.select` option names use the same type. Every other displayed value passes the secret-shape redaction of T29. The user types credentials. Limits: secure detection is the observed application's own declaration. A custom-drawn field, a revealed password, a one-time code, a recovery phrase, another terminal's contents, or a token in an address bar is ordinary text and is disclosed unless it happens to be secret-shaped. Redaction is a heuristic over single values of at most 128 bytes. `desktop.click`, `desktop.select`, `desktop.toggle`, `desktop.expand`, and `desktop.scroll` still accept a secure element by decision, because none of them enters text into it. Snapshot content, including non-secure values, enters the provider conversation and its persisted checkpoint like any other tool result, and agent-desktop stores each referenced element's role, name, value, and description in plaintext under the state directory (T35). |
+| T32 | A reference is acted on after the interface changed, or a committed desktop action has an unknown outcome and the model or the host repeats an irreversible effect in another application. | Critical | The engine makes at most one mutating `ad_*` call per request and never repeats it. It raises a dispatched flag immediately before that call; from then on only an explicit `not_delivered` disposition yields a retryable closed code. A dispatched call that returns any other disposition, an envelope that is absent, oversized, malformed, or contradicts its status code, a validation failure while reading the answer, or `AD_RESULT_ERR_INTERNAL` becomes `desktop_action_outcome_unknown` or `desktop_adapter_faulted` with a delivery value other than `not_delivered`. A mutation that reached the worker is awaited to its real outcome even when the caller cancels; an observation may be abandoned. The engine reads cancellation, which is also how a revocation arrives, again in `BeginMutation` immediately before every mutating call, and `AgentDesktopRunSession.Contain` turns any exception into a closed failure with nothing delivered before that call and into an unknown outcome after it, so nothing thrown leaves `ExecuteAsync` (D15, closed; `AgentDesktopRequestContainmentNativeTests`). Element actions are requested with the headless policy and the fixed 5,000 ms auto-wait budget, which a request can neither widen nor narrow. References are snapshot-qualified; a bare `@eN` is not representable, and a snapshot identifier has 3 to 64 characters. An element or snapshot the library no longer knows maps to `desktop_stale_ref`, and an upstream error code Asura does not know maps to `desktop_action_failed`. `AgentDesktopStableCodes.RequiresReconciliation` names the two outcomes after which the batch is stale. SessionHost consumes one permit per action, repeats the guard and reads cancellation adjacent to the one engine call, never retries, accepts an element action only with delivered input, verified or not, or with nothing delivered, which is how the pinned library answers an element already in the requested state, turns uncertain or unknown delivery into `desktop_action_outcome_unknown`, records an exception escaping the engine for a mutation as `desktop_action_outcome_unknown` and ends the run's desktop session, and audits both `failed`. `desktop.focus_window` and `desktop.close_app` succeed with "requested" semantics and are audited `desktop_requested`; an already-satisfied element action succeeds, is audited `desktop_already_satisfied`, and reaches the model as `desktop_action_completed` with `delivery` `not_delivered`, `verified` false, and `already_in_state` true (D11, closed by decision). The runtime classifies both reconciliation codes in `AgentToolOutcomePolicy.Classify`, skips the batch remainder as `tool_batch_reconciliation_required`, stops `agent.run_sequence` at the uncertain step, and refuses every desktop mutation except `desktop.launch_app` with `desktop_stale_ref` until a snapshot succeeds; that requirement survives Stop and Clear (`DesktopAgentObservationLedgerTests.EndingTheRunDoesNotLiftTheSnapshotRequirementOfAnUnknownOutcome` and `GovernedAgentRuntimeDesktopTests.AnExternalUnknownOutcomeEndsTheRunAndStillRequiresAFreshSnapshot`, which list applications and windows again after Clear and still see the close and the focus refused). Any other failure of a mutation that reached the host raises the same requirement and is not retryable unless its stable code proves that nothing was delivered: the closed not-delivered codes, `desktop_self_target` for anything but a launch, and the authorization refusals `target_changed`, `deadline_exceeded`, `approval_expired`, and `authorization_expired` (`GovernedAgentRuntime.FailDesktopActionAsync` and `ProvesNothingWasDelivered`). A completion the audit trail could not record, `completion_audit_unavailable`, therefore discards the run's observations as well as entering the general quarantine of T12 (`GovernedAgentRuntimeDesktopTests.AMutationWhoseCompletionAuditFailedStillRequiresAFreshSnapshot`); these codes are not reconciliation codes, so they do not mark the batch remainder `tool_batch_reconciliation_required`. References expire after two minutes in the run's ledger, on Clear or Stop, when the same window is snapshotted again, and after a mutation of the same window succeeds by delivering input; an already-satisfied element action leaves them usable (`DesktopAgentObservationLedgerTests.AnElementActionThatDeliveredNothingLeavesItsWindowObserved`, `GovernedAgentRuntimeDesktopTests.AnElementActionThatWasAlreadySatisfiedNeitherSkipsTheBatchNorExpiresItsWindow`). Only snapshot nodes and listed windows the provider was shown become targets (`GovernedAgentRuntimeDesktopTests.OnlySnapshotNodesTheProviderWasShownBecomeTargets` and `OnlyListedWindowsTheProviderWasShownBecomeTargets`). These host and runtime controls are tested with a recording engine and a fake host (`AgentDesktopSessionHostTests`, `GovernedAgentRuntimeDesktopTests`), not with the native engine. Limits: which element actions the library verifies in headless mode on real applications has not been measured; every one it cannot verify settles as outcome-unknown. `desktop.press_key` is not strictly headless: the pinned library raises a key press to its focus-fallback minimum (`Action::base_interaction_policy`, read from source), which may bring the target window forward but never moves the cursor. The library keeps up to 128 snapshots per run and does not itself apply the two-minute expiry. Asura cannot roll back what another application did with delivered input. |
+| T33 | The native library panics, hits an internal fault, or corrupts memory inside the desktop process. | High | The library is built only with the pinned `release-ffi` profile, which keeps `panic = "unwind"` so the Rust side traps a panic at the boundary and answers `AD_RESULT_ERR_INTERNAL`. On that status from any call, including the permission probe, and from a failed adapter creation, whose cause the engine reads with `ad_last_error_code` on the same worker thread (`AgentDesktopRunSession.EnsureUsableAdapter`; `AgentDesktopAdapterCreationNativeTests`, which provoke a real internal error by obstructing the session's lock file), the run's session destroys its adapter, refuses every later request with `desktop_adapter_faulted`, and reports delivery as unknown when the mutation had been dispatched. The library handle is never freed after acceptance, so a faulted image is not unloaded under its own threads. The build fails when the shipped flavor exports `ad_test_panic_boundary` or the panic flavor lacks it. Every envelope is parsed defensively with a depth limit, and the three structures Asura passes by pointer are checked against the library's own size getters at load; the two it only reads back are pinned against the header by a test. SessionHost ends the faulted run's desktop session and the runtime cancels the run; the fault latch is per run by decision (ADR 0061, amendment 1), so another run, or the same run identifier after release, gets a fresh adapter from the same image (D6, closed by amendment; `AgentDesktopPanicIsolationEvidenceTests` with the panic flavor). A fault on the access probe withholds the family until restart, because the probe session stays faulted. Limits: there is no process boundary. A hard abort, a stack overflow, a memory-safety fault in the library's unsafe code or Objective-C bridges, a panic while unwinding, or a deadlock takes the desktop process, or the run's worker thread, with it; the profile is the only defence and the upstream default `release` profile must never be used. The pinned library reports every non-permission I/O error and every JSON error as `INTERNAL` (`AppError::code` in `crates/core/src/response/app_error.rs`, read from source), so a full disk, an unreadable or corrupt reference map, or a file planted under the state root faults and cancels a run, not only a panic; a session directory that is open to the group or to other users was seen to fail adapter creation the same way while those tests were written. |
+| T34 | The automation library or its helper is replaced on disk or redirected through the environment, and foreign code runs inside the desktop process or under Asura's identity. | Critical | The loader loads exactly one file, `libagent_desktop_ffi` in the application base directory (`AgentDesktopLibrary.TryLoad` and `BundledPath`), with its helper beside it; no environment variable and no `runtimes/<rid>/native` folder can name another (D3, closed). A candidate is accepted only when all 26 required exports in `native/agent-desktop/required-exports.txt` resolve, the library's size getters for `AdAction`, `AdExactWindowInfo`, and `AdWaitArgs` equal Asura's mirrors, `ad_abi_version()` reports major 7, and `ad_init(7)` succeeds. A rejected candidate is unloaded, the family stays unavailable, and nothing falls back to a CLI or MCP child. Before the library loads, the engine removes the pinned library's own `AGENT_DESKTOP_MACOS_HELPER_PATH` and `AGENT_DESKTOP_INTERACTION_LEASE_FD` from the native environment with libc `unsetenv`, and leaves the family unavailable if either removal fails (D4, closed). `scripts/build-agent-desktop.sh` builds from one pinned commit with `--locked`, the pinned Rust toolchain, and the `release-ffi` profile, refuses a dirty or moved checkout, checks the export manifest, stages the license, a generated third-party notice, and the Rust standard library notice, and writes a receipt with the SHA-256, size, and mode of every staged file and, for the macOS library and helper, the `signatureRemovedSha256` that the post-signing check compares. `src/Asura.Desktop/Asura.Desktop.csproj` copies the library and helper from the staged directory of its effective runtime identifier (`AsuraEffectiveRuntimeIdentifier`), and copies nothing when either file is missing there. `scripts/sign-notarize-macos.sh` lists the library and the helper as required nested code in `Contents/MacOS`, signs them with the hardened runtime and a timestamp, and checks after signing that each carries the signing team, the hardened runtime, and no entitlements; `scripts/package-macos.sh` and `scripts/package-linux.sh` verify the staged build, copy both files byte for byte, refuse any evidence flavor in the output, and ship the legal files, catalog, and receipt; `AgentDesktopPackageProvenance.ValidateAfterCodeSigning` compares signature-removed hashes of the signed files against the receipt. The handshake proves compatibility, not authenticity: a candidate's initializers run inside the desktop process when it is loaded, before any check. On a Developer ID build the remaining control is hardened-runtime library validation, which Asura's entitlements do not disable, so the loader should refuse a library not signed by Apple or by Asura's team; a same-team library that passes the handshake, including an older shipped agent-desktop with ABI major 7, would still load. This was read from the entitlements and not exercised on a signed bundle. The pinned library validates its helper by filesystem identity and link count, not by signature. Open (D5): no signed or notarized bundle containing the library has been produced, so the signing checks and `ValidateAfterCodeSigning` have not run on one; the staged receipts still record the 25-entry export manifest that preceded `ad_last_error_code`, so `--verify-staged` rejects them until the flavors are staged again; and `licenses/native-desktop-automation-components.json` is `BLOCKED` pending review as a record, like the native terminal catalog, which nothing enforces and which does not gate a release. Replacement of the bundled files is otherwise bounded only by the bundle signature on macOS and by root ownership of the install directory for the Linux packages; a tarball installation is writable by the user. |
+| T35 | The agent-desktop state directory is read, tampered with, or shared: reference maps are consumed or forged by another agent-desktop consumer or another same-account process, or the directory is replaced or left with wide permissions. | Critical | The engine creates or takes over `<profile data directory>/agent-desktop/`, refuses it and its `sessions` directory when either is a symbolic link (a dangling one included), sets the root's mode to `0700` and reads it back, sets `AGENT_DESKTOP_HOME` through libc `setenv` before the library loads, and leaves the family unavailable when any of this fails (`AgentDesktopAutomationEngine.PrepareStateRoot`, `AgentDesktopStateRootTests`). Reference maps therefore never go to `~/.agent-desktop`, so a separately installed CLI does not by default read references minted for an Asura run and Asura does not act on references minted elsewhere. Each adapter uses its own session directory under a fresh random name (`asura-` and 32 hexadecimal digits), never the run identifier, so a run used again after release never shares references with its predecessor; the adapter is destroyed and its directory deleted on release, disposal waits up to two seconds in total for workers to do so, and session directories older than 24 hours are removed at the next start, skipping symbolic links (`AgentDesktopRunLifecycleNativeTests`). The pinned library refuses a state root that is relative, a symlink, not a directory, or owned by another user, and writes its private files with mode `0600` (read from source). Limits: these controls stop other accounts and accidents, not a process of the same account. Reference maps are unauthenticated JSON that the library reads back before every action, and each entry carries the process ID, generation token, role, name, value, and description of an element. A same-account process, which includes a command the agent itself runs in a local terminal, can read other applications' element names and values from them and can rewrite an entry so that an approved reference resolves to a different element or process. Asura dispatches only references whose snapshot it recorded in memory for the same process, generation, and window (D1), but it cannot see an entry rewritten on disk after the snapshot: the library then acts on whatever element or process the entry names, an Asura process included, and ABI 7 never reports which process it acted on. Reading the map before dispatch was rejected: the check would race the rewrite and tie Asura to the library's file format. Still open (D9): the owner check is the library's alone; the maps of a worker still inside a native call when the disposal wait ends, or of a process that exited without releasing its runs, stay until a sweep a day later; a session manifest written into a session directory after it is created can turn on the library's trace capture; and whether `AGENT_DESKTOP_HOME`, set in the native environment, reaches local shells and other children of the desktop process was not verified. A second Asura instance on the same profile shares the state root: its sweep leaves younger sessions alone, but it deletes a session directory whose last write is more than 24 hours old even if the other instance's run is still alive. |
+| T36 | Content from another application, typed text, or an application's identity leaks into the durable audit trail, a host error, or diagnostics. | High | A desktop action uses the ordinary closed agent-action audit shape: run, capability, trusted risk, permission, decision, authorization source, argument digest, closed error code, stable result code, and the bounded binding fields. That shape has no free-text member and rejects a result code outside lowercase letters, digits, `_`, and `-`. The desktop result code comes only from `AgentDesktopStableCodes`. The engine writes no audit and returns no native message: a failure is a closed code plus a delivery value. Tree content, element names, window titles, typed text, and application names reach the audit trail only inside the argument digest, which covers the reference, application text and identity, process ID, generation token, window identifier and title, role text, element name, secure flag, and action material together with the action identifier. SessionHost places fixed host text in every error and records refusals and outcomes only through the ordinary chain. A canary planted in every text field of the element and window targets, the engine results, and an engine exception message reaches neither the audit trail nor any host error (`AgentDesktopPolicyGateTests.AuditTrailNeverCarriesUntrustedDesktopText`), and a refusal trail is read back through the SQLite store by `AgentDesktopRefusalAuditReaderTests`. Limits: this covers the audit trail only. The approval presentation holds the application name, window title, element name, and exact text while it is displayed; snapshot results enter the provider conversation and its persisted checkpoint; the state directory holds names and values (T35); the engine's unavailable reason can embed a filesystem error message. The digest of a short action, such as one key, can be guessed by anyone who holds the audit record. |
+| T37 | A model reaches desktop authority it was not given: it asks for `DesktopControl` through `agent.request_capability`, treats a capability grant as approval, or uses desktop tools to exercise authority that another family governs. | Critical | `agent.request_capability` may offer `DesktopData` and `DesktopInteraction` under its ordinary run-local `Off`-to-`Ask` rule and must never offer `DesktopControl`, which the user enables in policy. A grant approves no action, never yields `Auto` or YOLO, and ends with the run; every later desktop mutation still needs its own exact approval. The three capabilities are independent of every other family and default `Off` everywhere, including upgraded durable, recovered, and checkpointed policies. The catalog fixes capability and risk for all sixteen tools in trusted code, and the request types form a closed union with no way to express a new tool, a system surface, a coordinate, a held key, a multi-modifier chord, Command-Q, a path-shaped application identifier, or a force-quit. `GovernedAgentRuntime.IsRequestableCapability` excludes `DesktopControl` from the candidates, and a request for it never reaches the user (D8, closed; `GovernedAgentRuntimeDesktopTests.CapabilityRequestOffersDataAndInteractionButNeverControl`). The policy editors offer `Off`, `Ask`, and `Auto` for `DesktopData` and only `Off` and `Ask` for `DesktopInteraction` and `DesktopControl`, where `Auto` would authorize nothing beyond `Ask`, and open a stored `Auto` for either as `Ask` (`AgentPolicyPresentation.OffersAuto`; `AgentDesktopPolicyPresentationTests`, `AgentDesktopAccessSettingsHeadlessTests.The_AI_page_disables_Auto_for_desktop_app_interaction_and_control`). The broker still escalates an `Auto` that reaches it for those capabilities, and the host still refuses an `AutoPolicy` permit for them. Limits: the desktop capabilities reach what other capabilities govern. `DesktopInteraction` typing into another terminal emulator is command execution outside `RunCommands`; a snapshot of another browser is page reading outside `BrowserData`; a click in System Settings, a password manager, or another agent's approval dialog exercises authority that no Asura capability names. Exact per-action approval and the untrusted label are the only controls on what is done inside the other application. Under confirmed run-local YOLO there is no per-action approval, so the desktop family extends Full access from the confirmed Workspace to every other application on the desktop except Asura. |
+| T38 | A huge, deep, or hostile accessibility tree, an unresponsive application, or a contended interaction lease exhausts memory, blocks a run, or floods provider context. | High | Each run has one worker thread and a single-consumer queue, so one native call runs at a time per run, and the access probe has its own adapter. The engine copies at most 8 MiB of envelope out of native memory, parses it with a JSON depth limit of 128, walks it with its own stack instead of recursion, and stops at 512 nodes and depth 32 whatever the library returned. It reads at most 64 states per node and keeps sixteen, bounds every display text to 128 bytes, treats a native list above 4,096 entries as malformed, reads list fields up to 1,024 bytes, and returns at most 128 applications or windows with a truncation flag. `desktop.wait` is limited to 30 seconds, `desktop.launch_app` to 15, and element actions to the fixed 5; snapshot depth is 1 to 32. The runtime offers `interactive_only` and `compact` and reduces the serialized provider envelope to at most 64 KiB. Limits: Asura passes a depth to the library and no node or byte limit, so the library's own walk and JSON construction in native memory are bounded only by its internal observation budget and deadlines, 5 seconds per operation and 3 seconds per snapshot by default in the pinned source (read, not measured). The managed bounds apply after that allocation. A hung target application holds the run's worker until the library's deadline, and a later request of the same run waits behind it; an observation abandoned by cancellation frees the caller, not the worker. Another agent-desktop consumer of the same account that holds the interaction lease can delay Asura's mutations until they time out before delivery. |
+| T39 | The Accessibility grant Asura holds is exercised outside the governed desktop family, and every other application on the machine is exposed through Asura. | Critical | The grant belongs to the signed application bundle. It is not scoped to an application, a run, a capability, or a time, and turning all three desktop capabilities `Off` does not release it. Asura never prompts for it: the engine binds only `ad_check_permissions`, which reports, and reads the grant again before every request so that revocation takes effect on the next call. Settings › AI shows the grant state (unavailable, not granted, or ready), reads it when the page is shown and when the Settings window returns to the front, never at startup, and on macOS offers to open System Settings to the list where the grant is given; it never asks the system to prompt (`AgentDesktopAccessSettingsViewModelTests`, `AgentDesktopAccessSettingsHeadlessTests`, with a fake host). The row names the list "Accessibility" through macOS 26 and "Device Control and Data Access" from macOS 27 (`AgentDesktopAccessSettingsViewModelTests.The_row_names_the_list_this_Mac_shows`) and opens the same legacy `Privacy_Accessibility` anchor on both; that this anchor opens the renamed list on macOS 27 is stated in the code and not covered by a test. For the agent, the only path to the grant is the closed tool set behind the broker, the one-action permit, and the self-operation guard. Limits: while the grant exists, every other process on the machine is exposed to whatever runs inside or under Asura, not only to the sixteen tools. Any code in the desktop process, including every bundled native library and anything loaded through T34, can read and operate any application the operating system does not itself protect. The loaded library also exports coordinate input, clipboard, screenshot, and force-quit entrypoints; they are unreachable because Asura binds no symbol for them, which is a property of Asura's code and not of the library. On macOS a child process is attributed to its responsible application for privacy decisions; Asura does not disclaim that responsibility, and whether a child actually inherits the grant was not verified (D12). If it does, a command run in a local Asura terminal, a stdio MCP server, and the bundled helper act under Asura's grant with no desktop capability, no self-operation guard, no approval binding, and no audit. A model with local command authority could then operate any application, Asura's approval card included, without the desktop family. The guard stops only Asura's agent: another application that holds its own Accessibility grant can already operate Asura's window, and on Linux, where AT-SPI needs no grant, any process of the session can. Other applications cannot opt out of observation; only controls they declare secure and processes the operating system protects are withheld. The pre-authority self-target check runs the library's application listing only when the tool's capability is not `Off`, so turning a capability `Off` also keeps the model from driving that native listing (D13, closed). |
+
+### Desktop automation: enforcement status and findings
+
+T28 to T39 describe a family that ADR 0061 proposes. Since the first version
+of this amendment the family has been composed into the application
+(`DesktopComposition`), and the SessionHost gate, the runtime tool set, the
+Settings row, the packaging steps, and their tests exist. This section was
+revised on 2026-11-10 by reading the current source; it cites files and
+symbols, not line numbers. A control stated without qualification in T28 to
+T39 was read in the source. A test named beside it exists in the tree and was
+read. "Read from source" names behaviour of the pinned agent-desktop commit
+`2b0a7334` that was read and not exercised.
+
+No desktop control has been exercised against a real application through the
+governed path. The test host has no macOS Accessibility grant: the native
+tests that need it skip, and the native tests that run reach only the
+library's answers before the grant and snapshots the tests record without the
+library taking them. The SessionHost tests use a recording engine, and the
+runtime tests use a fake host with the real broker. Nothing ran on Linux.
+
+A finding below is closed only where the fix was read and a test that covers
+it exists. "Closed by decision" or "by amendment" means that ADR 0061 now
+states what the code does.
+
+- **D1. The dispatch-time binding of a reference to its process. Closed.**
+  `AgentDesktopRunSession.RefuseUnboundReference` hands an element action or
+  `desktop.press_key` to `ad_execute_by_ref_timeout` only when the guard
+  passes the request's process, the reference's snapshot is in
+  `AgentDesktopSnapshotOrigins` (the in-memory record of snapshots this
+  adapter took), `AgentDesktopSnapshotOrigin.Describes` matches the target's
+  process ID, generation token, and window identifier, and a live window of
+  that process still carries the token. Anything else is `desktop_stale_ref`
+  with nothing delivered. Tested: `AgentDesktopReferenceBindingNativeTests`
+  for all nine element tools, including a reference from a snapshot of
+  process A named under process B (stale) and the same reference under A
+  (reaches the library), and `AgentDesktopSnapshotOriginsTests`. Residual: a
+  reference map rewritten on disk after the snapshot (T35). Not verified
+  with a real snapshot.
+- **D2. The same-named listing-to-snapshot race. Closed, with a residual
+  race.** `AgentDesktopRunSession.Snapshot` reads the resolved process's
+  windows before the walk; `ConfirmWalkedProcess` then requires that the name
+  still selects exactly that process, and `AttributeWalk` that the envelope's
+  window is one of its windows in `ad_list_windows_exact` and that its
+  generation token is unchanged. Tested:
+  `AgentDesktopSnapshotAttributionTests`. Residual: the window-less surface
+  race described in T30. Not verified against a real envelope.
+- **D3. An environment variable chose the library. Closed.**
+  `AgentDesktopLibrary.TryLoad` loads only `BundledPath()` under
+  `AppContext.BaseDirectory`; `ASURA_AGENT_DESKTOP_PATH` appears nowhere in
+  `src/` or `scripts/`, and in the tests only where they plant it or forbid
+  it. Tested:
+  `AgentDesktopEngineNativeTests.The_shipped_library_is_loaded_from_the_application_directory_whatever_the_environment_names`
+  and
+  `AgentDesktopExecutionBoundaryTests.No_production_code_reads_the_environment_to_locate_the_library`.
+- **D4. The library's own environment overrides. Closed.**
+  `AgentDesktopAutomationEngine.Create` removes
+  `AGENT_DESKTOP_MACOS_HELPER_PATH` and `AGENT_DESKTOP_INTERACTION_LEASE_FD`
+  (read by the pinned `clipboard_helper_identity.rs` and
+  `ffi/src/operation.rs`) from the native environment with `unsetenv` before
+  the library loads, and a failed removal leaves the family unavailable.
+  Tested:
+  `AgentDesktopEngineNativeTests.The_library_overrides_in_the_launch_environment_are_removed_before_the_library_is_loaded`.
+  Residual: .NET's managed copy of the environment, which `Process.Start`
+  children inherit, still holds both variables when Asura was launched with
+  them; that does not reach the library inside Asura.
+- **D5. Packaging, signing, and provenance. Partly closed; open.** The
+  signing list, the post-signing team and hardened-runtime check, the package
+  verification, the legal files, the catalog, and file modes in the receipt
+  exist (T34). Closed since the first revision:
+  `scripts/build-agent-desktop.sh` writes `signatureRemovedSha256` for the
+  macOS library and helper into the receipt and `--verify-staged` recomputes
+  it, so `AgentDesktopPackageProvenance.ValidateAfterCodeSigning` has the
+  digests it compares; the native files are selected in
+  `src/Asura.Desktop/Asura.Desktop.csproj` from
+  `AsuraEffectiveRuntimeIdentifier`, the application's runtime identifier,
+  instead of in the interop project, which the SDK builds without one (the
+  wrong selection for an `osx-x64` publish on an arm64 host was reproduced
+  before the move and its correction verified after it during
+  implementation; not re-run for this revision); and `licenses/macos-release-legal.json` binds
+  the current hash of `licenses/managed-components.json`. Open: no signed or
+  notarized bundle containing the library has been produced, so the signing
+  checks have not run on one; and the staged receipts record the 25-entry
+  export manifest that preceded `ad_last_error_code`, so `--verify-staged`,
+  which packaging and the evidence collector run, rejects them until the
+  release and evidence flavors are staged again.
+  `licenses/native-desktop-automation-components.json` stays `BLOCKED`
+  pending review as a record, exactly like
+  `licenses/native-terminal-components.json`; nothing enforces it, it does
+  not gate a release, and the release workflow and the rehearsal do not run
+  `scripts/build-agent-desktop.sh --verify-release-clearance`.
+- **D6. The fault latch is per run. Closed by amendment.** ADR 0061 now
+  scopes a fault to the run (amendment 1). `AgentDesktopRunSession.Fault`
+  destroys the adapter and refuses every later request of the run;
+  SessionHost ends the run's desktop session
+  (`ReleaseFaultedAgentDesktopRun`); the runtime cancels the run. Tested:
+  `AgentDesktopPanicIsolationEvidenceTests` with the panic flavor,
+  `AgentDesktopSessionHostTests.AdapterFaultReleasesTheRunsDesktopSession`,
+  and
+  `GovernedAgentRuntimeDesktopTests.AnAdapterFaultCommitsTheResultSkipsTheBatchAndCancelsTheRun`.
+- **D7. The digest and the approval card. Closed for element actions,
+  `desktop.press_key`, `desktop.focus_window`, and `desktop.close_app`; open
+  for `desktop.launch_app`.**
+  `AgentDesktopActionComposer.ElementTargetMaterial` binds the reference,
+  application text, identity kind and value, process ID, generation token,
+  window identifier and title, role, name, and secure flag; the focus
+  material binds the application text and identity, window identifier,
+  title, process ID, and token; the close material binds the application
+  text, identity, process ID, and generation token of an
+  `AgentDesktopApplicationTarget` the runtime built from the run's own
+  listings or snapshots; the observation time is in no digest. The card
+  shows `bundle_id` or `executable`, `pid` for focus and close, `window`
+  where there is one, and `snapshot_age`, `listing_age`, or
+  `observation_age`. A close naming an application the run has not observed
+  is `desktop_stale_ref` before authority, and the engine refuses it at
+  dispatch when the process ID, identity, or token no longer match (T30;
+  ADR 0061 amendment 22). Tested:
+  `AgentDesktopActionComposerTests.EveryElementActionAndKeyPressBindsTheWindowAndApplicationIdentity`,
+  `ElementActionDigestBindsEveryPartOfTheObservedTarget`,
+  `ObservationAgeIsShownButIsNotPartOfTheBoundIdentity`, and
+  `AClosedApplicationIsBoundAndShownByItsObservedProcessAndIdentity`;
+  `DesktopAgentObservationLedgerTests.AnApplicationTheRunNeverObservedCannotBeClosedEvenWithoutASheet`;
+  `GovernedAgentRuntimeDesktopTests.ClosingBindsTheListedProcessAndShowsItOnTheCard`;
+  `AgentDesktopApplicationResolverTests.An_observed_process_resolves_while_its_live_entry_keeps_the_observed_identity`;
+  and `AgentDesktopNativeCallTests.The_refusals_come_before_the_library_is_asked_to_act`.
+  Open: `desktop.launch_app` binds only the identifier the model supplied,
+  because an application that is not running has nothing to observe. The
+  library still closes by name, so a replacement that answers to the name
+  between the dispatch check and the native call is detected only while it
+  is still listed afterwards.
+- **D8. `agent.request_capability` would offer `desktop_control`. Closed.**
+  `GovernedAgentRuntime.IsRequestableCapability` excludes it. Tested:
+  `GovernedAgentRuntimeDesktopTests.CapabilityRequestOffersDataAndInteractionButNeverControl`.
+- **D9. The state directory. Partly closed; open.** Closed: a symbolic link
+  as the root or as `sessions` is refused, a dangling one included; the
+  root's mode is set to `0700` and read back; links are skipped in the sweep;
+  `Dispose` waits up to two seconds in total for workers to delete their
+  maps; session names are random (`AgentDesktopStateRootTests`,
+  `AgentDesktopRunLifecycleNativeTests`). Open: the owner check is the
+  library's alone; maps outlive a worker that is still inside a native call
+  when the disposal wait ends, and a process that exits without releasing
+  its runs; a session manifest written into a live session directory can
+  turn on the library's trace capture; and whether `AGENT_DESKTOP_HOME`,
+  which the engine sets for the whole process, reaches a local shell or a
+  stdio MCP server was not verified. Children started through
+  `Process.Start` receive .NET's managed copy of the environment, which
+  `setenv` does not change, but a terminal panel's shell may be spawned
+  another way.
+- **D10. Secure-field refusal. Closed.** `desktop.set_value`,
+  `desktop.type_text`, `desktop.clear`, and `desktop.press_key` are refused
+  for a secure element at three layers: the request constructors
+  (`AgentDesktopRequest.RejectSecureTarget`), the runtime before authority
+  (`DesktopAgentIntent.OnElement.RefusedOnSecureField`), and the engine
+  immediately before dispatch (`ExecuteElementAction`). `desktop.select` is
+  deliberately allowed (ADR 0061, amendment 8), as are click, toggle, expand,
+  and scroll. Tested:
+  `AgentDesktopRequestTests.ASecureFieldRefusesTextClearingAndKeyPresses`,
+  `GovernedAgentRuntimeDesktopTests.TextClearingAndKeysForAFieldTheSnapshotMarksSecureAreRefusedBeforeAuthority`,
+  and
+  `AgentDesktopNativeCallTests.A_secure_element_is_refused_text_clearing_and_keys_before_the_library_is_called`,
+  which swaps the target in by reflection because the constructors refuse
+  such a request.
+- **D11. Delivered-but-unverified success. Closed by decision.** ADR 0061
+  amendments 5, 21 and 27: `InMemorySessionHostClient.DesktopEngineSuccess`
+  accepts an element action whose input was delivered, verified or not, or
+  with nothing delivered, the library's answer for an element already in the
+  requested state, and `DesktopAgentToolResultJson.Project` does the same; an
+  uncertain or unknown delivery is `desktop_action_outcome_unknown`. A
+  delivered but unverified action, which is every plain button press, is
+  audited `desktop_delivered_unverified`, reaches the model with
+  `verified: false`, and expires its window's refs; the model is told to
+  snapshot rather than repeat it. An already-satisfied action is audited
+  `desktop_already_satisfied`, reaches the model with `already_in_state`
+  true and no required action, and expires no ref. Focus and close succeed
+  as requested. Tested:
+  `AgentDesktopSessionHostTests.ElementActionWhoseDeliveryIsUncertainIsOutcomeUnknown`,
+  `AgentDesktopSessionHostTests.ElementActionDeliveredWithoutAnObservedEffectSucceedsAsUnverified`,
+  `ElementActionTheLibraryFoundAlreadySatisfiedSucceedsWithoutDeliveredInput`,
+  and `StatusOnlyEntrypointSucceedsAsRequested`;
+  `DesktopAgentToolResultJsonTests.AnElementActionWhoseDeliveryIsUncertainIsAnUnknownOutcome`, `DesktopAgentToolResultJsonTests.AnElementActionDeliveredWithoutAnObservedEffectSucceedsUnverified`
+  and
+  `AnElementActionTheLibraryFoundAlreadySatisfiedSucceedsWithoutAskingForASnapshot`;
+  and
+  `GovernedAgentRuntimeDesktopTests.AnElementActionDeliveredWithoutVerificationSucceedsAndExpiresItsWindow`
+  and
+  `AnElementActionThatWasAlreadySatisfiedNeitherSkipsTheBatchNorExpiresItsWindow`.
+  Not measured: which actions the library verifies headless on real
+  applications, and which it answers as already satisfied.
+- **D12. Local child processes may inherit the Accessibility grant. Open and
+  unverified.** It is not known whether a process Asura starts on macOS, such
+  as a local terminal panel's shell, a command run in it, or a stdio MCP
+  server, is covered by Asura's Accessibility grant. macOS attributes privacy
+  decisions to a process's responsible application, and a search of the
+  first-party sources found no spawn that disclaims that responsibility, so
+  inheritance is the expected behaviour; this was read, not exercised. Why it
+  matters: if children inherit, any command the agent may run locally under
+  `RunCommands`, and any configured MCP server, can read and operate every
+  other application, Asura's own approval card included, with no desktop
+  capability, no self-operation guard, no approval binding, and no audit; the
+  desktop family's controls would then bound only the agent's most
+  convenient path, not the grant. What would verify it: on a signed bundle
+  that holds the grant, on a host where the terminal application that
+  launched it holds none, run from an Asura local terminal panel a small
+  command-line tool that prints `AXIsProcessTrusted()` and reads the focused
+  element of another application with `AXUIElementCopyAttributeValue`;
+  repeat it as a stdio MCP server configured in Asura; then revoke the grant
+  and repeat both. A trusted answer and a readable attribute only while
+  Asura holds the grant prove inheritance. If it is proven, the remedy is to
+  start shells and MCP servers as their own responsible processes or, failing
+  that, to state the exposure next to the grant in Settings.
+- **D13. The pre-policy name check runs native code before authority.
+  Closed.** `GovernedAgentRuntime.ExecuteDesktopProposalAsync` calls
+  `CheckAgentDesktopTargetAsync` only when `IsCapabilityOff` finds the
+  tool's capability on in the run's effective policy; under `Off` it goes
+  straight to the broker, which denies the proposal by policy, so the model
+  cannot drive the library's application listing through a capability that
+  is `Off`. This stays safe because the host repeats the guard after any
+  permit consumption, which also covers a policy that turns the capability
+  on between that read and the broker's decision. The engine's named-target
+  check now fails closed: `AgentDesktopRunSession.RefuseNamedTarget` and
+  `RefuseApplicationTarget` return the listing's own failure when the
+  running-application listing cannot be read, and
+  `AgentDesktopApplicationResolver.RefuseBeforeAuthority` refuses a name
+  that Asura or an uninspectable process could answer to (the listing
+  failure path was read in the source, not tested). Tested:
+  `GovernedAgentRuntimeDesktopTests.ACapabilityThePolicyTurnsOffNeverRunsTheTargetCheckAndIsDeniedByPolicy`,
+  for `desktop.list_apps`, `desktop.snapshot`, and `desktop.launch_app`.
+  `PolicyMatrixEvidenceTests` now also asserts zero guard calls in every
+  `Off` cell; it is native evidence that runs only under the evidence
+  collector and has not run since the assertion was added.
+- **D14. Platform limits of the guard. Closed as a discrepancy; the limits
+  stand.** The disagreement between the inspector's comment and the prefix
+  test is resolved: a Linux helper whose file an update replaced reads as
+  `<path> (deleted)` and stays inside the install root, and only a renamed
+  install root moves it out; the `AgentDesktopSelfTargetGuard` remarks state
+  this. Tested with a fake inspector:
+  `AgentDesktopSelfTargetGuardTests.A_helper_whose_executable_an_update_replaced_stays_inside_the_install_root`.
+  The limits themselves remain and keep Linux unreleased (Section 12): no
+  parent rule, no bundle identifiers, a renamed install root judged foreign
+  until restart, and an identity fallback whose Linux `bundle_id` content
+  was not established. Nothing ran on Linux.
+- **D15. Cancellation and exception edges. Closed.** Engine:
+  `AgentDesktopRunSession.BeginMutation` reads cancellation immediately
+  before every mutating call, and `Contain` makes any exception a closed
+  failure with nothing delivered before that call and an unknown outcome
+  after it (`AgentDesktopRequestContainmentNativeTests`, including a
+  revocation that arrives during the checks). Host:
+  `InMemorySessionHostClient.DispatchAgentDesktopActionAsync` records any
+  exception that escapes the engine for a mutation, a cancellation included,
+  as `desktop_action_outcome_unknown` and releases the run's desktop
+  session; for an observation it records `desktop_adapter_faulted` and
+  releases, or `desktop_cancelled` for a cancellation
+  (`AgentDesktopSessionHostTests.EngineExceptionIsNeverACleanOutcome`,
+  `RunCancelledWhileTheGuardRunsNeverReachesTheEngine`, and
+  `ChecksBetweenConsumptionAndDispatchRunInOrderAndOnlyOnce`). Residual: the
+  engine's `CheckTargetAsync`, before authority, can still surface an exception
+  as a faulted task; the host then refuses the target as
+  `desktop_self_target` and audits it `denied`, and the runtime answers
+  `desktop_unavailable` only when the host call itself throws.
+- **D16. Smaller deviations from the ADR. Closed by amendment.** ADR 0061
+  now records `desktop.wait` as Routine (amendment 7), the fixed 5,000 ms
+  budget (amendment 12), and the handshake over three structures with the
+  other two pinned by a test (amendment 13). The retryable set in
+  `AgentDesktopFailure.Retryable` now includes policy-denied and
+  not-supported and folds element- and snapshot-not-found into
+  `desktop_stale_ref`, so the stable retryable codes equal the ADR's list
+  (amendment 11;
+  `AgentDesktopSessionHostTests.ClosedCodeTableNamesEveryEngineFailure`).
+
+Residuals recorded during implementation, beyond those above:
+
+- **The resolver works on a listing taken before the native call.** The
+  library resolves the name again inside every by-name call. When the
+  resolved application quits in between, a snapshot is refused by the D2
+  checks, a wait or close is judged by the checks in T30, and
+  `desktop.launch_app` starts whatever the name resolves to then and
+  classifies the launched process only afterwards.
+- **Snapshots target an application by name with no window identifier.**
+  The library answered `AMBIGUOUS_TARGET` for an application with many
+  windows, so such an application may not be observable at all (reported
+  during implementation, not reproduced for this amendment).
+- **`desktop.press_key` runs under the library's focus-fallback minimum.**
+  The pinned `Action::base_interaction_policy` raises a key press to
+  focus-fallback, which may bring the target window forward, so it is not
+  strictly headless (T32; ADR 0061 amendment 14).
+- **More than a panic can fault a run.** The pinned library maps every
+  non-permission I/O error and every JSON error to `INTERNAL` (T33), so a
+  full disk or a corrupt or planted file under the state root faults and
+  cancels the run.
+- **Duplicate Objective-C class warnings when two flavors share a
+  process.** The interop tests load the release, stub, and panic libraries,
+  and the copy in the test output directory, into one process, and the
+  Objective-C runtime warns that each defines the same classes. This is
+  test-only: a shipped Asura loads one copy.
+- **The 24-hour sweep and a second Asura instance on the same profile.** The
+  sweep cannot tell an abandoned session from a live one of another
+  instance that has not written to its directory for 24 hours (T35).
+- **A sequence step can record refs the model never saw.**
+  `agent.run_sequence` omits a step's content above 4,096 bytes, but a
+  `desktop.snapshot` step that large still records its shown nodes in the
+  ledger. Acting on one also needs the snapshot identifier, which the model
+  never saw and the library mints opaquely.
+- **The application identity is a declaration.** A bundle identifier is
+  what the application says about itself, and an executable path is a file
+  name; neither is a verified code signature (T30).
 
 ## 7. Authorization invariants
 
@@ -402,7 +821,8 @@ The following invariants are mandatory:
 
 1. A model proposal never directly calls an application operation.
 2. Provider code cannot reference session-host, terminal, file, browser,
-   process, Docker, MCP, native-loader, or general filesystem execution types.
+   process, Docker, MCP, desktop-automation, native-loader, or general
+   filesystem execution types.
 3. The effective target is resolved from the current host graph. Missing,
    stale, mismatched, or out-of-scope IDs fail closed. Workspace and internal
    `OpenTab` runs retain exact enclosing identity while refreshing their current
@@ -485,6 +905,38 @@ The following invariants are mandatory:
     cancellation fail before the call; post-dispatch ambiguity is never retried,
     closes the uncertain MCP session, and settles back to the provider as a
     non-retryable result.
+15. No desktop observation or action targets Asura. The self-operation guard
+    runs before any approval card, has no override under any permission,
+    approval, or YOLO overlay, and is repeated adjacent to dispatch; under an
+    `Off` capability the broker's policy denial comes first and no native
+    code runs. A launch is judged after the fact and a launch that started
+    Asura is reported as `desktop_self_target`. A target whose identity
+    cannot be established is refused, never assumed foreign.
+16. A desktop action is one typed request from the closed union, bound to one
+    snapshot-qualified reference, listed window, or observed application and
+    the process identity behind it, for the Workspace target only; only
+    `desktop.launch_app` names an application the run has not observed. `DesktopInteraction` and `DesktopControl` consume
+    exact `HumanApproval` or confirmed run-local `YoloPolicy`, never
+    `AutoPolicy`. `agent.request_capability` never offers `DesktopControl`.
+17. A desktop mutation is dispatched at most once. Only an explicit
+    not-delivered disposition is retryable, and an element action succeeds
+    without delivered input only when the library reports the element
+    already in the requested state; every other failure after dispatch, an
+    element action with uncertain or unknown delivery, an invalid envelope, and an internal fault
+    settle as a non-retryable outcome. After any failure of a dispatched
+    mutation whose code does not prove that nothing was delivered, the next
+    desktop mutation other than `desktop.launch_app` requires a fresh
+    snapshot.
+18. Accessibility content is data. It cannot select a target, change policy,
+    answer an approval, or reach the audit trail, and a secure field's value
+    is never read.
+
+Invariants 15 to 18 are mandatory for acceptance of ADR 0061. The findings
+that held them back when this section was first written, D1 and D2 for 15, D7
+and D8 for 16, and D11 and D15 for 17, are closed in the code and covered by
+tests, except D7 for `desktop.launch_app`, whose digest binds no observed
+identity because there is none before the launch. None of the four
+invariants has been exercised against a real application (Section 6).
 
 ## 8. Approval persistence
 
@@ -539,6 +991,30 @@ prose, labels, raw targets, and secrets are excluded. An allowed decision also
 carries the same request ID in the exact run-local `Off`-to-`Ask` policy
 transition and withholds provider success until both records are durable.
 Denial and expiry do not manufacture a policy transition or action audit.
+
+Desktop automation uses the ordinary action chain and adds no shape of its
+own. A desktop record carries the run, capability, trusted risk, decision,
+argument digest, target-identity digest, one stable code from
+`AgentDesktopStableCodes`, and durations. It never carries tree content, an
+element name, a window title, typed text, an application name, a bundle
+identifier, a process ID, or a native error message. A refusal before
+authority, such as a self-target, is recorded `requested` then `denied`
+through the broker's `RefuseAsync`, which validates the stable code, claims
+the action before writing, and leaves no approval card; a self-target found
+by the repeated guard after permit consumption is recorded `failed` with
+`desktop_self_target`, because the chain has no transition from `started` to
+`denied`. An outcome-unknown or adapter-faulted action is recorded `failed`,
+not `cancelled`, and is never redispatched to settle its audit; so is a
+launch that started Asura, as `desktop_self_target_launched`. Focus and close succeed
+as `desktop_requested`, an element action the library found already in the
+requested state as `desktop_already_satisfied`, so the trail never shows
+input that was not sent, and other successes as `desktop_completed`.
+SessionHost writes these records; they are tested with a
+recording engine (`AgentDesktopSessionHostTests`,
+`AgentDesktopRefusalAuditTests`, `AgentDesktopRefusalAuditReaderTests`). The
+agent-desktop state directory and the library's optional
+trace capture are not audit: they hold other applications' content and are
+covered by T35.
 
 `agent.steer` creates neither chain. Its human update is ordinary provider
 input retained only in the bounded live conversation; the secret-free
@@ -634,6 +1110,20 @@ Every enabled provider/tool bridge must have automated coverage for:
   completeness, including ambiguous completion persistence, exact immutable
   retry/reconciliation, run quarantine, peer-permit revocation, and no provider
   continuation or side-effect redispatch while unresolved;
+- desktop-automation closed schemas and typed requests; `Off`, `Ask`, `Auto`,
+  and confirmed YOLO for all three capabilities; `Auto` escalation of every
+  interaction and control tool; `agent.request_capability` omission of
+  `DesktopControl`; self-target refusal before any approval card for Asura's
+  own process ID, a CEF helper, and a process under the bundle path, and
+  again after permit consumption; no pre-authority guard call under an `Off`
+  capability; `desktop.list_apps` omission of Asura; `desktop.close_app`
+  bound to an observed process;
+  ambiguous and same-named application refusal; stale reference with no
+  delivered input; secure-field refusal and value withholding; hostile names,
+  titles, and values; one dispatch per action, outcome-unknown settlement and
+  stale-batch reconciliation; panic injection without process loss; loader
+  rejection of a wrong ABI, a missing export, and a wrong structure size; and
+  audit records free of desktop content;
 - bounded output, timeout, provider disconnect, session close/reconnect, and
   audit-store failure.
 
@@ -712,6 +1202,53 @@ and a literal zero-response-byte disconnect.
 WebDAV coverage must observe one fully received explicit-zero-content MKCOL
 and DELETE after the same literal disconnect. Only MKCOL is currently
 governed; the DELETE case protects the ordinary UI path.
+
+Desktop-automation coverage exists at the unit, host, runtime, architecture,
+and campaign levels and is incomplete at the level ADR 0061 requires for
+acceptance. Collected: the closed schemas and typed requests
+(`DesktopAgentToolParserTests`, `AgentDesktopRequestTests`); `Off`, `Ask`,
+`Auto`, and confirmed YOLO for all three capabilities, `Auto` escalation of
+every interaction and control tool, and the host's refusal of an `AutoPolicy`
+permit for input (`AgentDesktopPolicyGateTests`); no guard call under `Off`
+(D13); `agent.request_capability` omission of `DesktopControl`; self-target
+refusal before any approval card and again after permit consumption, with a
+recording engine, the real guard against Asura's own process, the guard's
+bundle, CEF-helper, and Linux layouts with a fake inspector, the
+post-launch classification (`AgentDesktopLaunchClassificationTests`), and
+the omission of Asura from both listings on hand-written listings
+(`AgentDesktopListProjectionTests`); ambiguous and same-named application
+refusal (`AgentDesktopApplicationResolverTests`); the close binding of D7;
+the reference binding of D1 and the walk attribution of D2; secure-field
+refusal and value withholding; hostile names, titles, and values within the
+64-KiB result budget, and only shown entries becoming targets; one dispatch
+per action, outcome-unknown settlement, stale-batch reconciliation, and the
+fresh-snapshot requirement after any unproven mutation failure, with fakes;
+an internal fault during adapter creation (`AgentDesktopAdapterCreationNativeTests`); panic injection without process loss, with the
+staged panic flavor (`AgentDesktopPanicIsolationEvidenceTests`); loader
+rejection of a library without the required exports, the library's refusal
+of another ABI major, and the mirrored structure sizes
+(`AgentDesktopLibraryNativeTests`; a library that reports a wrong ABI or a
+wrong structure size to the loader is not exercised); audit records free of desktop content;
+`AgentDesktopExecutionBoundaryTests` and `AgentDesktopCompositionTests`; and
+one `authority.desktop.<tool>` campaign case per non-observation tool plus the
+two `lifecycle.desktop-self-target-*` cases. Outstanding because they need
+the macOS Accessibility grant on the test host: every run against the
+fixture in `scripts/acceptance/desktop-automation/` under each policy with
+every closed failure code; the live `desktop.list_apps` omitting a running
+Asura process; a real CEF helper refused; a stale-reference run and an outcome-unknown run against the
+fixture; and the seven native tests that skip without the grant.
+Outstanding because it needs the owner's signing identity: a signed and
+notarized bundle whose grant survives an in-app update. This threat model
+additionally requires evidence the ADR does not list: the same-named race of
+D2 with two fixture processes; a reference-map entry rewritten after the
+snapshot to point at an Asura process (T35); an unsigned library placed in
+the application directory of a hardened-runtime build (T34); and whether a
+command in a local terminal panel, or a stdio MCP server, inherits the
+Accessibility grant (D12). ADR 0061's evidence list carries the status of
+each item; `scripts/acceptance/desktop-automation/collect-evidence.sh`
+collects it, and
+[`docs/acceptance/adr-0061-desktop-automation.md`](../acceptance/adr-0061-desktop-automation.md)
+holds the last run record.
 
 ## 11. Residual risk
 
@@ -819,6 +1356,57 @@ governed; the DELETE case protects the ordinary UI path.
   closes the server session without retry and returns the non-retryable result
   to the provider, but it cannot roll back the server's side effect; the next
   action may require a fresh observation of the affected external system.
+- The desktop family is not a sandbox around another application. An approved
+  element action does whatever that control does there: it can send a
+  message, confirm a payment, delete a document, change a system setting, or
+  run a command in another terminal. Exact presentation of the application,
+  window, role, and element reduces surprise; those labels are the other
+  application's own claims and prove nothing about the effect.
+- `DesktopData` under `Auto` is standing read access to every application the
+  operating system lets Asura observe, with no prompt per snapshot. Mail,
+  chat, documents, another browser's pages, and any secret an application
+  shows outside a declared secure field are sent to the configured AI
+  provider after bounding and heuristic redaction.
+- A headless desktop action is not interrupted by the user. No input lease
+  exists, so it lands even while the user types in the same application. The
+  one-action approval and the five-second auto-wait ceiling are the only
+  mitigation.
+- A dispatched desktop action can have an unknowable result. Asura settles it
+  as non-retryable and requires a fresh snapshot; it cannot undo what the
+  other application did, and a fresh snapshot may not reveal it.
+- The self-operation guard identifies Asura by process, path, parent, and
+  bundle identifier. It does not cover an authority surface another process
+  draws for Asura, a second Asura installation it cannot recognize, a Linux
+  helper started from outside the install root, or a reference map entry
+  rewritten on disk after the snapshot so that the library resolves it to
+  another process (T35).
+- Application targeting at snapshot time is by display name. Two instances of
+  one application are refused as ambiguous rather than told apart, an
+  application with many windows may be answered as ambiguous by the library,
+  and for a surface with no window a same-named process that starts and
+  exits during the walk can supply the returned content (T30).
+- `desktop.launch_app` acts on the application name the model supplied, not
+  on an observed identity. `desktop.close_app` is bound to an observed
+  process, but the library closes by name, so Asura detects a close that
+  reached another same-named process only while that process is still
+  listed (D7).
+- The automation library runs inside the desktop process. A panic is trapped
+  only because of the pinned build profile; a hard abort or memory-safety
+  fault in it takes down, or compromises, the process that holds the broker,
+  the vault session, and the Accessibility grant.
+- The Accessibility grant is all-or-nothing and outlives every policy
+  setting. While it exists, anything that executes inside the desktop
+  process, and possibly anything the desktop process launches (D12), can
+  observe and operate every other application without passing the desktop
+  family's guard, approval, or audit. Users who do not use desktop automation
+  should not grant it, and revoking it in System Settings is the only way to
+  withdraw it.
+- A process of the same account can replace the library in an install it
+  can write, such as a tarball installation or an ad-hoc-signed development
+  build that library validation does not protect, can read and rewrite
+  reference maps in the state directory, and can hold the interaction lease. Desktop v1 does not defend the desktop
+  family against that account; it records the exposure because the grant
+  raises what such a process gains.
 - A compromised OS account can observe application memory or operate the UI.
   OS-level sandboxing and hardened secret isolation are future defense-in-depth.
 - Providers receive the prompt and the bounded context the user authorizes.
@@ -826,8 +1414,9 @@ governed; the DELETE case protects the ordinary UI path.
 - Workspace, tab, and panel titles remain prompt-injection-capable even after
   secret redaction and bounds. Their explicit untrusted label prevents them
   from granting authority but cannot make their semantic content trustworthy.
-- Native terminal, embedded-browser, SSH, file-provider, and OS-vault libraries remain
-  supply-chain and memory-safety dependencies and require update/license review.
+- Native terminal, embedded-browser, SSH, file-provider, OS-vault, and
+  desktop-automation libraries remain supply-chain and memory-safety
+  dependencies and require update/license review.
 
 ## 12. Deferred boundaries
 
@@ -835,3 +1424,15 @@ Headless mode, ACP/A2A, authenticated remote clients, persistent server-owned
 sessions, multi-user tenancy, unattended approvals, and remote browser clients
 are out of scope for desktop v1. Each adds identities and entry points and
 requires a threat-model update before implementation.
+
+Within desktop automation, ADR 0061 defers headed and focus-fallback delivery,
+coordinate mouse events and wheel, drag, hover, clipboard read or write,
+notification listing or dismissal, screenshots, window move, resize, minimize,
+maximize, and restore, trace export, native element handles, held key edges,
+multi-modifier chords, and the system surfaces. Each needs its own amendment
+with evidence, and each widens T28, T31, or T39: coordinate and headed input
+can leave the approved element, clipboard and screenshots read content no
+secure-field rule covers, and a Screen Recording grant would be a second
+bundle-wide authority. Windows advertises nothing and is not applicable, not
+passed. Linux through AT-SPI is a development target behind the same probe;
+its guard limits in D14 must be resolved before it is released.

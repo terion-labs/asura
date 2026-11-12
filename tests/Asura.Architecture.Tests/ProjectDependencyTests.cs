@@ -270,6 +270,52 @@ public sealed class ProjectDependencyTests
     }
 
     /// <summary>
+    /// The agent-desktop interop runs Rust inside the desktop process (ADR
+    /// 0061). It sees only the Application contracts it implements, and only
+    /// the composition root may load it, so nothing else can reach the
+    /// native library around SessionHost's governance.
+    /// </summary>
+    [Fact]
+    public void DesktopAutomationIsAnInteropBoundaryOnlyTheCompositionRootReferences()
+    {
+        var project = LoadProject("src/Asura.DesktopAutomation/Asura.DesktopAutomation.csproj");
+        Assert.Equal(
+            ["Asura.Application.csproj", "Asura.Core.csproj"],
+            References(project, "ProjectReference")
+                .Select(reference => Path.GetFileName(
+                    reference.Replace('\\', Path.DirectorySeparatorChar)))
+                .Order(StringComparer.Ordinal),
+            StringComparer.Ordinal);
+        Assert.Empty(References(project, "PackageReference"));
+        Assert.Equal(
+            "true",
+            Assert.Single(project.Descendants("AllowUnsafeBlocks")).Value);
+
+        var referencingProjects = new[] { "src", "tools" }
+            .SelectMany(root => Directory.EnumerateFiles(
+                Path.Combine(RepositoryRoot, root),
+                "*.csproj",
+                SearchOption.AllDirectories))
+            .Where(path => !HasPathSegment(path, "bin") && !HasPathSegment(path, "obj"))
+            .Where(path => References(XDocument.Load(path), "ProjectReference")
+                .Any(reference => reference.EndsWith(
+                    "Asura.DesktopAutomation.csproj",
+                    StringComparison.Ordinal)))
+            .Select(path => Path.GetRelativePath(RepositoryRoot, path).Replace('\\', '/'))
+            .ToArray();
+        Assert.Equal(["src/Asura.Desktop/Asura.Desktop.csproj"], referencingProjects);
+
+        var sourceRoot = Path.Combine(RepositoryRoot, "src/Asura.DesktopAutomation");
+        foreach (var file in Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.TopDirectoryOnly))
+        {
+            var source = File.ReadAllText(file);
+            Assert.DoesNotContain("Avalonia", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("Asura.SessionHost", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("Asura.Agent", source, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
     /// The launcher everything starts programs through stands on the base
     /// library and the C library alone, so every boundary can depend on it.
     /// </summary>
@@ -304,6 +350,9 @@ public sealed class ProjectDependencyTests
             StringComparison.Ordinal));
         Assert.Contains(references, reference => reference.EndsWith(
             "Asura.Agent.Providers.csproj",
+            StringComparison.Ordinal));
+        Assert.Contains(references, reference => reference.EndsWith(
+            "Asura.DesktopAutomation.csproj",
             StringComparison.Ordinal));
     }
 

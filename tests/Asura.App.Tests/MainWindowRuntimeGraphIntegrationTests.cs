@@ -9535,7 +9535,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
         RecentSessionHistory? recentSessionHistory = null,
-        RuntimeRecoveryWriter? runtimeRecoveryWriter = null) =>
+        RuntimeRecoveryWriter? runtimeRecoveryWriter = null,
+        IAgentDesktopSessionHost? agentDesktopSessionHost = null) =>
         CreateViewModel(
             sessionClient,
             CreateFixedCatalog(snapshot),
@@ -9564,7 +9565,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             workspaceRuntimeServicesFactory,
             workspaceNetworkRuntime,
             recentSessionHistory,
-            runtimeRecoveryWriter);
+            runtimeRecoveryWriter,
+            agentDesktopSessionHost);
 
     private static MainWindowViewModel CreateViewModel(
         ISessionHostClient sessionClient,
@@ -9594,7 +9596,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         IWorkspaceRuntimeServicesFactory? workspaceRuntimeServicesFactory = null,
         IWorkspaceNetworkRuntime? workspaceNetworkRuntime = null,
         RecentSessionHistory? recentSessionHistory = null,
-        RuntimeRecoveryWriter? runtimeRecoveryWriter = null)
+        RuntimeRecoveryWriter? runtimeRecoveryWriter = null,
+        IAgentDesktopSessionHost? agentDesktopSessionHost = null)
     {
         var files = new EmptyFileClients();
         agentPolicyCoordinator ??= CreateConfiguredPolicyCoordinator(aiProfiles);
@@ -9627,7 +9630,8 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             workspaceRuntimeServicesFactory: workspaceRuntimeServicesFactory,
             workspaceNetworkRuntime: workspaceNetworkRuntime,
             recentSessionHistory: recentSessionHistory,
-            runtimeRecoveryWriter: runtimeRecoveryWriter);
+            runtimeRecoveryWriter: runtimeRecoveryWriter,
+            agentDesktopSessionHost: agentDesktopSessionHost);
     }
 
     private sealed class PanelMoveRecoveryStore : IRuntimeRecoveryStore

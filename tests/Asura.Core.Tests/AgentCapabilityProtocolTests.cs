@@ -77,6 +77,9 @@ public sealed class AgentCapabilityProtocolTests
     [InlineData(AgentCapability.KubernetesData, "kubernetes_data")]
     [InlineData(AgentCapability.KubernetesExec, "kubernetes_exec")]
     [InlineData(AgentCapability.KubernetesControl, "kubernetes_control")]
+    [InlineData(AgentCapability.DesktopData, "desktop_data")]
+    [InlineData(AgentCapability.DesktopInteraction, "desktop_interaction")]
+    [InlineData(AgentCapability.DesktopControl, "desktop_control")]
     public void Capability_tokens_are_stable_protocol_values(
         AgentCapability capability,
         string expectedToken)
@@ -97,6 +100,12 @@ public sealed class AgentCapabilityProtocolTests
     [InlineData("terminal-read")]
     [InlineData("terminal_read ")]
     [InlineData("unknown")]
+    [InlineData("desktop")]
+    [InlineData("DesktopData")]
+    [InlineData("desktop-data")]
+    [InlineData("desktop_data\n")]
+    [InlineData("desktop_clipboard")]
+    [InlineData("desktop_screenshot")]
     public void Capability_tokens_are_exact_and_fail_closed(string? token)
     {
         Assert.False(AgentCapabilityProtocol.TryParseToken(

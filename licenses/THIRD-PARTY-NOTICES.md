@@ -21,6 +21,12 @@ The application bundle also includes:
   runtime instead of separate NuGet packages;
 - `GHOSTTY-LICENSE` for the pinned libghostty-vt source snapshot (commit
   `08f039fbb3dea9c6b1cdb5ff4550666598122346`);
+- `AGENT-DESKTOP-LICENSE` (Apache-2.0) for the pinned agent-desktop 1.2.0
+  desktop automation library and its helper (commit
+  `2b0a7334fc111730454b726e6800aa41cdafc093`), with
+  `AGENT-DESKTOP-THIRD-PARTY-NOTICES.md` for the Rust crates linked into them
+  and `RUST-STANDARD-LIBRARY-COPYRIGHT.html` for the Rust 1.89.0 standard
+  library;
 - `JetBrainsMono-OFL.txt` for the embedded JetBrains Mono 2.304 regular,
   bold, italic, and bold-italic terminal faces;
 - `CEF-LICENSE.txt` and `Chromium-CREDITS.html` for the pinned Chromium
@@ -74,6 +80,16 @@ and one explicit review exception for the unlicensed original BesselJ Fortran
 source noted by Apache Commons Math 3.6.1. Those components are intentionally
 not duplicated in the managed NuGet table below. The project owner accepts the
 recorded provenance exception for the exact macOS SQL worker closure.
+
+The agent-desktop library and helper are tracked separately by
+`native-desktop-automation-components.json`, a per-RID build receipt and file
+manifest, the retained Apache-2.0 license, a third-party notice generated from
+the locked crate graph of each build, and the Rust standard library's own
+notices. Upstream ships no NOTICE file. Those crates are intentionally not
+duplicated in the managed NuGet table below. Those artifacts preserve
+provenance; they are not legal clearance. The project owner has not accepted
+this component: its catalog is `BLOCKED` pending review. That state is a
+record and does not stop publication.
 
 SPDX license texts are available from <https://spdx.org/licenses/>.
 The table below is the conservative managed third-party inventory in the

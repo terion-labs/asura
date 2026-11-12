@@ -42,6 +42,9 @@ internal static class AgentPolicyPresentation
             AgentCapability.ProcessData => "Process data",
             AgentCapability.ArtifactTransfer => "Artifact transfer",
             AgentCapability.WorkspaceLayout => "Workspace layout",
+            AgentCapability.DesktopData => "Desktop app data",
+            AgentCapability.DesktopInteraction => "Desktop app interaction",
+            AgentCapability.DesktopControl => "Desktop app control",
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         };
 
@@ -54,6 +57,16 @@ internal static class AgentPolicyPresentation
             AgentPermission.Yolo => "Full access",
             _ => throw new ArgumentOutOfRangeException(nameof(permission)),
         };
+
+    /// <summary>
+    /// Whether a policy editor offers Auto for a capability. Auto authorizes
+    /// no desktop app interaction or control (ADR 0061): the broker asks for
+    /// every such action and the session host accepts only your approval or
+    /// confirmed full access. Offering Auto there would promise what Ask
+    /// already does, so the editor leaves it out.
+    /// </summary>
+    public static bool OffersAuto(AgentCapability capability) =>
+        capability is not (AgentCapability.DesktopInteraction or AgentCapability.DesktopControl);
 
     /// <summary>One step of a recorded action, as its timeline reads.</summary>
     public static string OutcomeName(AuditOutcome outcome) =>
@@ -181,6 +194,12 @@ internal static class AgentPolicyPresentation
                 "Transfer approved browser and cross-panel artifacts.",
             AgentCapability.WorkspaceLayout =>
                 "Create, split, and close tabs and panels in this workspace.",
+            AgentCapability.DesktopData =>
+                "Read the controls of other apps on this computer through accessibility.",
+            AgentCapability.DesktopInteraction =>
+                "Click, type into, and scroll controls in other apps without moving your pointer.",
+            AgentCapability.DesktopControl =>
+                "Press keys in, focus, open, and quit other apps.",
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         };
 }

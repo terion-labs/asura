@@ -90,6 +90,13 @@ public sealed partial class SettingsWindow : Window, IDialogPageHost
         {
             ApplyChrome();
         }
+
+        // Back in front, perhaps from System Settings: what the system
+        // grants is read again rather than shown as it was when left.
+        if (change.Property == IsActiveProperty && IsActive)
+        {
+            _viewModel?.RefreshAgentDesktopAccess();
+        }
     }
 
     /// <summary>
