@@ -207,7 +207,7 @@ const faqs = [
                 your internal web apps.
               </li>
               <li>
-                On macOS it can work your other apps the same way: it reads a
+                On macOS and Linux it can work your other apps the same way: it reads a
                 window's accessibility tree and clicks, fills, and toggles
                 controls by reference. It never touches Asura's own windows
                 and never types into a password field.

@@ -134,7 +134,7 @@ export const useCases: UseCase[] = [
         points: [
           'Four levels per capability: Off, Ask, Auto for observation and routine actions, and a time-bounded Full access you grant on purpose.',
           'Kubernetes capabilities start Off. Git pushes, Docker lifecycle actions, and file writes each have their own switch.',
-          'Desktop app capabilities on macOS start Off, and Auto never covers them: each click, keystroke, launch, or quit in another app waits for your approval.',
+          'Desktop app capabilities start Off, and Auto never covers them: each click, keystroke, launch, or quit in another app waits for your approval.',
           'Start typing in a terminal the agent is using and its input lease is revoked immediately.',
         ],
         shot: 'workspace-agent-approval.webp',
@@ -184,7 +184,7 @@ export const useCases: UseCase[] = [
       },
       {
         q: 'Can the agent use my other apps?',
-        a: 'On macOS, yes, once you allow it. It reads an app window as an accessibility snapshot and clicks, fills, toggles, and selects controls by reference, and a reference from an older snapshot is refused. Reading apps can run on Auto. Clicking, typing, and launching or quitting apps always wait for your approval. It never touches Asura\'s own windows, refuses to type into password fields, and will not quit an app it sees asking to save changes. macOS asks you once to allow Asura in Privacy & Security, and Settings shows whether it is allowed.',
+        a: 'On macOS and Linux, yes, once you allow it. It reads an app window as an accessibility snapshot and clicks, fills, toggles, and selects controls by reference, and a reference from an older snapshot is refused. Reading apps can run on Auto. Clicking, typing, and launching or quitting apps always wait for your approval. It never touches Asura\'s own windows, refuses to type into password fields, and will not quit an app it sees asking to save changes. On macOS you allow Asura once in Privacy & Security; on Linux it uses the desktop\'s accessibility bus (AT-SPI). Settings shows whether it is available.',
       },
       {
         q: 'Which models can I use?',
