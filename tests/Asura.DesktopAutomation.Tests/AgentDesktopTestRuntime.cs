@@ -50,6 +50,7 @@ internal static class AgentDesktopTestRuntime
     private static readonly object Gate = new();
     private static Dictionary<AgentDesktopFlavor, AgentDesktopAutomationEngine>? _engines;
     private static AgentDesktopAccessState? _releaseAccess;
+    private static int? _finderMenubarStatus;
 
     /// <summary>
     /// The directory every engine keeps its element references in. It does
@@ -196,6 +197,67 @@ internal static class AgentDesktopTestRuntime
         }
     }
 
+    /// <summary>
+    /// The status the release library itself answers for a snapshot of
+    /// Finder's menu bar, asked once and straight through the C ABI, with no
+    /// Asura code in between. Some sessions have no menu bar the library can
+    /// read: the macOS 15 GitHub runner answers WINDOW_NOT_FOUND although it
+    /// holds the grant. Tests that observe Finder's menu bar skip there, and a
+    /// regression in Asura's own snapshot path can never cause that skip.
+    /// </summary>
+    public static unsafe int FinderMenubarStatus()
+    {
+        lock (Gate)
+        {
+            if (_finderMenubarStatus is { } known)
+            {
+                return known;
+            }
+        }
+
+        _ = Engine(AgentDesktopFlavor.Release);
+        var library = AgentDesktopLibrary.TryLoadFrom(LibraryPath(AgentDesktopFlavor.Release), out _);
+        var status = AdResult.Internal;
+        if (library is not null)
+        {
+            // agent-desktop keeps its last-error state per thread.
+            var thread = new Thread(() =>
+            {
+                nint adapter;
+                fixed (byte* session = AgentDesktopNativeText.ToUtf8Z("asura-test-finder-probe"))
+                {
+                    adapter = library.AdapterCreateWithSession(session);
+                }
+
+                if (adapter == 0)
+                {
+                    return;
+                }
+
+                byte* output = null;
+                fixed (byte* finder = AgentDesktopNativeText.ToUtf8Z("Finder"))
+                {
+                    status = library.Snapshot(adapter, finder, AdSurface.Menubar, 4, 1, 1, &output);
+                }
+
+                if (output is not null)
+                {
+                    library.FreeString(output);
+                }
+
+                library.AdapterDestroy(adapter);
+            });
+            thread.Start();
+            thread.Join();
+        }
+
+        lock (Gate)
+        {
+            _finderMenubarStatus = status;
+            return status;
+        }
+    }
+
     public static void Shutdown()
     {
         Dictionary<AgentDesktopFlavor, AgentDesktopAutomationEngine>? engines;
@@ -288,6 +350,24 @@ internal sealed class AccessibilityGrantedFactAttribute : FactAttribute
                 ? null
                 : "The test host has no Accessibility grant (System Settings > Privacy & Security > Accessibility); "
                     + $"agent-desktop reported {AgentDesktopTestRuntime.ReleaseAccess()}.");
+    }
+}
+
+/// <summary>
+/// A granted test that observes Finder's menu bar, which the session must
+/// let the library read (<see cref="AgentDesktopTestRuntime.FinderMenubarStatus"/>).
+/// </summary>
+[AttributeUsage(AttributeTargets.Method)]
+internal sealed class FinderMenubarFactAttribute : FactAttribute
+{
+    public FinderMenubarFactAttribute()
+    {
+        Skip = new AccessibilityGrantedFactAttribute().Skip
+            ?? (AgentDesktopTestRuntime.FinderMenubarStatus() == AdResult.Ok
+                ? null
+                : "agent-desktop itself cannot read Finder's menu bar in this session (status "
+                    + AgentDesktopTestRuntime.FinderMenubarStatus()
+                    + "), so there is nothing for this test to observe.");
     }
 }
 

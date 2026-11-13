@@ -129,7 +129,7 @@ public sealed class AgentDesktopObservationNativeTests
         }
     }
 
-    [AccessibilityGrantedFact]
+    [FinderMenubarFact]
     public async Task A_snapshot_is_bounded_bound_to_its_process_and_stored_under_the_state_root_until_release()
     {
         var run = AgentRunId.New();
@@ -170,7 +170,7 @@ public sealed class AgentDesktopObservationNativeTests
         Assert.True(await EventuallyAsync(() => !Directory.Exists(sessionDirectory)), $"{sessionDirectory} still exists.");
     }
 
-    [AccessibilityGrantedFact]
+    [FinderMenubarFact]
     public async Task A_real_snapshot_is_tied_to_its_process_and_its_references_to_nothing_else()
     {
         // Observes only: the one action below is refused before the library
