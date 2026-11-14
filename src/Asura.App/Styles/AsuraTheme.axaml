@@ -1622,6 +1622,7 @@
     <Setter Property="OnContent" Value="" />
     <Setter Property="OffContent" Value="" />
     <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="controls:SettledTransitions.IsEnabled" Value="True" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border
@@ -1651,7 +1652,8 @@
                 VerticalAlignment="Center"
                 Background="White"
                 BoxShadow="0 1 2 0 #40000000, 0 0 0 0.5 #26000000"
-                CornerRadius="{DynamicResource ShellPillCornerRadius}" />
+                CornerRadius="{DynamicResource ShellPillCornerRadius}"
+                RenderTransform="translateX(0px)" />
           </Panel>
         </Border>
       </ControlTemplate>
@@ -1670,8 +1672,41 @@
     <Setter Property="BorderBrush" Value="{DynamicResource ShellAccentBrush}" />
   </Style>
 
+  <!-- The knob stays on the leading edge and is carried across: a
+       translation can move, where an alignment can only jump. 16 = the
+       track's 38 less its two 1-point edges, its two 1-point insets and the
+       18-point knob. -->
   <Style Selector="ToggleSwitch:checked /template/ Border#SwitchKnob">
-    <Setter Property="HorizontalAlignment" Value="Right" />
+    <Setter Property="RenderTransform" Value="translateX(16px)" />
+  </Style>
+
+  <!-- Switching is a movement, so it is drawn as one: the knob slides and
+       the track's colour follows it, as the host's switch does. Only once
+       the switch has settled, so the state it opens in arrives at once, and
+       never in a window told to reduce motion. -->
+  <Style Selector="Window:not(.motion-disabled) ToggleSwitch.settled /template/ Border#SwitchKnob">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition
+            Property="RenderTransform"
+            Duration="{x:Static controls:MotionTokens.Toggle}"
+            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Window:not(.motion-disabled) ToggleSwitch.settled /template/ Border#SwitchTrack">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition
+            Property="Background"
+            Duration="{x:Static controls:MotionTokens.Toggle}"
+            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+        <BrushTransition
+            Property="BorderBrush"
+            Duration="{x:Static controls:MotionTokens.Toggle}"
+            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+      </Transitions>
+    </Setter>
   </Style>
 
   <Style Selector="ToggleSwitch:disabled /template/ Border#SwitchTrack">
