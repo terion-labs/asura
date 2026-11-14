@@ -554,6 +554,7 @@
         HorizontalAlignment="Left"
         VerticalAlignment="Bottom"
         MaxWidth="520"
+        controls:Arrival.IsEnabled="True"
         Finished="OnDefinitionDeleteUndoFinished" />
 
     <!-- Error notices open from the bottom-right corner, which the agent
@@ -563,7 +564,9 @@
             IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
             HorizontalAlignment="Right" VerticalAlignment="Bottom">
       <Border Margin="{controls:Inset Right=Lg, Bottom=Lg}" MaxWidth="520">
-        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+        <components:ErrorNoticesView
+            DataContext="{Binding ErrorNotices}"
+            controls:Arrival.IsEnabled="True" />
       </Border>
     </Border>
 
