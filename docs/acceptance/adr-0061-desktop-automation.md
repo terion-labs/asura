@@ -136,9 +136,12 @@ evidence is not overstated:
   `desktop_permission_denied`. On a host with the grant, and in every part B
   test, the wrapper is not used.
   `A_grant_missing_at_call_time_refuses_the_call_before_authority` shows the
-  real "not granted" answer at call time. `Without_the_grant_the_runtime_offers_no_desktop_tool`
-  shows the unwrapped behaviour: no desktop tool is offered, and a call to one
-  ends the turn as `invalid_provider_stream`.
+  real "not granted" answer at call time.
+  `Without_the_grant_the_tools_are_offered_and_a_call_waits_for_it` shows the
+  unwrapped behaviour since ADR 0061 amendments 29 and 30: all sixteen tools
+  are offered, a call waits on the system-grant card, and dismissing the card
+  returns `desktop_permission_denied` with nothing dispatched. Both tests
+  dismiss the card through the runtime driver.
 - **The stub and panic flavors** cannot sit in the application directory
   beside the release library. The tests load them by path through the
   engine's internal factory, `AgentDesktopAutomationEngine.Create(stateRoot,

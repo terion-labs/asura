@@ -161,22 +161,31 @@ public sealed class PolicyMatrixEvidenceTests
             Assert.True((await runtime.EnableYoloAsync(TimeSpan.FromMinutes(5), CancellationToken.None)).IsAccepted);
         }
 
+        // Under Off a data call asks to enable its capability, which the
+        // user keeps off; a control call is never offered that card.
         var turn = await RuntimeDriver.SendAsync(
             runtime,
             GovernedDesktopStack.Prompt("Use the desktop.", runtimePolicy),
-            _ => policy == MatrixPolicy.AskApproved);
+            _ => policy == MatrixPolicy.AskApproved,
+            enableCapability: _ => false);
 
         Assert.True(turn.Result.IsSuccess, turn.Result.Code);
+        var asksToEnable = policy == MatrixPolicy.Off && tool == MatrixTool.ListApps;
+        Assert.Equal(asksToEnable ? 1 : 0, turn.CapabilityRequests.Count);
         var runId = runtime.Snapshot.RunId ?? throw new Xunit.Sdk.XunitException("The runtime has no run.");
         Assert.Equal(RaisesCard(tool, policy) ? 1 : 0, turn.Cards.Count);
         var result = provider.ToolResultOf("matrix");
         var executions = stack.Engine.Executions.Where(execution => execution.RunId == runId).ToArray();
         if (!Dispatches(tool, policy))
         {
-            // Off is refused by policy before any card; a declined card,
+            // Off data is the capability card the user kept off; Off control
+            // is refused by policy before any card; a declined approval,
             // including the one Auto raises for DesktopControl, is the user's.
             Assert.Equal(AgentToolResultStatus.Failed, result.Status);
-            Assert.Equal(policy == MatrixPolicy.Off ? "policy_denied" : "approval_denied", result.StableCode);
+            Assert.Equal(
+                asksToEnable ? "capability_request_denied"
+                    : policy == MatrixPolicy.Off ? "policy_denied" : "approval_denied",
+                result.StableCode);
             Assert.Empty(executions);
 
             // Threat-model finding D13: the target guard lists the running
@@ -221,22 +230,28 @@ public sealed class PolicyMatrixEvidenceTests
     }
 
     [NotGrantedEvidenceFact]
-    public async Task Without_the_grant_the_runtime_offers_no_desktop_tool()
+    public async Task Without_the_grant_the_tools_are_offered_and_a_call_waits_for_it()
     {
         await using var stack = await GovernedDesktopStack.CreateAsync(EvidenceFlavor.Release);
         var policy = GovernedDesktopStack.Policy(AgentPermission.Auto, AgentPermission.Ask, AgentPermission.Ask);
-        var provider = Rounds(Batch(new ToolCall("listed", DesktopAgentToolNames.ListApps, "{}")));
+        var provider = Rounds(
+            Batch(new ToolCall("listed", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
         var runtime = stack.CreateRuntime(provider, policy, grantedAnswers: 0);
 
-        var turn = await RuntimeDriver.SendAsync(runtime, GovernedDesktopStack.Prompt("Look around.", policy));
+        var turn = await RuntimeDriver.SendAsync(
+            runtime,
+            GovernedDesktopStack.Prompt("Look around.", policy),
+            dismissDesktopAccess: true);
 
-        // The real answer is "not granted", so no desktop tool is offered, and
-        // a call to one that was not offered ends the turn as malformed
-        // provider output instead of reaching any tool.
-        Assert.Empty(provider.AdvertisedDesktopTools());
-        Assert.False(turn.Result.IsSuccess);
-        Assert.Equal("invalid_provider_stream", turn.Result.Code);
+        // The real answer is "not granted": the tools are still offered
+        // (ADR 0061 amendment 29), and the call waits on the card that sends
+        // the person to System Settings until they dismiss it (amendment 30).
+        Assert.True(turn.Result.IsSuccess, turn.Result.Code);
+        Assert.Equal(16, provider.AdvertisedDesktopTools().Length);
+        Assert.Single(turn.DesktopAccessRequests);
         Assert.Empty(turn.Cards);
+        Assert.Equal(AgentDesktopStableCodes.PermissionDenied, provider.ToolResultOf("listed").StableCode);
         Assert.DoesNotContain(stack.Engine.Calls, call => call.Kind != EngineCallKind.Release);
     }
 
@@ -253,10 +268,14 @@ public sealed class PolicyMatrixEvidenceTests
         // the user withdrew the grant between the two.
         var runtime = stack.CreateRuntime(provider, policy, grantedAnswers: 1);
 
-        var turn = await RuntimeDriver.SendAsync(runtime, GovernedDesktopStack.Prompt("Look around.", policy));
+        var turn = await RuntimeDriver.SendAsync(
+            runtime,
+            GovernedDesktopStack.Prompt("Look around.", policy),
+            dismissDesktopAccess: true);
 
         Assert.True(turn.Result.IsSuccess, turn.Result.Code);
         Assert.Contains(DesktopAgentToolNames.ListApps, provider.AdvertisedDesktopTools(), StringComparer.Ordinal);
+        Assert.Single(turn.DesktopAccessRequests);
         Assert.Empty(turn.Cards);
         Assert.Equal(AgentDesktopStableCodes.PermissionDenied, provider.ToolResultOf("listed").StableCode);
         Assert.DoesNotContain(stack.Engine.Calls, call => call.Kind != EngineCallKind.Release);
