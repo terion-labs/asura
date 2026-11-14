@@ -9,7 +9,8 @@ namespace Asura.App.Views;
 
 /// <summary>
 /// A run that stops for a decision waits on whoever is looking at the agent.
-/// When a new approval, question, or permission request appears while
+/// When a new approval, question, permission request, or request for the
+/// system's desktop access appears while
 /// keyboard focus is in the agent panel, or nowhere at all, focus moves to it
 /// so it is read aloud and can be answered from the keyboard. Focus that is
 /// somewhere else, a terminal mid-command for instance, or in a text field
@@ -44,7 +45,8 @@ public partial class AgentWorkspaceView
         if (e.PropertyName is not (
                 nameof(AgentChatViewModel.PendingApproval)
                 or nameof(AgentChatViewModel.PendingQuestion)
-                or nameof(AgentChatViewModel.PendingCapabilityRequest)))
+                or nameof(AgentChatViewModel.PendingCapabilityRequest)
+                or nameof(AgentChatViewModel.PendingDesktopAccess)))
         {
             return;
         }

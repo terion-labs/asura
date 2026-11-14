@@ -11,7 +11,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
+using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 
 namespace Asura.App.Tests;
 
@@ -992,4 +994,82 @@ public sealed partial class AgentChatViewModelTests
                 directory.Delete(recursive: true);
             }
         });
+
+    [Fact]
+    public Task A_desktop_call_waiting_for_the_system_grant_shows_its_card_and_answers_both_buttons() =>
+        RunAgentComposerHeadlessAsync(
+            async () =>
+            {
+                var provider = Provider("provider", "Provider", order: 0);
+                var request = new GovernedAgentDesktopAccessRequest(
+                    Guid.NewGuid(),
+                    new AgentRunId("run-desktop-access"),
+                    DateTimeOffset.UtcNow.AddMinutes(5));
+                using var runtime = new StubGovernedRuntime
+                {
+                    Snapshot = Snapshot(
+                        state: GovernedAgentState.StreamingProvider,
+                        runId: request.RunId,
+                        providerId: provider.Id,
+                        target: Target(),
+                        messages: [new AgentChatMessage(AgentChatMessageRole.User, "Read the open tabs in my browser")]),
+                };
+                using var profiles = new StubProfileRuntime { Profiles = [provider] };
+                var opened = new List<Uri>();
+                using var viewModel = new AgentChatViewModel(
+                    runtime,
+                    profiles,
+                    ImmediateUiThreadDispatcher.Instance,
+                    openMacSystemSettings: uri =>
+                    {
+                        opened.Add(uri);
+                        return Task.FromResult(true);
+                    });
+                var view = new AgentWorkspaceView { DataContext = new AgentComposerHost(viewModel) };
+                var window = new Window { Width = 420, Height = 760, Content = view };
+                try
+                {
+                    window.Show();
+                    window.UpdateLayout();
+                    var card = view.FindControl<AgentDesktopAccessCardView>("AgentDesktopAccessCard")!
+                        .FindControl<SurfaceCard>("AgentPendingDesktopAccess")!;
+                    Assert.False(card.IsEffectivelyVisible);
+
+                    runtime.Snapshot = runtime.Snapshot with { PendingDesktopAccess = request };
+                    runtime.RaiseChanged();
+                    for (var attempt = 0; attempt < 50 && !card.IsFocused; attempt++)
+                    {
+                        window.UpdateLayout();
+                        await Task.Delay(10);
+                    }
+
+                    Assert.True(card.IsEffectivelyVisible);
+                    Assert.True(card.IsFocused);
+                    var buttons = card.GetVisualDescendants().OfType<Button>().ToArray();
+                    var open = Assert.Single(buttons, button => Equals(button.Content, "Open System Settings"));
+                    var notNow = Assert.Single(buttons, button => Equals(button.Content, "Not Now"));
+                    Assert.True(open.IsEffectivelyVisible);
+
+                    open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    for (var attempt = 0; attempt < 50 && opened.Count == 0; attempt++)
+                    {
+                        await Task.Delay(10);
+                    }
+
+                    Assert.Equal([AgentDesktopAccessSettingsViewModel.MacAccessibilitySettings], opened);
+
+                    notNow.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    for (var attempt = 0; attempt < 50 && runtime.DismissedDesktopAccess is null; attempt++)
+                    {
+                        await Task.Delay(10);
+                    }
+
+                    Assert.Equal(request.Id, runtime.DismissedDesktopAccess);
+                }
+                finally
+                {
+                    window.Close();
+                }
+            },
+            typeof(AgentAttachmentHeadlessApplication));
 }

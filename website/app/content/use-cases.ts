@@ -184,7 +184,7 @@ export const useCases: UseCase[] = [
       },
       {
         q: 'Can the agent use my other apps?',
-        a: 'On macOS and Linux, yes, once you allow it. It reads an app window as an accessibility snapshot and clicks, fills, toggles, and selects controls by reference, and a reference from an older snapshot is refused. Reading apps can run on Auto. Clicking, typing, and launching or quitting apps always wait for your approval. It never touches Asura\'s own windows, refuses to type into password fields, and will not quit an app it sees asking to save changes. On macOS you allow Asura once in Privacy & Security; on Linux it uses the desktop\'s accessibility bus (AT-SPI). Settings shows whether it is available.',
+        a: 'On macOS and Linux, yes, once you allow it. It reads an app window as an accessibility snapshot and clicks, fills, toggles, and selects controls by reference, and a reference from an older snapshot is refused. Reading apps can run on Auto. Clicking, typing, and launching or quitting apps always wait for your approval. It never touches Asura\'s own windows, refuses to type into password fields, and will not quit an app it sees asking to save changes. The first time it needs another app, it asks you to allow it for the conversation and, on macOS, opens Privacy & Security so you can let Asura in once; on Linux it uses the desktop\'s accessibility bus (AT-SPI). Settings shows whether it is available.',
       },
       {
         q: 'Which models can I use?',
