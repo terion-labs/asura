@@ -1,7 +1,10 @@
+using Asura.App.Controls;
 using Asura.App.Views.Components;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace Asura.App.Views;
 
@@ -13,6 +16,7 @@ public sealed partial class MainWindow
     private TranslateTransform? _dragGhostTransform;
     private Canvas? _resolvedDragGhostLayer;
     private Control? _resolvedDragGhostPresenter;
+    private int _dragGhostGeneration;
 
     internal void ShowDragGhost(DragGhostPayload payload, Point position)
     {
@@ -22,6 +26,7 @@ public sealed partial class MainWindow
             return;
         }
 
+        StopDragGhostReturn(presenter);
         presenter.DataContext = payload;
         presenter.Measure(Size.Infinity);
         _dragGhostTransform ??= new TranslateTransform();
@@ -67,8 +72,61 @@ public sealed partial class MainWindow
             return;
         }
 
+        StopDragGhostReturn(presenter);
         presenter.Opacity = 0;
         presenter.DataContext = null;
+    }
+
+    /// <summary>
+    /// A drag that was cancelled goes back where it came from: the ghost
+    /// travels to the tab it was lifted from and fades as it lands, so the
+    /// tab is seen not to have moved. Without motion, or without a tab to go
+    /// back to, it simply goes.
+    /// </summary>
+    internal void ReturnDragGhost(Control source)
+    {
+        if (ResolveDragGhostLayer() is not { } layer
+            || ResolveDragGhostPresenter() is not { Opacity: > 0 } presenter
+            || _dragGhostTransform is not { } transform
+            || Classes.Contains("motion-disabled")
+            || source.TranslatePoint(default, layer) is not { } home)
+        {
+            HideDragGhost();
+            return;
+        }
+
+        StopDragGhostReturn(presenter);
+        var generation = _dragGhostGeneration;
+        var duration = MotionTokens.Return;
+        transform.Transitions =
+        [
+            new DoubleTransition { Property = TranslateTransform.XProperty, Duration = duration, Easing = MotionTokens.EaseOut },
+            new DoubleTransition { Property = TranslateTransform.YProperty, Duration = duration, Easing = MotionTokens.EaseOut },
+        ];
+        presenter.Transitions =
+        [
+            new DoubleTransition { Property = Visual.OpacityProperty, Duration = duration, Easing = MotionTokens.EaseOut },
+        ];
+        transform.X = home.X;
+        transform.Y = home.Y;
+        presenter.Opacity = 0;
+        DispatcherTimer.RunOnce(
+            () =>
+            {
+                if (generation == _dragGhostGeneration)
+                {
+                    HideDragGhost();
+                }
+            },
+            duration);
+    }
+
+    /// <summary>Stops a return in flight, so the ghost answers to the caller at once.</summary>
+    private void StopDragGhostReturn(Control presenter)
+    {
+        _dragGhostGeneration++;
+        presenter.Transitions = null;
+        _dragGhostTransform?.Transitions = null;
     }
 
     private Canvas? ResolveDragGhostLayer() =>

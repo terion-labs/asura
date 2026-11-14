@@ -29,7 +29,8 @@ public sealed partial class MainWindow
             new RuntimeTabDragPresentation(
                 ShowDragGhost,
                 MoveDragGhost,
-                HideDragGhost),
+                HideDragGhost,
+                ReturnDragGhost),
             _lifetime.Token);
         AddHandler(KeyDownEvent, controller.KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         return controller;

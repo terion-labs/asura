@@ -680,63 +680,63 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         {
             var fixture = MainWindowTabReorderTests.CreateFixture();
             using var viewModel = fixture.ViewModel;
-            var strip = new RuntimeTabStripView
-            {
-                Orientation = Orientation.Horizontal,
-                Tabs = fixture.Runtime.Tabs,
-            };
-            var window = new Window
-            {
-                Width = 800,
-                Height = 120,
-                Content = strip,
-            };
-            var shown = 0;
-            var hidden = 0;
-            var controller = new RuntimeTabDragController(
-                window,
-                viewModel,
-                new RuntimeTabDragPresentation(
-                    (_, _) => shown++,
-                    _ => { },
-                    () => hidden++),
-                CancellationToken.None);
-            window.AddHandler(
-                InputElement.KeyDownEvent,
-                controller.KeyDown,
-                RoutingStrategies.Tunnel,
-                handledEventsToo: true);
-            strip.ReorderPointerPressed += controller.PointerPressed;
-            strip.ReorderPointerMoved += controller.PointerMoved;
-            strip.ReorderPointerReleased += async (sender, e) => await controller.PointerReleasedAsync(sender, e);
-            strip.ReorderPointerCaptureLost += controller.PointerCaptureLost;
-            window.Show();
-            window.UpdateLayout();
+            var drag = TabDragHarness.Create(viewModel, fixture.Runtime.Tabs);
+            var (_, end) = drag.LiftFirstTabOverThird();
+            Assert.Equal(1, drag.Shown);
 
-            var activators = strip.GetVisualDescendants()
-                .OfType<RuntimeTabButton>()
-                .ToArray();
-            var start = Assert.NotNull(activators[0].TranslatePoint(
-                new Point(activators[0].Bounds.Width / 3, activators[0].Bounds.Height / 2),
-                window));
-            var end = Assert.NotNull(activators[2].TranslatePoint(
-                new Point(activators[2].Bounds.Width * 0.8, activators[2].Bounds.Height / 2),
-                window));
-            window.MouseDown(start, MouseButton.Left);
-            window.MouseMove(start + new Vector(20, 0), RawInputModifiers.LeftMouseButton);
-            window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-            Assert.Equal(1, shown);
+            drag.Window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+            // Cancelled, the ghost goes back to the tab it was lifted from.
+            Assert.Same(drag.Activators[0], Assert.Single(drag.ReturnedTo));
+            Assert.Equal(0, drag.Hidden);
 
-            window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-            Assert.Equal(1, hidden);
-
-            window.MouseUp(end, MouseButton.Left);
+            drag.Window.MouseUp(end, MouseButton.Left);
             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Single(drag.ReturnedTo);
+            Assert.Equal(0, drag.Hidden);
             Assert.Equal(
                 ["Alpha", "Beta", "Gamma"],
                 fixture.Runtime.Tabs.Select(tab => tab.Title), StringComparer.Ordinal);
             Assert.Empty(fixture.Session.Registrations);
-            window.Close();
+            drag.Window.Close();
+        });
+
+    [Fact]
+    public Task A_tab_dropped_where_it_can_go_sends_its_ghost_away_at_once() =>
+        RunHeadlessAsync(async () =>
+        {
+            var fixture = MainWindowTabReorderTests.CreateFixture();
+            using var viewModel = fixture.ViewModel;
+            var drag = TabDragHarness.Create(viewModel, fixture.Runtime.Tabs);
+            var (_, end) = drag.LiftFirstTabOverThird();
+            Assert.Equal(1, drag.Shown);
+
+            drag.Window.MouseUp(end, MouseButton.Left);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Equal(1, drag.Hidden);
+            Assert.Empty(drag.ReturnedTo);
+            drag.Window.Close();
+        });
+
+    [Fact]
+    public Task A_tab_let_go_where_it_can_go_nowhere_sends_its_ghost_back() =>
+        RunHeadlessAsync(async () =>
+        {
+            var fixture = MainWindowTabReorderTests.CreateFixture();
+            using var viewModel = fixture.ViewModel;
+            var drag = TabDragHarness.Create(viewModel, fixture.Runtime.Tabs);
+            drag.LiftFirstTabOverThird();
+            // Away from every tab: the bottom of the window, under the strip.
+            var nowhere = new Point(4, drag.Window.Bounds.Height - 4);
+            drag.Window.MouseMove(nowhere, RawInputModifiers.LeftMouseButton);
+
+            drag.Window.MouseUp(nowhere, MouseButton.Left);
+            await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+            Assert.Same(drag.Activators[0], Assert.Single(drag.ReturnedTo));
+            Assert.Equal(0, drag.Hidden);
+            Assert.Equal(
+                ["Alpha", "Beta", "Gamma"],
+                fixture.Runtime.Tabs.Select(tab => tab.Title), StringComparer.Ordinal);
+            drag.Window.Close();
         });
 
     private static Button OverflowButton(RuntimeTabStripView strip) =>
@@ -1229,5 +1229,86 @@ public sealed class RuntimeTabStripSideDockHeadlessTests
         Assert.Equal(2, boundaryStops.Length);
         Assert.Equal(byte.MaxValue, boundaryStops[leadingEdge ? 1 : 0].Color.A);
         Assert.True(boundaryStops[leadingEdge ? 0 : 1].Color.A < byte.MaxValue);
+    }
+
+    /// <summary>
+    /// A horizontal strip in its own window, wired to a drag controller whose
+    /// presentation records what it was asked to do with the ghost.
+    /// </summary>
+    private sealed class TabDragHarness
+    {
+        private TabDragHarness(Window window, RuntimeTabButton[] activators)
+        {
+            Window = window;
+            Activators = activators;
+        }
+
+        public Window Window { get; }
+
+        public RuntimeTabButton[] Activators { get; }
+
+        public int Shown { get; private set; }
+
+        public int Hidden { get; private set; }
+
+        public List<Control> ReturnedTo { get; } = [];
+
+        public static TabDragHarness Create(
+            MainWindowViewModel viewModel,
+            IEnumerable<RuntimeTabViewModel> tabs)
+        {
+            var strip = new RuntimeTabStripView
+            {
+                Orientation = Orientation.Horizontal,
+                Tabs = tabs,
+            };
+            var window = new Window
+            {
+                Width = 800,
+                Height = 120,
+                Content = strip,
+            };
+            TabDragHarness? harness = null;
+            var controller = new RuntimeTabDragController(
+                window,
+                viewModel,
+                new RuntimeTabDragPresentation(
+                    (_, _) => harness!.Shown++,
+                    _ => { },
+                    () => harness!.Hidden++,
+                    source => harness!.ReturnedTo.Add(source)),
+                CancellationToken.None);
+            window.AddHandler(
+                InputElement.KeyDownEvent,
+                controller.KeyDown,
+                RoutingStrategies.Tunnel,
+                handledEventsToo: true);
+            strip.ReorderPointerPressed += controller.PointerPressed;
+            strip.ReorderPointerMoved += controller.PointerMoved;
+            strip.ReorderPointerReleased += async (sender, e) => await controller.PointerReleasedAsync(sender, e);
+            strip.ReorderPointerCaptureLost += controller.PointerCaptureLost;
+            window.Show();
+            window.UpdateLayout();
+
+            harness = new TabDragHarness(
+                window,
+                [.. strip.GetVisualDescendants().OfType<RuntimeTabButton>()]);
+            return harness;
+        }
+
+        /// <summary>Presses the first tab and drags it over the third.</summary>
+        public (Point Start, Point End) LiftFirstTabOverThird()
+        {
+            var start = Assert.NotNull(Activators[0].TranslatePoint(
+                new Point(Activators[0].Bounds.Width / 3, Activators[0].Bounds.Height / 2),
+                Window));
+            var end = Assert.NotNull(Activators[2].TranslatePoint(
+                new Point(Activators[2].Bounds.Width * 0.8, Activators[2].Bounds.Height / 2),
+                Window));
+            Window.MouseDown(start, MouseButton.Left);
+            Window.MouseMove(start + new Vector(20, 0), RawInputModifiers.LeftMouseButton);
+            Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+            return (start, end);
+        }
     }
 }
