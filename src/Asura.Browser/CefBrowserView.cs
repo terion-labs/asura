@@ -668,11 +668,12 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         // CEF has no host UI for these prompts in OSR mode. Every privileged
         // or filesystem-affecting operation therefore defaults closed until a
         // future typed product contract owns the corresponding user decision.
+        // The one file dialog let through is a download's own save location.
         browser.BeforePopup += OnBeforePopup;
         browser.ContextMenu += OnContextMenu;
         browser.HostPopup += OnHostPopup;
         browser.JsDialog += BlockJavaScriptDialog;
-        browser.FileDialog += BlockFileDialog;
+        browser.FileDialog += OnFileDialog;
         browser.DownloadStarting += OnDownloadStarting;
         browser.DownloadProgress += OnDownloadProgress;
         browser.FindResult += OnFindResult;
@@ -701,7 +702,7 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.ContextMenu -= OnContextMenu;
         browser.HostPopup -= OnHostPopup;
         browser.JsDialog -= BlockJavaScriptDialog;
-        browser.FileDialog -= BlockFileDialog;
+        browser.FileDialog -= OnFileDialog;
         browser.DownloadStarting -= OnDownloadStarting;
         browser.DownloadProgress -= OnDownloadProgress;
         browser.FindResult -= OnFindResult;
