@@ -22,6 +22,9 @@ public sealed partial class MainWindow
     /// <summary>The class an anchor wears while its popover is open.</summary>
     internal const string AnchorOpenClass = "anchorOpen";
 
+    /// <summary>The popover is mid-arrival and is drawn from its button's corner.</summary>
+    internal const string ArrivingClass = "arriving";
+
     /// <summary>Whether the Add Panel popover is showing.</summary>
     internal bool IsAddPanelChooserOpen => _addPanelFlyout?.IsOpen == true;
 
@@ -32,13 +35,13 @@ public sealed partial class MainWindow
     /// Add Panel… from the menu bar or its shortcut: the popover on the "+"
     /// when the title band shows it, otherwise on the active panel's header.
     /// </summary>
-    public Task ShowNewPanelChooserAsync()
+    public Task ShowNewPanelChooserAsync(bool fromPointer = false)
     {
-        ShowNewPanelChooser(anchor: null);
+        ShowNewPanelChooser(anchor: null, fromPointer);
         return Task.CompletedTask;
     }
 
-    private void ShowNewPanelChooser(Control? anchor)
+    private void ShowNewPanelChooser(Control? anchor, bool fromPointer = false)
     {
         // The palette that asked has done its job.
         ViewModel.CloseOverlay();
@@ -74,6 +77,17 @@ public sealed partial class MainWindow
         _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);
         _addPanelFlyoutAnchor = target;
         target.Classes.Add(AnchorOpenClass);
+        // Clicked open, the popover grows from the "+" that opened it. Opened
+        // from the keyboard it is simply there: a shortcut answered with motion
+        // feels slower than one answered at once.
+        flyout.FlyoutPresenterClasses.Remove(ArrivingClass);
+        if (fromPointer
+            && ReferenceEquals(target, AddPanelButton())
+            && !Classes.Contains("motion-disabled"))
+        {
+            flyout.FlyoutPresenterClasses.Add(ArrivingClass);
+        }
+
         flyout.ShowAt(target);
     }
 
@@ -142,7 +156,16 @@ public sealed partial class MainWindow
             ShowMode = FlyoutShowMode.Standard,
         };
         flyout.FlyoutPresenterClasses.Add("AddPanelChooser");
-        flyout.Opened += (_, _) => chooser.FocusInitialAction();
+        flyout.Opened += (_, _) =>
+        {
+            // Shown at its starting size and clear; letting go of the class
+            // carries it to its own. Avalonia copies FlyoutPresenterClasses
+            // onto the presenter only as the flyout starts opening, so the
+            // class is taken off the presenter itself as well as the list.
+            flyout.FlyoutPresenterClasses.Remove(ArrivingClass);
+            chooser.FindAncestorOfType<FlyoutPresenter>()?.Classes.Remove(ArrivingClass);
+            chooser.FocusInitialAction();
+        };
         flyout.Closed += (_, _) =>
         {
             _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);

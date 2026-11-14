@@ -78,6 +78,50 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     });
 
     [Fact]
+    public Task Add_Panel_clicked_open_grows_from_its_button_and_lets_go_of_its_arriving_look() =>
+        RunInSmallWindowAsync(async window =>
+        {
+            Assert.DoesNotContain("motion-disabled", window.Classes, StringComparer.Ordinal);
+            await window.ShowNewPanelChooserAsync(fromPointer: true);
+            Settle(window);
+
+            Assert.True(window.IsAddPanelChooserOpen);
+            var anchor = Assert.Single(
+                window.GetVisualDescendants().OfType<Control>(),
+                control => control.Classes.Contains(MainWindow.AnchorOpenClass));
+            Assert.Equal("AddPanelButton", anchor.Name);
+            var presenter = ChooserPresenter(window);
+            Assert.Contains("AddPanelChooser", presenter.Classes, StringComparer.Ordinal);
+            // The presenter's own classes, not only the flyout's list that
+            // is copied onto it: kept there, the popover would stay clear.
+            Assert.DoesNotContain(MainWindow.ArrivingClass, presenter.Classes, StringComparer.Ordinal);
+
+            var transitions = Assert.IsType<Avalonia.Animation.Transitions>(presenter.Transitions);
+            var fade = Assert.Single(
+                transitions.OfType<Avalonia.Animation.DoubleTransition>(),
+                transition => transition.Property == Visual.OpacityProperty);
+            var grow = Assert.Single(
+                transitions.OfType<Avalonia.Animation.TransformOperationsTransition>(),
+                transition => transition.Property == Visual.RenderTransformProperty);
+            Assert.Equal(TimeSpan.FromMilliseconds(150), fade.Duration);
+            Assert.Equal(TimeSpan.FromMilliseconds(150), grow.Duration);
+            Assert.Same(Asura.App.Controls.MotionTokens.EaseOut, fade.Easing);
+            Assert.Same(Asura.App.Controls.MotionTokens.EaseOut, grow.Easing);
+        });
+
+    [Fact]
+    public Task Add_Panel_opened_from_the_keyboard_is_there_at_once() => RunInSmallWindowAsync(async window =>
+    {
+        await window.ShowNewPanelChooserAsync();
+        var presenter = ChooserPresenter(window);
+
+        // Never given the arriving look, it has nothing to grow from: it is
+        // fully drawn the moment it opens.
+        Assert.DoesNotContain(MainWindow.ArrivingClass, presenter.Classes, StringComparer.Ordinal);
+        Assert.Equal(1, presenter.Opacity);
+    });
+
+    [Fact]
     public Task The_workspace_editor_keeps_Save_and_Cancel_on_screen_in_Settings_at_its_minimum() =>
         RunInSmallWindowAsync(async window =>
         {
@@ -138,6 +182,10 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
 
     private static Control ChooserTile(MainWindow window) =>
         Assert.IsType<NewPanelChooserView>(window.AddPanelChooser).InitialAction;
+
+    private static FlyoutPresenter ChooserPresenter(MainWindow window) =>
+        Assert.IsType<NewPanelChooserView>(window.AddPanelChooser).FindAncestorOfType<FlyoutPresenter>()
+        ?? throw new InvalidOperationException("The Add Panel popover has no presenter.");
 
     private static T Named<T>(Window window, string name)
         where T : Control =>
