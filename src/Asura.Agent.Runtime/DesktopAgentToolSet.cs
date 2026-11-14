@@ -29,6 +29,15 @@ internal static class DesktopAgentToolSet
         "Never type passwords, tokens or other secrets: secret-looking text and secure fields are refused, "
         + "and the user types credentials themselves.";
 
+    /// <summary>
+    /// Desktop control is never offered through a capability request (ADR
+    /// 0061), so a call while it is off is refused without a card; the model
+    /// has to send the person to the one place it is turned on.
+    /// </summary>
+    private const string ControlRule =
+        "This is desktop control: while it is off the call is refused with policy_denied, "
+        + "and only the user can turn it on, under Settings › AI › Tool permissions. Say so instead of retrying.";
+
     private const string SecureFieldRule =
         "A secure field is refused: only the user changes credentials.";
 
@@ -292,17 +301,17 @@ internal static class DesktopAgentToolSet
         Tool(
             DesktopAgentToolNames.PressKey,
             "Press one key, with at most one modifier, on one control by ref. Held keys and multi-modifier chords are not available, "
-            + "and an application is quit with desktop.close_app, never with a key. " + SecretRule + " " + RefRule,
+            + "and an application is quit with desktop.close_app, never with a key. " + SecretRule + " " + RefRule + " " + ControlRule,
             PressKeySchema()),
         Tool(
             DesktopAgentToolNames.FocusWindow,
             "Bring one window to the front by a window_id from a desktop.list_windows result of the last two minutes. "
-            + "Take a new desktop.snapshot afterwards.",
+            + "Take a new desktop.snapshot afterwards. " + ControlRule,
             FocusWindowSchema),
         Tool(
             DesktopAgentToolNames.LaunchApp,
             "Start an application by display name or bundle identifier, or bring it forward when it already runs. "
-            + "Paths are not accepted.",
+            + "Paths are not accepted. " + ControlRule,
             LaunchAppSchema),
         Tool(
             DesktopAgentToolNames.CloseApp,
@@ -311,7 +320,7 @@ internal static class DesktopAgentToolSet
             + "the close is bound to that observed process, and a name the run has not observed, or a process that has "
             + "since quit or restarted, is refused with desktop_stale_ref, so list or snapshot it first. "
             + "It is refused with desktop_unsaved_changes while a snapshot showed the application with a sheet, "
-            + "which is how an unsaved-changes prompt appears. Force-quit is not available.",
+            + "which is how an unsaved-changes prompt appears. Force-quit is not available. " + ControlRule,
             CloseAppSchema),
     ];
 

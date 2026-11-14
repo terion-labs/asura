@@ -99,13 +99,63 @@ public sealed partial class GovernedAgentRuntime
 
         var capability =
             ((AgentRequestCapabilityParseResult.Parsed)parsed).Capability;
+        var failure = await RequestCapabilityAsync(capability, cancellationToken)
+            .ConfigureAwait(false);
+        return failure is null
+            ? new AgentToolResult(
+                proposal,
+                AgentToolResultStatus.Succeeded,
+                "tool_succeeded",
+                JsonValue(CapabilityGrantReceipt(capability)))
+            : CreateIntrinsicFailureResult(proposal, failure);
+    }
+
+    /// <summary>
+    /// Lets a call to a tool whose capability is Off ask the person to enable
+    /// it, as if the model had called <c>agent.request_capability</c> with that
+    /// capability first: the same trusted card, the same Off-to-Ask grant and
+    /// the same one decision per turn. Returns null when the call may go on to
+    /// its ordinary authorization, which still asks for this exact action;
+    /// that includes every case the card cannot be offered in, where the
+    /// broker refuses the call by policy as before. Otherwise returns the
+    /// stable code of the person's refusal or of the request's failure.
+    /// </summary>
+    private async ValueTask<string?> RequestCapabilityOnUseAsync(
+        AgentCapability capability,
+        ImmutableArray<AgentToolDefinition> advertisedTools,
+        CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            if (_externalRun
+                || _capabilityRequestDecisionConsumedThisTurn
+                || _capabilityRequestAwaiter is not null)
+            {
+                return null;
+            }
+        }
+
+        return GetCapabilityCandidates(advertisedTools)
+            .Any(candidate => candidate.Capability == capability)
+                ? await RequestCapabilityAsync(capability, cancellationToken).ConfigureAwait(false)
+                : null;
+    }
+
+    /// <summary>
+    /// Shows the capability card for <paramref name="capability"/> and, when
+    /// the person enables it, moves it from Off to Ask for this run
+    /// (ADR 0036). Returns null once the grant is in force, otherwise the
+    /// stable code of the reason it is not.
+    /// </summary>
+    private async ValueTask<string?> RequestCapabilityAsync(
+        AgentCapability capability,
+        CancellationToken cancellationToken)
+    {
         lock (_gate)
         {
             if (_capabilityRequestDecisionConsumedThisTurn)
             {
-                return CreateIntrinsicFailureResult(
-                    proposal,
-                    "capability_request_limit_reached");
+                return "capability_request_limit_reached";
             }
         }
 
@@ -115,14 +165,12 @@ public sealed partial class GovernedAgentRuntime
             .ConfigureAwait(false);
         if (preflight is CapabilityCandidateInspection.TargetChanged)
         {
-            return CreateIntrinsicFailureResult(proposal, "target_changed");
+            return "target_changed";
         }
 
         if (preflight is not CapabilityCandidateInspection.Available available)
         {
-            return CreateIntrinsicFailureResult(
-                proposal,
-                "capability_request_unavailable");
+            return "capability_request_unavailable";
         }
 
         var now = _timeProvider.GetUtcNow().ToUniversalTime();
@@ -139,9 +187,7 @@ public sealed partial class GovernedAgentRuntime
 
             if (_capabilityRequestDecisionConsumedThisTurn)
             {
-                return CreateIntrinsicFailureResult(
-                    proposal,
-                    "capability_request_limit_reached");
+                return "capability_request_limit_reached";
             }
 
             if (_capabilityRequestAwaiter is not null
@@ -151,9 +197,7 @@ public sealed partial class GovernedAgentRuntime
                 || _runPolicy.GetPermission(capability)
                     != AgentPermission.Off)
             {
-                return CreateIntrinsicFailureResult(
-                    proposal,
-                    "capability_request_unavailable");
+                return "capability_request_unavailable";
             }
 
             var session = _session
@@ -193,7 +237,7 @@ public sealed partial class GovernedAgentRuntime
                 "The capability request audit could not be persisted.");
             await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                 .ConfigureAwait(false);
-            return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+            return "audit_unavailable";
         }
 
         lock (_gate)
@@ -258,7 +302,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                     .ConfigureAwait(false);
-                return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+                return "audit_unavailable";
             }
 
             CompleteCapabilityRequestAwaiter(
@@ -267,9 +311,7 @@ public sealed partial class GovernedAgentRuntime
                     "capability_request_expired",
                     "That capability request expired."),
                 "Capability request expired; returning that result to the provider…");
-            return CreateIntrinsicFailureResult(
-                proposal,
-                "capability_request_expired");
+            return "capability_request_expired";
         }
 
         var postflight = await InspectCapabilityCandidateAsync(
@@ -289,7 +331,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                     .ConfigureAwait(false);
-                return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+                return "audit_unavailable";
             }
 
             CompleteCapabilityRequestAwaiter(
@@ -298,7 +340,7 @@ public sealed partial class GovernedAgentRuntime
                     "target_changed",
                     "The run target changed before the decision could be applied."),
                 "The run target changed; the capability decision was discarded.");
-            return CreateIntrinsicFailureResult(proposal, "target_changed");
+            return "target_changed";
         }
 
         if (postflight is not CapabilityCandidateInspection.Available
@@ -319,7 +361,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                     .ConfigureAwait(false);
-                return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+                return "audit_unavailable";
             }
 
             CompleteCapabilityRequestAwaiter(
@@ -328,9 +370,7 @@ public sealed partial class GovernedAgentRuntime
                     "capability_request_unavailable",
                     "That capability is no longer available for this run."),
                 "The capability is no longer available; the decision was discarded.");
-            return CreateIntrinsicFailureResult(
-                proposal,
-                "capability_request_unavailable");
+            return "capability_request_unavailable";
         }
 
         var policyChanged = false;
@@ -354,7 +394,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                     .ConfigureAwait(false);
-                return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+                return "audit_unavailable";
             }
 
             CompleteCapabilityRequestAwaiter(
@@ -363,7 +403,7 @@ public sealed partial class GovernedAgentRuntime
                     "policy_changed",
                     "The run policy changed before the decision could be applied."),
                 "The run policy changed; the capability decision was discarded.");
-            return CreateIntrinsicFailureResult(proposal, "policy_changed");
+            return "policy_changed";
         }
 
         if (decision is GovernedAgentCapabilityDecision.KeepOff)
@@ -378,7 +418,7 @@ public sealed partial class GovernedAgentRuntime
             {
                 await QuarantineCapabilityPolicyFailureAsync("audit_unavailable")
                     .ConfigureAwait(false);
-                return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+                return "audit_unavailable";
             }
 
             CompleteCapabilityRequestAwaiter(
@@ -388,9 +428,7 @@ public sealed partial class GovernedAgentRuntime
                     "capability_request_denied",
                     "The capability remains off."),
                 "Capability kept off; returning that result to the provider…");
-            return CreateIntrinsicFailureResult(
-                proposal,
-                "capability_request_denied");
+            return "capability_request_denied";
         }
 
         var updateError = await ApplyCapabilityGrantAsync(
@@ -419,7 +457,7 @@ public sealed partial class GovernedAgentRuntime
                     stableCode,
                     "The capability policy update could not be confirmed."),
                 "The capability update failed closed; the run was stopped.");
-            return CreateIntrinsicFailureResult(proposal, stableCode);
+            return stableCode;
         }
 
         var allowedAuditError = await RecordCapabilityTerminalAsync(
@@ -438,7 +476,7 @@ public sealed partial class GovernedAgentRuntime
                     "audit_unavailable",
                     "The capability decision audit could not be confirmed."),
                 "The capability update failed closed; the run was stopped.");
-            return CreateIntrinsicFailureResult(proposal, "audit_unavailable");
+            return "audit_unavailable";
         }
 
         CompleteCapabilityRequestAwaiter(
@@ -448,11 +486,7 @@ public sealed partial class GovernedAgentRuntime
                 "capability_request_allowed",
                 "The capability now uses ordinary per-action approval for this run."),
             "Allowed for this run. Each action still asks first. Continuing…");
-        return new AgentToolResult(
-            proposal,
-            AgentToolResultStatus.Succeeded,
-            "tool_succeeded",
-            JsonValue(CapabilityGrantReceipt(capability)));
+        return null;
     }
 
     private async ValueTask<CapabilityCandidateInspection>
@@ -947,7 +981,7 @@ public sealed partial class GovernedAgentRuntime
             string message) =>
         new(false, stableCode, message);
 
-    private static string CapabilityDisplayTitle(
+    internal static string CapabilityDisplayTitle(
         AgentCapability capability) =>
         capability switch
         {
@@ -976,6 +1010,13 @@ public sealed partial class GovernedAgentRuntime
             AgentCapability.ProcessData => "Process inspection",
             AgentCapability.ArtifactTransfer => "Artifact transfers",
             AgentCapability.WorkspaceLayout => "Workspace layout",
+            AgentCapability.GitData => "Git data",
+            AgentCapability.KubernetesData => "Kubernetes data",
+            AgentCapability.KubernetesExec => "Kubernetes pod commands",
+            AgentCapability.KubernetesControl => "Kubernetes changes",
+            AgentCapability.DesktopData => "Desktop app data",
+            AgentCapability.DesktopInteraction => "Desktop app interaction",
+            AgentCapability.DesktopControl => "Desktop app control",
             _ => throw new ArgumentOutOfRangeException(nameof(capability)),
         };
 

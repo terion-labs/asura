@@ -162,6 +162,32 @@ Those transports require separate caller identity and decision-routing
 contracts and must not infer a grant merely because no desktop card is
 available.
 
+## Amendment 1: a call to an Off tool asks for its capability (2026-11-14)
+
+A model that saw a tool for a capability the user had turned off often
+answered that the tool was unavailable instead of calling
+`agent.request_capability`, so the person never learned that one click would
+let the work go on. A call to an ordinary production tool whose capability is
+an eligible `Off` candidate now raises the same request itself, before the
+call is classified or composed, exactly as if the model had first called the
+intrinsic with that capability: the same trusted card, the same two-phase
+checks, the same audit, the same one decision per top-level turn, and the
+same run-local `Off`-to-`Ask` transition. When the person enables it, the call
+continues to its ordinary authorization, which under `Ask` asks for that exact
+action; when they keep it off, or the request fails, the call returns the
+request's fixed failure code, such as `capability_request_denied`, and nothing
+reaches the broker's action path. Where the request cannot be offered, under
+YOLO, for an external operator, after the turn's decision was used, while
+another request is pending, or for a capability that is never requestable,
+the call proceeds as before and the broker denies it by policy. The system
+instructions tell the model that a supplied tool is usable even when its
+capability is off.
+
+The intrinsic remains: it lets the model ask before it has a concrete call to
+make. Tested: `GovernedAgentRuntimeDesktopTests` (amendment 31 of ADR 0061)
+and the Off-mode tests of the process, statistics and workspace-graph
+families, which now decline the card.
+
 ## Consequences
 
 - A provider can request one narrow, human-mediated `Off`-to-`Ask` change

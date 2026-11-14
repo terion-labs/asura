@@ -79,7 +79,9 @@ public partial class AgentWorkspaceView
             ? AgentApprovalCard.FocusRequest()
             : agentChat.HasPendingQuestion
                 ? AgentQuestionCard.FocusRequest()
-                : AgentCapabilityRequestCard.FocusRequest();
+                : agentChat.HasPendingCapabilityRequest
+                    ? AgentCapabilityRequestCard.FocusRequest()
+                    : AgentDesktopAccessCard.FocusRequest();
     }
 
     private bool KeyboardFocusIsAvailable()

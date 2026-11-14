@@ -248,21 +248,24 @@ public sealed partial class GovernedAgentRuntimeProcessTests
                 "{}"),
             ProcessPolicy(AgentPermission.Off));
 
+        // The call asks to enable the capability; the person keeps it off.
+        var declining = CapabilityCards.KeepNextOffAsync(fixture.Runtime);
         var result = await fixture.Runtime.SendAsync(
             fixture.Prompt("List local processes."),
             CancellationToken.None);
+        await declining;
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, fixture.Processes.CallCount);
         Assert.Empty(fixture.Processes.Actions);
         var toolResult = ToolResultFromLastRequest(fixture.Provider);
         Assert.Equal(
-            "policy_denied",
+            "capability_request_denied",
             toolResult.StableCode);
-        Assert.Contains(
+        Assert.DoesNotContain(
             fixture.Audit.Events,
             auditEvent => string.Equals(auditEvent.Action, BuiltInAgentTools.ProcessesList
-, StringComparison.Ordinal) && auditEvent.Outcome == AuditOutcome.Denied);
+, StringComparison.Ordinal));
     }
 
     [Fact]

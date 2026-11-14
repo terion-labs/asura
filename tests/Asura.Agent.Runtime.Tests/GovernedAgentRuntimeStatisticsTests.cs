@@ -152,14 +152,16 @@ public sealed partial class GovernedAgentRuntimeProcessTests
         var statistics = Assert.IsType<ConsumingStatisticsHost>(
             fixture.Statistics);
 
+        var declining = CapabilityCards.KeepNextOffAsync(fixture.Runtime);
         var result = await fixture.Runtime.SendAsync(
             fixture.Prompt("Read local statistics."),
             CancellationToken.None);
+        await declining;
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, statistics.CallCount);
         Assert.Equal(
-            "policy_denied",
+            "capability_request_denied",
             ToolResultFromLastRequest(fixture.Provider).StableCode);
     }
 

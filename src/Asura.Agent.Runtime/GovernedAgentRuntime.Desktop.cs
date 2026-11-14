@@ -319,17 +319,20 @@ public sealed partial class GovernedAgentRuntime
     /// <summary>
     /// Re-reads whether desktop automation may be advertised. The tool list
     /// is built synchronously, so the answer is fetched here, before it, on
-    /// every path that builds one.
+    /// every path that builds one. The tools are offered whenever the library
+    /// works on this computer, granted or not: the model then knows they
+    /// exist, and a call without the system grant asks the person for it
+    /// instead of the model concluding that it cannot operate other apps.
     /// </summary>
     private async ValueTask RefreshDesktopAccessAsync(
         AgentContextSnapshot context,
         CancellationToken cancellationToken)
     {
-        var granted = await ReadDesktopAccessAsync(context, cancellationToken)
-            .ConfigureAwait(false) == AgentDesktopAccessState.Granted;
+        var offered = await ReadDesktopAccessAsync(context, cancellationToken)
+            .ConfigureAwait(false) != AgentDesktopAccessState.Unavailable;
         lock (_gate)
         {
-            _desktopAccessGranted = granted;
+            _desktopAutomationOffered = offered;
         }
     }
 
@@ -381,11 +384,11 @@ public sealed partial class GovernedAgentRuntime
         }
     }
 
-    private bool IsDesktopAccessGranted()
+    private bool IsDesktopAutomationOffered()
     {
         lock (_gate)
         {
-            return _desktopAccessGranted;
+            return _desktopAutomationOffered;
         }
     }
 
@@ -433,7 +436,7 @@ public sealed partial class GovernedAgentRuntime
             runtime._agentDesktopHost is not null
             && runtime._desktopComposer is not null
             && context.Context.Target is AgentTarget.Workspace
-            && context.DesktopAccessGranted
+            && context.DesktopAutomationOffered
                 ? DesktopAgentToolSet.Tools
                 : [];
 
@@ -457,6 +460,13 @@ public sealed partial class GovernedAgentRuntime
             // again. Without the grant nothing is parsed, bound or proposed.
             var access = await runtime.ReadDesktopAccessAsync(request.Context, cancellationToken)
                 .ConfigureAwait(false);
+            if (access == AgentDesktopAccessState.NotGranted
+                && runtime.CanWaitForDesktopAccess(request.Descriptor.Capability))
+            {
+                access = await runtime.AwaitDesktopAccessAsync(request.Context, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             if (access != AgentDesktopAccessState.Granted)
             {
                 return CreateDesktopRefusal(

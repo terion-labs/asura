@@ -139,6 +139,17 @@ public interface IGovernedAgentRuntime : IDisposable, IAsyncDisposable
         GovernedAgentCapabilityDecision decision,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Stops waiting for the system grant a desktop tool call is waiting
+    /// for (<see cref="GovernedAgentSnapshot.PendingDesktopAccess"/>); the
+    /// call then reports that access was not granted. Returns false when no
+    /// such wait is pending.
+    /// </summary>
+    ValueTask<bool> DismissDesktopAccessRequestAsync(
+        Guid requestId,
+        CancellationToken cancellationToken) =>
+        ValueTask.FromResult(false);
+
     ValueTask<GovernedAgentActionCancellationResult> CancelActiveActionAsync(
         CancellationToken cancellationToken);
 
@@ -568,7 +579,8 @@ public sealed record GovernedAgentSnapshot(
     AgentPolicy? RunPolicy = null,
     long PolicyGeneration = 1,
     string? PersistenceError = null,
-    bool CanCompact = false)
+    bool CanCompact = false,
+    GovernedAgentDesktopAccessRequest? PendingDesktopAccess = null)
 {
     public bool IsBusy => State is
         GovernedAgentState.StreamingProvider

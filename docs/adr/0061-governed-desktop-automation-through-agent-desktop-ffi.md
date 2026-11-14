@@ -9,7 +9,9 @@ and composed into the application, and it has not been exercised against a
 real applications on 2026-11-11 under the Accessibility grant of a dedicated
 evidence runner. The live runs changed two decisions (amendments 27 and 28),
 and the last full live run passed every item that needs the grant; only the
-signed-update evidence remains outstanding.
+signed-update evidence remains outstanding. Using the 0.1.101 release
+changed how the family reaches a person who has not set it up yet
+(amendments 29 to 31, 2026-11-14).
 Acceptance
 requires the threat-model amendments in "Consequences" and the macOS evidence
 listed under "Evidence required before acceptance".
@@ -152,7 +154,11 @@ authority. `Auto` authorizes `DesktopData` only. The broker escalates every
 the SessionHost desktop gate independently accepts only `HumanApproval` or an
 explicitly confirmed run-local `YoloPolicy` for them. `agent.request_capability`
 may offer `DesktopData` and `DesktopInteraction` under its ordinary Off-to-Ask
-rule; it never offers `DesktopControl`, which the user must enable in policy.
+rule, and a call to one of their tools while the capability is `Off` raises the
+same request itself (ADR 0036, amendment 1); neither ever offers
+`DesktopControl`, which the user must enable in policy. A call to a control
+tool under `Off` is denied by policy, and its description tells the model
+where the user turns it on.
 
 ### Closed tool set
 
@@ -353,13 +359,18 @@ typed text, or application names.
 
 ### Platform scope
 
-The family is advertised only where the library loads and
-`ad_check_permissions` reports the platform grant; the runtime asks again
-before every desktop call. macOS on Apple Silicon is the release target.
-Settings › AI shows the Accessibility grant state and, on macOS, opens System
-Settings to the list where it is given, which the row names "Accessibility"
-through macOS 26 and "Device Control and Data Access" from macOS 27; Asura
-never requests the grant on the agent's behalf. The policy editors do not
+The family is advertised wherever the library loads, whether or not
+`ad_check_permissions` reports the platform grant, so the model knows the
+tools exist; the runtime asks again before every desktop call. A call made
+without the grant, whose capability is not `Off`, waits for it: the agent
+panel shows a card written entirely by Asura that names the list the grant
+is given in and, on macOS, opens System Settings to it. The call goes on
+once the probe reports the grant, and reports `desktop_permission_denied`
+when the person dismisses the card, after five minutes, or when the turn
+ends. macOS on Apple Silicon is the release target. Settings › AI shows the
+Accessibility grant state and, on macOS, opens the same list, which both
+name "Accessibility" through macOS 26 and "Device Control and Data Access"
+from macOS 27; Asura never requests the grant on the agent's behalf. The policy editors do not
 offer `Auto` for `DesktopInteraction` or `DesktopControl`, where it would
 authorize nothing beyond `Ask`, and open a stored `Auto` for either as
 `Ask`. No Screen Recording grant is requested because screenshots
@@ -682,6 +693,45 @@ was built, with its reason. The body above already reads as amended.
     `desktop_window_not_found`, which may be retried, rather than as
     `desktop_not_supported`, which tells the model to give up. Tested:
     `AgentDesktopEnvelopeTests.A_window_accessibility_does_not_expose_yet_is_a_window_not_found`.
+
+29. **Offered before the grant.** The family was first advertised only once
+    the probe reported the grant. On a fresh install the model therefore
+    never saw the tools and told the person it could not operate other
+    applications, without any way for the person to learn that it could.
+    The family is now advertised whenever the library loads; `Unavailable`
+    still withholds it. Tested:
+    `GovernedAgentRuntimeDesktopTests.ToolsAreOfferedBeforeTheSystemGrantSoTheModelKnowsThemAndCanAskForIt`
+    and `ToolsAreWithheldWhereTheLibraryIsUnavailable`.
+30. **A call waits for the grant.** A call without the grant, from the chat
+    and with its capability not `Off`, publishes
+    `GovernedAgentSnapshot.PendingDesktopAccess` and polls the probe once a
+    second for at most five minutes. The card offers Open System Settings on
+    macOS and Not Now everywhere. It carries no model text and approves
+    nothing: the grant is given only in the system's own settings, and the
+    call still goes through its ordinary authorization afterwards. One call
+    waits at a time. An external operator's call does not wait, because its
+    caller is not the chat that shows the card. A call whose capability is
+    `Off` does not wait either, so the person is never sent to grant access
+    for a call the policy then refuses. Tested:
+    `ACallBeforeTheSystemGrantWaitsForItAndThenRuns`,
+    `DismissingTheSystemGrantCardRefusesTheCallBeforeAuthority`,
+    `StoppingTheRunEndsTheWaitForTheSystemGrant`,
+    `AnExternalCallWithoutTheGrantIsRefusedBeforeAuthority` and
+    `AgentChatViewModelTests.A_desktop_call_waiting_for_the_system_grant_shows_a_card_that_opens_System_Settings`.
+31. **An Off call asks to enable its capability.** A call to a data or
+    interaction tool while that capability is `Off` raises the ordinary
+    capability card (ADR 0036, amendment 1) before the grant is checked;
+    enabling it gives `Ask`, so the action that follows still asks for its
+    own approval, and keeping it off refuses the call with
+    `capability_request_denied` without running the target check (D13).
+    The card also had no title for the three desktop capabilities, nor for
+    the Kubernetes and Git data ones, so a request for any of them ended the
+    turn with an internal failure; every capability now has one. Tested:
+    `ACallWhoseCapabilityIsOffAsksToEnableItThenAsksForTheAction`,
+    `KeepingACapabilityOffRefusesTheCallWithoutRunningTheTargetCheck`,
+    `AnOffCapabilityWithoutTheSystemGrantAsksForTheCapabilityBeforeTheGrant`,
+    `ControlThePolicyTurnsOffNeverRunsTheTargetCheckAndIsDeniedByPolicy`
+    and `EveryCapabilityHasATitleForItsRequestCard`.
 
 No open question remains for the record's author.
 

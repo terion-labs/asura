@@ -40,6 +40,82 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
+    public async Task A_desktop_call_waiting_for_the_system_grant_shows_a_card_that_opens_System_Settings()
+    {
+        var provider = Provider("selected", "Zulu", order: 1);
+        var request = new GovernedAgentDesktopAccessRequest(
+            Guid.NewGuid(),
+            new AgentRunId("desktop-run"),
+            DateTimeOffset.UtcNow.AddMinutes(5));
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id) with
+            {
+                State = GovernedAgentState.StreamingProvider,
+                PendingDesktopAccess = request,
+            },
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        var opened = new List<Uri>();
+        using var viewModel = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance,
+            openMacSystemSettings: uri =>
+            {
+                opened.Add(uri);
+                return Task.FromResult(true);
+            },
+            macSystemSettingsList: AgentDesktopAccessSettingsViewModel.MacDeviceControlList);
+
+        var card = Assert.IsType<AgentDesktopAccessCardViewModel>(viewModel.PendingDesktopAccess);
+        Assert.True(viewModel.HasPendingDesktopAccess);
+        Assert.Equal(request.Id, viewModel.PendingDecisionId);
+        Assert.True(card.OffersSystemSettings);
+        Assert.Contains("Device Control and Data Access", card.Instructions, StringComparison.Ordinal);
+
+        await viewModel.OpenDesktopAccessSettingsAsync();
+        Assert.Equal([AgentDesktopAccessSettingsViewModel.MacAccessibilitySettings], opened);
+        Assert.False(viewModel.SystemSettingsDidNotOpen);
+
+        await viewModel.DismissDesktopAccessAsync(CancellationToken.None);
+        Assert.Equal(request.Id, runtime.DismissedDesktopAccess);
+
+        runtime.Snapshot = runtime.Snapshot with { PendingDesktopAccess = null };
+        runtime.RaiseChanged();
+        Assert.False(viewModel.HasPendingDesktopAccess);
+    }
+
+    [Fact]
+    public async Task The_desktop_access_card_says_so_when_System_Settings_does_not_open_and_offers_nothing_off_a_Mac()
+    {
+        var provider = Provider("selected", "Zulu", order: 1);
+        var request = new GovernedAgentDesktopAccessRequest(
+            Guid.NewGuid(),
+            new AgentRunId("desktop-run"),
+            DateTimeOffset.UtcNow.AddMinutes(5));
+        using var runtime = new StubGovernedRuntime
+        {
+            Snapshot = Snapshot(providerId: provider.Id) with { PendingDesktopAccess = request },
+        };
+        using var profiles = new StubProfileRuntime { Profiles = [provider] };
+        using (var mac = new AgentChatViewModel(
+            runtime,
+            profiles,
+            ImmediateUiThreadDispatcher.Instance,
+            openMacSystemSettings: _ => Task.FromResult(false)))
+        {
+            await mac.OpenDesktopAccessSettingsAsync();
+            Assert.True(mac.SystemSettingsDidNotOpen);
+        }
+
+        using var elsewhere = new AgentChatViewModel(runtime, profiles, ImmediateUiThreadDispatcher.Instance);
+        var card = Assert.IsType<AgentDesktopAccessCardViewModel>(elsewhere.PendingDesktopAccess);
+        Assert.False(card.OffersSystemSettings);
+        Assert.DoesNotContain("System Settings", card.Instructions, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Constructor_projects_enabled_providers_and_pending_capability_state()
     {
         var first = Provider("first", "Alpha", order: 1);
@@ -4287,6 +4363,16 @@ public sealed partial class AgentChatViewModelTests
             new(true, "policy_updated", "Updated.");
 
         public bool ClearResult { get; set; } = true;
+
+        public Guid? DismissedDesktopAccess { get; private set; }
+
+        public ValueTask<bool> DismissDesktopAccessRequestAsync(
+            Guid requestId,
+            CancellationToken cancellationToken)
+        {
+            DismissedDesktopAccess = requestId;
+            return ValueTask.FromResult(true);
+        }
 
         public TaskCompletionSource<GovernedAgentCompactionResult>? PendingCompaction { get; set; }
 

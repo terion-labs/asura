@@ -730,6 +730,7 @@
               x:Name="AgentCapabilityRequestCard"
               EnableAskRequested="OnEnableAgentCapabilityAskClick"
               KeepOffRequested="OnKeepAgentCapabilityOffClick" />
+          <components:AgentDesktopAccessCardView x:Name="AgentDesktopAccessCard" />
           <!--
             A tool call reads as a run record: where it ran, what it is, and how to
             stop it. It carries the boundary in its own heading so the transcript
