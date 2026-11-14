@@ -227,20 +227,76 @@ public sealed class ThemeComponentHeadlessTests
     public Task A_disclosure_points_at_its_label_and_then_into_the_section() =>
         RunHeadlessAsync(window =>
         {
+            // Without motion the end state is immediate.
+            window.Classes.Add("motion-disabled");
             var expander = new Expander { Header = "Advanced", Content = new TextBlock { Text = "Body" } };
             Show(window, expander);
 
             var chevron = expander.GetVisualDescendants().OfType<SymbolIcon>().Single(icon => icon.Name == "ExpandCollapseChevron");
             var header = expander.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == "Advanced");
             Assert.Equal(Symbol.ChevronRight, chevron.Symbol);
+            AssertTurned(chevron, degrees: 0);
             Assert.True(
                 chevron.TranslatePoint(default, expander)!.Value.X < header.TranslatePoint(default, expander)!.Value.X,
                 "The chevron is not beside the label's leading edge.");
 
             expander.IsExpanded = true;
             window.UpdateLayout();
-            Assert.Equal(Symbol.ChevronDown, chevron.Symbol);
+            Assert.Equal(Symbol.ChevronRight, chevron.Symbol);
+            AssertTurned(chevron, degrees: 90);
         });
+
+    /// <summary>
+    /// A folding section turns its one chevron down into the section rather
+    /// than swapping glyphs, and the turn moves only once the toggle has
+    /// settled and never in a window told to reduce motion.
+    /// </summary>
+    [Fact]
+    public Task A_section_disclosure_turns_its_chevron_into_the_section() =>
+        RunHeadlessAsync(window =>
+        {
+            var still = new Window { Width = 600, Height = 600 };
+            try
+            {
+                still.Classes.Add("motion-disabled");
+                var stillToggle = new ToggleButton { Classes = { "SectionDisclosure" }, Content = "Branches" };
+                Show(still, stillToggle);
+                Dispatcher.UIThread.RunJobs();
+
+                var stillChevron = Part<SymbolIcon>(stillToggle, "Chevron");
+                Assert.Equal(Symbol.ChevronRight, stillChevron.Symbol);
+                AssertTurned(stillChevron, degrees: 0);
+                Assert.True(stillChevron.Transitions is null || stillChevron.Transitions.Count == 0);
+
+                stillToggle.IsChecked = true;
+                still.UpdateLayout();
+                Assert.Equal(Symbol.ChevronRight, stillChevron.Symbol);
+                AssertTurned(stillChevron, degrees: 90);
+            }
+            finally
+            {
+                still.Close();
+            }
+
+            var toggle = new ToggleButton { Classes = { "SectionDisclosure" }, Content = "Branches" };
+            Show(window, toggle);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(SettledTransitions.ClassName, toggle.Classes, StringComparer.Ordinal);
+            var chevron = Part<SymbolIcon>(toggle, "Chevron");
+            var turn = Assert.IsType<TransformOperationsTransition>(Assert.Single(chevron.Transitions!));
+            Assert.Equal(TimeSpan.FromMilliseconds(120), turn.Duration);
+        });
+
+    private static void AssertTurned(Visual chevron, double degrees)
+    {
+        var matrix = chevron.RenderTransform!.Value;
+        var radians = degrees * Math.PI / 180;
+        Assert.Equal(Math.Cos(radians), matrix.M11, precision: 3);
+        Assert.Equal(Math.Sin(radians), matrix.M12, precision: 3);
+        Assert.Equal(-Math.Sin(radians), matrix.M21, precision: 3);
+        Assert.Equal(Math.Cos(radians), matrix.M22, precision: 3);
+    }
 
     /// <summary>
     /// A disclosure keeps no box: Fluent's rules for its own header part and

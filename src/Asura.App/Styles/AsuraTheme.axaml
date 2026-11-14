@@ -1778,6 +1778,7 @@
   <Style Selector="Expander /template/ ToggleButton#ExpanderHeader">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="controls:SettledTransitions.IsEnabled" Value="True" />
     <Setter Property="Template">
       <ControlTemplate>
         <Panel Name="DisclosureHeaderRoot" Background="Transparent">
@@ -1794,7 +1795,9 @@
                 Name="ExpandCollapseChevron"
                 VerticalAlignment="Center"
                 FontSize="{DynamicResource ShellIconSizeXs}"
-                Symbol="ChevronRight" />
+                Symbol="ChevronRight"
+                RenderTransformOrigin="50%,50%"
+                RenderTransform="rotate(0deg)" />
             <ContentPresenter
                 Name="PART_ContentPresenter"
                 Grid.Column="1"
@@ -1808,8 +1811,20 @@
     </Setter>
   </Style>
 
+  <!-- Open, the chevron turns to point down into the section. It is one
+       glyph turned rather than two swapped, so the turn can be drawn. -->
   <Style Selector="Expander /template/ ToggleButton#ExpanderHeader:checked /template/ icons|SymbolIcon#ExpandCollapseChevron">
-    <Setter Property="Symbol" Value="ChevronDown" />
+    <Setter Property="RenderTransform" Value="rotate(90deg)" />
+  </Style>
+  <Style Selector="Window:not(.motion-disabled) Expander /template/ ToggleButton#ExpanderHeader.settled /template/ icons|SymbolIcon#ExpandCollapseChevron">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition
+            Property="RenderTransform"
+            Duration="{x:Static controls:MotionTokens.Disclosure}"
+            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+      </Transitions>
+    </Setter>
   </Style>
 
   <!-- A colour well, as the host draws one: the colour fills the whole control
@@ -1981,6 +1996,7 @@
     <Setter Property="FontSize" Value="{DynamicResource ShellSecondaryFontSize}" />
     <Setter Property="FontWeight" Value="Medium" />
     <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="controls:SettledTransitions.IsEnabled" Value="True" />
     <Setter Property="Template">
       <ControlTemplate>
         <Border
@@ -1990,8 +2006,12 @@
             Padding="{TemplateBinding Padding}">
           <StackPanel Orientation="Horizontal" Spacing="{DynamicResource ShellSpaceXs}">
             <Panel VerticalAlignment="Center">
-              <icons:SymbolIcon Name="Collapsed" Symbol="ChevronRight" FontSize="{DynamicResource ShellIconSizeXs}" />
-              <icons:SymbolIcon Name="Expanded" Symbol="ChevronDown" FontSize="{DynamicResource ShellIconSizeXs}" IsVisible="False" />
+              <icons:SymbolIcon
+                  Name="Chevron"
+                  Symbol="ChevronRight"
+                  FontSize="{DynamicResource ShellIconSizeXs}"
+                  RenderTransformOrigin="50%,50%"
+                  RenderTransform="rotate(0deg)" />
             </Panel>
             <ContentPresenter VerticalAlignment="Center" Content="{TemplateBinding Content}" />
           </StackPanel>
@@ -2004,12 +2024,18 @@
     <Setter Property="Background" Value="{DynamicResource ShellSurfaceHoverBrush}" />
   </Style>
 
-  <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Collapsed">
-    <Setter Property="IsVisible" Value="False" />
+  <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Chevron">
+    <Setter Property="RenderTransform" Value="rotate(90deg)" />
   </Style>
-
-  <Style Selector="ToggleButton.SectionDisclosure:checked /template/ icons|SymbolIcon#Expanded">
-    <Setter Property="IsVisible" Value="True" />
+  <Style Selector="Window:not(.motion-disabled) ToggleButton.SectionDisclosure.settled /template/ icons|SymbolIcon#Chevron">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition
+            Property="RenderTransform"
+            Duration="{x:Static controls:MotionTokens.Disclosure}"
+            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+      </Transitions>
+    </Setter>
   </Style>
 
   <!-- Sliders track the accent so a value reads at a glance. -->
