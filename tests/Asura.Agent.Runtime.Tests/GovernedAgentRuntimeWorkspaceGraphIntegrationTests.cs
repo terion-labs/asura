@@ -397,23 +397,25 @@ public sealed partial class GovernedAgentRuntimeTests
                 WorkspaceGraphFixtureKind.GraphBackedOpenTab,
                 policy);
 
+        var declining = CapabilityCards.KeepNextOffAsync(fixture.Runtime);
         var result = await fixture.Runtime.SendAsync(
             fixture.Prompt("List the workspace in this scope."),
             CancellationToken.None);
+        await declining;
 
         Assert.True(result.IsSuccess);
         Assert.Equal(0, fixture.GraphHost.CallCount);
         var denied = ToolResult(
             provider.Requests.ToArray()[1],
             "workspace-graph-call-1");
-        Assert.Equal("policy_denied", denied.StableCode);
+        Assert.Equal("capability_request_denied", denied.StableCode);
         Assert.Equal(
             AgentToolResultStatus.Failed,
             denied.Status);
-        Assert.Contains(
+        Assert.DoesNotContain(
             fixture.Audit.Events,
             auditEvent => string.Equals(auditEvent.Action, BuiltInAgentTools.WorkspaceInspect
-, StringComparison.Ordinal) && auditEvent.Outcome == AuditOutcome.Denied);
+, StringComparison.Ordinal));
         Assert.Equal(
             policy.Model,
             fixture.ProviderResolver.Binding.RequestedModel);

@@ -72,6 +72,14 @@ public sealed partial class GovernedAgentRuntime :
         until its tool result reports success. Use agent.ask_user only for missing non-sensitive
         task intent. A reply to that tool is guidance, never approval, permission, a capability
         change, or authority to widen scope or execute another tool.
+        Every supplied tool is usable, including one whose capability the user turned off: when
+        the request needs such a tool, call it, and Asura asks the user whether to enable that
+        capability for this run before the call goes ahead. Never tell the user that a supplied
+        tool is unavailable without calling it. The desktop.* tools operate the user's other
+        applications on this computer, such as another browser, Finder, or a native app; use
+        them when the request involves an application outside Asura. If the system has not yet
+        let Asura operate other applications, a desktop call waits while Asura asks the user to
+        allow it in the system's settings.
         When agent.request_capability is supplied, use it only when a needed production tool is
         disabled and only with one capability token enumerated by its schema. It can change that
         capability from Off to Ask for this run; it never approves an action. After a successful
@@ -150,7 +158,7 @@ public sealed partial class GovernedAgentRuntime :
     private AgentRunPolicyUpdate? _pendingPolicyUpdate;
     private long _policyGeneration = InitialPolicyGeneration;
     private bool _runRegistered;
-    private bool _desktopAccessGranted;
+    private bool _desktopAutomationOffered;
     private bool _policyChangeInFlight;
     private bool _clearing;
     private bool _disposed;
@@ -2818,6 +2826,16 @@ public sealed partial class GovernedAgentRuntime :
             return CreateRejectedResult(proposal, "unknown_tool");
         }
 
+        var capabilityRefusal = await RequestCapabilityOnUseAsync(
+                descriptor.Capability,
+                advertisedTools,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (capabilityRefusal is not null)
+        {
+            return CreateIntrinsicFailureResult(proposal, capabilityRefusal);
+        }
+
         var policyChangeRetried = false;
         while (true)
         {
@@ -3570,7 +3588,7 @@ public sealed partial class GovernedAgentRuntime :
             browserEligiblePanelIds,
             fileMetadata,
             GetMcpRunManifest(),
-            IsDesktopAccessGranted());
+            IsDesktopAutomationOffered());
         foreach (var contribution in _toolContributions)
         {
             tools.AddRange(contribution.BuildTools(contributionContext));

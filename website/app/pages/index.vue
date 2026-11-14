@@ -51,7 +51,7 @@ const faqs = [
   },
   {
     q: 'What does the agent actually control?',
-    a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for your click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and granted on purpose. Kubernetes and desktop app capabilities are Off until you turn them on, and a click or keystroke in another app always waits for your approval. If you start typing in a terminal the agent is using, it loses its input lease immediately.',
+    a: 'Whatever you allow, per capability. Ask is the default for actions that change state, so a terminal command, a file write, a Docker action, or a Kubernetes apply waits for your click. Auto lets it observe and do routine actions on its own. Full access is time-bounded and granted on purpose. Kubernetes and desktop app capabilities start Off. When the agent needs one of them, it asks you to turn it on for that conversation, except desktop app control, which only you turn on in Settings. A click or keystroke in another app still waits for your approval. If you start typing in a terminal the agent is using, it loses its input lease immediately.',
   },
   {
     q: 'Which platforms are supported?',

@@ -39,14 +39,25 @@ public sealed class GovernedAgentRuntimeDesktopTests
         Assert.Equal(1, fixture.Desktop.AccessChecks);
     }
 
-    [Theory]
-    [InlineData(AgentDesktopAccessState.NotGranted)]
-    [InlineData(AgentDesktopAccessState.Unavailable)]
-    public async Task ToolsAreWithheldUntilTheHostReportsTheGrant(AgentDesktopAccessState access)
+    [Fact]
+    public async Task ToolsAreOfferedBeforeTheSystemGrantSoTheModelKnowsThemAndCanAskForIt()
     {
         var provider = ScriptedProvider.Rounds(Answer());
         await using var fixture = DesktopRuntimeFixture.Create(provider, DesktopPolicy());
-        fixture.Desktop.Access = access;
+        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+
+        Assert.True((await fixture.SendAsync("Look around.")).IsSuccess);
+
+        Assert.Equal(16, AdvertisedDesktopTools(provider).Length);
+        Assert.Equal(1, fixture.Desktop.AccessChecks);
+    }
+
+    [Fact]
+    public async Task ToolsAreWithheldWhereTheLibraryIsUnavailable()
+    {
+        var provider = ScriptedProvider.Rounds(Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(provider, DesktopPolicy());
+        fixture.Desktop.Access = AgentDesktopAccessState.Unavailable;
 
         Assert.True((await fixture.SendAsync("Look around.")).IsSuccess);
 
@@ -54,8 +65,75 @@ public sealed class GovernedAgentRuntimeDesktopTests
         Assert.Equal(1, fixture.Desktop.AccessChecks);
     }
 
+    [Fact]
+    public async Task ACallBeforeTheSystemGrantWaitsForItAndThenRuns()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("waits", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(provider, DesktopPolicy());
+        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+
+        var sending = fixture.SendAsync("Which apps are open?");
+        var pending = await WaitForDesktopAccessRequestAsync(fixture.Runtime);
+
+        // Nothing reaches authority while the person is in System Settings.
+        Assert.True(pending.ExpiresAtUtc > DateTimeOffset.UtcNow);
+        AssertNothingReachedAuthority(fixture);
+
+        fixture.Desktop.Access = AgentDesktopAccessState.Granted;
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(10))).IsSuccess);
+
+        Assert.Equal(AgentToolResultStatus.Succeeded, ToolResultOf(provider, "waits").Status);
+        Assert.Null(fixture.Runtime.Snapshot.PendingDesktopAccess);
+        Assert.Single(fixture.Desktop.Dispatched);
+    }
+
+    [Fact]
+    public async Task DismissingTheSystemGrantCardRefusesTheCallBeforeAuthority()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("dismissed", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(provider, DesktopPolicy());
+        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+
+        var sending = fixture.SendAsync("Which apps are open?");
+        var pending = await WaitForDesktopAccessRequestAsync(fixture.Runtime);
+
+        Assert.False(await fixture.Runtime.DismissDesktopAccessRequestAsync(Guid.NewGuid(), CancellationToken.None));
+        Assert.True(await fixture.Runtime.DismissDesktopAccessRequestAsync(pending.Id, CancellationToken.None));
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(10))).IsSuccess);
+
+        AssertRefusal(
+            ToolResultOf(provider, "dismissed"),
+            AgentDesktopStableCodes.PermissionDenied,
+            retryable: false,
+            requiresSnapshot: false);
+        AssertNothingReachedAuthority(fixture);
+        Assert.Null(fixture.Runtime.Snapshot.PendingDesktopAccess);
+    }
+
+    [Fact]
+    public async Task StoppingTheRunEndsTheWaitForTheSystemGrant()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("stopped", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(provider, DesktopPolicy());
+        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+
+        var sending = fixture.SendAsync("Which apps are open?");
+        _ = await WaitForDesktopAccessRequestAsync(fixture.Runtime);
+
+        _ = await fixture.Runtime.StopAsync(CancellationToken.None);
+        _ = await sending.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Null(fixture.Runtime.Snapshot.PendingDesktopAccess);
+        AssertNothingReachedAuthority(fixture);
+    }
+
     [Theory]
-    [InlineData(AgentDesktopAccessState.NotGranted, AgentDesktopStableCodes.PermissionDenied)]
     [InlineData(AgentDesktopAccessState.Unavailable, AgentDesktopStableCodes.Unavailable)]
     public async Task AGrantLostDuringTheRunRefusesCallsBeforeAuthority(
         AgentDesktopAccessState access,
@@ -83,7 +161,6 @@ public sealed class GovernedAgentRuntimeDesktopTests
     }
 
     [Theory]
-    [InlineData(AgentDesktopAccessState.NotGranted, AgentDesktopStableCodes.PermissionDenied)]
     [InlineData(AgentDesktopAccessState.Unavailable, AgentDesktopStableCodes.Unavailable)]
     public async Task AGrantLostAfterTheToolListWasBuiltRefusesTheCallBeforeAuthority(
         AgentDesktopAccessState access,
@@ -142,6 +219,18 @@ public sealed class GovernedAgentRuntimeDesktopTests
         Assert.True((await fixture.SendAsync("Look around.")).IsSuccess);
 
         Assert.Empty(AdvertisedDesktopTools(provider));
+    }
+
+    [Fact]
+    public void EveryCapabilityHasATitleForItsRequestCard()
+    {
+        // A capability without one made the card throw and ended the turn,
+        // which is how requests for the desktop and Kubernetes capabilities
+        // failed before they had titles.
+        Assert.All(
+            Enum.GetValues<AgentCapability>(),
+            capability => Assert.False(string.IsNullOrWhiteSpace(
+                GovernedAgentRuntime.CapabilityDisplayTitle(capability))));
     }
 
     [Fact]
@@ -422,25 +511,19 @@ public sealed class GovernedAgentRuntimeDesktopTests
         Assert.Equal("TextEdit", dispatched.Target.Application.Text);
     }
 
-    [Theory]
-    [InlineData(DesktopAgentToolNames.ListApps, "{}", AgentCapability.DesktopData)]
-    [InlineData(DesktopAgentToolNames.Snapshot, TextEditSnapshot, AgentCapability.DesktopData)]
-    [InlineData(DesktopAgentToolNames.LaunchApp, """{"app":"TextEdit"}""", AgentCapability.DesktopControl)]
-    public async Task ACapabilityThePolicyTurnsOffNeverRunsTheTargetCheckAndIsDeniedByPolicy(
-        string toolName,
-        string arguments,
-        AgentCapability capability)
+    [Fact]
+    public async Task ControlThePolicyTurnsOffNeverRunsTheTargetCheckAndIsDeniedByPolicy()
     {
         // Threat model D13: the host's target check lists the running
         // applications, which is native code; under Off nothing of it runs.
+        // Control is never offered through a capability request, so the call
+        // is refused without a card.
         var provider = ScriptedProvider.Rounds(
-            Batch(new ToolCall("off", toolName, arguments)),
+            Batch(new ToolCall("off", DesktopAgentToolNames.LaunchApp, """{"app":"TextEdit"}""")),
             Answer());
         await using var fixture = DesktopRuntimeFixture.Create(
             provider,
-            DesktopPolicy(
-                data: capability == AgentCapability.DesktopData ? AgentPermission.Off : AgentPermission.Auto,
-                control: capability == AgentCapability.DesktopControl ? AgentPermission.Off : AgentPermission.Ask));
+            DesktopPolicy(control: AgentPermission.Off));
 
         // A guard that ran would have answered with this refusal instead.
         fixture.Desktop.TargetRefusal = new AgentDesktopFailure(AgentDesktopFailureCode.SelfTarget);
@@ -455,6 +538,101 @@ public sealed class GovernedAgentRuntimeDesktopTests
         Assert.Single(fixture.Broker.DesktopRequests);
         Assert.Single(fixture.Audit.Events, auditEvent => auditEvent.Outcome == AuditOutcome.Denied);
         Assert.Null(fixture.Runtime.Snapshot.PendingApproval);
+        Assert.Null(fixture.Runtime.Snapshot.PendingCapabilityRequest);
+    }
+
+    [Fact]
+    public async Task ACallWhoseCapabilityIsOffAsksToEnableItThenAsksForTheAction()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("enabled", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(
+            provider,
+            DesktopPolicy(data: AgentPermission.Off));
+
+        var sending = fixture.SendAsync("Which apps are open?");
+        var request = await WaitForCapabilityRequestAsync(fixture.Runtime);
+
+        // The card is the ordinary run-local Off-to-Ask request; the target
+        // check has not run and nothing has asked for authority yet.
+        Assert.Equal(AgentCapability.DesktopData, request.Capability);
+        Assert.Empty(fixture.Desktop.Checked);
+        Assert.Empty(fixture.Broker.DesktopRequests);
+
+        Assert.True((await fixture.Runtime.DecideCapabilityRequestAsync(
+            request.Id,
+            new GovernedAgentCapabilityDecision.AllowAsk(),
+            CancellationToken.None)).IsAccepted);
+
+        // Enabling it approved nothing: the listing itself still asks.
+        var approval = await WaitForNewApprovalAsync(fixture.Runtime, previous: null);
+        Assert.Equal(DesktopAgentToolNames.ListApps, approval.ToolName);
+        Assert.Empty(fixture.Desktop.Dispatched);
+        Assert.True((await fixture.Runtime.DecideAsync(approval.Id, approved: true, CancellationToken.None)).IsAccepted);
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(10))).IsSuccess);
+
+        Assert.Equal(AgentToolResultStatus.Succeeded, ToolResultOf(provider, "enabled").Status);
+        Assert.Equal(
+            AgentPermission.Ask,
+            fixture.Runtime.Snapshot.EffectivePolicy!.GetPermission(AgentCapability.DesktopData));
+    }
+
+    [Fact]
+    public async Task KeepingACapabilityOffRefusesTheCallWithoutRunningTheTargetCheck()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("kept-off", DesktopAgentToolNames.Snapshot, TextEditSnapshot)),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(
+            provider,
+            DesktopPolicy(data: AgentPermission.Off));
+        fixture.Desktop.TargetRefusal = new AgentDesktopFailure(AgentDesktopFailureCode.SelfTarget);
+
+        var sending = fixture.SendAsync("Read TextEdit.");
+        var request = await WaitForCapabilityRequestAsync(fixture.Runtime);
+        Assert.True((await fixture.Runtime.DecideCapabilityRequestAsync(
+            request.Id,
+            new GovernedAgentCapabilityDecision.KeepOff(),
+            CancellationToken.None)).IsAccepted);
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(10))).IsSuccess);
+
+        var refused = ToolResultOf(provider, "kept-off");
+        Assert.Equal(AgentToolResultStatus.Failed, refused.Status);
+        Assert.Equal("capability_request_denied", refused.StableCode);
+        Assert.Empty(fixture.Desktop.Checked);
+        AssertNothingReachedAuthority(fixture);
+        Assert.Equal(
+            AgentPermission.Off,
+            fixture.Runtime.Snapshot.EffectivePolicy!.GetPermission(AgentCapability.DesktopData));
+    }
+
+    [Fact]
+    public async Task AnOffCapabilityWithoutTheSystemGrantAsksForTheCapabilityBeforeTheGrant()
+    {
+        var provider = ScriptedProvider.Rounds(
+            Batch(new ToolCall("both", DesktopAgentToolNames.ListApps, "{}")),
+            Answer());
+        await using var fixture = DesktopRuntimeFixture.Create(
+            provider,
+            DesktopPolicy(data: AgentPermission.Off));
+        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+
+        var sending = fixture.SendAsync("Which apps are open?");
+        var request = await WaitForCapabilityRequestAsync(fixture.Runtime);
+        Assert.Null(fixture.Runtime.Snapshot.PendingDesktopAccess);
+        Assert.True((await fixture.Runtime.DecideCapabilityRequestAsync(
+            request.Id,
+            new GovernedAgentCapabilityDecision.AllowAsk(),
+            CancellationToken.None)).IsAccepted);
+
+        _ = await WaitForDesktopAccessRequestAsync(fixture.Runtime);
+        fixture.Desktop.Access = AgentDesktopAccessState.Granted;
+        var approval = await WaitForNewApprovalAsync(fixture.Runtime, previous: null);
+        Assert.True((await fixture.Runtime.DecideAsync(approval.Id, approved: true, CancellationToken.None)).IsAccepted);
+        Assert.True((await sending.WaitAsync(TimeSpan.FromSeconds(10))).IsSuccess);
+
+        Assert.Equal(AgentToolResultStatus.Succeeded, ToolResultOf(provider, "both").Status);
     }
 
     [Fact]
@@ -1043,7 +1221,7 @@ public sealed class GovernedAgentRuntimeDesktopTests
             external: true);
 
         var granted = await fixture.Runtime.ListExternalToolsAsync(CancellationToken.None);
-        fixture.Desktop.Access = AgentDesktopAccessState.NotGranted;
+        fixture.Desktop.Access = AgentDesktopAccessState.Unavailable;
         var withheld = await fixture.Runtime.ListExternalToolsAsync(CancellationToken.None);
 
         Assert.Equal(
@@ -1514,6 +1692,46 @@ public sealed class GovernedAgentRuntimeDesktopTests
             if (DateTimeOffset.UtcNow >= deadline)
             {
                 throw new TimeoutException("The desktop approval did not arrive.");
+            }
+
+            await Task.Delay(10);
+        }
+    }
+
+    private static async Task<GovernedAgentDesktopAccessRequest> WaitForDesktopAccessRequestAsync(
+        GovernedAgentRuntime runtime)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            if (runtime.Snapshot.PendingDesktopAccess is { } request)
+            {
+                return request;
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException("The desktop access card did not appear.");
+            }
+
+            await Task.Delay(10);
+        }
+    }
+
+    private static async Task<GovernedAgentCapabilityRequest> WaitForCapabilityRequestAsync(
+        GovernedAgentRuntime runtime)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        while (true)
+        {
+            if (runtime.Snapshot.PendingCapabilityRequest is { } request)
+            {
+                return request;
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+            {
+                throw new TimeoutException("The capability card did not appear.");
             }
 
             await Task.Delay(10);

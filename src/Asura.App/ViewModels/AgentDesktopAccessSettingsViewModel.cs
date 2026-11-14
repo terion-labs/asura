@@ -5,7 +5,7 @@ namespace Asura.App.ViewModels;
 /// <summary>
 /// Settings › AI › Desktop automation: whether the agent's desktop app tools
 /// can run on this computer, and the way to the system's accessibility list
-/// when they can't yet (ADR 0061). This row is the only place Asura sends
+/// when they can't yet (ADR 0061). This row and the agent's waiting card are the only places Asura sends
 /// anyone to that list. Reading the state never asks the system for the
 /// grant, so looking at Settings shows no system prompt.
 /// </summary>
@@ -59,6 +59,14 @@ public sealed class AgentDesktopAccessSettingsViewModel : ObservableObject
         _state = host is null ? AgentDesktopAccessState.Unavailable : null;
     }
 
+    /// <summary>Opens a System Settings page on a Mac; null anywhere else, where there is no such page.</summary>
+    internal static Func<Uri, Task<bool>>? OpenMacSystemSettingsOnThisPlatform { get; } =
+        OperatingSystem.IsMacOS() ? static settingsUri => PlatformLauncher.OpenAsync(settingsUri) : null;
+
+    /// <summary>What this computer's System Settings calls the list the grant is given in.</summary>
+    internal static string MacSystemSettingsListOnThisPlatform =>
+        MacSystemSettingsListFor(OperatingSystem.IsMacOSVersionAtLeast(27));
+
     /// <summary>The row as this platform offers it: the System Settings action exists only on a Mac.</summary>
     internal static AgentDesktopAccessSettingsViewModel ForThisPlatform(
         IAgentDesktopSessionHost? host,
@@ -66,8 +74,8 @@ public sealed class AgentDesktopAccessSettingsViewModel : ObservableObject
         new(
             host,
             dispatcher,
-            OperatingSystem.IsMacOS() ? static settingsUri => PlatformLauncher.OpenAsync(settingsUri) : null,
-            MacSystemSettingsListFor(OperatingSystem.IsMacOSVersionAtLeast(27)));
+            OpenMacSystemSettingsOnThisPlatform,
+            MacSystemSettingsListOnThisPlatform);
 
     /// <summary>
     /// macOS 27 renamed System Settings › Privacy &amp; Security ›
@@ -111,9 +119,9 @@ public sealed class AgentDesktopAccessSettingsViewModel : ObservableObject
         AgentDesktopAccessState.NotGranted when _systemSettingsDidNotOpen =>
             $"Asura couldn’t open System Settings. Open it, go to Privacy & Security › {_macSystemSettingsList}, and turn on Asura.",
         AgentDesktopAccessState.NotGranted when OffersSystemSettings =>
-            $"Turn on Asura in Privacy & Security › {_macSystemSettingsList} in System Settings. Until then, the agent isn’t offered the desktop app tools.",
+            $"Turn on Asura in Privacy & Security › {_macSystemSettingsList} in System Settings. Until then, the agent asks you for it when it needs another app.",
         AgentDesktopAccessState.NotGranted =>
-            "The system hasn’t given Asura accessibility access, so the agent isn’t offered the desktop app tools.",
+            "The system hasn’t given Asura accessibility access yet. The agent asks you for it when it needs another app.",
         AgentDesktopAccessState.Unavailable =>
             "This copy of Asura can’t operate other apps on this computer, so the agent isn’t offered the desktop app tools.",
         _ => "Asura is reading the system’s accessibility setting.",

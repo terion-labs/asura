@@ -1,0 +1,78 @@
+<UserControl
+    x:Class="Asura.App.Views.Components.AgentDesktopAccessCardView"
+    x:DataType="vm:IAgentWorkspaceHost"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:controls="using:Asura.App.Controls"
+    xmlns:icons="using:FluentIcons.Avalonia"
+    Focusable="False"
+    HorizontalContentAlignment="Stretch">
+  <!--
+    A desktop tool call is waiting for the system to let Asura operate other
+    apps (ADR 0061). The card says where the switch is and opens that page;
+    the call goes on by itself once the switch is on, so there is nothing to
+    confirm here, only a way to stop waiting.
+  -->
+  <controls:SurfaceCard Tone="Notice"
+      x:Name="AgentPendingDesktopAccess"
+      Padding="{DynamicResource ShellCardPaddingCompact}"
+      Focusable="True"
+      KeyboardNavigation.IsTabStop="True"
+      IsVisible="{Binding AgentChat.HasPendingDesktopAccess, FallbackValue=False}"
+      AutomationProperties.Name="{Binding AgentChat.PendingDesktopAccess.AccessibleName}">
+    <StackPanel Spacing="{DynamicResource ShellSpaceSm}">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <icons:SymbolIcon
+            VerticalAlignment="Center"
+            Symbol="Shield"
+            FontSize="{DynamicResource ShellIconSizeMd}"
+            Foreground="{DynamicResource ShellMutedBrush}" />
+        <TextBlock
+            Grid.Column="1"
+            VerticalAlignment="Center"
+            Classes="Muted"
+            FontSize="{DynamicResource ShellSecondaryFontSize}"
+            Text="System permission" />
+        <controls:StatusChip Grid.Column="2" VerticalAlignment="Center" Classes.Warning="True" Content="Waiting" />
+      </Grid>
+      <TextBlock
+          FontSize="{DynamicResource ShellFontSize13}"
+          FontWeight="SemiBold"
+          Text="{Binding AgentChat.PendingDesktopAccess.Heading}"
+          TextWrapping="Wrap" />
+      <TextBlock
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          Text="{Binding AgentChat.PendingDesktopAccess.Instructions}"
+          TextWrapping="Wrap" />
+      <TextBlock
+          Classes="Muted"
+          FontSize="{DynamicResource ShellSecondaryFontSize}"
+          IsVisible="{Binding AgentChat.SystemSettingsDidNotOpen, FallbackValue=False}"
+          Text="System Settings didn’t open. Open it yourself and go to Privacy &amp; Security."
+          TextWrapping="Wrap" />
+      <controls:Callout
+          Tone="Notice"
+          Glyph="Info"
+          Text="{Binding AgentChat.PendingDesktopAccess.Reassurance}" />
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+        <Button
+            Classes="SecondaryButton"
+            Click="OnNotNowClick"
+            Content="Not Now"
+            TabIndex="0"
+            AutomationProperties.Name="Don't let Asura operate other apps now"
+            AutomationProperties.HelpText="Stops waiting; the agent is told access wasn't granted" />
+        <Button
+            Grid.Column="1"
+            Classes="PrimaryButton"
+            Click="OnOpenSystemSettingsClick"
+            Content="Open System Settings"
+            IsVisible="{Binding AgentChat.PendingDesktopAccess.OffersSystemSettings, FallbackValue=False}"
+            TabIndex="1"
+            AutomationProperties.Name="{Binding AgentChat.PendingDesktopAccess.OpenSystemSettingsName}"
+            AutomationProperties.HelpText="Opens the list in System Settings where Asura is turned on" />
+      </Grid>
+    </StackPanel>
+  </controls:SurfaceCard>
+</UserControl>

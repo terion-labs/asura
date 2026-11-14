@@ -102,7 +102,7 @@ public sealed partial class GovernedAgentRuntime
         IReadOnlySet<PanelInstanceId> BrowserEligiblePanelIds,
         IReadOnlyDictionary<PanelInstanceId, FileSessionMetadata> FileMetadata,
         AgentMcpRunManifest? McpManifest,
-        bool DesktopAccessGranted)
+        bool DesktopAutomationOffered)
     {
         public bool HasExactTarget => Context.Target
             is AgentTarget.Panel or AgentTarget.ConnectionSession;

@@ -458,7 +458,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 _aiProviderRuntime,
                 _uiThreadDispatcher,
                 agentRunAuditReader,
-                agentModelFavoriteStore)
+                agentModelFavoriteStore,
+                AgentDesktopAccessSettingsViewModel.OpenMacSystemSettingsOnThisPlatform,
+                AgentDesktopAccessSettingsViewModel.MacSystemSettingsListOnThisPlatform)
             : null;
         AgentWorkspaceScope = new AgentWorkspaceScopeViewModel(
             WindowId,
@@ -1625,7 +1627,9 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                         _aiProviderRuntime,
                         _uiThreadDispatcher,
                         _agentRunAuditReader,
-                        _agentModelFavoriteStore),
+                        _agentModelFavoriteStore,
+                        AgentDesktopAccessSettingsViewModel.OpenMacSystemSettingsOnThisPlatform,
+                        AgentDesktopAccessSettingsViewModel.MacSystemSettingsListOnThisPlatform),
                     () => NotifyAgentRunFinished(id),
                     NotifyAgentRunningStateChanged,
                     isNewDecision => OnAgentDecisionChanged(id, isNewDecision),
@@ -8163,13 +8167,15 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
     /// The agent toggle wears a badge for it, not only the activity pulse.
     /// </summary>
     public bool IsAgentAwaitingDecision => AgentChat is { } chat
-        && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest);
+        && (chat.HasPendingApproval || chat.HasPendingQuestion || chat.HasPendingCapabilityRequest
+            || chat.HasPendingDesktopAccess);
 
     /// <summary>The agent toggle's state, as assistive technology reads it.</summary>
     public string AgentToggleStatus => AgentChat switch
     {
         { HasPendingApproval: true } or { HasPendingCapabilityRequest: true } => "Waiting for approval",
         { HasPendingQuestion: true } => "Waiting for your answer",
+        { HasPendingDesktopAccess: true } => "Waiting for system permission",
         _ => HasRunningAgent ? "Running" : string.Empty,
     };
 
@@ -13339,7 +13345,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
             if (eventArgs.PropertyName is nameof(AgentChatViewModel.HasPendingApproval)
                 or nameof(AgentChatViewModel.HasPendingQuestion)
-                or nameof(AgentChatViewModel.HasPendingCapabilityRequest))
+                or nameof(AgentChatViewModel.HasPendingCapabilityRequest)
+                or nameof(AgentChatViewModel.HasPendingDesktopAccess))
             {
                 // Snapshots rebuild the pending records on every refresh, so
                 // a decision is new only when its id is.

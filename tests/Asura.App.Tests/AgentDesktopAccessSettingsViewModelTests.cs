@@ -162,7 +162,7 @@ public sealed class AgentDesktopAccessSettingsViewModelTests
         await viewModel.RefreshAsync(CancellationToken.None);
 
         Assert.Equal(
-            $"Turn on Asura in Privacy & Security › {list} in System Settings. Until then, the agent isn’t offered the desktop app tools.",
+            $"Turn on Asura in Privacy & Security › {list} in System Settings. Until then, the agent asks you for it when it needs another app.",
             viewModel.StateDetail);
         Assert.Equal($"Open {list} in System Settings", viewModel.OpenSystemSettingsName);
 

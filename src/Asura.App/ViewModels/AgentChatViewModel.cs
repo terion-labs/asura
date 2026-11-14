@@ -521,6 +521,35 @@ public sealed record AgentCapabilityRequestCardViewModel(
 }
 
 /// <summary>
+/// A desktop tool call waiting for the system to let Asura operate other
+/// applications (ADR 0061). Everything shown is Asura's own text: the
+/// request carries nothing the model wrote.
+/// </summary>
+/// <param name="Id">The runtime's id for this wait.</param>
+/// <param name="SettingsList">What this computer's settings call the list Asura is turned on in.</param>
+/// <param name="OffersSystemSettings">Whether Asura can open that list itself, which only a Mac can.</param>
+public sealed record AgentDesktopAccessCardViewModel(
+    Guid Id,
+    string SettingsList,
+    bool OffersSystemSettings)
+{
+    public string Heading => "Let Asura operate other apps";
+
+    public string Instructions => OffersSystemSettings
+        ? $"The agent needs to use another app. Turn on Asura in System Settings › Privacy & Security › {SettingsList}. "
+            + "The agent goes on as soon as it’s on."
+        : "The agent needs to use another app, but the system doesn’t let Asura operate other apps yet. "
+            + "Turn on your desktop’s accessibility support, and the agent goes on as soon as it’s available.";
+
+    public string Reassurance =>
+        "This lets Asura see and use other apps. The agent still asks before each action that changes anything.";
+
+    public string OpenSystemSettingsName => $"Open {SettingsList} in System Settings";
+
+    public string AccessibleName => $"{Heading}. {Instructions}";
+}
+
+/// <summary>
 /// One recorded action or permission change. Every visible value is in words;
 /// <see cref="Details"/> holds the identifiers that bind the record to one
 /// exact action, shown only when asked for.
@@ -669,6 +698,10 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     private AgentApprovalCardViewModel? _pendingApproval;
     private AgentQuestionCardViewModel? _pendingQuestion;
     private AgentCapabilityRequestCardViewModel? _pendingCapabilityRequest;
+    private AgentDesktopAccessCardViewModel? _pendingDesktopAccess;
+    private readonly Func<Uri, Task<bool>>? _openMacSystemSettings;
+    private readonly string _macSystemSettingsList;
+    private bool _systemSettingsDidNotOpen;
     private AgentToolActivityViewModel? _activeTool;
     private AgentToolActivityViewModel? _panelActivity;
     private AgentProgressViewModel? _currentProgress;
@@ -728,9 +761,13 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         IAiProviderProfileRuntime profiles,
         IUiThreadDispatcher dispatcher,
         IAgentRunAuditReader? auditReader = null,
-        IAgentModelFavoriteStore? favoriteStore = null)
+        IAgentModelFavoriteStore? favoriteStore = null,
+        Func<Uri, Task<bool>>? openMacSystemSettings = null,
+        string macSystemSettingsList = AgentDesktopAccessSettingsViewModel.MacAccessibilityList)
     {
         _runtime = runtime ?? throw new ArgumentNullException(nameof(runtime));
+        _openMacSystemSettings = openMacSystemSettings;
+        _macSystemSettingsList = macSystemSettingsList;
         _profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
         _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         _auditReader = auditReader;
@@ -1812,6 +1849,38 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public bool HasPendingCapabilityRequest =>
         PendingCapabilityRequest is not null;
 
+    /// <summary>The desktop tool call waiting for the system's grant, if any.</summary>
+    public AgentDesktopAccessCardViewModel? PendingDesktopAccess
+    {
+        get => _pendingDesktopAccess;
+        private set
+        {
+            var previous = _pendingDesktopAccess?.Id;
+            if (SetProperty(ref _pendingDesktopAccess, value))
+            {
+                if (previous != value?.Id)
+                {
+                    SystemSettingsDidNotOpen = false;
+                }
+
+                OnPropertyChanged(nameof(HasPendingDesktopAccess));
+                NotifyContentChanged();
+            }
+        }
+    }
+
+    public bool HasPendingDesktopAccess => PendingDesktopAccess is not null;
+
+    /// <summary>
+    /// Set when Asura asked to open System Settings and it didn't open, so
+    /// the card tells the person to go there themselves.
+    /// </summary>
+    public bool SystemSettingsDidNotOpen
+    {
+        get => _systemSettingsDidNotOpen;
+        private set => SetProperty(ref _systemSettingsDidNotOpen, value);
+    }
+
     /// <summary>
     /// The request the run is waiting on, in the order the panel shows them.
     /// Identity is the request's own id, so the same request republished by a
@@ -1820,7 +1889,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
     public object? PendingDecisionId =>
         (object?)PendingApproval?.Id
         ?? (object?)PendingQuestion?.Id
-        ?? PendingCapabilityRequest?.Id;
+        ?? (object?)PendingCapabilityRequest?.Id
+        ?? PendingDesktopAccess?.Id;
 
     public bool CanDecideCapabilityRequest =>
         PendingCapabilityRequest is not null
@@ -2436,6 +2506,32 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             request,
             new GovernedAgentCapabilityDecision.KeepOff(),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// Opens the list in System Settings where Asura is turned on. Asura
+    /// changes nothing there; the waiting call notices the grant by itself.
+    /// </summary>
+    public async Task OpenDesktopAccessSettingsAsync()
+    {
+        if (PendingDesktopAccess is not { OffersSystemSettings: true } || _openMacSystemSettings is not { } open)
+        {
+            return;
+        }
+
+        var opened = await open(AgentDesktopAccessSettingsViewModel.MacAccessibilitySettings);
+        await _dispatcher.InvokeAsync(() => SystemSettingsDidNotOpen = !opened, CancellationToken.None);
+    }
+
+    /// <summary>Stops waiting for the grant; the agent hears that access wasn't granted.</summary>
+    public async Task DismissDesktopAccessAsync(CancellationToken cancellationToken)
+    {
+        if (PendingDesktopAccess is not { } request)
+        {
+            return;
+        }
+
+        _ = await _runtime.DismissDesktopAccessRequestAsync(request.Id, cancellationToken);
     }
 
     public async Task StopAsync(CancellationToken cancellationToken)
@@ -3259,6 +3355,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             : null;
         PendingCapabilityRequest = CreateCapabilityRequest(
             snapshot.PendingCapabilityRequest);
+        PendingDesktopAccess = snapshot.PendingDesktopAccess is { } access
+            ? PendingDesktopAccess?.Id == access.Id
+                ? PendingDesktopAccess
+                : new AgentDesktopAccessCardViewModel(
+                    access.Id,
+                    _macSystemSettingsList,
+                    _openMacSystemSettings is not null)
+            : null;
         var selectedConversationRunId = snapshot.SelectedConversationRunId
             ?? snapshot.RunId;
         var auditRunChanged = _auditRunId != selectedConversationRunId;
