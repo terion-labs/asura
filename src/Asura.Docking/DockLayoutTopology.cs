@@ -10,14 +10,22 @@ public static class DockLayoutTopology
 {
     /// <summary>
     /// Removes empty proportional branches, dissolves branches that no longer
-    /// split anything, drops splitters with nothing on one side, and gives
-    /// singleton branches the full share of their parent. Dock deliberately
+    /// split anything, drops splitters with nothing on one side, and makes the
+    /// shares of every split fill it. Dock deliberately
     /// preserves non-collapsible containers, so every rearrangement has to
     /// enforce these invariants: a panel dragged away and back otherwise left
     /// one more single-child or same-direction split behind each time.
     /// </summary>
+    /// <param name="isCollapsed">
+    /// Which children are collapsed out of their split. They keep their share
+    /// for when they come back and the others fill the split without them,
+    /// as Dock's own panel lays them out.
+    /// </param>
     /// <returns>Whether the layout changed.</returns>
-    public static bool Normalize(IFactory factory, IRootDock root)
+    public static bool Normalize(
+        IFactory factory,
+        IRootDock root,
+        Func<IDockable, bool>? isCollapsed = null)
     {
         ArgumentNullException.ThrowIfNull(factory);
         ArgumentNullException.ThrowIfNull(root);
@@ -42,20 +50,57 @@ public static class DockLayoutTopology
 
         foreach (var dock in Enumerate(root).OfType<IProportionalDock>())
         {
-            var panels = (dock.VisibleDockables ?? [])
-                .Where(dockable => dockable is not IProportionalDockSplitter)
-                .ToArray();
-            if (panels.Length != 1)
-            {
-                continue;
-            }
-
-            panels[0].Proportion = 1d;
-            panels[0].CollapsedProportion = 1d;
+            changed |= FillShares(dock, isCollapsed ?? (static _ => false));
         }
 
         NormalizeSelections(root);
         return changed;
+    }
+
+    /// <summary>
+    /// Makes the shown children's shares add up to the whole split. Dock's
+    /// panel does this as it measures, but only on screen and only for that
+    /// pass; the published app draws the shares the model holds, so a split
+    /// whose shares fall short shows the rest as blank space at its far edge.
+    /// Closing a panel takes its share with it, and a new split leaves the
+    /// new side's share unset. An unset share takes what the others leave,
+    /// as Dock reads it, and then all are scaled to fill, keeping their
+    /// sizes relative to each other.
+    /// </summary>
+    private static bool FillShares(IProportionalDock dock, Func<IDockable, bool> isCollapsed)
+    {
+        var shown = Panels(dock).Where(child => !isCollapsed(child)).ToArray();
+        if (shown.Length == 0)
+        {
+            return false;
+        }
+
+        static bool IsSet(double share) => double.IsFinite(share) && share > 0;
+        var set = shown.Where(child => IsSet(child.Proportion)).ToArray();
+        var unset = shown.Length - set.Length;
+        if (unset == 0 && Math.Abs(set.Sum(child => child.Proportion) - 1d) < 1e-9)
+        {
+            return false;
+        }
+
+        var setTotal = set.Sum(child => child.Proportion);
+        var left = 1d - setTotal;
+        var unsetShare = unset == 0
+            ? 0d
+            : left > 1e-6
+                ? left / unset
+                : set.Length == 0 ? 1d / shown.Length : setTotal / set.Length;
+        var shares = shown
+            .Select(child => IsSet(child.Proportion) ? child.Proportion : unsetShare)
+            .ToArray();
+        var total = shares.Sum();
+        for (var index = 0; index < shown.Length; index++)
+        {
+            shown[index].Proportion = shares[index] / total;
+            shown[index].CollapsedProportion = shown[index].Proportion;
+        }
+
+        return true;
     }
 
     /// <summary>

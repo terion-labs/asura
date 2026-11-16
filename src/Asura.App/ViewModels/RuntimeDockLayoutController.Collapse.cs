@@ -25,6 +25,9 @@ internal sealed partial class RuntimeDockLayoutController
     {
         ApplyExpandedProportions(Layout);
         _expandedProportions.Clear();
+        // A panel added while others were collapsed has no remembered share,
+        // so the remembered ones no longer fill their split on their own.
+        MutateTopology(static () => { });
     }
 
     private void ApplyExpandedProportions(IRootDock layout)

@@ -880,16 +880,16 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
                     Math.Max(1, target.LayoutColumnSpan),
                     Math.Max(1, target.LayoutRowSpan)),
                 new LayoutMinimumSize(target.LayoutMinimumWidth, target.LayoutMinimumHeight));
-            // Appended, not inserted where the placeholder sat. Where the panel is
-            // drawn comes from the layout assigned above, not from its position in
-            // this list — and that position is compared index by index against the
-            // session host's own order, which appends. Slotting it into the
-            // placeholder's index put the two lists out of step and every later
-            // receipt was rejected as a mismatched graph.
+            // Put where the placeholder sat, not appended. This list is compared
+            // index by index against the session host's own order, and the host
+            // swaps the panel into the placeholder's slot
+            // (MainWindowViewModel.ReplaceRuntimePanel). Appending matched only
+            // while the placeholder happened to be last; answering an older one
+            // put the two lists out of step, the host's next event was refused
+            // as a different graph, and every change after it failed.
             _dockLayout.ReplacePlaceholder(target, panel);
             target.Dispose();
-            Panels.Remove(target);
-            Panels.Add(panel);
+            Panels[Panels.IndexOf(target)] = panel;
             ActivatePanel(panel.Id);
             NotifyPanelLayoutChanged();
             return;

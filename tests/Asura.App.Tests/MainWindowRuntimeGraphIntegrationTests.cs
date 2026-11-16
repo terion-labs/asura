@@ -5399,6 +5399,49 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         Assert.Null(viewModel.OperationError);
     }
 
+    /// <summary>
+    /// Answering a placed cell that is not the newest one: a cell left empty
+    /// when Add Panel was dismissed, filled after another was placed and
+    /// filled. The host swaps the panel into the cell's slot; the window used
+    /// to append it, so the two orders parted, the host's next event was
+    /// refused as a different graph, and every change after it failed.
+    /// </summary>
+    [Fact]
+    public async Task Answering_an_older_placed_cell_keeps_the_panel_order_the_host_has()
+    {
+        var (client, recorder) = CreateSessionClient();
+        using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+        Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+        var tab = viewModel.RuntimeWorkspace!.ActiveTab!;
+
+        Assert.True(await viewModel.AddPlaceholderPanelAsync(PanelSide.Right));
+        var older = Assert.Single(tab.Panels.OfType<PanelPlaceholderViewModel>());
+        Assert.True(await viewModel.AddPlaceholderPanelAsync(PanelSide.Bottom));
+        var newer = Assert.Single(
+            tab.Panels.OfType<PanelPlaceholderViewModel>(),
+            placeholder => placeholder.Id != older.Id);
+        tab.ReplaceTarget = newer.Id;
+        Assert.True(await viewModel.AddDatabasePanelAsync());
+        AssertSameOrderAsHost();
+
+        tab.ReplaceTarget = older.Id;
+        Assert.True(await viewModel.AddDatabasePanelAsync());
+        AssertSameOrderAsHost();
+        Assert.Empty(tab.Panels.OfType<PanelPlaceholderViewModel>());
+
+        Assert.True(await viewModel.AddPlaceholderPanelAsync(PanelSide.Left));
+        AssertSameOrderAsHost();
+        Assert.Null(viewModel.OperationError);
+
+        void AssertSameOrderAsHost()
+        {
+            var hosted = Assert.IsType<WorkspaceGraphSnapshot>(recorder.CurrentWorkspace).Workspace;
+            Assert.Equal(
+                hosted.Tabs.Single(candidate => candidate.Id == tab.Id).Panels.Select(panel => panel.Id),
+                tab.Panels.Select(panel => panel.Id));
+        }
+    }
+
     [Fact]
     public async Task First_panel_selected_in_a_launcher_sets_its_tab_name_and_icon()
     {
