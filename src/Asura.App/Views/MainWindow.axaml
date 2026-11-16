@@ -225,26 +225,6 @@
       <Setter Property="MaxHeight" Value="{x:Static sys:Double.PositiveInfinity}" />
       <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
       <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
-      <!-- It grows from the corner that sits under the "+". The resting scale
-           is written out so there is a value to move from. -->
-      <Setter Property="RenderTransformOrigin" Value="100%,0%" />
-      <Setter Property="RenderTransform" Value="scale(1)" />
-      <Setter Property="Transitions">
-        <Transitions>
-          <DoubleTransition
-              Property="Opacity"
-              Duration="{x:Static controls:MotionTokens.Popover}"
-              Easing="{x:Static controls:MotionTokens.EaseOut}" />
-          <TransformOperationsTransition
-              Property="RenderTransform"
-              Duration="{x:Static controls:MotionTokens.Popover}"
-              Easing="{x:Static controls:MotionTokens.EaseOut}" />
-        </Transitions>
-      </Setter>
-    </Style>
-    <Style Selector="FlyoutPresenter.AddPanelChooser.arriving">
-      <Setter Property="Opacity" Value="0" />
-      <Setter Property="RenderTransform" Value="scale(0.96)" />
     </Style>
   </Window.Styles>
 

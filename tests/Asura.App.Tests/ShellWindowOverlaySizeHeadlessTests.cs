@@ -77,13 +77,18 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
         Assert.DoesNotContain(MainWindow.AnchorOpenClass, anchor.Classes, StringComparer.Ordinal);
     });
 
+    /// <summary>
+    /// Opened from the "+" menu, the popover grows from the corner under the
+    /// "+". The growth runs on the compositor, so the UI thread's own copy of
+    /// the presenter stays at rest: it is never held clear or shrunk there,
+    /// where a busy UI thread would freeze it.
+    /// </summary>
     [Fact]
-    public Task Add_Panel_clicked_open_grows_from_its_button_and_lets_go_of_its_arriving_look() =>
+    public Task Add_Panel_opened_from_the_plus_menu_grows_from_its_button_on_the_compositor() =>
         RunInSmallWindowAsync(async window =>
         {
             Assert.DoesNotContain("motion-disabled", window.Classes, StringComparer.Ordinal);
-            await window.ShowNewPanelChooserAsync(fromPointer: true);
-            Settle(window);
+            await OpenFromPlusMenuAsync(window);
 
             Assert.True(window.IsAddPanelChooserOpen);
             var anchor = Assert.Single(
@@ -92,22 +97,64 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
             Assert.Equal("AddPanelButton", anchor.Name);
             var presenter = ChooserPresenter(window);
             Assert.Contains("AddPanelChooser", presenter.Classes, StringComparer.Ordinal);
-            // The presenter's own classes, not only the flyout's list that
-            // is copied onto it: kept there, the popover would stay clear.
-            Assert.DoesNotContain(MainWindow.ArrivingClass, presenter.Classes, StringComparer.Ordinal);
+            Assert.Equal(1, presenter.Opacity);
+            Assert.Null(presenter.Transitions);
 
-            var transitions = Assert.IsType<Avalonia.Animation.Transitions>(presenter.Transitions);
-            var fade = Assert.Single(
-                transitions.OfType<Avalonia.Animation.DoubleTransition>(),
-                transition => transition.Property == Visual.OpacityProperty);
-            var grow = Assert.Single(
-                transitions.OfType<Avalonia.Animation.TransformOperationsTransition>(),
-                transition => transition.Property == Visual.RenderTransformProperty);
-            Assert.Equal(TimeSpan.FromMilliseconds(150), fade.Duration);
-            Assert.Equal(TimeSpan.FromMilliseconds(150), grow.Duration);
-            Assert.Same(Asura.App.Controls.MotionTokens.EaseOut, fade.Easing);
-            Assert.Same(Asura.App.Controls.MotionTokens.EaseOut, grow.Easing);
+            var visual = Assert.IsAssignableFrom<Avalonia.Rendering.Composition.CompositionVisual>(
+                Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(presenter));
+            Assert.True(presenter.Bounds.Width > 0);
+            Assert.Equal(new Avalonia.Vector3D(presenter.Bounds.Width, 0, 0), visual.CenterPoint);
         });
+
+    /// <summary>
+    /// Pressing the "+" again while its popover is open closes the popover.
+    /// The press reaches the button through the popover, and it used to open
+    /// the edge menu on top of the popover still showing.
+    /// </summary>
+    [Fact]
+    public Task Pressing_the_plus_again_closes_Add_Panel_rather_than_opening_its_menu_over_it() =>
+        RunInSmallWindowAsync(async window =>
+        {
+            await OpenFromPlusMenuAsync(window);
+            Assert.True(window.IsAddPanelChooserOpen);
+            var button = PlusButton(window);
+            var center = button.TranslatePoint(
+                new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
+                window)!.Value;
+
+            window.MouseDown(center, Avalonia.Input.MouseButton.Left);
+            window.MouseUp(center, Avalonia.Input.MouseButton.Left);
+            Settle(window);
+
+            Assert.False(window.IsAddPanelChooserOpen);
+            Assert.False(button.Flyout!.IsOpen);
+            Assert.DoesNotContain(MainWindow.AnchorOpenClass, button.Classes, StringComparer.Ordinal);
+
+            // With nothing open, the next press opens the edge menu as before.
+            window.MouseDown(center, Avalonia.Input.MouseButton.Left);
+            window.MouseUp(center, Avalonia.Input.MouseButton.Left);
+            Settle(window);
+            Assert.True(button.Flyout.IsOpen);
+        });
+
+
+    private static Button PlusButton(MainWindow window) =>
+        window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AddPanelButton");
+
+    /// <summary>Opens Add Panel as a person does: the "+", then an edge.</summary>
+    private static async Task OpenFromPlusMenuAsync(MainWindow window)
+    {
+        var button = PlusButton(window);
+        var menu = Assert.IsType<MenuFlyout>(button.Flyout);
+        menu.ShowAt(button);
+        Settle(window);
+        menu.Items.OfType<MenuItem>().First().RaiseEvent(
+            new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        menu.Hide();
+        Settle(window);
+        await Task.Delay(50);
+        Settle(window);
+    }
 
     [Fact]
     public Task Add_Panel_opened_from_the_keyboard_is_there_at_once() => RunInSmallWindowAsync(async window =>
@@ -115,10 +162,11 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
         await window.ShowNewPanelChooserAsync();
         var presenter = ChooserPresenter(window);
 
-        // Never given the arriving look, it has nothing to grow from: it is
-        // fully drawn the moment it opens.
-        Assert.DoesNotContain(MainWindow.ArrivingClass, presenter.Classes, StringComparer.Ordinal);
+        // Never grown, it is fully drawn the moment it opens.
         Assert.Equal(1, presenter.Opacity);
+        var visual = Assert.IsAssignableFrom<Avalonia.Rendering.Composition.CompositionVisual>(
+            Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(presenter));
+        Assert.Equal(default, visual.CenterPoint);
     });
 
     [Fact]

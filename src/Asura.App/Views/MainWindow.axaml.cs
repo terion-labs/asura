@@ -800,7 +800,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
-        await ShowNewPanelChooserAsync(fromPointer: true);
+        await ShowNewPanelChooserAsync();
     }
 
     private async void OnShowLayoutDesignerClick(object? sender, RoutedEventArgs e)

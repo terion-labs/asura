@@ -285,7 +285,7 @@ public sealed class ThemeComponentHeadlessTests
             Assert.Contains(SettledTransitions.ClassName, toggle.Classes, StringComparer.Ordinal);
             var chevron = Part<SymbolIcon>(toggle, "Chevron");
             var turn = Assert.IsType<TransformOperationsTransition>(Assert.Single(chevron.Transitions!));
-            Assert.Equal(TimeSpan.FromMilliseconds(120), turn.Duration);
+            Assert.Equal(TimeSpan.FromMilliseconds(180), turn.Duration);
         });
 
     private static void AssertTurned(Visual chevron, double degrees)
@@ -778,7 +778,7 @@ public sealed class ThemeComponentHeadlessTests
             Assert.Contains(SettledTransitions.ClassName, toggle.Classes, StringComparer.Ordinal);
             var knob = Part<Border>(toggle, "SwitchKnob");
             var slide = Assert.IsType<TransformOperationsTransition>(Assert.Single(knob.Transitions!));
-            Assert.Equal(TimeSpan.FromMilliseconds(150), slide.Duration);
+            Assert.Equal(TimeSpan.FromMilliseconds(200), slide.Duration);
 
             var still = new Window { Width = 600, Height = 600 };
             try

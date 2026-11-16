@@ -588,7 +588,7 @@ public sealed partial class MainWindow
             if (await ViewModel.AddPlaceholderPanelAsync(side, _lifetime.Token))
             {
                 // Then what goes there, in a popover on the "+" that asked.
-                ShowNewPanelChooser(AddPanelButton());
+                ShowNewPanelChooser(AddPanelButton(), fromPlusMenu: true);
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

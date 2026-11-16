@@ -1690,7 +1690,7 @@
         <TransformOperationsTransition
             Property="RenderTransform"
             Duration="{x:Static controls:MotionTokens.Toggle}"
-            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
       </Transitions>
     </Setter>
   </Style>
@@ -1700,11 +1700,11 @@
         <BrushTransition
             Property="Background"
             Duration="{x:Static controls:MotionTokens.Toggle}"
-            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
         <BrushTransition
             Property="BorderBrush"
             Duration="{x:Static controls:MotionTokens.Toggle}"
-            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
       </Transitions>
     </Setter>
   </Style>
@@ -1822,7 +1822,7 @@
         <TransformOperationsTransition
             Property="RenderTransform"
             Duration="{x:Static controls:MotionTokens.Disclosure}"
-            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
       </Transitions>
     </Setter>
   </Style>
@@ -2033,7 +2033,7 @@
         <TransformOperationsTransition
             Property="RenderTransform"
             Duration="{x:Static controls:MotionTokens.Disclosure}"
-            Easing="{x:Static controls:MotionTokens.EaseOut}" />
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
       </Transitions>
     </Setter>
   </Style>
