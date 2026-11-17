@@ -27,8 +27,14 @@ public static class MotionTokens
     /// <summary>A notice arriving.</summary>
     public static TimeSpan Arrive { get; } = TimeSpan.FromMilliseconds(200);
 
-    /// <summary>A popover growing from its button.</summary>
-    public static TimeSpan Popover { get; } = TimeSpan.FromMilliseconds(200);
+    /// <summary>A placed cell growing into its share of a split.</summary>
+    public static TimeSpan CellOpen { get; } = TimeSpan.FromMilliseconds(180);
+
+    /// <summary>
+    /// The space a closed panel leaves closing up: as long as a cell opening,
+    /// so the two read as the same motion run either way.
+    /// </summary>
+    public static TimeSpan CellClose { get; } = CellOpen;
 
     /// <summary>A cancelled drag going back where it came from.</summary>
     public static TimeSpan Return { get; } = TimeSpan.FromMilliseconds(250);

@@ -78,32 +78,25 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     });
 
     /// <summary>
-    /// Opened from the "+" menu, the popover grows from the corner under the
-    /// "+". The growth runs on the compositor, so the UI thread's own copy of
-    /// the presenter stays at rest: it is never held clear or shrunk there,
-    /// where a busy UI thread would freeze it.
+    /// Choosing an edge in the "+" menu places an empty panel there, which
+    /// asks what to open itself. The Add Panel popover does not open over it.
     /// </summary>
     [Fact]
-    public Task Add_Panel_opened_from_the_plus_menu_grows_from_its_button_on_the_compositor() =>
+    public Task Choosing_an_edge_in_the_plus_menu_places_an_empty_panel_without_the_popover() =>
         RunInSmallWindowAsync(async window =>
         {
-            Assert.DoesNotContain("motion-disabled", window.Classes, StringComparer.Ordinal);
-            await OpenFromPlusMenuAsync(window);
+            var viewModel = (MainWindowViewModel)window.DataContext!;
+            var panels = viewModel.RuntimeWorkspace!.ActiveTab!.Panels.Count;
 
-            Assert.True(window.IsAddPanelChooserOpen);
-            var anchor = Assert.Single(
+            await ChooseEdgeInPlusMenuAsync(window);
+
+            var tab = viewModel.RuntimeWorkspace!.ActiveTab!;
+            Assert.Equal(panels + 1, tab.Panels.Count);
+            Assert.IsType<PanelPlaceholderViewModel>(tab.ActivePanel);
+            Assert.False(window.IsAddPanelChooserOpen);
+            Assert.DoesNotContain(
                 window.GetVisualDescendants().OfType<Control>(),
                 control => control.Classes.Contains(MainWindow.AnchorOpenClass));
-            Assert.Equal("AddPanelButton", anchor.Name);
-            var presenter = ChooserPresenter(window);
-            Assert.Contains("AddPanelChooser", presenter.Classes, StringComparer.Ordinal);
-            Assert.Equal(1, presenter.Opacity);
-            Assert.Null(presenter.Transitions);
-
-            var visual = Assert.IsAssignableFrom<Avalonia.Rendering.Composition.CompositionVisual>(
-                Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(presenter));
-            Assert.True(presenter.Bounds.Width > 0);
-            Assert.Equal(new Avalonia.Vector3D(presenter.Bounds.Width, 0, 0), visual.CenterPoint);
         });
 
     /// <summary>
@@ -115,7 +108,8 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     public Task Pressing_the_plus_again_closes_Add_Panel_rather_than_opening_its_menu_over_it() =>
         RunInSmallWindowAsync(async window =>
         {
-            await OpenFromPlusMenuAsync(window);
+            await window.ShowNewPanelChooserAsync();
+            Settle(window);
             Assert.True(window.IsAddPanelChooserOpen);
             var button = PlusButton(window);
             var center = button.TranslatePoint(
@@ -141,8 +135,8 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     private static Button PlusButton(MainWindow window) =>
         window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AddPanelButton");
 
-    /// <summary>Opens Add Panel as a person does: the "+", then an edge.</summary>
-    private static async Task OpenFromPlusMenuAsync(MainWindow window)
+    /// <summary>Chooses the first edge in the "+" button's menu, as a person does.</summary>
+    private static async Task ChooseEdgeInPlusMenuAsync(MainWindow window)
     {
         var button = PlusButton(window);
         var menu = Assert.IsType<MenuFlyout>(button.Flyout);

@@ -576,9 +576,10 @@ public sealed partial class MainWindow
     }
 
     /// <summary>
-    /// Places an empty panel against an edge of the canvas, then asks what to
-    /// open in it from the Add Panel popover on the "+". Dismissing the popover
-    /// leaves the empty panel, which asks the same question itself.
+    /// Places an empty panel against an edge of the canvas. The panel asks
+    /// what to open in it. The Add Panel popover no longer opens over it as
+    /// well: it was built in the same frames the cell was placed and grew in,
+    /// and held the UI thread through them.
     /// </summary>
     private async void OnAddPanelToSideRequested(object? sender, PanelSide side)
     {
@@ -587,8 +588,7 @@ public sealed partial class MainWindow
         {
             if (await ViewModel.AddPlaceholderPanelAsync(side, _lifetime.Token))
             {
-                // Then what goes there, in a popover on the "+" that asked.
-                ShowNewPanelChooser(AddPanelButton(), fromPlusMenu: true);
+                FocusActivePanel();
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)

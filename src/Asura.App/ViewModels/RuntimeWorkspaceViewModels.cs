@@ -511,6 +511,20 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
 
     public int DockLayoutRevision => _dockLayout.Revision;
 
+    /// <summary>
+    /// The frames placed and closed cells move on, from the view showing this
+    /// tab. Without it they take their place at once.
+    /// </summary>
+    internal ICellMotionClock? CellMotionClock
+    {
+        get => _dockLayout.MotionClock;
+        set
+        {
+            _dockLayout.FinishCellMotion();
+            _dockLayout.MotionClock = value;
+        }
+    }
+
     public string SerializeDockLayout() => _dockLayout.Serialize();
 
     public PanelInstanceId? ActivePanelId

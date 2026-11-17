@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views.Components;
@@ -25,7 +26,7 @@ public sealed class PanelPlaceholderHeadlessTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
         Assert.True(await session.Dispatch(
-            () =>
+            async () =>
             {
                 var window = new Window { Width = 1200, Height = 1200 };
                 try
@@ -41,8 +42,16 @@ public sealed class PanelPlaceholderHeadlessTests
                     Assert.Single(cell.GetVisualDescendants().OfType<PanelChrome>());
                     Assert.Empty(cell.GetVisualDescendants().OfType<LauncherView>());
 
-                    Dispatcher.UIThread.RunJobs();
-                    window.UpdateLayout();
+                    // It waits for the cell's size to hold, which takes a
+                    // short timer even when nothing is moving.
+                    var waited = Stopwatch.StartNew();
+                    while (!cell.GetVisualDescendants().OfType<LauncherView>().Any()
+                        && waited.Elapsed < TimeSpan.FromSeconds(5))
+                    {
+                        await Task.Delay(10);
+                        Dispatcher.UIThread.RunJobs();
+                        window.UpdateLayout();
+                    }
 
                     var launcher = Assert.Single(cell.GetVisualDescendants().OfType<LauncherView>());
                     var terminal = Assert.Single(

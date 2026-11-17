@@ -192,6 +192,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {
@@ -255,6 +257,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {
@@ -414,6 +418,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {

@@ -130,6 +130,7 @@ internal sealed partial class RuntimeDockLayoutController
             }
         });
 
+        GrowFromSliver(leaf);
         Activate(panel.Id);
         Changed();
     }
@@ -165,6 +166,7 @@ internal sealed partial class RuntimeDockLayoutController
             }
         });
 
+        GrowFromSliver(leaf);
         Activate(panel.Id);
         Changed();
     }
@@ -316,7 +318,11 @@ internal sealed partial class RuntimeDockLayoutController
         }
 
         _contexts.Remove(panelId.Value);
-        RemoveDocument(document);
+        if (!CloseToSliver(document))
+        {
+            RemoveDocument(document);
+        }
+
         Changed();
     }
 
@@ -365,6 +371,7 @@ internal sealed partial class RuntimeDockLayoutController
     /// <returns>Whether the repair after the mutation changed the layout.</returns>
     private bool MutateTopology(Action mutation)
     {
+        FinishCellMotion();
         var wasMutating = _isMutatingTopology;
         _isMutatingTopology = true;
         try
@@ -807,7 +814,7 @@ internal sealed partial class RuntimeDockLayoutController
             return;
         }
 
-        if (!_isMutatingTopology)
+        if (!_isMutatingTopology && !_isMovingShares)
         {
             Changed();
             QueueNormalization();
@@ -820,7 +827,7 @@ internal sealed partial class RuntimeDockLayoutController
     {
         _ = sender;
         _ = eventArgs;
-        if (!_isMutatingTopology)
+        if (!_isMutatingTopology && !_isMovingShares)
         {
             Changed();
             QueueNormalization();
