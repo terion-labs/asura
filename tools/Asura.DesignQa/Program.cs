@@ -429,12 +429,12 @@ internal sealed class QaApplication : Avalonia.Application
             vm.ShowWorkspace();
             vm.ShowOverlay(ShellOverlay.CommandPalette);
         }),
-        // Add Panel is a popover on the title band's "+" now, opened the way
+        // Add Panel is a menu on the title band's "+" now, opened the way
         // the menu command opens it.
         new(
             "overlay-new-panel",
             vm => vm.ShowWorkspace(),
-            PrepareCapture: OpenAddPanelPopover),
+            PrepareCapture: OpenAddPanelMenu),
         // Opened on a real layout: an empty designer hides every defect the
         // populated one would show.
         new("overlay-layout-designer", vm =>
@@ -1154,20 +1154,16 @@ internal sealed class QaApplication : Avalonia.Application
         s_undoAfterRoute.Add(() => manager.IsVisible = false);
     }
 
-    private static void OpenAddPanelPopover(MainWindow window)
+    private static void OpenAddPanelMenu(MainWindow window)
     {
-        _ = window.ShowNewPanelChooserAsync();
+        _ = window.ShowAddPanelMenuAsync();
         Dispatcher.UIThread.RunJobs();
-        if (!window.IsAddPanelChooserOpen)
+        if (window.AddPanelMenu is not { IsOpen: true } menu)
         {
-            throw new InvalidOperationException("The Add Panel popover did not open.");
+            throw new InvalidOperationException("The Add Panel menu did not open.");
         }
 
-        s_undoAfterRoute.Add(() =>
-            (typeof(MainWindow)
-                .GetField("_addPanelFlyout", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.GetValue(window) as Flyout)
-            ?.Hide());
+        s_undoAfterRoute.Add(menu.Hide);
     }
 
     private static void ShowSampleDragGhost(MainWindow window)

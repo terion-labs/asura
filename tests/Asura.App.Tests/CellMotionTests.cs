@@ -106,6 +106,86 @@ public sealed class CellMotionTests
         Assert.Equal(1d / 3, Cell(tab, placeholder).Proportion, 9);
     }
 
+    /// <summary>
+    /// A busy window draws less often than 60 times a second. Its frames count
+    /// in full, so the growth still takes its duration rather than slowing
+    /// down with the frame rate.
+    /// </summary>
+    [Fact]
+    public void Slow_frames_still_grow_the_cell_in_its_time()
+    {
+        var clock = new ManualClock { Frame = TimeSpan.FromMilliseconds(34) };
+        var tab = Tab(panels: 2, clock);
+        var placeholder = tab.AddPlaceholder(PanelSide.Right);
+
+        clock.Advance(MotionTokens.CellOpen + TimeSpan.FromMilliseconds(34));
+
+        Assert.Equal(1d / 3, Cell(tab, placeholder).Proportion, 9);
+        Assert.False(clock.HasPendingFrame);
+    }
+
+    [Fact]
+    public void A_closing_cell_shows_the_picture_of_its_panel_until_it_has_closed()
+    {
+        var picture = new Picture();
+        var clock = new ManualClock { Taken = picture };
+        var tab = Tab(panels: 3, clock);
+        var split = Cell(tab, tab.Panels[1]).Owner!;
+
+        Assert.True(tab.RemovePanel(tab.Panels[1].Id));
+
+        Assert.Contains(Cells(split), cell => ReferenceEquals(((IDock)cell).ActiveDockable?.Context, picture));
+        clock.Advance(MotionTokens.CellClose / 2);
+        Assert.False(picture.IsDisposed);
+        clock.Advance(MotionTokens.CellClose);
+        Assert.DoesNotContain(Cells(split), cell => ReferenceEquals(((IDock)cell).ActiveDockable?.Context, picture));
+        Assert.True(picture.IsDisposed);
+    }
+
+    /// <summary>
+    /// A terminal's session ends before the layout lets its panel go, and the
+    /// panel then reads as failed. The closing cell shows it as it was when
+    /// its close was asked for.
+    /// </summary>
+    [Fact]
+    public void A_closing_cell_shows_its_panel_as_it_was_when_the_close_was_asked_for()
+    {
+        var asked = new Picture();
+        var ended = new Picture();
+        var clock = new ManualClock { Taken = asked };
+        var tab = Tab(panels: 3, clock);
+        var closing = tab.Panels[1];
+        var split = Cell(tab, closing).Owner!;
+
+        tab.KeepClosingPicture(closing.Id);
+        clock.Taken = ended;
+        Assert.True(tab.RemovePanel(closing.Id));
+
+        Assert.Contains(Cells(split), cell => ReferenceEquals(((IDock)cell).ActiveDockable?.Context, asked));
+        clock.Advance(MotionTokens.CellClose * 2);
+        Assert.True(asked.IsDisposed);
+        Assert.False(ended.IsDisposed);
+    }
+
+    [Fact]
+    public void A_picture_kept_for_a_panel_that_stays_is_let_go()
+    {
+        var kept = new Picture();
+        var later = new Picture();
+        var clock = new ManualClock { Taken = kept };
+        var tab = Tab(panels: 3, clock);
+        var panel = tab.Panels[1];
+        var split = Cell(tab, panel).Owner!;
+
+        tab.KeepClosingPicture(panel.Id);
+        tab.DropClosingPicture(panel.Id);
+        Assert.True(kept.IsDisposed);
+
+        clock.Taken = later;
+        Assert.True(tab.RemovePanel(panel.Id));
+        Assert.Contains(Cells(split), cell => ReferenceEquals(((IDock)cell).ActiveDockable?.Context, later));
+    }
+
     [Fact]
     public void A_closed_panel_leaves_an_empty_cell_that_shrinks_away()
     {
@@ -206,16 +286,24 @@ public sealed class CellMotionTests
 
         public bool HasPendingFrame => _frame is not null;
 
+        /// <summary>How far apart <see cref="Advance"/> draws frames; 60 Hz unless set.</summary>
+        public TimeSpan Frame { get; init; } = TimeSpan.FromMilliseconds(16);
+
+        /// <summary>The picture <see cref="Picture"/> hands out, as if the cell looked like that now.</summary>
+        public object? Taken { get; set; }
+
         public void RequestFrame(Action onFrame) => _frame = onFrame;
 
         public void ShowShares(bool isMoving)
         {
         }
 
-        /// <summary>Runs the clock on by frames, as a window at 60 Hz does.</summary>
+        public object? Picture(IDockable cell) => Taken;
+
+        /// <summary>Runs the clock on by frames, <see cref="Frame"/> apart.</summary>
         public void Advance(TimeSpan by)
         {
-            var frame = TimeSpan.FromMilliseconds(16);
+            var frame = Frame;
             for (var left = by; left > TimeSpan.Zero; left -= frame)
             {
                 Stall(left < frame ? left : frame);
@@ -230,6 +318,13 @@ public sealed class CellMotionTests
             _frame = null;
             next?.Invoke();
         }
+    }
+
+    private sealed class Picture : IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose() => IsDisposed = true;
     }
 
     private sealed class ToleranceComparer(double tolerance) : IEqualityComparer<double>

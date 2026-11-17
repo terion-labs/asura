@@ -125,7 +125,6 @@ public sealed class RuntimeDockControlHeadlessTests
             Assert.Null(window.FindControl<ContentControl>("SettingsRouteHost"));
             Assert.IsType<SettingsView>(Build(window, "SettingsRouteTemplate"));
             Assert.IsType<CommandPaletteView>(Build(window, "CommandPaletteOverlayTemplate"));
-            Assert.IsType<NewPanelChooserView>(Build(window, "NewPanelChooserTemplate"));
             Assert.IsType<LayoutDesignerView>(Build(window, "LayoutDesignerTemplate"));
             Assert.IsType<WorkspaceEditorView>(Build(window, "WorkspaceEditorTemplate"));
             return Task.CompletedTask;

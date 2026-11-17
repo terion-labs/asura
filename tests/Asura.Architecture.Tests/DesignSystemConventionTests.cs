@@ -151,7 +151,6 @@ public sealed partial class DesignSystemConventionTests
         "src/Asura.App/Views/McpServerTrustConfirmationDialog.axaml",
         "src/Asura.App/Views/Overlays/CommandPaletteView.axaml",
         "src/Asura.App/Views/Overlays/LayoutDesignerView.axaml",
-        "src/Asura.App/Views/Overlays/NewPanelChooserView.axaml",
         "src/Asura.App/Views/QuickTerminalWindow.axaml",
         "src/Asura.App/Views/RecoveryDataControlView.axaml",
         "src/Asura.App/Views/SavedScreenEditorDialog.axaml",

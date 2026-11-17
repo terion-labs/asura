@@ -1,99 +1,48 @@
 using Asura.App.Controls;
-using Asura.App.ViewModels;
-using Asura.App.Views.Overlays;
-using Avalonia;
+using Asura.Core;
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
-using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 namespace Asura.App.Views;
 
 /// <summary>
-/// Add Panel, as a popover anchored to the "+" in the title band. It used to
-/// be a card over a blacked-out window that only Esc could close; a popover
-/// shows where the panel is coming from, keeps the workspace in view, and
-/// closes on Esc or a click anywhere else.
+/// Add Panel: the "+" menu in the title band, which asks what to open and
+/// then which edge it goes against. It replaced a popover of tiles that the
+/// "+" opened after asking the edge, and Add Panel… in the menu bar opens it
+/// too.
 /// </summary>
 public sealed partial class MainWindow
 {
-    private Flyout? _addPanelFlyout;
-    private Control? _addPanelFlyoutAnchor;
-
-    /// <summary>The class an anchor wears while its popover is open.</summary>
-    internal const string AnchorOpenClass = "anchorOpen";
-
-    /// <summary>Whether the Add Panel popover is showing.</summary>
-    internal bool IsAddPanelChooserOpen => _addPanelFlyout?.IsOpen == true;
-
-    /// <summary>The popover's content, once it has been opened.</summary>
-    internal NewPanelChooserView? AddPanelChooser => _newPanelChooserOverlay;
-
     /// <summary>
-    /// Add Panel… from the menu bar or its shortcut: the popover on the "+"
+    /// Add Panel… from the menu bar or its shortcut: the "+" menu, on the "+"
     /// when the title band shows it, otherwise on the active panel's header.
     /// </summary>
-    public Task ShowNewPanelChooserAsync()
-    {
-        ShowNewPanelChooser();
-        return Task.CompletedTask;
-    }
-
-    private void ShowNewPanelChooser()
+    public Task ShowAddPanelMenuAsync()
     {
         // The palette that asked has done its job.
         ViewModel.CloseOverlay();
         if (ViewModel.RuntimeWorkspace?.ActiveTab is null)
         {
             ViewModel.SetError("Open a workspace tab before adding a panel.");
-            return;
+            return Task.CompletedTask;
         }
 
         ViewModel.ShowWorkspace();
-        if (!ViewModel.IsWorkspaceVisible)
+        if (ViewModel.IsWorkspaceVisible
+            && this.FindControl<WorkspaceView>("WorkspaceRouteView") is { } workspace)
         {
-            return;
+            workspace.OpenAddPanelMenu(ActivePanelHeader() ?? workspace);
         }
 
-        var target = AddPanelAnchor();
-        if (target is null)
-        {
-            return;
-        }
-
-        var chooser = EnsureNewPanelChooser();
-        var flyout = _addPanelFlyout ??= CreateAddPanelFlyout(chooser);
-        var margin = this.TryFindResource("ShellSpaceXl", out var value) && value is double spacing
-            ? spacing
-            : 24;
-        chooser.FitTo(Bounds.Size, margin);
-        flyout.Placement = ReferenceEquals(target, AddPanelButton())
-            ? PlacementMode.BottomEdgeAlignedRight
-            : PlacementMode.Bottom;
-        // The "+" stays pressed while its popover is open, as a toolbar
-        // button that shows a popover does on macOS.
-        _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);
-        _addPanelFlyoutAnchor?.RemoveHandler(PointerPressedEvent, OnAddPanelAnchorPressed);
-        _addPanelFlyoutAnchor = target;
-        target.Classes.Add(AnchorOpenClass);
-        target.AddHandler(PointerPressedEvent, OnAddPanelAnchorPressed, RoutingStrategies.Tunnel);
-        flyout.ShowAt(target);
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// The "+" in the title band when it is showing; otherwise the header of
-    /// the active panel, or the workspace itself when no panel has one.
-    /// </summary>
-    private Control? AddPanelAnchor()
-    {
-        if (AddPanelButton() is { IsEffectivelyVisible: true } button)
-        {
-            return button;
-        }
+    /// <summary>The "+" menu, open or not.</summary>
+    internal MenuFlyout? AddPanelMenu =>
+        this.FindControl<WorkspaceView>("WorkspaceRouteView")?.AddPanelButton.Flyout as MenuFlyout;
 
-        var activePanel = ViewModel.ActivePanel;
-        var header = activePanel is null
+    private Control? ActivePanelHeader() =>
+        ViewModel.ActivePanel is not { } activePanel
             ? null
             : this.GetVisualDescendants()
                 .OfType<PanelChrome>()
@@ -102,100 +51,13 @@ public sealed partial class MainWindow
                 .OfType<Border>()
                 .FirstOrDefault(border => border.Classes.Contains("PanelHeader")
                     && border.IsEffectivelyVisible);
-        return header
-            ?? this.FindControl<WorkspaceView>("WorkspaceRouteView") as Control;
-    }
 
-    private Button? AddPanelButton() =>
-        this.FindControl<WorkspaceView>("WorkspaceRouteView")
-            ?.FindControl<Button>("AddPanelButton");
-
-    private NewPanelChooserView EnsureNewPanelChooser()
-    {
-        if (_newPanelChooserOverlay is { } existing)
-        {
-            return existing;
-        }
-
-        if (!Resources.TryGetResource("NewPanelChooserTemplate", ActualThemeVariant, out var resource)
-            || resource is not IDataTemplate template
-            || template.Build(ViewModel) is not NewPanelChooserView chooser)
-        {
-            throw new InvalidOperationException("The Add Panel chooser template is unavailable.");
-        }
-
-        chooser.DataContext = ViewModel;
-        // Choosing anything in it — a panel type, a connection, a screen, the
-        // Layout Designer — is the answer, so the popover goes once its
-        // button has done its work.
-        chooser.AddHandler(
-            Button.ClickEvent,
-            (_, _) => _addPanelFlyout?.Hide(),
-            RoutingStrategies.Bubble,
-            handledEventsToo: true);
-        _newPanelChooserOverlay = chooser;
-        return chooser;
-    }
-
-    private Flyout CreateAddPanelFlyout(NewPanelChooserView chooser)
-    {
-        var flyout = new Flyout
-        {
-            Content = chooser,
-            Placement = PlacementMode.BottomEdgeAlignedRight,
-            ShowMode = FlyoutShowMode.Standard,
-        };
-        flyout.FlyoutPresenterClasses.Add("AddPanelChooser");
-        flyout.Opened += (_, _) =>
-        {
-            chooser.FocusInitialAction();
-        };
-        flyout.Closed += (_, _) =>
-        {
-            _addPanelFlyoutAnchor?.Classes.Remove(AnchorOpenClass);
-            _addPanelFlyoutAnchor?.RemoveHandler(PointerPressedEvent, OnAddPanelAnchorPressed);
-            _addPanelFlyoutAnchor = null;
-            if (IsActive && ViewModel.ActivePanel is not null)
-            {
-                FocusActivePanel();
-            }
-        };
-        return flyout;
-    }
-
-    /// <summary>
-    /// A press on the button the popover hangs from closes the popover, as
-    /// pressing a toolbar button again does on macOS. Avalonia lets that press
-    /// through the popover to its own button, and the "+" would otherwise open
-    /// its edge menu on top of the popover it already has open.
-    /// </summary>
-    private void OnAddPanelAnchorPressed(object? sender, PointerPressedEventArgs e)
+    private async void OnAddPanelRequested(object? sender, AddPanelRequest request)
     {
         _ = sender;
-        if (_addPanelFlyout is { IsOpen: true } flyout)
-        {
-            e.Handled = true;
-            flyout.Hide();
-        }
-    }
-
-    /// <summary>
-    /// Adds what was chosen in the popover. When the active panel is an empty
-    /// one — just placed against an edge — the new panel takes its place
-    /// rather than landing beside it.
-    /// </summary>
-    private async Task AddPanelFromChooserAsync(Func<Task<bool>> create)
-    {
-        var tab = ViewModel.RuntimeWorkspace?.ActiveTab;
-        var placeholder = tab?.ActivePanel as PanelPlaceholderViewModel;
-        if (tab is not null && placeholder is not null)
-        {
-            tab.ReplaceTarget = placeholder.Id;
-        }
-
         try
         {
-            if (await create())
+            if (await AddPanelAsync(request))
             {
                 FocusActivePanel();
             }
@@ -203,12 +65,55 @@ public sealed partial class MainWindow
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
         {
         }
+    }
+
+    /// <summary>
+    /// Opens what was chosen against the chosen edge. The launcher is an empty
+    /// panel placed there; anything else is created as the launcher would
+    /// create it, and the tab puts it against that edge instead of appending
+    /// it.
+    /// </summary>
+    private async Task<bool> AddPanelAsync(AddPanelRequest request)
+    {
+        if (request.Choice is AddPanelChoice.Launcher)
+        {
+            return await ViewModel.AddPlaceholderPanelAsync(request.Side, _lifetime.Token);
+        }
+
+        if (ViewModel.RuntimeWorkspace?.ActiveTab is not { } tab)
+        {
+            ViewModel.SetError("Open a workspace tab before adding a panel.");
+            return false;
+        }
+
+        tab.PlacementSide = request.Side;
+        try
+        {
+            return await (request.Choice switch
+            {
+                AddPanelChoice.Panel panel => CreatePanelAsync(panel.Kind),
+                AddPanelChoice.Connection connection =>
+                    ViewModel.AddSavedConnectionPanelAsync(connection.Launch, _lifetime.Token),
+                _ => Task.FromResult(false),
+            });
+        }
         finally
         {
-            if (tab is not null && placeholder is not null && tab.ReplaceTarget == placeholder.Id)
-            {
-                tab.ReplaceTarget = null;
-            }
+            tab.PlacementSide = null;
         }
     }
+
+    private Task<bool> CreatePanelAsync(PanelKind kind) => kind switch
+    {
+        PanelKind.Terminal => ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token),
+        PanelKind.Browser => ViewModel.AddBrowserPanelAsync(_lifetime.Token),
+        PanelKind.Statistics => ViewModel.AddStatisticsPanelAsync(_lifetime.Token),
+        PanelKind.FileViewer => ViewModel.AddFilePanelAsync(_lifetime.Token),
+        PanelKind.ProcessMonitor => ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token),
+        PanelKind.DatabaseViewer => ViewModel.AddDatabasePanelAsync(_lifetime.Token),
+        PanelKind.Docker => ViewModel.AddDockerPanelAsync(_lifetime.Token),
+        PanelKind.Kubernetes => ViewModel.AddKubernetesPanelAsync(_lifetime.Token),
+        PanelKind.Git => ViewModel.AddGitPanelAsync(_lifetime.Token),
+        _ => Task.FromResult(false),
+    };
 }

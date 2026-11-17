@@ -303,12 +303,6 @@ public sealed partial class WorkspaceView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ShowNewPanelRequested;
 
-    /// <summary>
-    /// Which edge the user chose for a new panel. The view forwards the side; the
-    /// shell places an empty panel there and lets it ask what to open.
-    /// </summary>
-    public event EventHandler<PanelSide>? AddPanelToSideRequested;
-
     public event EventHandler<RoutedEventArgs>? LockShellRequested;
 
     public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
@@ -519,30 +513,6 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnShowNewPanelClick(object? sender, RoutedEventArgs e) =>
         ShowNewPanelRequested?.Invoke(sender, e);
-
-    private void OnAddPanelLeftClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        AddPanelToSideRequested?.Invoke(sender, PanelSide.Left);
-    }
-
-    private void OnAddPanelRightClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        AddPanelToSideRequested?.Invoke(sender, PanelSide.Right);
-    }
-
-    private void OnAddPanelTopClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        AddPanelToSideRequested?.Invoke(sender, PanelSide.Top);
-    }
-
-    private void OnAddPanelBottomClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        AddPanelToSideRequested?.Invoke(sender, PanelSide.Bottom);
-    }
 
     private void OnLockShellClick(object? sender, RoutedEventArgs e) =>
         LockShellRequested?.Invoke(sender, e);

@@ -33,7 +33,7 @@ appearance override the way its header does; a route that names a disclosure
 opens it. Workspace-editor routes and
 `overlay-layout-designer` render the Settings window showing the editor,
 opened the way the product opens it. `overlay-new-panel`
-is the Add Panel popover on the title band's "+".
+is the Add Panel menu on the title band's "+".
 
 A route that throws is logged as `FAILED <route>: <error>` and the run carries
 on with the next route. The run still exits non-zero, lists every failed route

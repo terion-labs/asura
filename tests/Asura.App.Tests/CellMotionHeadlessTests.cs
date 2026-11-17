@@ -4,10 +4,12 @@ using Asura.App.Views;
 using Asura.App.Views.Components;
 using Asura.App.Views.RuntimePanels;
 using Asura.Core;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Dock.Model.Controls;
 
 namespace Asura.App.Tests;
 
@@ -49,6 +51,46 @@ public sealed class CellMotionHeadlessTests
             Assert.InRange(widths[^1], 1180, 1200);
         });
 
+    /// <summary>
+    /// The cell of a closed panel keeps showing the panel, at the size it had,
+    /// while it shrinks, rather than going blank and then closing.
+    /// </summary>
+    [Fact]
+    public Task A_closing_cell_shows_its_panel_at_the_size_it_had() =>
+        WithCanvasAsync(async (tab, canvas, window) =>
+        {
+            var first = tab.Panels.Single();
+            var placed = Assert.IsType<PanelPlaceholderViewModel>(
+                tab.SplitWithPlaceholder(first.Id, PanelSplitOrientation.LeftRight));
+            _ = await WatchAsync(window, () => Width(canvas, placed));
+            var resting = canvas.GetVisualDescendants()
+                .OfType<RuntimePanelContentControl>()
+                .Single(view => ReferenceEquals(view.Content, placed))
+                .Bounds.Size;
+
+            Assert.True(tab.RemovePanel(placed.Id));
+            var frames = new List<(Size Picture, double Cell)>();
+            var watched = Stopwatch.StartNew();
+            while (watched.Elapsed < TimeSpan.FromMilliseconds(400))
+            {
+                window.UpdateLayout();
+                if (canvas.GetVisualDescendants()
+                        .OfType<RuntimePanelContentControl>()
+                        .SingleOrDefault(view => view.Content is Control { IsHitTestVisible: false })
+                    is { } closing)
+                {
+                    var picture = Assert.IsType<CellPicture>(((IDocumentDock)closing.DataContext!).ActiveDockable!.Context);
+                    frames.Add((picture.Size, closing.Bounds.Width));
+                }
+
+                await Task.Delay(8);
+                Dispatcher.UIThread.RunJobs();
+            }
+
+            Assert.NotEmpty(frames);
+            Assert.All(frames, frame => Assert.Equal(resting, frame.Picture));
+            Assert.Contains(frames, frame => frame.Cell < resting.Width / 2);
+        });
 
     /// <summary>
     /// Placing a cell beside an empty one makes Dock rebuild the empty cell's

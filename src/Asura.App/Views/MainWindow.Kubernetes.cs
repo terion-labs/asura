@@ -29,13 +29,6 @@ public sealed partial class MainWindow
         if (saved is not null) { _ = ViewModel.ReplaceKubernetesPanelConnection(panel, saved.Id); }
     }
 
-    private async void OnAddKubernetesPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddKubernetesPanelAsync(_lifetime.Token));
-    }
-
     private async void OnPlaceholderKubernetesClick(object? sender, RoutedEventArgs e) =>
         await ChoosePanelFromLauncherAsync(sender, () => ViewModel.AddKubernetesPanelAsync(_lifetime.Token));
 

@@ -311,15 +311,18 @@ internal sealed partial class RuntimeDockLayoutController
 
     public void Remove(PanelInstanceId panelId)
     {
+        _closingPictures.Remove(panelId.Value, out var picture);
         var document = FindDocument(panelId.Value);
         if (document is null)
         {
+            (picture as IDisposable)?.Dispose();
             return;
         }
 
         _contexts.Remove(panelId.Value);
-        if (!CloseToSliver(document))
+        if (!CloseToSliver(document, picture))
         {
+            (picture as IDisposable)?.Dispose();
             RemoveDocument(document);
         }
 

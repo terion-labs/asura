@@ -68,18 +68,22 @@ public sealed class WorkspaceChromeHeadlessTests
         RunInMainWindowAsync(async window =>
         {
             var viewModel = (MainWindowViewModel)window.DataContext!;
-            await window.ShowNewPanelChooserAsync();
+            await window.ShowAddPanelMenuAsync();
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
-            // A popover, not an overlay: nothing covers the workspace.
-            Assert.True(window.IsAddPanelChooserOpen);
+            // A menu, not an overlay: nothing covers the workspace.
+            var menu = Assert.IsAssignableFrom<MenuFlyout>(window.GetVisualDescendants()
+                .OfType<Button>()
+                .Single(button => button.Name == "AddPanelButton")
+                .Flyout);
+            Assert.True(menu.IsOpen);
             Assert.False(viewModel.HasOverlay);
 
             var outside = new Point(24, window.Bounds.Height - 24);
             window.MouseDown(outside, MouseButton.Left);
             window.MouseUp(outside, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
-            Assert.False(window.IsAddPanelChooserOpen);
+            Assert.False(menu.IsOpen);
         });
 
     [Fact]

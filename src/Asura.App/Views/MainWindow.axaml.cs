@@ -52,7 +52,6 @@ public sealed partial class MainWindow : Window
     private SettingsView? _settingsRoute;
     private CommandPaletteView? _commandPaletteOverlay;
     private LayoutDesignerView? _layoutDesignerOverlay;
-    private NewPanelChooserView? _newPanelChooserOverlay;
     private WorkspaceEditorView? _workspaceDefinitionEditor;
     private bool _backingScaleReconciliationQueued;
     private IDisposable? _backingScaleSettledPass;
@@ -800,7 +799,7 @@ public sealed partial class MainWindow : Window
     {
         _ = sender;
         _ = e;
-        await ShowNewPanelChooserAsync();
+        await ShowAddPanelMenuAsync();
     }
 
     private async void OnShowLayoutDesignerClick(object? sender, RoutedEventArgs e)

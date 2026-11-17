@@ -100,6 +100,18 @@ public sealed class RuntimeDockControl : DockControl
         }
     }
 
+    /// <summary>
+    /// A still of a cell's panel as it is drawn now: its content, header and
+    /// all, without the cell's frame.
+    /// </summary>
+    private CellPicture? Picture(IDockable cell) =>
+        this.GetVisualDescendants()
+            .OfType<RuntimePanelContentControl>()
+            .FirstOrDefault(view => ReferenceEquals(view.DataContext, cell) && view.IsEffectivelyVisible)
+            is { } shown
+            ? CellPicture.Take(shown)
+            : null;
+
     public RuntimeTabViewModel? RuntimeTab
     {
         get => GetValue(RuntimeTabProperty);
@@ -193,6 +205,8 @@ public sealed class RuntimeDockControl : DockControl
         public TimeSpan Now => Elapsed.Elapsed;
 
         public void ShowShares(bool isMoving) => owner.ShowShares(isMoving);
+
+        public object? Picture(IDockable cell) => owner.Picture(cell);
 
         public void RequestFrame(Action onFrame)
         {

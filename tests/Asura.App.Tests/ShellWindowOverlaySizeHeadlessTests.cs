@@ -12,9 +12,9 @@ namespace Asura.App.Tests;
 
 /// <summary>
 /// A main window tiled to half a laptop screen still shows every way to
-/// finish what its palette, Add Panel popover and editor windows began:
-/// Save, Cancel and the first panel type are on screen, not cut off by a
-/// fixed size from when the window could not be that small.
+/// finish what its palette, Add Panel menu and editor windows began: Save
+/// and Cancel are on screen, not cut off by a fixed size from when the
+/// window could not be that small.
 /// </summary>
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class ShellWindowOverlaySizeHeadlessTests
@@ -37,131 +37,108 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
         return Task.CompletedTask;
     });
 
+    /// <summary>
+    /// Add Panel… opens the "+" menu on the "+": the launcher, every panel
+    /// type and the saved connections, each asking which side it goes on.
+    /// </summary>
     [Fact]
-    public Task Add_Panel_opens_on_its_button_and_its_first_tile_fits() => RunInSmallWindowAsync(async window =>
+    public Task Add_Panel_opens_the_plus_menu_on_its_button() => RunInSmallWindowAsync(async window =>
     {
-        await window.ShowNewPanelChooserAsync();
+        await window.ShowAddPanelMenuAsync();
         Settle(window);
 
-        Assert.True(window.IsAddPanelChooserOpen);
-        var tile = ChooserTile(window);
-        Assert.True(tile.IsEffectivelyVisible);
-        AssertInsideScreen(tile, window);
-        Assert.True(tile.IsFocused || tile.IsKeyboardFocusWithin);
-    });
-
-    [Fact]
-    public Task Add_Panel_anchor_looks_pressed_while_its_popover_is_open() => RunInSmallWindowAsync(async window =>
-    {
-        var viewModel = (MainWindowViewModel)window.DataContext!;
-        await window.ShowNewPanelChooserAsync();
-        Settle(window);
-
-        var anchor = Assert.Single(
-            window.GetVisualDescendants().OfType<Control>(),
-            control => control.Classes.Contains(MainWindow.AnchorOpenClass));
-        var chooser = Assert.IsType<NewPanelChooserView>(window.AddPanelChooser);
-
-        // The browser profile picker only shows while a browser panel can
-        // be made.
-        var profile = chooser.GetLogicalDescendants()
-            .OfType<TextBlock>()
-            .Single(text => string.Equals(text.Text, "Browser profile", StringComparison.Ordinal));
+        var menu = PlusMenu(window);
+        Assert.True(menu.IsOpen);
+        var items = menu.Items.OfType<MenuItem>().ToArray();
         Assert.Equal(
-            viewModel.CanCreateBrowserPanel,
-            profile.GetLogicalAncestors().OfType<Asura.App.Controls.SurfaceCard>().First().IsVisible);
-
-        chooser.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-        Settle(window);
-        Assert.False(window.IsAddPanelChooserOpen);
-        Assert.DoesNotContain(MainWindow.AnchorOpenClass, anchor.Classes, StringComparer.Ordinal);
+            [
+                WorkspaceView.LauncherHeader,
+                PanelTypes.Terminal,
+                PanelTypes.Browser,
+                PanelTypes.Statistics,
+                PanelTypes.Files,
+                PanelTypes.Processes,
+                PanelTypes.Database,
+                PanelTypes.Docker,
+                PanelTypes.Kubernetes,
+                PanelTypes.Git,
+                WorkspaceView.ConnectionsHeader,
+            ],
+            items.Select(item => item.Header as string),
+            StringComparer.Ordinal);
+        Assert.All(
+            items[..^1],
+            item => Assert.Equal(
+                ["To the Left", "To the Right", "Above", "Below"],
+                item.Items.OfType<MenuItem>().Select(side => side.Header as string),
+                StringComparer.Ordinal));
     });
 
     /// <summary>
-    /// Choosing an edge in the "+" menu places an empty panel there, which
-    /// asks what to open itself. The Add Panel popover does not open over it.
+    /// A panel type and a side open that panel at once, against that edge,
+    /// with no empty panel asking first.
     /// </summary>
     [Fact]
-    public Task Choosing_an_edge_in_the_plus_menu_places_an_empty_panel_without_the_popover() =>
+    public Task Choosing_a_panel_type_and_a_side_opens_that_panel_against_that_edge() =>
         RunInSmallWindowAsync(async window =>
         {
-            var viewModel = (MainWindowViewModel)window.DataContext!;
-            var panels = viewModel.RuntimeWorkspace!.ActiveTab!.Panels.Count;
+            var tab = ((MainWindowViewModel)window.DataContext!).RuntimeWorkspace!.ActiveTab!;
+            var before = tab.Panels.ToArray();
+            var columns = tab.Columns;
 
-            await ChooseEdgeInPlusMenuAsync(window);
+            await ChooseAsync(window, tab, PanelTypes.Statistics, "To the Left");
 
-            var tab = viewModel.RuntimeWorkspace!.ActiveTab!;
-            Assert.Equal(panels + 1, tab.Panels.Count);
-            Assert.IsType<PanelPlaceholderViewModel>(tab.ActivePanel);
-            Assert.False(window.IsAddPanelChooserOpen);
-            Assert.DoesNotContain(
-                window.GetVisualDescendants().OfType<Control>(),
-                control => control.Classes.Contains(MainWindow.AnchorOpenClass));
+            var added = Assert.Single(tab.Panels.Except(before));
+            Assert.IsType<StatisticsRuntimePanelViewModel>(added);
+            // A column of its own at the left edge, the whole height, rather
+            // than a row appended under the rest.
+            Assert.Equal(columns + 1, tab.Columns);
+            Assert.Equal(0, added.LayoutColumn);
+            Assert.Equal(1, added.LayoutColumnSpan);
+            Assert.Equal(tab.Rows, added.LayoutRowSpan);
+            Assert.Same(added, tab.ActivePanel);
+            Assert.Null(tab.PlacementSide);
+            Assert.DoesNotContain(tab.Panels, panel => panel is PanelPlaceholderViewModel);
         });
 
-    /// <summary>
-    /// Pressing the "+" again while its popover is open closes the popover.
-    /// The press reaches the button through the popover, and it used to open
-    /// the edge menu on top of the popover still showing.
-    /// </summary>
+    /// <summary>The launcher and a side place an empty panel there, which asks what to open.</summary>
     [Fact]
-    public Task Pressing_the_plus_again_closes_Add_Panel_rather_than_opening_its_menu_over_it() =>
+    public Task Choosing_the_launcher_and_a_side_places_an_empty_panel_there() =>
         RunInSmallWindowAsync(async window =>
         {
-            await window.ShowNewPanelChooserAsync();
-            Settle(window);
-            Assert.True(window.IsAddPanelChooserOpen);
-            var button = PlusButton(window);
-            var center = button.TranslatePoint(
-                new Point(button.Bounds.Width / 2, button.Bounds.Height / 2),
-                window)!.Value;
+            var tab = ((MainWindowViewModel)window.DataContext!).RuntimeWorkspace!.ActiveTab!;
+            var before = tab.Panels.ToArray();
 
-            window.MouseDown(center, Avalonia.Input.MouseButton.Left);
-            window.MouseUp(center, Avalonia.Input.MouseButton.Left);
-            Settle(window);
+            await ChooseAsync(window, tab, WorkspaceView.LauncherHeader, "To the Right");
 
-            Assert.False(window.IsAddPanelChooserOpen);
-            Assert.False(button.Flyout!.IsOpen);
-            Assert.DoesNotContain(MainWindow.AnchorOpenClass, button.Classes, StringComparer.Ordinal);
-
-            // With nothing open, the next press opens the edge menu as before.
-            window.MouseDown(center, Avalonia.Input.MouseButton.Left);
-            window.MouseUp(center, Avalonia.Input.MouseButton.Left);
-            Settle(window);
-            Assert.True(button.Flyout.IsOpen);
+            var added = Assert.IsType<PanelPlaceholderViewModel>(Assert.Single(tab.Panels.Except(before)));
+            Assert.Equal(tab.Columns - 1, added.LayoutColumn);
+            Assert.Same(added, tab.ActivePanel);
         });
-
 
     private static Button PlusButton(MainWindow window) =>
         window.GetVisualDescendants().OfType<Button>().Single(button => button.Name == "AddPanelButton");
 
-    /// <summary>Chooses the first edge in the "+" button's menu, as a person does.</summary>
-    private static async Task ChooseEdgeInPlusMenuAsync(MainWindow window)
+    private static MenuFlyout PlusMenu(MainWindow window) =>
+        Assert.IsAssignableFrom<MenuFlyout>(PlusButton(window).Flyout);
+
+    /// <summary>Opens the "+" menu and chooses an item and a side, as a person does.</summary>
+    private static async Task ChooseAsync(MainWindow window, RuntimeTabViewModel tab, string choice, string side)
     {
-        var button = PlusButton(window);
-        var menu = Assert.IsType<MenuFlyout>(button.Flyout);
-        menu.ShowAt(button);
+        var count = tab.Panels.Count;
+        await window.ShowAddPanelMenuAsync();
         Settle(window);
-        menu.Items.OfType<MenuItem>().First().RaiseEvent(
-            new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+        var menu = PlusMenu(window);
+        var item = menu.Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, choice));
+        item.Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, side))
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
         menu.Hide();
-        Settle(window);
-        await Task.Delay(50);
-        Settle(window);
+        for (var wait = 0; wait < 200 && tab.Panels.Count == count; wait++)
+        {
+            await Task.Delay(10);
+            Settle(window);
+        }
     }
-
-    [Fact]
-    public Task Add_Panel_opened_from_the_keyboard_is_there_at_once() => RunInSmallWindowAsync(async window =>
-    {
-        await window.ShowNewPanelChooserAsync();
-        var presenter = ChooserPresenter(window);
-
-        // Never grown, it is fully drawn the moment it opens.
-        Assert.Equal(1, presenter.Opacity);
-        var visual = Assert.IsAssignableFrom<Avalonia.Rendering.Composition.CompositionVisual>(
-            Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(presenter));
-        Assert.Equal(default, visual.CenterPoint);
-    });
 
     [Fact]
     public Task The_workspace_editor_keeps_Save_and_Cancel_on_screen_in_Settings_at_its_minimum() =>
@@ -222,13 +199,6 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
             Assert.False(window.IsLayoutDesignerShown);
         });
 
-    private static Control ChooserTile(MainWindow window) =>
-        Assert.IsType<NewPanelChooserView>(window.AddPanelChooser).InitialAction;
-
-    private static FlyoutPresenter ChooserPresenter(MainWindow window) =>
-        Assert.IsType<NewPanelChooserView>(window.AddPanelChooser).FindAncestorOfType<FlyoutPresenter>()
-        ?? throw new InvalidOperationException("The Add Panel popover has no presenter.");
-
     private static T Named<T>(Window window, string name)
         where T : Control =>
         window.GetVisualDescendants()
@@ -246,20 +216,6 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
         Assert.InRange(topLeft.Y, -0.5, window.ClientSize.Height + 0.5);
         Assert.InRange(bottomRight.X, -0.5, window.ClientSize.Width + 0.5);
         Assert.InRange(bottomRight.Y, -0.5, window.ClientSize.Height + 0.5);
-    }
-
-    /// <summary>A popup's content is placed in screen space beside the window.</summary>
-    private static void AssertInsideScreen(Control control, Window window)
-    {
-        var origin = window.PointToScreen(default);
-        var far = window.PointToScreen(new Point(window.ClientSize.Width, window.ClientSize.Height));
-        var topLeft = control.PointToScreen(default);
-        var bottomRight = control.PointToScreen(new Point(control.Bounds.Width, control.Bounds.Height));
-        Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
-        Assert.InRange(topLeft.X, origin.X - 1, far.X + 1);
-        Assert.InRange(topLeft.Y, origin.Y - 1, far.Y + 1);
-        Assert.InRange(bottomRight.X, origin.X - 1, far.X + 1);
-        Assert.InRange(bottomRight.Y, origin.Y - 1, far.Y + 1);
     }
 
     private static void Settle(Window window)

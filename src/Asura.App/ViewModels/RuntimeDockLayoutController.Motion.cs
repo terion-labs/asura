@@ -1,4 +1,5 @@
 using Asura.App.Controls;
+using Asura.Core;
 using Asura.Docking;
 using Dock.Model.Controls;
 using Dock.Model.Core;
@@ -29,6 +30,13 @@ internal interface ICellMotionClock
     /// content held still while its cell moved can take the cell's size.
     /// </param>
     void ShowShares(bool isMoving);
+
+    /// <summary>
+    /// A still of a cell as it is drawn now, for the cell to show once its
+    /// panel has gone while it closes. Null where nothing can be drawn.
+    /// Disposable: the layout disposes it once the cell has closed.
+    /// </summary>
+    object? Picture(IDockable cell);
 }
 
 internal sealed partial class RuntimeDockLayoutController
@@ -41,14 +49,17 @@ internal sealed partial class RuntimeDockLayoutController
     internal const double SliverShare = 0.001;
 
     /// <summary>
-    /// The most a motion moves on from one frame to the next: a little over a
-    /// frame at 60 Hz. A frame held up
-    /// longer, as the first one after a cell is placed is while the split's
-    /// views are rebuilt, picks up where the last one left off rather than
-    /// jumping ahead to where the clock says it should be.
+    /// A frame held up longer than this, as the first one after a cell is
+    /// placed is while the split's views are rebuilt, moves the motion on by
+    /// one frame at 60 Hz rather than jumping ahead to where the clock says it
+    /// should be. Frames that are merely slow, as on a busy window drawing at
+    /// 30 Hz, count in full, so the motion still takes its duration.
     /// </summary>
-    private static readonly TimeSpan LongestStep = TimeSpan.FromMilliseconds(20);
+    private static readonly TimeSpan StallAfter = TimeSpan.FromMilliseconds(50);
 
+    private static readonly TimeSpan StalledStep = TimeSpan.FromSeconds(1d / 60);
+
+    private readonly Dictionary<string, object?> _closingPictures = new(StringComparer.Ordinal);
     private CellMotion? _cellMotion;
     private bool _isMovingShares;
 
@@ -121,12 +132,39 @@ internal sealed partial class RuntimeDockLayoutController
     }
 
     /// <summary>
-    /// Closes the space a removed panel leaves. Its cell is emptied at once, so
-    /// nothing of the panel is drawn after it has gone, and the empty cell then
-    /// shrinks away while the cells beside it take the room.
+    /// Takes the picture a panel's cell shows while it closes, as the panel
+    /// looks now. Closing a panel ends its session before the layout lets it
+    /// go, and by then a terminal already shows its session as ended, so the
+    /// picture is taken when the close is asked for.
     /// </summary>
+    internal void KeepClosingPicture(PanelInstanceId panelId)
+    {
+        DropClosingPicture(panelId);
+        if (MotionClock is { IsMotionEnabled: true } clock
+            && FindDocument(panelId.Value)?.Owner is DocumentDock { VisibleDockables.Count: 1 } leaf)
+        {
+            _closingPictures[panelId.Value] = clock.Picture(leaf);
+        }
+    }
+
+    /// <summary>Lets go of a kept picture when the panel was not closed after all.</summary>
+    internal void DropClosingPicture(PanelInstanceId panelId)
+    {
+        if (_closingPictures.Remove(panelId.Value, out var picture))
+        {
+            (picture as IDisposable)?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Closes the space a removed panel leaves. The panel leaves its cell at
+    /// once, but the cell keeps a picture of it, at the size it had, and
+    /// shrinks away while the cells beside it take the room. Emptied without
+    /// the picture, the cell went blank first and only then closed.
+    /// </summary>
+    /// <param name="kept">The picture taken when the panel's close was asked for, if one was.</param>
     /// <returns>Whether the cell was left to close; otherwise remove it now.</returns>
-    private bool CloseToSliver(IDocument document)
+    private bool CloseToSliver(IDocument document, object? kept)
     {
         if (document.Owner is not DocumentDock { VisibleDockables.Count: 1 } leaf
             || !CanMoveShares(leaf, out var split))
@@ -134,9 +172,11 @@ internal sealed partial class RuntimeDockLayoutController
             return false;
         }
 
+        var picture = kept ?? MotionClock!.Picture(leaf);
         var gap = new Document
         {
             Id = $"closing-{Guid.NewGuid():N}",
+            Context = picture,
             Title = string.Empty,
             CanClose = false,
             CanDrag = false,
@@ -162,6 +202,8 @@ internal sealed partial class RuntimeDockLayoutController
                 {
                     MutateTopology(() => Factory.RemoveDockable(leaf, collapse: true));
                 }
+
+                (picture as IDisposable)?.Dispose();
             },
             SettleCopy: (factory, root, _, copy) =>
             {
@@ -209,7 +251,7 @@ internal sealed partial class RuntimeDockLayoutController
 
         var now = clock.Now;
         var step = now - motion.LastFrameAt;
-        motion.Elapsed += step < LongestStep ? step : LongestStep;
+        motion.Elapsed += step > StallAfter ? StalledStep : step;
         motion.LastFrameAt = now;
         var progress = Math.Clamp(motion.Elapsed / motion.Duration, 0d, 1d);
         if (progress >= 1d)
