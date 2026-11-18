@@ -70,8 +70,13 @@ public sealed class CellMotionHeadlessTests
 
             Assert.True(tab.RemovePanel(placed.Id));
             var frames = new List<(Size Picture, double Cell)>();
+            // Watched until the cell has gone rather than for a set time: a
+            // busy machine draws few frames, and a held-up frame moves the
+            // motion on by only one, so the close can take much longer than
+            // its duration.
             var watched = Stopwatch.StartNew();
-            while (watched.Elapsed < TimeSpan.FromMilliseconds(400))
+            var gone = false;
+            while (!gone && watched.Elapsed < TimeSpan.FromSeconds(10))
             {
                 window.UpdateLayout();
                 if (canvas.GetVisualDescendants()
@@ -82,12 +87,16 @@ public sealed class CellMotionHeadlessTests
                     var picture = Assert.IsType<CellPicture>(((IDocumentDock)closing.DataContext!).ActiveDockable!.Context);
                     frames.Add((picture.Size, closing.Bounds.Width));
                 }
+                else
+                {
+                    gone = frames.Count > 0;
+                }
 
                 await Task.Delay(8);
                 Dispatcher.UIThread.RunJobs();
             }
 
-            Assert.NotEmpty(frames);
+            Assert.True(gone, "The closing cell never went.");
             Assert.All(frames, frame => Assert.Equal(resting, frame.Picture));
             Assert.Contains(frames, frame => frame.Cell < resting.Width / 2);
         });
@@ -108,8 +117,11 @@ public sealed class CellMotionHeadlessTests
 
             tab.AddPlaceholder(PanelSide.Right);
             var frames = new List<(bool Shown, double Width)>();
+            // Watched until the launcher has reflowed, not for a set time, as
+            // a busy machine can take far longer than the motion's duration.
             var watched = Stopwatch.StartNew();
-            while (watched.Elapsed < TimeSpan.FromMilliseconds(700))
+            while ((frames.Count == 0 || frames[^1].Width > restingWidth * 0.6)
+                && watched.Elapsed < TimeSpan.FromSeconds(10))
             {
                 await Task.Delay(8);
                 Dispatcher.UIThread.RunJobs();
