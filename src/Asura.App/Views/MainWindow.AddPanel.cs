@@ -69,7 +69,7 @@ public sealed partial class MainWindow
                 FocusActivePanel();
             }
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        catch (OperationCanceledException) when (IsClosingDown)
         {
         }
     }

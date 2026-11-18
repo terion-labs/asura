@@ -569,11 +569,20 @@ public sealed partial class MainWindow
             {
                 _ = await ViewModel.ActivatePanelAsync(panel.Id, _lifetime.Token);
             }
-            catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+            catch (OperationCanceledException) when (IsClosingDown)
             {
             }
         }
     }
+
+    /// <summary>
+    /// The window is going away, or the workspace under it has stopped for
+    /// quit. Quit stops the workspace before the window, so a panel taking
+    /// focus in between is cancelled by the workspace, not the window, and
+    /// that is no more an error than the window's own cancellation.
+    /// </summary>
+    private bool IsClosingDown =>
+        _lifetime.IsCancellationRequested || ViewModel.RuntimeGraph.IsStopping;
 
     /// <summary>
     /// Lifts a panel out of the layout to float over the workspace, or puts it
