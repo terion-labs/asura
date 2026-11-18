@@ -37,6 +37,13 @@ public sealed partial class MainWindow
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Adds from the "+" menu, one at a time. The side a panel goes against
+    /// is set on the tab until the host has created the panel, so a second
+    /// add started meanwhile would take the first one's side, or lose its own.
+    /// </summary>
+    private readonly InTurn _addingPanels = new();
+
     /// <summary>The "+" menu, open or not.</summary>
     internal MenuFlyout? AddPanelMenu =>
         this.FindControl<WorkspaceView>("WorkspaceRouteView")?.AddPanelButton.Flyout as MenuFlyout;
@@ -57,7 +64,7 @@ public sealed partial class MainWindow
         _ = sender;
         try
         {
-            if (await AddPanelAsync(request))
+            if (await _addingPanels.Run(() => AddPanelAsync(request)))
             {
                 FocusActivePanel();
             }

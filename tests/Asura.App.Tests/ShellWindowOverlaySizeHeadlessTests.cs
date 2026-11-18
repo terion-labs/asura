@@ -101,6 +101,36 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
             Assert.DoesNotContain(tab.Panels, panel => panel is PanelPlaceholderViewModel);
         });
 
+    /// <summary>
+    /// A second panel chosen while the first is still being opened goes
+    /// against its own edge, not the first one's.
+    /// </summary>
+    [Fact]
+    public Task Panels_chosen_one_after_another_each_go_against_their_own_edge() =>
+        RunInSmallWindowAsync(async window =>
+        {
+            var tab = ((MainWindowViewModel)window.DataContext!).RuntimeWorkspace!.ActiveTab!;
+            var before = tab.Panels.ToArray();
+
+            await window.ShowAddPanelMenuAsync();
+            Settle(window);
+            // The second is clicked before the first has had a turn to open.
+            Click(PlusMenu(window), PanelTypes.Statistics, "To the Left");
+            Click(PlusMenu(window), PanelTypes.Processes, "To the Right");
+            PlusMenu(window).Hide();
+            for (var wait = 0; wait < 400 && tab.Panels.Count < before.Length + 2; wait++)
+            {
+                await Task.Delay(10);
+                Settle(window);
+            }
+
+            var left = Assert.Single(tab.Panels.Except(before).OfType<StatisticsRuntimePanelViewModel>());
+            var right = Assert.Single(tab.Panels.Except(before).OfType<ProcessMonitorRuntimePanelViewModel>());
+            Assert.Equal(0, left.LayoutColumn);
+            Assert.Equal(tab.Columns - 1, right.LayoutColumn);
+            Assert.Null(tab.PlacementSide);
+        });
+
     /// <summary>The launcher and a side place an empty panel there, which asks what to open.</summary>
     [Fact]
     public Task Choosing_the_launcher_and_a_side_places_an_empty_panel_there() =>
@@ -126,19 +156,28 @@ public sealed class ShellWindowOverlaySizeHeadlessTests
     private static async Task ChooseAsync(MainWindow window, RuntimeTabViewModel tab, string choice, string side)
     {
         var count = tab.Panels.Count;
-        await window.ShowAddPanelMenuAsync();
-        Settle(window);
-        var menu = PlusMenu(window);
-        var item = menu.Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, choice));
-        item.Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, side))
-            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
-        menu.Hide();
+        await ClickAsync(window, choice, side);
         for (var wait = 0; wait < 200 && tab.Panels.Count == count; wait++)
         {
             await Task.Delay(10);
             Settle(window);
         }
     }
+
+    /// <summary>Opens the "+" menu and clicks an item's side, without waiting for the panel.</summary>
+    private static async Task ClickAsync(MainWindow window, string choice, string side)
+    {
+        await window.ShowAddPanelMenuAsync();
+        Settle(window);
+        var menu = PlusMenu(window);
+        Click(menu, choice, side);
+        menu.Hide();
+    }
+
+    private static void Click(MenuFlyout menu, string choice, string side) =>
+        menu.Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, choice))
+            .Items.OfType<MenuItem>().Single(candidate => Equals(candidate.Header, side))
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
 
     [Fact]
     public Task The_workspace_editor_keeps_Save_and_Cancel_on_screen_in_Settings_at_its_minimum() =>
