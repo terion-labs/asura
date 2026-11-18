@@ -125,7 +125,6 @@ public sealed class RuntimeDockControlHeadlessTests
             Assert.Null(window.FindControl<ContentControl>("SettingsRouteHost"));
             Assert.IsType<SettingsView>(Build(window, "SettingsRouteTemplate"));
             Assert.IsType<CommandPaletteView>(Build(window, "CommandPaletteOverlayTemplate"));
-            Assert.IsType<NewPanelChooserView>(Build(window, "NewPanelChooserTemplate"));
             Assert.IsType<LayoutDesignerView>(Build(window, "LayoutDesignerTemplate"));
             Assert.IsType<WorkspaceEditorView>(Build(window, "WorkspaceEditorTemplate"));
             return Task.CompletedTask;
@@ -192,6 +191,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {
@@ -255,6 +256,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {
@@ -282,6 +285,97 @@ public sealed class RuntimeDockControlHeadlessTests
 
             return Task.CompletedTask;
         });
+
+    /// <summary>
+    /// The model's shares have to fill every split on their own. The dock's
+    /// panel rescales them when it measures, so geometry checks pass either
+    /// way; the published app draws the shares it is given, and a split
+    /// whose shares fall short leaves the rest blank at its far edge, the
+    /// right edge for a row. Each close of a panel that was not the newest
+    /// took its share with it, so the strip grew as panels came and went.
+    /// </summary>
+    [Fact]
+    public Task Shares_fill_every_split_as_panels_are_opened_and_closed() =>
+        RunHeadlessAsync(() =>
+        {
+            var tab = NewTab();
+            var first = Assert.Single(tab.Panels);
+            var second = Panel("shares-second", "Second");
+            var third = Panel("shares-third", "Third");
+            tab.AddPanel(second);
+            tab.AddPanel(third);
+            AssertSharesFill(tab, "three side by side");
+
+            Assert.True(tab.RemovePanel(second.Id));
+            AssertSharesFill(tab, "after closing the middle one");
+
+            for (var round = 0; round < 3; round++)
+            {
+                foreach (var side in new[] { PanelSide.Right, PanelSide.Bottom, PanelSide.Left, PanelSide.Top })
+                {
+                    var placeholder = tab.AddPlaceholder(side);
+                    tab.ReplaceTarget = placeholder.Id;
+                    var added = Panel($"shares-{round}-{side}", $"{side} {round}");
+                    tab.AddPanel(added);
+                    AssertSharesFill(tab, $"round {round}, added at {side}");
+                    if (side is PanelSide.Bottom or PanelSide.Top)
+                    {
+                        Assert.True(tab.RemovePanel(added.Id));
+                        AssertSharesFill(tab, $"round {round}, closed the one at {side}");
+                    }
+                }
+
+                Assert.True(tab.RemovePanel(tab.Panels.First(panel => panel.Id != first.Id).Id));
+                AssertSharesFill(tab, $"round {round}, closed an older one");
+            }
+
+            return Task.CompletedTask;
+        });
+
+    /// <summary>
+    /// Restoring puts back the shares panels had before the first collapse.
+    /// A panel added in between had none to put back and kept its own, so
+    /// the split overflowed and the restored panel was squeezed out.
+    /// </summary>
+    [Fact]
+    public Task A_panel_restored_after_another_was_added_gets_its_share_back() =>
+        RunHeadlessAsync(() =>
+        {
+            var tab = NewTab();
+            var collapsed = Assert.Single(tab.Panels);
+            // Two stay shown: one shown beside collapsed ones is a zoom, and
+            // adding a panel ends a zoom by restoring everything.
+            tab.AddPanel(Panel("restore-other", "Other"));
+            tab.AddPanel(Panel("restore-third", "Third"));
+            Assert.True(tab.CollapsePanel(collapsed.Id));
+
+            var added = Panel("restore-added", "Added");
+            tab.AddPanel(added);
+            Assert.True(tab.RestorePanel(collapsed.Id));
+            AssertSharesFill(tab, "after restoring");
+
+            return Task.CompletedTask;
+        });
+
+    private static void AssertSharesFill(RuntimeTabViewModel tab, string when)
+    {
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        foreach (var dock in EnumerateDockables(tab.DockLayout).OfType<IProportionalDock>())
+        {
+            var shares = (dock.VisibleDockables ?? [])
+                .Where(child => child is not IProportionalDockSplitter)
+                .Select(child => child.Proportion)
+                .ToArray();
+            if (shares.Length < 2)
+            {
+                continue;
+            }
+
+            var detail = $"{when}: [{string.Join(", ", shares.Select(share => share.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)))}]";
+            Assert.True(shares.All(share => double.IsFinite(share) && share > 0), detail);
+            Assert.True(Math.Abs(shares.Sum() - 1d) < 1e-6, detail);
+        }
+    }
 
     [Fact]
     public Task Closing_a_nested_right_column_then_adding_right_leaves_no_gap() =>
@@ -323,6 +417,8 @@ public sealed class RuntimeDockControlHeadlessTests
                 window.DataTemplates.Add(template);
             }
 
+            // These check where cells settle, not how they move there.
+            window.Classes.Add("motion-disabled");
             window.Show();
             try
             {

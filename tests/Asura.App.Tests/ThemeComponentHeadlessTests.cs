@@ -3,6 +3,7 @@ using Asura.App.Converters;
 using Asura.App.ViewModels;
 using Asura.Core;
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -10,6 +11,7 @@ using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using FluentIcons.Avalonia;
 using FluentIcons.Common;
@@ -225,20 +227,76 @@ public sealed class ThemeComponentHeadlessTests
     public Task A_disclosure_points_at_its_label_and_then_into_the_section() =>
         RunHeadlessAsync(window =>
         {
+            // Without motion the end state is immediate.
+            window.Classes.Add("motion-disabled");
             var expander = new Expander { Header = "Advanced", Content = new TextBlock { Text = "Body" } };
             Show(window, expander);
 
             var chevron = expander.GetVisualDescendants().OfType<SymbolIcon>().Single(icon => icon.Name == "ExpandCollapseChevron");
             var header = expander.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == "Advanced");
             Assert.Equal(Symbol.ChevronRight, chevron.Symbol);
+            AssertTurned(chevron, degrees: 0);
             Assert.True(
                 chevron.TranslatePoint(default, expander)!.Value.X < header.TranslatePoint(default, expander)!.Value.X,
                 "The chevron is not beside the label's leading edge.");
 
             expander.IsExpanded = true;
             window.UpdateLayout();
-            Assert.Equal(Symbol.ChevronDown, chevron.Symbol);
+            Assert.Equal(Symbol.ChevronRight, chevron.Symbol);
+            AssertTurned(chevron, degrees: 90);
         });
+
+    /// <summary>
+    /// A folding section turns its one chevron down into the section rather
+    /// than swapping glyphs, and the turn moves only once the toggle has
+    /// settled and never in a window told to reduce motion.
+    /// </summary>
+    [Fact]
+    public Task A_section_disclosure_turns_its_chevron_into_the_section() =>
+        RunHeadlessAsync(window =>
+        {
+            var still = new Window { Width = 600, Height = 600 };
+            try
+            {
+                still.Classes.Add("motion-disabled");
+                var stillToggle = new ToggleButton { Classes = { "SectionDisclosure" }, Content = "Branches" };
+                Show(still, stillToggle);
+                Dispatcher.UIThread.RunJobs();
+
+                var stillChevron = Part<SymbolIcon>(stillToggle, "Chevron");
+                Assert.Equal(Symbol.ChevronRight, stillChevron.Symbol);
+                AssertTurned(stillChevron, degrees: 0);
+                Assert.True(stillChevron.Transitions is null || stillChevron.Transitions.Count == 0);
+
+                stillToggle.IsChecked = true;
+                still.UpdateLayout();
+                Assert.Equal(Symbol.ChevronRight, stillChevron.Symbol);
+                AssertTurned(stillChevron, degrees: 90);
+            }
+            finally
+            {
+                still.Close();
+            }
+
+            var toggle = new ToggleButton { Classes = { "SectionDisclosure" }, Content = "Branches" };
+            Show(window, toggle);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(SettledTransitions.ClassName, toggle.Classes, StringComparer.Ordinal);
+            var chevron = Part<SymbolIcon>(toggle, "Chevron");
+            var turn = Assert.IsType<TransformOperationsTransition>(Assert.Single(chevron.Transitions!));
+            Assert.Equal(TimeSpan.FromMilliseconds(180), turn.Duration);
+        });
+
+    private static void AssertTurned(Visual chevron, double degrees)
+    {
+        var matrix = chevron.RenderTransform!.Value;
+        var radians = degrees * Math.PI / 180;
+        Assert.Equal(Math.Cos(radians), matrix.M11, precision: 3);
+        Assert.Equal(Math.Sin(radians), matrix.M12, precision: 3);
+        Assert.Equal(-Math.Sin(radians), matrix.M21, precision: 3);
+        Assert.Equal(Math.Cos(radians), matrix.M22, precision: 3);
+    }
 
     /// <summary>
     /// A disclosure keeps no box: Fluent's rules for its own header part and
@@ -664,6 +722,80 @@ public sealed class ThemeComponentHeadlessTests
             Assert.Equal(Brush(window, "ShellAccentForegroundBrush"), Color(track.Background));
             Assert.NotEqual(Color(track.Background), Color(knob.Background));
             Assert.Equal(accent, Color(knob.Background));
+        });
+
+    /// <summary>
+    /// The knob is carried across by a translation rather than realigned, so
+    /// the distance is written down and can be wrong: an on knob must end
+    /// flush with the track's trailing inset and an off one start at its
+    /// leading inset, in both the regular and the mini switch.
+    /// </summary>
+    [Fact]
+    public Task An_on_switch_knob_meets_the_track_trailing_inset() =>
+        RunHeadlessAsync(window =>
+        {
+            // Without motion the end state is immediate.
+            window.Classes.Add("motion-disabled");
+            var regularOn = new ToggleSwitch { IsChecked = true };
+            var miniOn = new ToggleSwitch { IsChecked = true, Classes = { "Mini" } };
+            var regularOff = new ToggleSwitch { IsChecked = false };
+            var miniOff = new ToggleSwitch { IsChecked = false, Classes = { "Mini" } };
+            Show(window, new StackPanel { Children = { regularOn, miniOn, regularOff, miniOff } });
+
+            AssertKnobRightEdge(regularOn, inset: 2);
+            AssertKnobRightEdge(miniOn, inset: 1.5);
+            AssertKnobLeftEdge(regularOff, inset: 2);
+            AssertKnobLeftEdge(miniOff, inset: 1.5);
+
+            static void AssertKnobRightEdge(ToggleSwitch toggle, double inset)
+            {
+                var track = Part<Border>(toggle, "SwitchTrack");
+                var knob = Part<Border>(toggle, "SwitchKnob");
+                var right = knob.TranslatePoint(new Point(knob.Bounds.Width, 0), track)!.Value.X;
+                Assert.Equal(track.Bounds.Width - inset, right, tolerance: 0.5);
+            }
+
+            static void AssertKnobLeftEdge(ToggleSwitch toggle, double inset)
+            {
+                var track = Part<Border>(toggle, "SwitchTrack");
+                var knob = Part<Border>(toggle, "SwitchKnob");
+                Assert.Equal(inset, knob.TranslatePoint(default, track)!.Value.X, tolerance: 0.5);
+            }
+        });
+
+    /// <summary>
+    /// A switch slides only once it has settled, so the state it opens in
+    /// arrives at once, and never in a window told to reduce motion.
+    /// </summary>
+    [Fact]
+    public Task A_settled_switch_moves_and_a_reduce_motion_window_switch_does_not() =>
+        RunHeadlessAsync(window =>
+        {
+            var toggle = new ToggleSwitch();
+            Show(window, toggle);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Contains(SettledTransitions.ClassName, toggle.Classes, StringComparer.Ordinal);
+            var knob = Part<Border>(toggle, "SwitchKnob");
+            var slide = Assert.IsType<TransformOperationsTransition>(Assert.Single(knob.Transitions!));
+            Assert.Equal(TimeSpan.FromMilliseconds(200), slide.Duration);
+
+            var still = new Window { Width = 600, Height = 600 };
+            try
+            {
+                still.Classes.Add("motion-disabled");
+                var stillToggle = new ToggleSwitch();
+                Show(still, stillToggle);
+                Dispatcher.UIThread.RunJobs();
+
+                Assert.Contains(SettledTransitions.ClassName, stillToggle.Classes, StringComparer.Ordinal);
+                var stillKnob = Part<Border>(stillToggle, "SwitchKnob");
+                Assert.True(stillKnob.Transitions is null || stillKnob.Transitions.Count == 0);
+            }
+            finally
+            {
+                still.Close();
+            }
         });
 
     /// <summary>

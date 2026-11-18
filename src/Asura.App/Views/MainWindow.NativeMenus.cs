@@ -163,7 +163,7 @@ public sealed partial class MainWindow : IShellCommandPresentation, IApplication
         await CloseActivePanelAsync();
     }
 
-    Task IShellCommandPresentation.ShowAddPanelAsync() => ShowNewPanelChooserAsync();
+    Task IShellCommandPresentation.ShowAddPanelAsync() => ShowAddPanelMenuAsync();
 
     Task IShellCommandPresentation.RenameActiveTabAsync() => RenameActiveTabAsync();
 

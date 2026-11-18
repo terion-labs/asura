@@ -164,6 +164,53 @@ public sealed class TerminalRuntimePanelViewModelTests
     }
 
     [Fact]
+    public async Task ClosingTerminalDoesNotReportTheSessionItEndsAsFailed()
+    {
+        using var panel = CreatePanel(
+            new QueueConnectionRuntime(LocalPlan()),
+            LocalConnection(),
+            PanelStartupBehavior.None);
+        await panel.Initialization;
+        var request = Assert.IsType<EnsureTerminalSessionRequest>(panel.SessionRequest);
+        panel.ObserveSessionSnapshot(Snapshot(request, SessionLifecycle.Active, SessionHealth.Healthy));
+
+        panel.BeginClosing();
+        panel.ObserveSessionSnapshot(Snapshot(request, SessionLifecycle.Closed, SessionHealth.Ended));
+
+        Assert.Null(panel.ConnectionError);
+        Assert.Empty(panel.ErrorNotices.Items);
+        Assert.Same(request, panel.SessionRequest);
+    }
+
+    [Fact]
+    public async Task TerminalThatStaysShowsTheSessionThatEndedWhileItWasClosing()
+    {
+        using var panel = CreatePanel(
+            new QueueConnectionRuntime(LocalPlan()),
+            LocalConnection(),
+            PanelStartupBehavior.None);
+        await panel.Initialization;
+        var request = Assert.IsType<EnsureTerminalSessionRequest>(panel.SessionRequest);
+
+        panel.BeginClosing();
+        panel.ObserveSessionSnapshot(Snapshot(request, SessionLifecycle.Closed, SessionHealth.Ended));
+        panel.AbandonClosing();
+
+        Assert.NotNull(panel.ConnectionError);
+        Assert.Null(panel.SessionRequest);
+    }
+
+    private static ConnectionRuntimeResult<ConnectionOpenPlan> LocalPlan() =>
+        ConnectionRuntimeResult<ConnectionOpenPlan>.Succeed(
+            new ConnectionOpenPlan(
+                LocalConnection().Id,
+                ConnectionKind.Local,
+                new TerminalLaunchRequest(null, "/bin/zsh"),
+                ConnectionAuthenticationMode.None,
+                SshHostKeyPolicy.NotApplicable,
+                ConnectionReconnectMode.NotApplicable));
+
+    [Fact]
     public async Task ClosedSshProcessPresentsTheSafeEngineFailureInsteadOfGenericSessionEndedText()
     {
         var connection = SshAgentConnection();

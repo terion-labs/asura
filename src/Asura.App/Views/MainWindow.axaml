@@ -158,22 +158,6 @@
           SearchKeyDownRequested="OnCommandSearchKeyDown" />
     </DataTemplate>
 
-    <DataTemplate x:Key="NewPanelChooserTemplate" x:DataType="vm:MainWindowViewModel">
-      <overlays:NewPanelChooserView
-          AddBrowserPanelRequested="OnAddBrowserPanelClick"
-          AddConnectionPanelRequested="OnAddConnectionPanelClick"
-          AddDatabasePanelRequested="OnAddDatabasePanelClick"
-          AddDockerPanelRequested="OnAddDockerPanelClick"
-          AddKubernetesPanelRequested="OnAddKubernetesPanelClick"
-          AddFilePanelRequested="OnAddFilePanelClick"
-          AddGitPanelRequested="OnAddGitPanelClick"
-          AddProcessMonitorPanelRequested="OnAddProcessMonitorPanelClick"
-          AddStatisticsPanelRequested="OnAddStatisticsPanelClick"
-          AddTerminalPanelRequested="OnAddTerminalPanelClick"
-          OpenScreenRequested="OnOpenScreenClick"
-          ShowLayoutDesignerRequested="OnShowLayoutDesignerClick" />
-    </DataTemplate>
-
     <DataTemplate x:Key="LayoutDesignerTemplate" x:DataType="vm:MainWindowViewModel">
       <overlays:LayoutDesignerView
           AddSlotRequested="OnLayoutAddSlotClick"
@@ -216,15 +200,6 @@
   <Window.Styles>
     <Style Selector="WindowDrawnDecorations /template/ Panel#PART_TitleTextPanel > TextBlock">
       <Setter Property="IsVisible" Value="False" />
-    </Style>
-    <!-- The Add Panel popover sizes itself to the window it opens over and
-         scrolls on its own, so the presenter neither caps nor scrolls it. -->
-    <Style Selector="FlyoutPresenter.AddPanelChooser">
-      <Setter Property="Padding" Value="0" />
-      <Setter Property="MaxWidth" Value="{x:Static sys:Double.PositiveInfinity}" />
-      <Setter Property="MaxHeight" Value="{x:Static sys:Double.PositiveInfinity}" />
-      <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
-      <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
     </Style>
   </Window.Styles>
 
@@ -501,7 +476,8 @@
         ShowCommandPaletteRequested="OnShowCommandPaletteClick"
         ShowLauncherRequested="OnShowLauncherClick"
         ShowNewItemRequested="OnShowNewItemClick"
-        AddPanelToSideRequested="OnAddPanelToSideRequested"
+        AddPanelRequested="OnAddPanelRequested"
+        CanAddBrowserPanel="{Binding CanCreateBrowserPanel}"
         ShowNewPanelRequested="OnShowNewPanelClick"
         SubmitAgentQuestionRequested="OnSubmitAgentQuestionClick"
         ToggleAgentRequested="OnToggleAgentClick"
@@ -554,6 +530,7 @@
         HorizontalAlignment="Left"
         VerticalAlignment="Bottom"
         MaxWidth="520"
+        controls:Arrival.IsEnabled="True"
         Finished="OnDefinitionDeleteUndoFinished" />
 
     <!-- Error notices open from the bottom-right corner, which the agent
@@ -563,7 +540,9 @@
             IsVisible="{CompiledBinding !ApplicationSecurityEditor.IsLocked}"
             HorizontalAlignment="Right" VerticalAlignment="Bottom">
       <Border Margin="{controls:Inset Right=Lg, Bottom=Lg}" MaxWidth="520">
-        <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+        <components:ErrorNoticesView
+            DataContext="{Binding ErrorNotices}"
+            controls:Arrival.IsEnabled="True" />
       </Border>
     </Border>
 

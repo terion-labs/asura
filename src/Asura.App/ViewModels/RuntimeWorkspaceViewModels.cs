@@ -511,6 +511,29 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
 
     public int DockLayoutRevision => _dockLayout.Revision;
 
+    /// <summary>
+    /// The frames placed and closed cells move on, from the view showing this
+    /// tab. Without it they take their place at once.
+    /// </summary>
+    internal ICellMotionClock? CellMotionClock
+    {
+        get => _dockLayout.MotionClock;
+        set
+        {
+            _dockLayout.FinishCellMotion();
+            _dockLayout.MotionClock = value;
+        }
+    }
+
+    /// <summary>
+    /// Takes the picture the panel's cell shows while it closes, before its
+    /// session is asked to end and its look changes with that.
+    /// </summary>
+    internal void KeepClosingPicture(PanelInstanceId panelId) => _dockLayout.KeepClosingPicture(panelId);
+
+    /// <summary>Lets go of that picture when the panel stays.</summary>
+    internal void DropClosingPicture(PanelInstanceId panelId) => _dockLayout.DropClosingPicture(panelId);
+
     public string SerializeDockLayout() => _dockLayout.Serialize();
 
     public PanelInstanceId? ActivePanelId
@@ -880,18 +903,25 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
                     Math.Max(1, target.LayoutColumnSpan),
                     Math.Max(1, target.LayoutRowSpan)),
                 new LayoutMinimumSize(target.LayoutMinimumWidth, target.LayoutMinimumHeight));
-            // Appended, not inserted where the placeholder sat. Where the panel is
-            // drawn comes from the layout assigned above, not from its position in
-            // this list — and that position is compared index by index against the
-            // session host's own order, which appends. Slotting it into the
-            // placeholder's index put the two lists out of step and every later
-            // receipt was rejected as a mismatched graph.
+            // Put where the placeholder sat, not appended. This list is compared
+            // index by index against the session host's own order, and the host
+            // swaps the panel into the placeholder's slot
+            // (MainWindowViewModel.ReplaceRuntimePanel). Appending matched only
+            // while the placeholder happened to be last; answering an older one
+            // put the two lists out of step, the host's next event was refused
+            // as a different graph, and every change after it failed.
             _dockLayout.ReplacePlaceholder(target, panel);
             target.Dispose();
-            Panels.Remove(target);
-            Panels.Add(panel);
+            Panels[Panels.IndexOf(target)] = panel;
             ActivatePanel(panel.Id);
             NotifyPanelLayoutChanged();
+            return;
+        }
+
+        if (PlacementSide is { } side)
+        {
+            PlacementSide = null;
+            PlaceAgainstEdge(panel, side);
             return;
         }
 
@@ -1396,6 +1426,13 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     /// </summary>
     public PanelInstanceId? ReplaceTarget { get; set; }
 
+    /// <summary>
+    /// Where the next created panel goes when no placeholder is being answered:
+    /// against this edge of the canvas. Set when a panel is chosen from the
+    /// Add Panel menu together with the side it goes on.
+    /// </summary>
+    public PanelSide? PlacementSide { get; set; }
+
     /// <summary>An empty cell, before it is anywhere.</summary>
     public static PanelPlaceholderViewModel NewPlaceholder() =>
         new(new PanelInstanceId($"placeholder-{Guid.NewGuid():n}"));
@@ -1413,7 +1450,12 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     {
         ClearZoom();
         placeholder ??= NewPlaceholder();
+        PlaceAgainstEdge(placeholder, side);
+        return placeholder;
+    }
 
+    private void PlaceAgainstEdge(RuntimePanelViewModel panel, PanelSide side)
+    {
         var column = side is PanelSide.Left or PanelSide.Right;
         var at = side switch
         {
@@ -1423,19 +1465,18 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
         };
         InsertTrack(column, at);
 
-        placeholder.AssignLayout(
+        panel.AssignLayout(
             _columns,
             _rows,
             column
                 ? new LayoutGridBounds(at, 0, 1, _rows)
                 : new LayoutGridBounds(0, at, _columns, 1),
             new LayoutMinimumSize(DefaultPanelMinimumWidth, DefaultPanelMinimumHeight));
-        Panels.Add(placeholder);
-        _dockLayout.AttachToEdge(placeholder, side);
+        Panels.Add(panel);
+        _dockLayout.AttachToEdge(panel, side);
         _usesAutomaticLayout = false;
-        ActivatePanel(placeholder.Id);
+        ActivatePanel(panel.Id);
         NotifyPanelLayoutChanged();
-        return placeholder;
     }
 
     /// <summary>Places an empty panel beside an existing one.</summary>
@@ -2041,6 +2082,8 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
     private TerminalMultiplexerSession? _multiplexerSession;
     private readonly string? _connectionDisplayName;
     private bool _disposed;
+    private bool _isClosing;
+    private SessionSnapshot? _endedWhileClosing;
 
     public TerminalRuntimePanelViewModel(
         PanelInstanceId id,
@@ -2764,11 +2807,40 @@ public sealed class TerminalRuntimePanelViewModel : RuntimePanelViewModel, IPane
         await RetryAsync();
     }
 
+    /// <summary>
+    /// The panel is being closed, which ends its session. Until it has gone,
+    /// that end is what was asked for, not a failure: the panel keeps showing
+    /// the session as it was rather than report it stopped unexpectedly or
+    /// try to reconnect while its cell closes.
+    /// </summary>
+    internal void BeginClosing() => _isClosing = true;
+
+    /// <summary>
+    /// The close did not go through and the panel stays. If its session ended
+    /// meanwhile, the panel now shows that.
+    /// </summary>
+    internal void AbandonClosing()
+    {
+        _isClosing = false;
+        if (_endedWhileClosing is { } snapshot)
+        {
+            _endedWhileClosing = null;
+            ObserveSessionSnapshot(snapshot);
+        }
+    }
+
     public void ObserveSessionSnapshot(SessionSnapshot snapshot)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         if (_disposed || SessionRequest?.SessionId != snapshot.Descriptor.Id)
         {
+            return;
+        }
+
+        if (_isClosing
+            && snapshot.Descriptor.Lifecycle is SessionLifecycle.Closed or SessionLifecycle.Failed)
+        {
+            _endedWhileClosing = snapshot;
             return;
         }
 

@@ -12,6 +12,7 @@ internal sealed partial class RuntimeDockLayoutController
 
     internal void RememberExpandedProportions()
     {
+        FinishCellMotion();
         foreach (var dockable in EnumerateDockables(Layout))
         {
             if (dockable.Id is { Length: > 0 } id)
@@ -23,8 +24,18 @@ internal sealed partial class RuntimeDockLayoutController
 
     internal void RestoreExpandedProportions()
     {
+        // Nothing was collapsed, so there is nothing to put back; repairing
+        // here would also end a cell's growth on every change to the panels.
+        if (_expandedProportions.Count == 0)
+        {
+            return;
+        }
+
         ApplyExpandedProportions(Layout);
         _expandedProportions.Clear();
+        // A panel added while others were collapsed has no remembered share,
+        // so the remembered ones no longer fill their split on their own.
+        MutateTopology(static () => { });
     }
 
     private void ApplyExpandedProportions(IRootDock layout)
@@ -42,11 +53,12 @@ internal sealed partial class RuntimeDockLayoutController
     private string SerializeExpandedLayout()
     {
         var serialized = _serializer.Serialize<IRootDock>(Layout);
-        if (_expandedProportions.Count > 0)
+        if (_expandedProportions.Count > 0 || _cellMotion is not null)
         {
             var expanded = _serializer.Deserialize<IRootDock>(serialized)
                 ?? throw new InvalidOperationException("Could not copy the runtime layout for persistence.");
             ApplyExpandedProportions(expanded);
+            SettleCellMotionIn(expanded);
             serialized = _serializer.Serialize<IRootDock>(expanded);
         }
 

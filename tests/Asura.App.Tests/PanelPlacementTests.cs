@@ -1,5 +1,7 @@
 using Asura.App.ViewModels;
 using Asura.Core;
+using Dock.Model.Controls;
+using Dock.Model.Core;
 
 namespace Asura.App.Tests;
 
@@ -341,5 +343,58 @@ public sealed class PanelPlacementTests
 
         Assert.True(tab.RemovePanel(placeholder.Id));
         Assert.DoesNotContain(tab.Panels, panel => panel is PanelPlaceholderViewModel);
+    }
+
+    /// <summary>
+    /// A cell added at a side the layout already splits along goes into that
+    /// split. Wrapping the whole layout in a new split moved every cell, and
+    /// Dock builds a moved cell's view again, all while the window waits.
+    /// </summary>
+    [Theory]
+    [InlineData(PanelSide.Left, 0)]
+    [InlineData(PanelSide.Right, 2)]
+    public void A_cell_added_along_the_split_leaves_the_cells_already_there_in_place(
+        PanelSide side,
+        int column)
+    {
+        var tab = Tab(panels: 2);
+        var cells = tab.Panels.ToDictionary(panel => panel, panel => Cell(tab, panel));
+        var parents = cells.Values.ToDictionary(cell => cell, cell => cell.Owner);
+        var shares = cells.Values.Select(cell => cell.Proportion).ToArray();
+
+        var placeholder = tab.AddPlaceholder(side);
+
+        Assert.Equal(column, placeholder.LayoutColumn);
+        Assert.All(cells, pair =>
+        {
+            Assert.Same(pair.Value, Cell(tab, pair.Key));
+            Assert.Same(parents[pair.Value], pair.Value.Owner);
+        });
+        // One part in three for the new cell, the rest kept in proportion.
+        Assert.Equal(1d / 3, Cell(tab, placeholder).Proportion, 9);
+        Assert.Equal(
+            shares.Select(share => share * 2 / 3),
+            cells.Values.Select(cell => cell.Proportion),
+            new ToleranceComparer(1e-9));
+    }
+
+    private static IDockable Cell(RuntimeTabViewModel tab, RuntimePanelViewModel panel)
+    {
+        static IEnumerable<IDockable> All(IDockable dockable) =>
+            dockable is IDock { VisibleDockables: { } children }
+                ? children.SelectMany(All).Prepend(dockable)
+                : [dockable];
+
+        return All(tab.DockLayout)
+            .OfType<IDock>()
+            .Single(dock => dock.VisibleDockables?.Any(item => item.Id == panel.Id.Value) == true
+                && dock is not IProportionalDock);
+    }
+
+    private sealed class ToleranceComparer(double tolerance) : IEqualityComparer<double>
+    {
+        public bool Equals(double x, double y) => Math.Abs(x - y) < tolerance;
+
+        public int GetHashCode(double obj) => 0;
     }
 }

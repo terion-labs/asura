@@ -95,7 +95,13 @@ public sealed class RuntimePanelContentControl : ContentControl
             _observedPanel?.PropertyChanged += OnPanelPropertyChanged;
         }
 
-        Content = panel is { IsCollapsed: true } ? null : context;
+        // A closing cell holds a picture of the panel it had.
+        Content = context switch
+        {
+            CellPicture picture => picture.Show(),
+            RuntimePanelViewModel { IsCollapsed: true } => null,
+            _ => context,
+        };
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)

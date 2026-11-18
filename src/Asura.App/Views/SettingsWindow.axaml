@@ -37,13 +37,16 @@
         Margin="{controls:Inset Left=Lg, Bottom=Lg}"
         HorizontalAlignment="Left"
         VerticalAlignment="Bottom"
-        MaxWidth="520" />
+        MaxWidth="520"
+        controls:Arrival.IsEnabled="True" />
     <Border
         Margin="{controls:Inset Right=Lg, Bottom=Lg}"
         HorizontalAlignment="Right"
         VerticalAlignment="Bottom"
         MaxWidth="520">
-      <components:ErrorNoticesView DataContext="{Binding ErrorNotices}" />
+      <components:ErrorNoticesView
+          DataContext="{Binding ErrorNotices}"
+          controls:Arrival.IsEnabled="True" />
     </Border>
   </Grid>
 </Window>

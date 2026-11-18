@@ -32,27 +32,14 @@ public sealed class TransientOverlayViewContractTests
                 ["SplitSlotRightRequested"] = "OnLayoutSplitSlotRightClick",
             };
 
-    private static readonly IReadOnlyDictionary<string, string>
-        NewPanelChooserInteractions =
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["AddBrowserPanelRequested"] = "OnAddBrowserPanelClick",
-                ["AddFilePanelRequested"] = "OnAddFilePanelClick",
-                ["AddProcessMonitorPanelRequested"] =
-                    "OnAddProcessMonitorPanelClick",
-                ["AddStatisticsPanelRequested"] = "OnAddStatisticsPanelClick",
-                ["AddTerminalPanelRequested"] = "OnAddTerminalPanelClick",
-                ["ShowLayoutDesignerRequested"] = "OnShowLayoutDesignerClick",
-            };
-
     /// <summary>
     /// The command palette is the one overlay left, deferred behind its host.
-    /// Add Panel is a popover and the two editors are windows of their own:
-    /// their views are still templates of this window, so their events reach
-    /// its handlers, but nothing in this window hosts them.
+    /// Add Panel is a menu on the "+" and the two editors are windows of
+    /// their own: the editors' views are still templates of this window, so
+    /// their events reach its handlers, but nothing in this window hosts them.
     /// </summary>
     [Fact]
-    public void Main_window_defers_the_palette_and_templates_the_popover_and_editor_windows()
+    public void Main_window_defers_the_palette_and_templates_the_editor_windows()
     {
         var mainWindow = LoadView("MainWindow");
         AssertDelegatedOverlay(
@@ -67,11 +54,6 @@ public sealed class TransientOverlayViewContractTests
             "LayoutDesignerView",
             "LayoutDesignerTemplate",
             LayoutDesignerInteractions);
-        AssertTemplatedView(
-            mainWindow,
-            "NewPanelChooserView",
-            "NewPanelChooserTemplate",
-            NewPanelChooserInteractions);
         var editorTemplate = Assert.Single(
             mainWindow.Descendants(),
             element => AttributeValue(element, "Key") == "WorkspaceEditorTemplate");
@@ -433,60 +415,6 @@ public sealed class TransientOverlayViewContractTests
     }
 
     [Fact]
-    public void New_panel_chooser_preserves_geometry_choices_and_availability()
-    {
-        var chooser = LoadOverlay("NewPanelChooserView");
-        var root = Assert.IsType<XElement>(chooser.Root);
-        AssertStretchingUserControl(root);
-
-        // A popover's content: it scrolls itself, and its size comes from the
-        // window it opens over rather than a fixed 900.
-        var scroll = Assert.Single(
-            root.Elements(),
-            element => string.Equals(element.Name.LocalName, "ScrollViewer", StringComparison.Ordinal));
-        Assert.Null(AttributeValue(scroll, "Width"));
-        Assert.DoesNotContain(
-            root.Descendants(),
-            element => AttributeValue(element, "Width") == "900");
-
-        var choices = root.Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "ChooserTile", StringComparison.Ordinal))
-            .ToArray();
-        Assert.Equal(PanelTypeTitles, choices.Select(element => AttributeValue(element, "Title")), StringComparer.Ordinal);
-        Assert.Contains(choices, element => string.Equals(AttributeValue(element, "Click"), "OnAddKubernetesPanelClick", StringComparison.Ordinal));
-        Assert.Contains(
-            root.Descendants(),
-            element => string.Equals(AttributeValue(element, "Text"), "Add Panel", StringComparison.Ordinal)
-                && HasClasses(element, "Title2"));
-
-        var initialAction = FindNamedElement(root, "NewPanelTerminalButton");
-        Assert.Equal(
-            "OnAddTerminalPanelClick",
-            AttributeValue(initialAction, "Click"));
-        Assert.Contains(
-            choices,
-            element => string.Equals(
-                AttributeValue(element, "IsEnabled"),
-                "{Binding CanCreateBrowserPanel}",
-                StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "UnavailableReason"),
-                    "{Binding BrowserPanelUnavailableReason}",
-                    StringComparison.Ordinal));
-        Assert.Contains(
-            root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "Button"
-, StringComparison.Ordinal) && string.Equals(
-                    AttributeValue(element, "Content"),
-                    "Open Layout Designer…",
-                    StringComparison.Ordinal)
-                && string.Equals(
-                    AttributeValue(element, "Click"),
-                    "OnShowLayoutDesignerClick",
-                    StringComparison.Ordinal));
-    }
-
-    [Fact]
     public void Overlay_views_forward_original_events_and_own_only_namescope_mechanics()
     {
         var commandPaletteCode = ApplicationViews
@@ -525,19 +453,6 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             "NewTerminalButton.Focus(NavigationMethod.Tab);",
             newItemChooserCode);
-
-        var newPanelChooserCode = ApplicationViews
-            .FindUniqueCodeBehindSourceContaining(
-                "public sealed partial class NewPanelChooserView");
-        AssertForwardingContract(
-            newPanelChooserCode,
-            NewPanelChooserInteractions.Keys);
-        Assert.Contains(
-            "internal void FocusInitialAction()",
-            newPanelChooserCode);
-        Assert.Contains(
-            "NewPanelTerminalButton.Focus(NavigationMethod.Tab);",
-            newPanelChooserCode);
     }
 
     [Fact]
@@ -554,18 +469,12 @@ public sealed class TransientOverlayViewContractTests
         Assert.Contains(
             "BuildEditorView<WorkspaceEditorView>(",
             mainWindowCode);
-        Assert.Contains(
-            "\"NewPanelChooserTemplate\"",
-            mainWindowCode);
         Assert.Contains("CommandPaletteOverlay.FocusSearch();", mainWindowCode);
         Assert.Contains(
             "CommandPaletteOverlay.ScrollSelectedResultIntoView();",
             mainWindowCode);
         Assert.Contains(
             "FocusNavigator.FocusLayoutDesignerName();",
-            mainWindowCode);
-        Assert.Contains(
-            "chooser.FocusInitialAction();",
             mainWindowCode);
 
         foreach (var extractedName in ExtractedControlNames)

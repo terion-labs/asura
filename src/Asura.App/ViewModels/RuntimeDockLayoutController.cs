@@ -46,7 +46,7 @@ internal sealed partial class RuntimeDockLayoutController
         // dialog are still transitioning. Native windows belong to the mounted
         // workspace, not to construction of its view model.
         Factory.InitModel(Layout);
-        DockLayoutTopology.Normalize(Factory, Layout);
+        DockLayoutTopology.Normalize(Factory, Layout, IsCollapsed);
         _workspaceManager = new DockWorkspaceManager(_serializer);
         _workspaceManager.WorkspaceDirtyChanged += OnWorkspaceDirtyChanged;
         _workspaceManager.TrackLayout(Layout);
@@ -110,22 +110,27 @@ internal sealed partial class RuntimeDockLayoutController
             : FindLeaf(panel.Id.Value);
         target ??= FindLeafForContext(
             _contexts.Values.LastOrDefault(item => item.Id != panel.Id));
-        if (target is null)
+        // A split leaves the new side's share unset; the repair gives it one.
+        MutateTopology(() =>
         {
-            Layout.VisibleDockables ??= Factory.CreateList<IDockable>();
-            Factory.AddDockable(Layout, leaf);
-            Layout.ActiveDockable = leaf;
-        }
-        else
-        {
-            Factory.SplitToDock(
-                target,
-                leaf,
-                split == PanelSplitOrientation.TopBottom
-                    ? DockOperation.Bottom
-                    : DockOperation.Right);
-        }
+            if (target is null)
+            {
+                Layout.VisibleDockables ??= Factory.CreateList<IDockable>();
+                Factory.AddDockable(Layout, leaf);
+                Layout.ActiveDockable = leaf;
+            }
+            else
+            {
+                Factory.SplitToDock(
+                    target,
+                    leaf,
+                    split == PanelSplitOrientation.TopBottom
+                        ? DockOperation.Bottom
+                        : DockOperation.Right);
+            }
+        });
 
+        GrowFromSliver(leaf);
         Activate(panel.Id);
         Changed();
     }
@@ -135,27 +140,64 @@ internal sealed partial class RuntimeDockLayoutController
         ArgumentNullException.ThrowIfNull(panel);
 
         var leaf = CreateLeaf(panel, panel.Id.Value);
-        if (Layout.VisibleDockables?
-            .FirstOrDefault(dockable => dockable is not ProportionalDockSplitter) is not IDock body)
+        MutateTopology(() =>
         {
-            Layout.VisibleDockables ??= Factory.CreateList<IDockable>();
-            Factory.AddDockable(Layout, leaf);
-            Layout.ActiveDockable = leaf;
-        }
-        else
-        {
-            Factory.SplitToDock(body, leaf, side switch
+            if (Layout.VisibleDockables?
+                .FirstOrDefault(dockable => dockable is not ProportionalDockSplitter) is not IDock body)
             {
-                PanelSide.Left => DockOperation.Left,
-                PanelSide.Right => DockOperation.Right,
-                PanelSide.Top => DockOperation.Top,
-                PanelSide.Bottom => DockOperation.Bottom,
-                _ => throw new ArgumentOutOfRangeException(nameof(side), side, null),
-            });
-        }
+                Layout.VisibleDockables ??= Factory.CreateList<IDockable>();
+                Factory.AddDockable(Layout, leaf);
+                Layout.ActiveDockable = leaf;
+            }
+            else if (body is IProportionalDock split && split.Orientation == AlongEdge(side))
+            {
+                InsertAtEnd(split, leaf, atStart: side is PanelSide.Left or PanelSide.Top);
+            }
+            else
+            {
+                Factory.SplitToDock(body, leaf, side switch
+                {
+                    PanelSide.Left => DockOperation.Left,
+                    PanelSide.Right => DockOperation.Right,
+                    PanelSide.Top => DockOperation.Top,
+                    PanelSide.Bottom => DockOperation.Bottom,
+                    _ => throw new ArgumentOutOfRangeException(nameof(side), side, null),
+                });
+            }
+        });
 
+        GrowFromSliver(leaf);
         Activate(panel.Id);
         Changed();
+    }
+
+    private static Orientation AlongEdge(PanelSide side) =>
+        side is PanelSide.Left or PanelSide.Right ? Orientation.Horizontal : Orientation.Vertical;
+
+    /// <summary>
+    /// Adds a cell at one end of a split that already runs toward that edge.
+    ///
+    /// Splitting the whole layout would wrap it in a new split, and the
+    /// layout's own tidying then folds the old split into the new one. Both
+    /// steps move every cell to a new parent, and Dock builds a moved cell's
+    /// view again from nothing: every panel in the tab, about 450 controls
+    /// for each empty cell's chooser, all on the UI thread while the window
+    /// waits. Inserting here leaves the cells already shown where they are.
+    ///
+    /// The new cell's share is left unset; filling the split gives it one
+    /// part in n + 1 and scales the others to make room, as the wrap did.
+    /// </summary>
+    private void InsertAtEnd(IProportionalDock split, IDockable leaf, bool atStart)
+    {
+        var splitter = new ProportionalDockSplitter
+        {
+            CanResize = true,
+            ResizePreview = false,
+        };
+        var end = split.VisibleDockables!.Count;
+        Factory.InsertDockable(split, atStart ? splitter : leaf, atStart ? 0 : end);
+        Factory.InsertDockable(split, atStart ? leaf : splitter, atStart ? 0 : end);
+        split.ActiveDockable = leaf;
     }
 
     public void ReplacePlaceholder(
@@ -269,14 +311,21 @@ internal sealed partial class RuntimeDockLayoutController
 
     public void Remove(PanelInstanceId panelId)
     {
+        _closingPictures.Remove(panelId.Value, out var picture);
         var document = FindDocument(panelId.Value);
         if (document is null)
         {
+            (picture as IDisposable)?.Dispose();
             return;
         }
 
         _contexts.Remove(panelId.Value);
-        RemoveDocument(document);
+        if (!CloseToSliver(document, picture))
+        {
+            (picture as IDisposable)?.Dispose();
+            RemoveDocument(document);
+        }
+
         Changed();
     }
 
@@ -325,12 +374,13 @@ internal sealed partial class RuntimeDockLayoutController
     /// <returns>Whether the repair after the mutation changed the layout.</returns>
     private bool MutateTopology(Action mutation)
     {
+        FinishCellMotion();
         var wasMutating = _isMutatingTopology;
         _isMutatingTopology = true;
         try
         {
             mutation();
-            return DockLayoutTopology.Normalize(Factory, Layout);
+            return DockLayoutTopology.Normalize(Factory, Layout, IsCollapsed);
         }
         finally
         {
@@ -767,7 +817,7 @@ internal sealed partial class RuntimeDockLayoutController
             return;
         }
 
-        if (!_isMutatingTopology)
+        if (!_isMutatingTopology && !_isMovingShares)
         {
             Changed();
             QueueNormalization();
@@ -780,7 +830,7 @@ internal sealed partial class RuntimeDockLayoutController
     {
         _ = sender;
         _ = eventArgs;
-        if (!_isMutatingTopology)
+        if (!_isMutatingTopology && !_isMovingShares)
         {
             Changed();
             QueueNormalization();

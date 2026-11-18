@@ -29,7 +29,8 @@ public sealed partial class MainWindow
             new RuntimeTabDragPresentation(
                 ShowDragGhost,
                 MoveDragGhost,
-                HideDragGhost),
+                HideDragGhost,
+                ReturnDragGhost),
             _lifetime.Token);
         AddHandler(KeyDownEvent, controller.KeyDown, RoutingStrategies.Tunnel, handledEventsToo: true);
         return controller;
@@ -571,27 +572,6 @@ public sealed partial class MainWindow
             catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
             {
             }
-        }
-    }
-
-    /// <summary>
-    /// Places an empty panel against an edge of the canvas, then asks what to
-    /// open in it from the Add Panel popover on the "+". Dismissing the popover
-    /// leaves the empty panel, which asks the same question itself.
-    /// </summary>
-    private async void OnAddPanelToSideRequested(object? sender, PanelSide side)
-    {
-        _ = sender;
-        try
-        {
-            if (await ViewModel.AddPlaceholderPanelAsync(side, _lifetime.Token))
-            {
-                // Then what goes there, in a popover on the "+" that asked.
-                ShowNewPanelChooser(AddPanelButton());
-            }
-        }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
-        {
         }
     }
 
@@ -1916,76 +1896,6 @@ public sealed partial class MainWindow
             or StatisticsRuntimePanelViewModel { HasHostedSession: false }
             or ProcessMonitorRuntimePanelViewModel { HasHostedSession: false };
 
-    private async void OnAddTerminalPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddLocalTerminalPanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddConnectionPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = e;
-        if (sender is not Control { DataContext: LauncherConnectionViewModel connection })
-        {
-            return;
-        }
-
-        await AddPanelFromChooserAsync(() =>
-            ViewModel.AddConnectionPanelAsync(connection.Id, _lifetime.Token));
-    }
-
-    private async void OnAddFilePanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddFilePanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddBrowserPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        var profileId = ViewModel.SelectedBrowserPanelProfile?.Id;
-        await AddPanelFromChooserAsync(() =>
-            ViewModel.AddBrowserPanelAsync(profileId, _lifetime.Token));
-    }
-
-    private async void OnAddStatisticsPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddStatisticsPanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddProcessMonitorPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddProcessMonitorPanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddDatabasePanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddDatabasePanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddDockerPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddDockerPanelAsync(_lifetime.Token));
-    }
-
-    private async void OnAddGitPanelClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        await AddPanelFromChooserAsync(() => ViewModel.AddGitPanelAsync(_lifetime.Token));
-    }
-
     private async Task CloseActivePanelAsync()
     {
         if (ViewModel.ActivePanel is not { } panel)
@@ -2006,7 +1916,31 @@ public sealed partial class MainWindow
             return false;
         }
 
-        return await (panel switch
+        // The panel looks as it did when its close was asked for until its
+        // cell has closed: a terminal does not report the session it is
+        // ending as failed, and the closing cell shows a picture taken now.
+        var terminal = panel as TerminalRuntimePanelViewModel;
+        terminal?.BeginClosing();
+        var tab = ViewModel.RuntimeWorkspace?.Tabs.FirstOrDefault(item => item.Panels.Contains(panel));
+        tab?.KeepClosingPicture(panel.Id);
+        var closed = false;
+        try
+        {
+            closed = await EndRuntimePanelAsync(panel);
+            return closed;
+        }
+        finally
+        {
+            if (!closed)
+            {
+                tab?.DropClosingPicture(panel.Id);
+                terminal?.AbandonClosing();
+            }
+        }
+    }
+
+    private Task<bool> EndRuntimePanelAsync(RuntimePanelViewModel panel) =>
+        panel switch
         {
             UnavailableRuntimePanelViewModel => Task.FromResult(true),
             FileRuntimePanelViewModel { HostedClient: null } => Task.FromResult(true),
@@ -2021,8 +1955,7 @@ public sealed partial class MainWindow
                 ViewModel.CloseFilePanelAsync(filePanel, decision, token)),
             _ => RunCloseFlowAsync((decision, token) =>
                 ViewModel.ClosePanelAsync(panel.Id, decision, token)),
-        });
-    }
+        };
 
     private async Task<bool> CloseDetachedMultiplexedTerminalAsync(
         TerminalRuntimePanelViewModel terminal)

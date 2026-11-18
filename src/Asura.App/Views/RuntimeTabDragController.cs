@@ -12,7 +12,8 @@ namespace Asura.App.Views;
 internal sealed record RuntimeTabDragPresentation(
     Action<DragGhostPayload, Point> ShowGhost,
     Action<Point> MoveGhost,
-    Action HideGhost);
+    Action HideGhost,
+    Action<Control> ReturnGhost);
 
 /// <summary>
 /// Owns the complete pointer/capture/drop lifecycle for runtime-tab reordering.
@@ -76,7 +77,7 @@ internal sealed class RuntimeTabDragController(
             if (!current.Properties.IsLeftButtonPressed
                 && e.Pointer.Type != PointerType.Touch)
             {
-                Cancel(active.Pointer);
+                Cancel(active.Pointer, active.Source);
                 return;
             }
 
@@ -158,7 +159,7 @@ internal sealed class RuntimeTabDragController(
 
         if (_activeDrag is { } active)
         {
-            Cancel(active.Pointer);
+            Cancel(active.Pointer, active.Source);
             e.Handled = true;
             return;
         }
@@ -172,7 +173,7 @@ internal sealed class RuntimeTabDragController(
         if (_activeDrag is { } active
             && ReferenceEquals(e.Pointer, active.Pointer))
         {
-            Cancel(active.Pointer, releaseCapture: false);
+            Cancel(active.Pointer, active.Source, releaseCapture: false);
             return;
         }
 
@@ -235,7 +236,17 @@ internal sealed class RuntimeTabDragController(
         var target = ResolveDrop(e.GetPosition(window), active.Payload);
         ClearState();
         active.Pointer.Capture(null);
-        presentation.HideGhost();
+        if (target is null)
+        {
+            // Let go where it can go nowhere: the tab never moved, so its ghost
+            // goes back to it.
+            presentation.ReturnGhost(active.Source);
+        }
+        else
+        {
+            presentation.HideGhost();
+        }
+
         if (target is not null)
         {
             await MoveTabAsync(
@@ -245,7 +256,7 @@ internal sealed class RuntimeTabDragController(
         }
     }
 
-    private void Cancel(IPointer pointer, bool releaseCapture = true)
+    private void Cancel(IPointer pointer, Control source, bool releaseCapture = true)
     {
         ClearState();
         if (releaseCapture)
@@ -253,7 +264,7 @@ internal sealed class RuntimeTabDragController(
             pointer.Capture(null);
         }
 
-        presentation.HideGhost();
+        presentation.ReturnGhost(source);
     }
 
     private void ClearState()

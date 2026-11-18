@@ -43,7 +43,7 @@ Keep names as their owners write them: macOS, iOS, kubectl, GitHub, PostgreSQL. 
 | New Tab | New tab |
 | Check for Updates | Check For Updates |
 | Sign In to Git | Sign in to Git |
-| Add to the Left | Add To The Left |
+| To the Left | To The Left |
 | Open in New Window | Open In New Window |
 | Save As… | Save as… |
 

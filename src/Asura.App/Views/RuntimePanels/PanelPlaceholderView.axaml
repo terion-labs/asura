@@ -32,30 +32,41 @@
       <ScrollViewer
           HorizontalScrollBarVisibility="Disabled"
           VerticalScrollBarVisibility="Auto">
-        <components:LauncherView
-            Margin="{controls:Inset Xl}"
-            DataContext="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext)}"
-            ShowCloseAction="False"
-            AddConnectionRequested="OnAddConnectionClick"
-          ManageConnectionsRequested="OnManageConnectionsClick"
-            NewBrowserRequested="OnChooseBrowserClick"
-            NewDatabaseRequested="OnChooseDatabaseClick"
-            NewDockerRequested="OnChooseDockerClick"
-            NewKubernetesRequested="OnChooseKubernetesClick"
-            NewFileViewerRequested="OnChooseFileViewerClick"
-            NewGitRequested="OnChooseGitClick"
-            NewLocalTerminalRequested="OnChooseTerminalClick"
-            NewProcessMonitorRequested="OnChooseProcessMonitorClick"
-            NewStatisticsRequested="OnChooseStatisticsClick"
-            ConnectionLaunchRequested="OnConnectionLaunchRequested"
-            DeleteConnectionRequested="OnDeleteConnectionRequested"
-            EditConnectionRequested="OnEditConnectionRequested"
-            FinishOnboardingRequested="OnFinishOnboardingClick"
-            HistorySearchKeyDownRequested="OnHistorySearchKeyDown"
-            RetryOnboardingRequested="OnRetryOnboardingClick"
-            OpenScreenRequested="OnOpenScreenClick"
-            ShowCommandPaletteRequested="OnShowCommandPaletteClick"
-            ShowLayoutDesignerRequested="OnShowLayoutDesignerClick" />
+        <!--
+          The launcher is several hundred controls. Building it with the cell held
+          up the frame that shows the new cell, so placing one froze the window
+          before anything appeared; it now fills in once that frame is drawn.
+        -->
+        <controls:IdleContent>
+          <controls:IdleContent.ContentTemplate>
+            <DataTemplate x:DataType="vm:PanelPlaceholderViewModel">
+              <components:LauncherView
+                  Margin="{controls:Inset Xl}"
+                  DataContext="{Binding $parent[Window].((vm:MainWindowViewModel)DataContext)}"
+                  ShowCloseAction="False"
+                  AddConnectionRequested="OnAddConnectionClick"
+                  ManageConnectionsRequested="OnManageConnectionsClick"
+                  NewBrowserRequested="OnChooseBrowserClick"
+                  NewDatabaseRequested="OnChooseDatabaseClick"
+                  NewDockerRequested="OnChooseDockerClick"
+                  NewKubernetesRequested="OnChooseKubernetesClick"
+                  NewFileViewerRequested="OnChooseFileViewerClick"
+                  NewGitRequested="OnChooseGitClick"
+                  NewLocalTerminalRequested="OnChooseTerminalClick"
+                  NewProcessMonitorRequested="OnChooseProcessMonitorClick"
+                  NewStatisticsRequested="OnChooseStatisticsClick"
+                  ConnectionLaunchRequested="OnConnectionLaunchRequested"
+                  DeleteConnectionRequested="OnDeleteConnectionRequested"
+                  EditConnectionRequested="OnEditConnectionRequested"
+                  FinishOnboardingRequested="OnFinishOnboardingClick"
+                  HistorySearchKeyDownRequested="OnHistorySearchKeyDown"
+                  RetryOnboardingRequested="OnRetryOnboardingClick"
+                  OpenScreenRequested="OnOpenScreenClick"
+                  ShowCommandPaletteRequested="OnShowCommandPaletteClick"
+                  ShowLayoutDesignerRequested="OnShowLayoutDesignerClick" />
+            </DataTemplate>
+          </controls:IdleContent.ContentTemplate>
+        </controls:IdleContent>
       </ScrollViewer>
   </controls:PanelChrome>
 </UserControl>
