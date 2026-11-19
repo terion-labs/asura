@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Asura.App.ViewModels;
 using Asura.App.Views.RuntimePanels;
@@ -156,18 +157,21 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Dispatcher.UIThread.RunJobs();
             var drawer = view.FindControl<Border>("Inspector")!;
             Assert.Equal(0, drawer.Bounds.Width);
-            model.SelectedResource = model.Resources[0];
-            await model.SelectionLoading;
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(drawer.IsAnimating(Layoutable.WidthProperty));
+            async Task OpenAsync()
+            {
+                model.SelectedResource = model.Resources[0];
+                await model.SelectionLoading;
+            }
+
+            Task ShutAsync()
+            {
+                model.SelectedResource = null;
+                return Task.CompletedTask;
+            }
+
+            await AssertStartsSlidingAsync(drawer, OpenAsync, ShutAsync);
             Assert.Equal(480, model.InspectorWidth);
-            model.SelectedResource = null;
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(drawer.IsAnimating(Layoutable.WidthProperty));
+            await AssertStartsSlidingAsync(drawer, ShutAsync, OpenAsync);
             Assert.Equal(0, model.InspectorWidth);
             Assert.Equal(479, model.InspectorContentWidth);
             window.Close();
@@ -193,14 +197,58 @@ public sealed class KubernetesRuntimePanelHeadlessTests
             Dispatcher.UIThread.RunJobs();
             var navigator = view.FindControl<Border>("Navigator")!;
             Assert.Equal(190, navigator.Bounds.Width);
-            model.ToggleNavigator();
-            Dispatcher.UIThread.RunJobs();
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            Dispatcher.UIThread.RunJobs();
-            Assert.True(navigator.IsAnimating(Layoutable.WidthProperty));
+            Task ToggleAsync()
+            {
+                model.ToggleNavigator();
+                return Task.CompletedTask;
+            }
+
+            await AssertStartsSlidingAsync(navigator, ToggleAsync, ToggleAsync);
             window.Close();
             return true;
         }, timeout.Token));
+    }
+
+    private static readonly TimeSpan SlideDuration = TimeSpan.FromMilliseconds(260);
+
+    /// <summary>
+    /// Makes a change and finds the border's width sliding to it. The render
+    /// timer runs in real time, so a look held up for longer than the slide,
+    /// as on a busy runner, can find it already over: that look proves
+    /// nothing, and the change is undone and looked at again. A look quicker
+    /// than the slide that finds it still must mean the width snapped.
+    /// </summary>
+    private static async Task AssertStartsSlidingAsync(Border border, Func<Task> change, Func<Task> undo)
+    {
+        for (var look = 0; look < 5; look++)
+        {
+            var watched = Stopwatch.StartNew();
+            await change();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            if (border.IsAnimating(Layoutable.WidthProperty))
+            {
+                return;
+            }
+
+            Assert.True(watched.Elapsed >= SlideDuration, $"{border.Name} snapped instead of sliding.");
+            await undo();
+            await SettleAsync(border);
+        }
+
+        Assert.Fail($"Every look at {border.Name} was held up for longer than its slide.");
+    }
+
+    private static async Task SettleAsync(Border border)
+    {
+        var waited = Stopwatch.StartNew();
+        do
+        {
+            await Task.Delay(16);
+            Dispatcher.UIThread.RunJobs();
+        }
+        while (border.IsAnimating(Layoutable.WidthProperty) && waited.Elapsed < TimeSpan.FromSeconds(5));
     }
 
     [Fact]
