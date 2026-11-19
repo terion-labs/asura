@@ -180,7 +180,10 @@ internal sealed partial class MacOsUserNotificationCenter
             Selector("mainBundle"));
         var bundleIdentifier = ToManagedString(
             SendObject(bundle, Selector("bundleIdentifier")));
-        if (string.IsNullOrWhiteSpace(bundleIdentifier))
+        var bundlePath = ToManagedString(
+            SendObject(bundle, Selector("bundlePath")));
+        if (string.IsNullOrWhiteSpace(bundleIdentifier)
+            || !IsApplicationBundlePath(bundlePath))
         {
             // currentNotificationCenter raises an Objective-C exception outside
             // an application bundle. Rejecting the host first keeps that native
@@ -189,6 +192,16 @@ internal sealed partial class MacOsUserNotificationCenter
                 "macOS notifications require a bundled application identity.");
         }
     }
+
+    /// <summary>
+    /// Whether the main bundle is an application bundle. A bundle identifier
+    /// alone is not enough: an unbundled executable can embed an Info.plist
+    /// and report one, while its main bundle is still the directory it runs
+    /// from, which LaunchServices does not know as an application.
+    /// </summary>
+    internal static bool IsApplicationBundlePath(string? bundlePath) =>
+        !string.IsNullOrWhiteSpace(bundlePath)
+        && bundlePath.TrimEnd('/').EndsWith(".app", StringComparison.OrdinalIgnoreCase);
 
     private static nint RequireClass(string name)
     {

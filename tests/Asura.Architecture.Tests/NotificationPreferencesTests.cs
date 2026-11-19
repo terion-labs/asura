@@ -20,6 +20,51 @@ public sealed class NotificationPreferencesTests
     }
 
     [Theory]
+    [InlineData("/Applications/Asura.app", true)]
+    [InlineData("/Applications/Asura.app/", true)]
+    [InlineData("/Users/runner/.dotnet", false)]
+    [InlineData("/Users/runner/.dotnet/", false)]
+    [InlineData("/opt/apps/Asura.application", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void Only_an_application_bundle_counts_as_one(string? bundlePath, bool expected)
+    {
+        if (!OperatingSystem.IsMacOSVersionAtLeast(10, 14))
+        {
+            return;
+        }
+
+        Assert.Equal(expected, MacOsUserNotificationCenter.IsApplicationBundlePath(bundlePath));
+    }
+
+    [Fact]
+    public void The_test_host_is_refused_before_the_notification_center_is_touched()
+    {
+        if (!OperatingSystem.IsMacOSVersionAtLeast(10, 14))
+        {
+            return;
+        }
+
+        // The dotnet host is not an application bundle, whatever identifier its
+        // executable reports. Reaching currentNotificationCenter here would end
+        // the process with an Objective-C exception instead of this one.
+        InvalidOperationException? refusal = null;
+        try
+        {
+            using var center = new MacOsUserNotificationCenter();
+        }
+        catch (InvalidOperationException exception)
+        {
+            refusal = exception;
+        }
+
+        Assert.NotNull(refusal);
+        Assert.Equal(
+            "macOS notifications require a bundled application identity.",
+            refusal.Message);
+    }
+
+    [Theory]
     [InlineData(0, NotificationAuthorization.NotDetermined)]
     [InlineData(1, NotificationAuthorization.Denied)]
     [InlineData(2, NotificationAuthorization.Authorized)]
