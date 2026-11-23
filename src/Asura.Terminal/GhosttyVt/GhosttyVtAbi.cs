@@ -15,6 +15,8 @@ internal static class GhosttyVtAbi
         (string TypeName, int ActualSize, int ExpectedSize)[] layouts =
         [
             (nameof(GhosttyVtString), Marshal.SizeOf<GhosttyVtString>(), 16),
+            (nameof(GhosttyVtClipboardWrite), Marshal.SizeOf<GhosttyVtClipboardWrite>(), 32),
+            (nameof(GhosttyVtClipboardContent), Marshal.SizeOf<GhosttyVtClipboardContent>(), 32),
             (nameof(GhosttyVtColorRgb), Marshal.SizeOf<GhosttyVtColorRgb>(), 3),
             (nameof(GhosttyVtStyleColorValue), Marshal.SizeOf<GhosttyVtStyleColorValue>(), 8),
             (nameof(GhosttyVtStyleColor), Marshal.SizeOf<GhosttyVtStyleColor>(), 16),

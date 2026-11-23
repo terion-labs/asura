@@ -17,7 +17,14 @@ public sealed record NativeRendererHost(
     // header, so only its bottom corners are at the panel's edge. One radius for
     // all four rounded the two in the middle of the panel into notches.
     NativeRendererCorners Corners = default,
-    Action? FocusObserver = null);
+    Action? FocusObserver = null)
+{
+    /// <summary>
+    /// Queues a process-originated text write for the attached desktop renderer.
+    /// The callback runs in the terminal parser and must return promptly.
+    /// </summary>
+    public Action<string>? ClipboardWriteRequested { get; init; }
+}
 
 /// <summary>
 /// Which of a native view's corners are at its host panel's edge, and how round.

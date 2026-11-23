@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text.Unicode;
 using Asura.Application;
 using Asura.Core;
 using Asura.Terminal.GhosttyVt;
@@ -55,6 +56,16 @@ internal sealed partial class GhosttyVtTerminalSession
                 GhosttyVtTerminalOption.DesktopNotification,
                 desktopNotificationCallback),
             "set terminal desktop-notification callback");
+
+        var clipboardWriteCallback =
+            (void*)(delegate* unmanaged[Cdecl]<nint, nint, GhosttyVtClipboardWrite*, GhosttyVtClipboardWriteResult>)
+                &OnNativeClipboardWrite;
+        EnsureSuccess(
+            GhosttyVtNative.TerminalSet(
+                _terminal,
+                GhosttyVtTerminalOption.ClipboardWrite,
+                clipboardWriteCallback),
+            "set terminal clipboard-write callback");
 
         var bellCallback =
             (void*)(delegate* unmanaged[Cdecl]<nint, nint, void>)&OnNativeBell;
@@ -346,6 +357,60 @@ internal sealed partial class GhosttyVtTerminalSession
         {
             // Native callbacks cannot unwind into Ghostty. A malformed
             // notification is dropped; parsing and rendering continue.
+        }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static unsafe GhosttyVtClipboardWriteResult OnNativeClipboardWrite(
+        nint terminal,
+        nint userdata,
+        GhosttyVtClipboardWrite* write)
+    {
+        _ = terminal;
+        if (userdata == 0 || write is null || write->Size < (nuint)sizeof(GhosttyVtClipboardWrite))
+        {
+            return GhosttyVtClipboardWriteResult.InvalidData;
+        }
+
+        try
+        {
+            if (GCHandle.FromIntPtr(userdata).Target is not GhosttyVtTerminalSession session
+                || session._clipboardWriteRequested is not { } queueWrite)
+            {
+                return GhosttyVtClipboardWriteResult.Denied;
+            }
+
+            // Only accept a single text representation for the system clipboard.
+            // Ghostty already decoded the protocol and owns this memory.
+            const int standardClipboard = 0;
+            if (write->Location != standardClipboard || write->ContentsLength != 1 || write->Contents == 0)
+            {
+                return GhosttyVtClipboardWriteResult.Unsupported;
+            }
+
+            var content = (GhosttyVtClipboardContent*)write->Contents;
+            ReadOnlySpan<byte> textMime = "text/plain"u8;
+            if (content->Mime.Length != (nuint)textMime.Length || content->Mime.Pointer == 0
+                || !new ReadOnlySpan<byte>((void*)content->Mime.Pointer, textMime.Length).SequenceEqual(textMime))
+            {
+                return GhosttyVtClipboardWriteResult.Unsupported;
+            }
+
+            const int maximumClipboardBytes = 1024 * 1024;
+            var data = content->Data;
+            if (data.Pointer == 0 || data.Length is 0 or > maximumClipboardBytes
+                || !Utf8.IsValid(new ReadOnlySpan<byte>((void*)data.Pointer, checked((int)data.Length))))
+            {
+                return GhosttyVtClipboardWriteResult.InvalidData;
+            }
+
+            queueWrite(data.CopyUtf8());
+            return GhosttyVtClipboardWriteResult.Success;
+        }
+        catch
+        {
+            // A managed callback cannot unwind into Ghostty.
+            return GhosttyVtClipboardWriteResult.IoError;
         }
     }
 

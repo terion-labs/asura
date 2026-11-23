@@ -78,7 +78,7 @@ The catalog is versioned with the runner and records all of these checks in a fi
 5. real IME preedit, candidates, cancel/selection, committed text, and cursor alignment;
 6. continuous resize and child-PTY grid synchronization;
 7. mouse press/release/drag/wheel reporting plus ordinary selection when reporting is off;
-8. clipboard copy/paste, guarded control-character paste, and fail-closed OSC 52 behavior;
+8. clipboard copy/paste, inert pasted control characters, and OSC 52 write policy and read denial;
 9. alternate-screen entry, resize/redraw, and primary scrollback/cursor restoration;
 10. OS-global Quick Terminal focus, toggle, restore, conflict, and Escape policy;
 11. real host sleep/wake recovery (screen lock, process stop, and container pause do not count);

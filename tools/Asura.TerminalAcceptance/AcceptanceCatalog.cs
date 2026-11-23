@@ -49,7 +49,7 @@ internal static class AcceptanceCatalog
         new(
             "clipboard-safety",
             "Clipboard copy, paste, and fail-closed policy",
-            "Copy terminal text out, paste single-line and multiline Unicode in, cancel and confirm guarded control-character paste, and verify brokerless OSC 52 read/write attempts fail closed. Use synthetic non-secret text and do not put clipboard contents in evidence notes.",
+            "Copy terminal text out, paste single-line and multiline Unicode in, and verify pasted control characters stay inert. With the terminal focused, verify OSC 52 writes follow the Clipboard write setting and queries never return desktop clipboard text. Use synthetic non-secret text and do not put clipboard contents in evidence notes.",
             "Exercise Windows clipboard shortcuts and the terminal context path.",
             "Exercise X11 clipboard shortcuts and the terminal context path."),
         new(

@@ -3,12 +3,72 @@ using Asura.App.Controls;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Input.Platform;
+using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace Asura.App.Tests;
 
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class ManagedTerminalSessionHostTests
 {
+    [Fact]
+    public async Task Focused_desktop_terminal_applies_its_current_clipboard_write_policy()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+
+        await session.Dispatch(async () =>
+        {
+            FontManager.Current.AddFontCollection(new AsuraTerminalFontCollection());
+            var client = new LifecycleClient();
+            client.ReleaseFirstResize.TrySetResult();
+            var host = CreateHost(client);
+            var window = new Window { Width = 480, Height = 240, Content = host };
+            try
+            {
+                window.Show();
+                window.Activate();
+                window.UpdateLayout();
+                Dispatcher.UIThread.RunJobs();
+                Assert.True(window.IsActive);
+                Assert.True(host.Surface.IsInputReady, host.InitializationError);
+                Assert.True(host.Surface.Focus());
+                var write = Assert.IsType<Action<string>>(client.ClipboardWriteRequested);
+                var clipboard = Assert.IsAssignableFrom<IClipboard>(window.Clipboard);
+                await clipboard.SetTextAsync("baseline");
+
+                write("superseded");
+                const string expected = "remote selection 界";
+                write(expected);
+                await host.PollForTestingAsync();
+                Assert.Equal(expected, await clipboard.TryGetTextAsync());
+
+                host.RenderProfile = new TerminalRenderProfileSnapshot(
+                    12,
+                    TerminalCursorStyle.Block,
+                    cursorBlink: false,
+                    scrollbackLines: 100,
+                    TerminalPalette.AsuraDark,
+                    clipboardPolicy: new TerminalClipboardPolicy(
+                        TerminalClipboardAccess.Ask,
+                        TerminalClipboardAccess.Deny,
+                        TerminalPasteSafetyPolicy.ProtectUnsafeIncludingBracketed));
+                write("denied");
+                await host.PollForTestingAsync();
+                Assert.Equal(expected, await clipboard.TryGetTextAsync());
+            }
+            finally
+            {
+                window.Close();
+            }
+
+            return true;
+        }, timeout.Token);
+    }
+
     [Theory]
     [InlineData(InitializationFailureStage.Renderer)]
     [InlineData(InitializationFailureStage.Lease)]
@@ -588,8 +648,11 @@ public sealed class ManagedTerminalSessionHostTests
             CancellationToken cancellationToken)
         {
             ThrowIf(InitializationFailureStage.Renderer);
+            ClipboardWriteRequested = request.RendererHost.ClipboardWriteRequested;
             return Success(Unit.Value);
         }
+
+        public Action<string>? ClipboardWriteRequested { get; private set; }
 
         public ValueTask<HostResult<InputLeaseDecision>> AcquireInputLeaseAsync(
             AcquireInputLeaseRequest request,

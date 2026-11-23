@@ -77,6 +77,7 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
     private TerminalRenderFrame? _cachedRenderFrame;
     private SelectionAnchor? _selectionAnchor;
     private bool _rendererAttached;
+    private Action<string>? _clipboardWriteRequested;
     private bool _processExited;
     private bool _closed;
     private bool _protocolResponseOverflow;
@@ -233,8 +234,9 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_closed, this);
-            _rendererAttached = true;
             ResizeUnsafe(rendererHost.Viewport);
+            _rendererAttached = true;
+            _clipboardWriteRequested = rendererHost.ClipboardWriteRequested;
             PublishUnsafe(
                 SessionLifecycle.Active,
                 SessionHealth.Healthy,
@@ -250,6 +252,7 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
         lock (_gate)
         {
             _rendererAttached = false;
+            _clipboardWriteRequested = null;
             if (!_closed)
             {
                 PublishUnsafe(
@@ -623,6 +626,7 @@ internal sealed partial class GhosttyVtTerminalSession : ITerminalPanelSession
             {
                 _closed = true;
                 _rendererAttached = false;
+                _clipboardWriteRequested = null;
             }
         }
 

@@ -1,5 +1,7 @@
 using System.Diagnostics;
+using System.Threading.Channels;
 using Asura.App.ViewModels;
+using Asura.App.Views;
 using Asura.Application;
 using Asura.Core;
 using Avalonia;
@@ -95,6 +97,8 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
     private readonly SemaphoreSlim _physicalInputGate = new(1, 1);
     private readonly object _resizeQueueGate = new();
     private CancellationTokenSource? _attachmentLifetime;
+    private ChannelReader<string>? _clipboardWrites;
+    private bool _clipboardWriteInProgress;
     private ISessionHostClient? _attachedClient;
     private ClientId? _attachedClientId;
     private SessionId? _attachedSessionId;
@@ -735,11 +739,22 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             }
 
             var viewport = CurrentViewport();
+            // Only the latest pending write matters to the clipboard. A noisy
+            // process must not build up a queue of UI work or retained text.
+            var clipboardWrites = Channel.CreateBounded<string>(new BoundedChannelOptions(1)
+            {
+                FullMode = BoundedChannelFullMode.DropOldest,
+                SingleReader = true,
+                SingleWriter = true,
+            });
             _ = RequireSuccess(await client.AttachTerminalRendererAsync(
                 new AttachTerminalRendererRequest(
                     request.SessionId,
                     attachment.Attachment.Id,
-                    new NativeRendererHost("Asura.Managed", 0, viewport)),
+                    new NativeRendererHost("Asura.Managed", 0, viewport)
+                    {
+                        ClipboardWriteRequested = text => clipboardWrites.Writer.TryWrite(text),
+                    }),
                 context,
                 cancellationToken));
 
@@ -790,6 +805,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             _attachmentId = attachment.Attachment.Id;
             _inputLeaseId = lease.Lease.Id;
             _lastViewport = viewport;
+            _clipboardWrites = clipboardWrites.Reader;
             pendingAttachmentId = null;
             ApplySnapshot(snapshot);
             _surface.UpdateSnapshot(screen);
@@ -911,6 +927,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
 
         _pollInProgress = true;
         var generation = _initializationGeneration;
+        _ = ApplyClipboardWriteAsync(generation, lifetime.Token);
         try
         {
             await ReadAndApplyTerminalStateAsync(generation, lifetime.Token);
@@ -988,6 +1005,71 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
             _pollInProgress = false;
         }
     }
+
+    private async Task ApplyClipboardWriteAsync(long generation, CancellationToken cancellationToken)
+    {
+        if (_clipboardWriteInProgress
+            || _clipboardWrites is not { } writes
+            || !writes.TryRead(out var text))
+        {
+            return;
+        }
+
+        var access = ClipboardWriteAccess;
+        if (access == TerminalClipboardAccess.Deny
+            || !_surface.IsFocused
+            || TopLevel.GetTopLevel(this) is not Window { IsActive: true } owner)
+        {
+            return;
+        }
+
+        _clipboardWriteInProgress = true;
+        try
+        {
+            if (access == TerminalClipboardAccess.Ask)
+            {
+                var dialog = new ConfirmationDialog(new ConfirmationDialogOptions
+                {
+                    Heading = "Allow Clipboard Write?",
+                    Detail = "The running terminal program wants to replace the text on your clipboard.",
+                    ConfirmLabel = "Allow",
+                    CancelLabel = "Deny",
+                    Intent = ConfirmationIntent.Confirm,
+                });
+                using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() =>
+                {
+                    if (dialog.IsShowing)
+                    {
+                        dialog.Close(false);
+                    }
+                }));
+                if (!await dialog.ShowDialog<bool>(owner))
+                {
+                    return;
+                }
+            }
+
+            if (generation == _initializationGeneration && ClipboardWriteAccess != TerminalClipboardAccess.Deny)
+            {
+                await _surface.Clipboard.SetTextAsync(text, cancellationToken);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The renderer which received this write was detached.
+        }
+        catch (Exception exception)
+        {
+            SecretSafeDiagnostics.WriteTrace("terminal.clipboard-write.failed", exception);
+        }
+        finally
+        {
+            _clipboardWriteInProgress = false;
+        }
+    }
+
+    private TerminalClipboardAccess ClipboardWriteAccess =>
+        _surface.Profile?.ClipboardPolicy.WriteAccess ?? TerminalClipboardPolicy.Default.WriteAccess;
 
     private async Task<bool> TryStopForClosedSessionAsync(
         HostError readError,
@@ -1397,6 +1479,7 @@ public sealed class ManagedTerminalSessionHost : ContentControl, IManagedTermina
 
     private void DetachRenderer()
     {
+        _clipboardWrites = null;
         if (_attachmentId is not { } attachmentId
             || _attachedClient is not { } client
             || _attachedClientId is not { } clientId

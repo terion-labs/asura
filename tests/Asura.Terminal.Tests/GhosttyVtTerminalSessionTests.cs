@@ -608,6 +608,46 @@ public sealed class GhosttyVtTerminalSessionTests
     }
 
     [Fact]
+    public async Task Osc52_queues_text_only_for_the_attached_clipboard_broker()
+    {
+        var harness = await CreateAsync();
+        await using var session = harness.Session;
+        var writes = new List<string>();
+        var renderer = new NativeRendererHost(
+            "Asura.Managed",
+            Handle: 0,
+            new ViewportDescriptor(640, 480, 1, Columns: 80, Rows: 24))
+        {
+            ClipboardWriteRequested = writes.Add,
+        };
+        await session.AttachRendererAsync(renderer, default);
+
+        const string text = "remote copy 界";
+        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
+        await harness.Pty.WriteOutputAsync("\u001b]52;c;");
+        await harness.Pty.WriteOutputAsync(
+            encoded + "\u0007"
+            + "\u001b]52;c;?\u0007"
+            + "\u001b]52;p;" + encoded + "\u0007"
+            + "\u001b]52;c;/w==\u0007"
+            + "\u001b]52;c;\u0007"
+            + "parsed clipboard requests");
+        var screen = await WaitForScreenAsync(
+            session,
+            current => current.PlainText.Contains("parsed clipboard requests", StringComparison.Ordinal));
+        Assert.DoesNotContain(text, screen.PlainText, StringComparison.Ordinal);
+
+        await session.DetachRendererAsync(default);
+        await harness.Pty.WriteOutputAsync($"\u001b]52;c;{encoded}\u001b\\detached");
+        _ = await WaitForScreenAsync(
+            session,
+            current => current.PlainText.Contains("detached", StringComparison.Ordinal));
+
+        Assert.Equal([text], writes);
+        Assert.Equal(0, harness.Pty.InputWriteCount);
+    }
+
+    [Fact]
     public async Task Interactive_state_protocol_is_exposed_on_screen()
     {
         var harness = await CreateAsync();

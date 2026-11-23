@@ -449,10 +449,10 @@ public sealed class SshConnectionRuntimeAdapterTests
         var command = plan.Launch.Arguments[^1];
         Assert.Contains("tmux -L asura -u -2 start-server", command, StringComparison.Ordinal);
         Assert.Contains("set-option -s default-terminal tmux-256color", command, StringComparison.Ordinal);
-        Assert.Contains("set-option -s terminal-features \"xterm*:RGB\"", command, StringComparison.Ordinal);
         Assert.Contains("new-session -d -s \"$1\" -c \"$2\"", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" status off", command, StringComparison.Ordinal);
         Assert.Contains("set-option -t \"$1\" mouse off", command, StringComparison.Ordinal);
+        AssertTmuxClipboardConfiguredBeforeAttach(command, expectedAttachments: 2);
         AssertTmuxScrollKeysAnnouncedBeforeAttach(command);
         Assert.Contains("asura_attach screen -A -U -D -RR -S \"$1\"", command, StringComparison.Ordinal);
         Assert.True(
@@ -521,6 +521,7 @@ public sealed class SshConnectionRuntimeAdapterTests
             "set-option -t \"$1\" mouse off",
             command,
             StringComparison.Ordinal);
+        AssertTmuxClipboardConfiguredBeforeAttach(command, expectedAttachments: 1);
         AssertTmuxScrollKeysAnnouncedBeforeAttach(command);
         Assert.Contains("asura_attach screen -A -U -D -r \"$1\"", command, StringComparison.Ordinal);
         Assert.DoesNotContain("new-session", command, StringComparison.Ordinal);
@@ -529,6 +530,19 @@ public sealed class SshConnectionRuntimeAdapterTests
             "asura-multiplexer 'asura-1234abcd'",
             command,
             StringComparison.Ordinal);
+    }
+
+    private static void AssertTmuxClipboardConfiguredBeforeAttach(string command, int expectedAttachments)
+    {
+        var branches = command.Split("asura_attach tmux", StringSplitOptions.None);
+        Assert.Equal(expectedAttachments + 1, branches.Length);
+        foreach (var branch in branches.Take(expectedAttachments))
+        {
+            Assert.Contains("set-option -s set-clipboard on", branch, StringComparison.Ordinal);
+            Assert.Contains("set-option -s get-clipboard off", branch, StringComparison.Ordinal);
+            Assert.Contains("set-option -as terminal-features", branch, StringComparison.Ordinal);
+            Assert.Contains("xterm*:RGB:clipboard", branch, StringComparison.Ordinal);
+        }
     }
 
     private static RecordingExecutableLocator LocatorWithSsh()

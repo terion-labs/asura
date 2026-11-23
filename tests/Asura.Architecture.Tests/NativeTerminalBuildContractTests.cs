@@ -467,11 +467,13 @@ public sealed partial class NativeTerminalBuildContractTests
             .Select(match => match.Groups["type"].Value)
             .ToArray();
 
-        Assert.Equal(26, rootedLayouts.Length);
+        Assert.Equal(28, rootedLayouts.Length);
         Assert.Equal(
             rootedLayouts.Length,
             rootedLayouts.Distinct(StringComparer.Ordinal).Count());
         Assert.Contains("GhosttyVtString", rootedLayouts, StringComparer.Ordinal);
+        Assert.Contains("GhosttyVtClipboardWrite", rootedLayouts, StringComparer.Ordinal);
+        Assert.Contains("GhosttyVtClipboardContent", rootedLayouts, StringComparer.Ordinal);
         Assert.Contains(
             "GhosttyVtKittyVirtualPlacementRenderInfo",
             rootedLayouts,

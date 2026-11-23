@@ -613,36 +613,33 @@ class AcceptanceRun:
             "--clearmodifiers",
             "--delay",
             "2",
-            "printf '\\033]52;c;R2hvc3RTaGVsbC1PU0M1Mg==\\007'",
+            "printf '\\033]52;c;QXN1cmEtT1NDNTI=\\007'",
         )
         self.key("Return")
         time.sleep(1.0)
         clipboard = self.command(
             "xclip", "-selection", "clipboard", "-o", check=False
         ).stdout.decode("utf-8", errors="replace")
-        passed = clipboard == "BASELINE"
+        passed = clipboard == "Asura-OSC52"
         (self.output / "osc52-clipboard-observation.txt").write_text(
             clipboard, encoding="utf-8"
         )
         self.record(
             "clipboard-write-policy",
-            "Brokerless OSC 52 clipboard write policy",
+            "OSC 52 clipboard write from the focused terminal",
             "PASS" if passed else "FAIL",
-            "The managed adapter has no safe process-originated clipboard broker; its "
-            "documented contract discarded OSC 52 and preserved the existing clipboard."
+            "With Clipboard write set to Allow, the terminal updated the X11 clipboard."
             if passed
             else (
-                "The managed adapter's documented fail-closed OSC 52 contract did not "
-                "preserve the existing X11 clipboard."
+                "The terminal did not update the X11 clipboard with the expected test text."
             ),
             "osc52-clipboard-observation.txt",
         )
         self.record(
             "clipboard-read-policy",
-            "Brokerless OSC 52 clipboard read response",
+            "OSC 52 clipboard read denial",
             "NOT_PROVEN",
-            "Unit conformance covers the empty denial response, but this packaged run "
-            "did not capture process-side bytes for an OSC 52 query.",
+            "This packaged run did not capture process-side bytes for an OSC 52 query.",
         )
 
     def observe_quick_terminal_hotkey(self) -> None:

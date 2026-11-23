@@ -88,6 +88,16 @@ one-use capability authorization and current input lease. A paste request has
 no self-approval flag. Removing the human dialog does not grant a model human
 authority or bypass the agent approval broker.
 
+### Process clipboard writes
+
+The attached desktop renderer accepts bounded UTF-8 text writes to the system
+clipboard through libghostty-vt's clipboard callback. The focused terminal in
+the active window applies the profile's Clipboard write setting. Allow writes
+immediately, Ask requests confirmation, and Deny drops the request. Clipboard
+text stays out of the terminal screen and automation DTOs. OSC 52 reads are
+ignored. Asura-managed SSH tmux sessions forward pane writes to the desktop
+terminal and disable clipboard queries where tmux supports that setting.
+
 ### Separate renderer and automation projections
 
 The renderer consumes `TerminalRenderFrame`, not the bounded text snapshot used

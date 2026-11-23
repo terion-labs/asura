@@ -216,6 +216,31 @@ internal struct GhosttyVtDesktopNotificationEvent
     internal GhosttyVtString Body;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+internal struct GhosttyVtClipboardWrite
+{
+    internal nuint Size;
+    internal int Location;
+    internal nint Contents;
+    internal nuint ContentsLength;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct GhosttyVtClipboardContent
+{
+    internal GhosttyVtString Mime;
+    internal GhosttyVtString Data;
+}
+
+internal enum GhosttyVtClipboardWriteResult : int
+{
+    Success = 0,
+    Denied = 1,
+    Unsupported = 2,
+    InvalidData = 4,
+    IoError = 5,
+}
+
 internal enum GhosttyVtTerminalData : int
 {
     Invalid = 0,

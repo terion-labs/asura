@@ -252,11 +252,19 @@ internal static class SshConnectionArguments
     // Keep tmux's copy-mode mouse bindings out of ordinary text selection.
     // With mouse off, tmux still forwards mouse reporting requested by the
     // application running inside tmux, but shell drags belong to the local terminal.
+    // Forward OSC 52 writes and advertise the clipboard to the tmux client.
+    private const string TmuxInteractionOptions =
+        "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
+        + "tmux -L asura set-option -s set-clipboard on >/dev/null 2>&1; "
+        + "tmux -L asura set-option -s get-clipboard off >/dev/null 2>&1; "
+        + "tmux -L asura show-options -sv terminal-features 2>/dev/null | grep -Fx 'xterm*:RGB:clipboard' >/dev/null "
+        + "|| tmux -L asura set-option -as terminal-features 'xterm*:RGB:clipboard' >/dev/null 2>&1; ";
+
     private static string EstablishedMultiplexerScript() =>
         "if command -v tmux >/dev/null 2>&1 "
         + "&& tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
         + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
-        + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
+        + TmuxInteractionOptions
         + TmuxScrollKeysScript()
         + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
         + "if command -v screen >/dev/null 2>&1 "
@@ -272,17 +280,16 @@ internal static class SshConnectionArguments
         return "if command -v tmux >/dev/null 2>&1; then "
             + "if tmux -L asura has-session -t \"$1\" 2>/dev/null; then "
             + "tmux -L asura set-option -t \"$1\" status off >/dev/null 2>&1; "
-            + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
+            + TmuxInteractionOptions
             + TmuxScrollKeysScript()
-        + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "tmux -L asura -u -2 start-server \\; "
             + "set-option -s default-terminal tmux-256color \\; "
-            + "set-option -s terminal-features \"xterm*:RGB\" \\; "
             + $"new-session -d -s \"$1\"{tmuxDirectory} \\; "
             + "set-option -t \"$1\" status off || exit 1; "
-            + "tmux -L asura set-option -t \"$1\" mouse off >/dev/null 2>&1; "
+            + TmuxInteractionOptions
             + TmuxScrollKeysScript()
-        + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
+            + "asura_attach tmux -L asura -u -2 attach-session -d -t \"$1\"; fi; "
             + "if command -v screen >/dev/null 2>&1; then "
             + screenDirectory
             + "asura_attach screen -A -U -D -RR -S \"$1\"; fi; "
