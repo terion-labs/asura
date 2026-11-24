@@ -292,7 +292,7 @@
                 <Binding Path="!IsWorkspaceRailVisible" />
               </MultiBinding>
             </Button.IsVisible>
-            <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeMd}" />
+            <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeSm}" />
           </Button>
           <Button x:Name="TitleBarSettingsButton" Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}" AutomationProperties.Name="Settings" IsVisible="{Binding !IsWorkspaceRailVisible}"><icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
           <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
@@ -469,7 +469,7 @@
                 ToolTip.Tip="{Binding ApplicationUpdates.UpdateNowTip}"
                 ToolTip.ShowOnDisabled="True"
                 AutomationProperties.Name="{Binding ApplicationUpdates.UpdateNowTip}">
-              <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeMd}" />
+              <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeSm}" />
             </Button>
             <Button
                 x:Name="RailSettingsButton"
