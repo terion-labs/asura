@@ -273,7 +273,8 @@ public sealed class WorkspaceViewContractTests
         Assert.Equal(2, settingsButtons.Length);
         var railSettings = FindNamedElement(root, "RailSettingsButton");
         Assert.Contains(railSettings, settingsButtons);
-        Assert.Equal("Bottom", AttributeValue(railSettings, "DockPanel.Dock"));
+        var railFoot = railSettings.Parent!;
+        Assert.Equal("Bottom", AttributeValue(railFoot, "DockPanel.Dock"));
         Assert.Equal("Settings", AttributeValue(railSettings, "AutomationProperties.Name"));
         Assert.Equal(
             "{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}",
@@ -283,6 +284,17 @@ public sealed class WorkspaceViewContractTests
             railSettings.Ancestors(),
             element => string.Equals(element.Name.LocalName, "Border", StringComparison.Ordinal)
                 && string.Equals(AttributeValue(element, "IsVisible"), "{Binding IsWorkspaceRailVisible}", StringComparison.Ordinal));
+
+        // An update Asura has found waits just above the gear, in the same
+        // foot of the rail, as a round accent button, and only while there is
+        // one to install.
+        var railUpdate = FindNamedElement(root, "RailUpdateButton");
+        Assert.Same(railFoot, railUpdate.Parent);
+        Assert.True(railFoot.Elements().ToList().IndexOf(railUpdate) < railFoot.Elements().ToList().IndexOf(railSettings));
+        Assert.Equal("IconButton UpdateButton", AttributeValue(railUpdate, "Classes"));
+        Assert.Equal("OnUpdateNowClick", AttributeValue(railUpdate, "Click"));
+        Assert.Equal("{Binding ApplicationUpdates.IsUpdateOffered}", AttributeValue(railUpdate, "IsVisible"));
+        Assert.NotNull(AttributeValue(railUpdate, "AutomationProperties.Name"));
 
         // While the rail is hidden the gear stands in the title bar instead,
         // so Settings never leaves the window.

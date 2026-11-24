@@ -189,6 +189,24 @@
     <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
+  <!-- An update waiting to be installed: the one round, accent-filled glyph
+       in the shell, so it reads as an offer rather than another tool. It
+       keeps its fill under the pointer, as the default button does, and
+       dims while the update downloads. -->
+  <Style Selector="Button.IconButton.UpdateButton">
+    <Setter Property="Width" Value="28" />
+    <Setter Property="Height" Value="28" />
+    <Setter Property="CornerRadius" Value="{DynamicResource ShellPillCornerRadius}" />
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+  <Style Selector="Button.IconButton.UpdateButton > icons|SymbolIcon">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
+  <Style Selector="Button.IconButton.UpdateButton:pointerover /template/ ContentPresenter, Button.IconButton.UpdateButton:pressed /template/ ContentPresenter, Button.IconButton.UpdateButton:disabled /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource ShellAccentFillBrush}" />
+  </Style>
+
   <Style Selector="Button.IconButton.Large">
     <Setter Property="Width" Value="34" />
     <Setter Property="Height" Value="34" />

@@ -39,6 +39,9 @@ public static class DesktopComposition
         services.AddSingleton<IApplicationUpdateService>(provider =>
             InstalledApplicationUpdates.Create(
                 provider.GetRequiredService<DesktopUpdateShutdown>().RequestAsync));
+        services.AddSingleton(provider => new PeriodicUpdateCheck(
+            provider.GetRequiredService<IApplicationUpdateService>(),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddSingleton(_ => ThemePreference.DefaultFor(CurrentOperatingSystem()));
         // Settings › Notifications decides which sources reach the system;
         // the choice is kept beside the profile, like the window frames.
