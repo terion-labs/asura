@@ -3,13 +3,10 @@ package host
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 	"net/netip"
-	"sort"
 	"testing"
 	"time"
 
@@ -142,8 +139,8 @@ func TestNetworkConfigurationRequiresHostProvidedDNS(t *testing.T) {
 }
 
 func TestPacketChannelAndUserspaceStackCarryDNSRoundTrip(t *testing.T) {
-	localAddress := routableLocalIPv4(t)
-	server, err := net.ListenPacket("udp4", net.JoinHostPort(localAddress.String(), "0"))
+	dnsServer := netip.MustParseAddr("192.0.2.53")
+	server, err := loopbackUDPResponder()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +164,7 @@ func TestPacketChannelAndUserspaceStackCarryDNSRoundTrip(t *testing.T) {
 	_ = guestTransport.SetDeadline(deadline)
 	_ = hostTransport.SetDeadline(deadline)
 	configuration, err := networkConfiguration(Options{
-		MTU: 1280, DNSServers: []netip.Addr{localAddress},
+		MTU: 1280, DNSServers: []netip.Addr{dnsServer},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -187,10 +184,7 @@ func TestPacketChannelAndUserspaceStackCarryDNSRoundTrip(t *testing.T) {
 	if err := <-guestFailure; err != nil {
 		t.Fatal(err)
 	}
-	upstream, _, err := newUpstream(Options{Mode: "direct", MTU: 1280})
-	if err != nil {
-		t.Fatal(err)
-	}
+	upstream := &loopbackResponderProxy{responder: server.LocalAddr().(*net.UDPAddr)}
 	plane, err := newDataPlane(&packetStream{channel: hostChannel, maximumPacketSize: 1280}, 1280, upstream)
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +194,7 @@ func TestPacketChannelAndUserspaceStackCarryDNSRoundTrip(t *testing.T) {
 
 	query := make([]byte, 12)
 	binary.BigEndian.PutUint16(query[:2], 0x4753)
-	destination := server.LocalAddr().(*net.UDPAddr).AddrPort()
+	destination := netip.AddrPortFrom(dnsServer, 53)
 	packet := ipv4UDPPacket(guestIPv4.Addr(), 53000, destination, query)
 	if err := guestChannel.SendPacket(packet); err != nil {
 		t.Fatal(err)
@@ -239,6 +233,9 @@ func TestDirectEchoForwarderUsesHostPingSockets(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if !canOpenPingSocket(test.family) {
 				t.Skip("unprivileged host ping socket is unavailable")
+			}
+			if !hostAnswersLoopbackEcho(test.family, test.destination) {
+				t.Skip("this host does not answer echo requests on its own loopback; a firewall in stealth mode drops them")
 			}
 			request := &icmp.Message{
 				Type: test.requestType,
@@ -318,102 +315,6 @@ func parseEchoReply(packet []byte, family int) (*icmp.Message, bool) {
 	}
 	message, err := icmp.ParseMessage(protocolNumber, packet[offset:])
 	return message, err == nil
-}
-
-func routableLocalIPv4(t *testing.T) netip.Addr {
-	t.Helper()
-	// An outbound route's source can be a VPN address without local self-delivery.
-	// Select an owned local responder before starting the unchanged packet test.
-	// A later packet-path failure must not trigger another candidate or a skip.
-	deadline := time.Now().Add(4 * time.Second)
-	interfaces, err := net.Interfaces()
-	if err != nil {
-		t.Fatalf("enumerate local UDP fixture interfaces: %v", err)
-	}
-	sort.Slice(interfaces, func(i, j int) bool { return interfaces[i].Name < interfaces[j].Name })
-	seen := make(map[netip.Addr]bool)
-	for _, iface := range interfaces {
-		if iface.Flags&net.FlagUp == 0 || iface.Flags&(net.FlagLoopback|net.FlagPointToPoint) != 0 {
-			continue
-		}
-		addresses, err := iface.Addrs()
-		if err != nil {
-			t.Logf("local UDP fixture interface %s: %v", iface.Name, err)
-			continue
-		}
-		sort.Slice(addresses, func(i, j int) bool { return addresses[i].String() < addresses[j].String() })
-		for _, value := range addresses {
-			prefix, err := netip.ParsePrefix(value.String())
-			if err != nil {
-				continue
-			}
-			address := prefix.Addr().Unmap()
-			if !address.Is4() || !address.IsGlobalUnicast() || address.IsLoopback() || address.IsLinkLocalUnicast() || seen[address] {
-				continue
-			}
-			seen[address] = true
-			if !time.Now().Before(deadline) {
-				t.Fatal("local UDP fixture selection exhausted its four-second setup budget")
-			}
-			candidateDeadline := time.Now().Add(500 * time.Millisecond)
-			if deadline.Before(candidateDeadline) {
-				candidateDeadline = deadline
-			}
-			if err := checkLocalUDPSelfDelivery(address, candidateDeadline); err != nil {
-				t.Logf("local UDP fixture candidate %s %s failed: %v", iface.Name, address, err)
-				continue
-			}
-			t.Logf("local UDP fixture selected %s %s after owned self-delivery", iface.Name, address)
-			return address
-		}
-	}
-	t.Fatal("no existing UP non-loopback, non-point-to-point IPv4 address supports owned local UDP self-delivery")
-	return netip.Addr{}
-}
-
-func checkLocalUDPSelfDelivery(address netip.Addr, deadline time.Time) error {
-	server, err := net.ListenUDP("udp4", net.UDPAddrFromAddrPort(netip.AddrPortFrom(address, 0)))
-	if err != nil {
-		return fmt.Errorf("bind owned responder: %w", err)
-	}
-	defer server.Close()
-	if err := server.SetDeadline(deadline); err != nil {
-		return fmt.Errorf("set responder deadline: %w", err)
-	}
-	client, err := net.DialUDP("udp4", nil, server.LocalAddr().(*net.UDPAddr))
-	if err != nil {
-		return fmt.Errorf("connect to owned responder: %w", err)
-	}
-	defer client.Close()
-	if err := client.SetDeadline(deadline); err != nil {
-		return fmt.Errorf("set client deadline: %w", err)
-	}
-	want := make([]byte, 16)
-	if _, err := rand.Read(want); err != nil {
-		return fmt.Errorf("create fixture nonce: %w", err)
-	}
-	if _, err := client.Write(want); err != nil {
-		return fmt.Errorf("send to owned responder: %w", err)
-	}
-	buffer := make([]byte, len(want)+1)
-	count, peer, err := server.ReadFromUDP(buffer)
-	if err != nil {
-		return fmt.Errorf("owned responder receive: %w", err)
-	}
-	if peer.AddrPort() != client.LocalAddr().(*net.UDPAddr).AddrPort() || !bytes.Equal(buffer[:count], want) {
-		return fmt.Errorf("owned responder received an unexpected peer or nonce")
-	}
-	if _, err := server.WriteToUDP(buffer[:count], peer); err != nil {
-		return fmt.Errorf("owned responder reply: %w", err)
-	}
-	count, err = client.Read(buffer)
-	if err != nil {
-		return fmt.Errorf("receive owned responder reply: %w", err)
-	}
-	if !bytes.Equal(buffer[:count], want) {
-		return fmt.Errorf("owned responder reply changed the nonce")
-	}
-	return nil
 }
 
 func ipv4UDPPacket(source netip.Addr, sourcePort uint16, destination netip.AddrPort, payload []byte) []byte {

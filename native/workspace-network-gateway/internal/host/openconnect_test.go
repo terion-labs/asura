@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xjasonlyu/tun2socks/v2/proxy"
 	"golang.org/x/sys/unix"
 
 	"github.com/terion-labs/asura/native/workspace-network-gateway/internal/protocol"
@@ -390,8 +391,7 @@ type vpnPacketWriter func([]byte) (int, error)
 func (writer vpnPacketWriter) Write(packet []byte) (int, error) { return writer(packet) }
 
 func TestPumpVPNFDDispatchesSplitTrafficBetweenVPNAndHostDirectPath(t *testing.T) {
-	localAddress := routableLocalIPv4(t)
-	server, err := net.ListenPacket("udp4", net.JoinHostPort(localAddress.String(), "0"))
+	server, err := loopbackUDPResponder()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -423,10 +423,14 @@ func TestPumpVPNFDDispatchesSplitTrafficBetweenVPNAndHostDirectPath(t *testing.T
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	result := make(chan error, 1)
-	go func() { result <- pumpVPNFD(ctx, vpn, hostChannel, policy, 1280, nil) }()
+	direct := &loopbackResponderProxy{responder: server.LocalAddr().(*net.UDPAddr)}
+	go func() {
+		result <- pumpVPNFDWithDirectUpstream(ctx, vpn, hostChannel, policy, 1280,
+			func() (proxy.Proxy, error) { return direct, nil }, nil)
+	}()
 
 	directPayload := []byte("host-direct")
-	directPacket := ipv4UDPPacket(guestIPv4.Addr(), 53000, server.LocalAddr().(*net.UDPAddr).AddrPort(), directPayload)
+	directPacket := ipv4UDPPacket(guestIPv4.Addr(), 53000, netip.MustParseAddrPort("198.51.100.53:53"), directPayload)
 	if err := guestChannel.SendPacket(directPacket); err != nil {
 		t.Fatal(err)
 	}
