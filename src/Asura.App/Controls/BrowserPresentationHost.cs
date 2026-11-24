@@ -889,13 +889,6 @@ public sealed class BrowserPresentationHost : ContentControl
                         ? "This page tried to interrupt the browser with a dialog."
                         : dialog.Message);
                 return;
-            case BrowserProductEvent.FileDialogBlocked fileDialog:
-                ShowProductNotice(
-                    "File access blocked",
-                    string.IsNullOrWhiteSpace(fileDialog.Title)
-                        ? "This page tried to open a file picker."
-                        : fileDialog.Title);
-                return;
             case BrowserProductEvent.PermissionDenied permission:
                 ShowProductNotice(
                     "Permission denied",

@@ -44,7 +44,9 @@ port and an opt-in-disabled JavaScript bridge. Popups cross an explicit shell
 new-tab policy. JavaScript/file dialogs, permission requests, certificate
 exceptions, downloads, find results, and renderer failure cross a closed
 Asura-owned product-event family; vendor event types remain private.
-Dialogs, permissions, and certificate exceptions still default closed.
+JavaScript dialogs, permissions, and certificate exceptions still default
+closed; a page's file dialog opens the system picker, and only what the person
+picks reaches the page.
 Downloads use an explicit Save As destination and publish typed progress, while
 find-in-page delegates through a narrow engine-neutral controller.
 Durable named profiles use private runtime directories whose complete state is

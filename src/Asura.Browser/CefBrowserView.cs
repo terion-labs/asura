@@ -666,9 +666,10 @@ internal sealed partial class CefBrowserView : IEmbeddedBrowserView
         browser.VirtualKeyboardRequested += OnTextInputModeChanged;
 
         // CEF has no host UI for these prompts in OSR mode. Every privileged
-        // or filesystem-affecting operation therefore defaults closed until a
-        // future typed product contract owns the corresponding user decision.
-        // The one file dialog let through is a download's own save location.
+        // operation therefore defaults closed until a future typed product
+        // contract owns the corresponding user decision. File dialogs are
+        // the exception: the system picker is that decision, and only what
+        // the person picks reaches the page.
         browser.BeforePopup += OnBeforePopup;
         browser.ContextMenu += OnContextMenu;
         browser.HostPopup += OnHostPopup;

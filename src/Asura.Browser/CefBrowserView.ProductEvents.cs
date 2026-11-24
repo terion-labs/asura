@@ -12,7 +12,6 @@ internal sealed partial class CefBrowserView
     private readonly BrowserProductEventDispatch _productEvents;
     private string? _activeFindText;
     private readonly Dictionary<int, string> _downloadFileNames = [];
-    private readonly DownloadsAwaitingLocation _downloadsAwaitingLocation = new();
 
     public bool StartFind(string searchText)
     {
@@ -75,46 +74,25 @@ internal sealed partial class CefBrowserView
             Bound(args.Message)));
     }
 
+    /// <summary>
+    /// A page's file picker, and a download's Save As, open the system's own
+    /// picker: an upload button, a folder upload, a page's save. Only what the
+    /// person picks reaches the page; dismissing the picker cancels.
+    /// </summary>
     private void OnFileDialog(object? sender, FileDialogEventArgs args)
     {
         _ = sender;
-        if (args.Mode == Cef.FileDialogMode.Save && _downloadsAwaitingLocation.TryTake())
-        {
-            Dispatcher.UIThread.Post(() => _ = ChooseDownloadLocationAsync(args));
-            return;
-        }
-
-        args.Cancel();
-        PublishProductEvent(new BrowserProductEvent.FileDialogBlocked(
-            args.Mode switch
-            {
-                Cef.FileDialogMode.Open => BrowserFileDialogKind.OpenFile,
-                Cef.FileDialogMode.OpenMultiple => BrowserFileDialogKind.OpenFiles,
-                Cef.FileDialogMode.OpenFolder => BrowserFileDialogKind.OpenFolder,
-                Cef.FileDialogMode.Save => BrowserFileDialogKind.SaveFile,
-                _ => BrowserFileDialogKind.OpenFile,
-            },
-            Bound(args.Title)));
+        Dispatcher.UIThread.Post(() => _ = ChooseFilesAsync(args));
     }
 
-    private async Task ChooseDownloadLocationAsync(FileDialogEventArgs args)
+    private async Task ChooseFilesAsync(FileDialogEventArgs args)
     {
-        string? path = null;
+        string[] paths = [];
         try
         {
-            if (!_disposed
-                && TopLevel.GetTopLevel(_view)?.StorageProvider is { CanSave: true } storage)
+            if (!_disposed && TopLevel.GetTopLevel(_view)?.StorageProvider is { } storage)
             {
-                var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
-                {
-                    Title = "Save Download",
-                    SuggestedFileName = Path.GetFileName(args.DefaultPath),
-                    SuggestedStartLocation = await storage
-                        .TryGetWellKnownFolderAsync(WellKnownFolder.Downloads)
-                        .ConfigureAwait(true),
-                    ShowOverwritePrompt = true,
-                }).ConfigureAwait(true);
-                path = file?.TryGetLocalPath();
+                paths = await PickAsync(storage, args).ConfigureAwait(true);
             }
         }
         catch (Exception exception) when (
@@ -124,20 +102,59 @@ internal sealed partial class CefBrowserView
                 or InvalidOperationException)
         {
             SecretSafeDiagnosticProjection.WriteTrace(
-                "browser.download.location-failed",
+                "browser.file-dialog.failed",
                 exception);
         }
 
-        // No location cancels the download, which reports itself cancelled.
-        if (path is null || _disposed)
+        // Nothing picked cancels: a download then reports itself cancelled.
+        if (paths.Length == 0 || _disposed)
         {
             args.Cancel();
         }
         else
         {
-            args.Continue(path);
+            args.Continue(paths);
         }
     }
+
+    private static async Task<string[]> PickAsync(
+        IStorageProvider storage,
+        FileDialogEventArgs args)
+    {
+        var title = string.IsNullOrWhiteSpace(args.Title) ? null : args.Title;
+        switch (args.Mode)
+        {
+            case Cef.FileDialogMode.Save when storage.CanSave:
+                var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+                {
+                    Title = title ?? "Save",
+                    SuggestedFileName = Path.GetFileName(args.DefaultPath),
+                    SuggestedStartLocation = await storage
+                        .TryGetWellKnownFolderAsync(WellKnownFolder.Downloads)
+                        .ConfigureAwait(true),
+                    FileTypeChoices = PageFileTypes.From(args.AcceptFilters),
+                    ShowOverwritePrompt = true,
+                }).ConfigureAwait(true);
+                return file?.TryGetLocalPath() is { } path ? [path] : [];
+            case Cef.FileDialogMode.OpenFolder when storage.CanPickFolder:
+                return LocalPaths(await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
+                {
+                    Title = title,
+                }).ConfigureAwait(true));
+            case Cef.FileDialogMode.Open or Cef.FileDialogMode.OpenMultiple when storage.CanOpen:
+                return LocalPaths(await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+                {
+                    Title = title,
+                    AllowMultiple = args.Mode == Cef.FileDialogMode.OpenMultiple,
+                    FileTypeFilter = PageFileTypes.From(args.AcceptFilters),
+                }).ConfigureAwait(true));
+            default:
+                return [];
+        }
+    }
+
+    private static string[] LocalPaths(IEnumerable<IStorageItem> items) =>
+        [.. items.Select(item => item.TryGetLocalPath()).OfType<string>()];
 
     private void OnDownloadStarting(object? sender, DownloadStartingEventArgs args)
     {
@@ -148,7 +165,6 @@ internal sealed partial class CefBrowserView
             var downloads = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "Downloads");
-            _downloadsAwaitingLocation.Add(args.DownloadId);
             args.Continue(Path.Combine(downloads, fileName), showDialog: true);
             _downloadFileNames[args.DownloadId] = fileName;
             PublishProductEvent(new BrowserProductEvent.DownloadRequested(
@@ -158,7 +174,6 @@ internal sealed partial class CefBrowserView
         }
         catch
         {
-            _downloadsAwaitingLocation.Forget(args.DownloadId);
             args.Cancel();
             PublishProductEvent(new BrowserProductEvent.DownloadCancelled(
                 args.DownloadId));
@@ -192,7 +207,6 @@ internal sealed partial class CefBrowserView
         };
         if (args.State is not Cef.DownloadState.InProgress)
         {
-            _downloadsAwaitingLocation.Forget(args.DownloadId);
             _downloadFileNames.Remove(args.DownloadId);
         }
 

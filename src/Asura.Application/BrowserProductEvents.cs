@@ -14,10 +14,6 @@ public abstract record BrowserProductEvent
         BrowserJavaScriptDialogKind Kind,
         string Message) : BrowserProductEvent;
 
-    public sealed record FileDialogBlocked(
-        BrowserFileDialogKind Kind,
-        string Title) : BrowserProductEvent;
-
     public sealed record PermissionDenied(
         string Origin,
         BrowserPermissionKind Permissions) : BrowserProductEvent;
@@ -89,14 +85,6 @@ public enum BrowserJavaScriptDialogKind
     Confirmation,
     Prompt,
     BeforeUnload,
-}
-
-public enum BrowserFileDialogKind
-{
-    OpenFile,
-    OpenFiles,
-    OpenFolder,
-    SaveFile,
 }
 
 [Flags]
