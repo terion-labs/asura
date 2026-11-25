@@ -107,7 +107,8 @@ internal sealed partial class CefBrowserView
         }
 
         // Nothing picked cancels: a download then reports itself cancelled.
-        if (paths.Length == 0 || _disposed)
+        // So does a path CEF could not carry intact (FileDialogPaths).
+        if (paths.Length == 0 || _disposed || !FileDialogPaths.CanReachThePage(paths))
         {
             args.Cancel();
         }
