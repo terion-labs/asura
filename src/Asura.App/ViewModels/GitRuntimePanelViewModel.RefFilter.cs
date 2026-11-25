@@ -9,6 +9,7 @@ public sealed partial class GitRuntimePanelViewModel
     private IReadOnlyList<GitRefTreeNodeViewModel> _localBranchTree = [];
     private IReadOnlyList<GitRefTreeNodeViewModel> _remoteBranchTree = [];
     private IReadOnlyList<GitRefTreeNodeViewModel> _tagTree = [];
+    private (IReadOnlyList<GitRefItem> Refs, string? DefaultRemote, string Filter)? _presentedRefs;
 
     public IReadOnlyList<GitRefTreeNodeViewModel> LocalBranchTree { get => _localBranchTree; private set => SetProperty(ref _localBranchTree, value); }
     public IReadOnlyList<GitRefTreeNodeViewModel> RemoteBranchTree { get => _remoteBranchTree; private set => SetProperty(ref _remoteBranchTree, value); }
@@ -40,6 +41,17 @@ public sealed partial class GitRuntimePanelViewModel
     private void PresentRefs(GitRepositorySnapshot snapshot)
     {
         var defaultRemote = snapshot.Remotes.FirstOrDefault()?.Name;
+        // Every ref becomes a row in three trees; a poll that reads the same
+        // refs under the same filter keeps the rows already shown.
+        if (_presentedRefs is { } presented
+            && presented.Refs.SequenceEqual(snapshot.Refs)
+            && string.Equals(presented.DefaultRemote, defaultRemote, StringComparison.Ordinal)
+            && string.Equals(presented.Filter, RefFilter, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _presentedRefs = (snapshot.Refs, defaultRemote, RefFilter);
         var refs = snapshot.Refs.Where(item => item.ShortName.Contains(RefFilter, StringComparison.OrdinalIgnoreCase));
         LocalBranches = [.. refs.Where(item => item.Kind == GitRefKind.LocalBranch)
             .Select(item => new GitRefItemViewModel(item, defaultRemote))];

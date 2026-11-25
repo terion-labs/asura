@@ -393,4 +393,64 @@ public sealed class GitRuntimePanelViewModelTests
 
         Assert.True(condition());
     }
+    /// <summary>
+    /// The panel re-reads the repository every few seconds. A read that
+    /// finds what is already shown must not hand the view new lists: each
+    /// one rebuilds every row bound to it, which kept the CPU busy and, on
+    /// Linux, grew memory while the panel sat idle.
+    /// </summary>
+    [Fact]
+    public async Task A_refresh_that_finds_nothing_new_hands_the_view_no_new_lists()
+    {
+        var client = new FakeGitRepositoryClient
+        {
+            RefsOverride =
+            [
+                new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, "aaaa", IsCurrent: true),
+                new GitRefItem("refs/remotes/origin/feature/x", "origin/feature/x", GitRefKind.RemoteBranch, "bbbb", IsCurrent: false),
+                new GitRefItem("refs/tags/v1", "v1", GitRefKind.Tag, "cccc", IsCurrent: false),
+            ],
+        };
+        using var panel = new GitRuntimePanelViewModel(
+            PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
+        await panel.OpenRepositoryAsync("/repo");
+        await panel.DiffLoading;
+        var localTree = panel.LocalBranchTree;
+        var changed = new List<string?>();
+        panel.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        // A fresh read: equal values in new list instances.
+        client.RefsOverride = [.. client.RefsOverride];
+        await panel.RefreshAsync();
+        await panel.DiffLoading;
+
+        string[] lists =
+        [
+            nameof(panel.LocalBranches), nameof(panel.RemoteBranches), nameof(panel.Tags),
+            nameof(panel.LocalBranchTree), nameof(panel.RemoteBranchTree), nameof(panel.TagTree),
+            nameof(panel.Remotes), nameof(panel.Stashes), nameof(panel.Worktrees), nameof(panel.Submodules),
+            nameof(panel.UnstagedItems), nameof(panel.StagedItems), nameof(panel.DiffLines),
+        ];
+        Assert.Empty(changed.Intersect(lists, StringComparer.Ordinal));
+        Assert.Same(localTree, panel.LocalBranchTree);
+    }
+
+    [Fact]
+    public async Task A_refresh_that_finds_a_new_branch_shows_it()
+    {
+        var client = new FakeGitRepositoryClient();
+        using var panel = new GitRuntimePanelViewModel(
+            PanelInstanceId.New(), "Git", client, BuiltInConnections.Local);
+        await panel.OpenRepositoryAsync("/repo");
+        await panel.DiffLoading;
+
+        client.RefsOverride =
+        [
+            new GitRefItem("refs/heads/dev", "dev", GitRefKind.LocalBranch, "aaaa", IsCurrent: true),
+            new GitRefItem("refs/heads/topic", "topic", GitRefKind.LocalBranch, "bbbb", IsCurrent: false),
+        ];
+        await panel.RefreshAsync();
+
+        Assert.Equal(["dev", "topic"], panel.LocalBranches.Select(item => item.Name), StringComparer.Ordinal);
+    }
 }

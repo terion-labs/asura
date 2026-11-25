@@ -313,6 +313,31 @@ public sealed class GitPanelWorkflowTests
     }
 
     [Fact]
+    public async Task RefreshingAWorkingTreeComparisonKeepsTheFileBeingRead()
+    {
+        var (client, recorder) = CreateClient();
+        IReadOnlyList<GitFileChange> changes =
+        [
+            new("first.txt", null, GitChangeKind.Modified, GitChangeArea.Unstaged),
+            new("second.txt", null, GitChangeKind.Modified, GitChangeArea.Unstaged),
+        ];
+        recorder.Comparison = (baseRevision, targetRevision) => new(baseRevision, targetRevision, [.. changes]);
+        using var panel = CreatePanel(client);
+        await panel.OpenRepositoryAsync("/repo");
+        await panel.CompareAsync(new string('a', 40), null);
+        await panel.DiffLoading;
+        var rows = panel.CommitChanges;
+        panel.SelectedCommitChange = rows[1];
+
+        await panel.RefreshAsync();
+        await panel.DiffLoading;
+
+        Assert.Same(rows, panel.CommitChanges);
+        Assert.Equal("second.txt", panel.SelectedCommitChange?.Path);
+        Assert.Equal("second.txt", recorder.DiffRequests[^1].Path);
+    }
+
+    [Fact]
     public async Task RefreshingAWorkingTreeComparisonKeepsItsBaseAndUpdatesTheChangedFiles()
     {
         var (client, recorder) = CreateClient();

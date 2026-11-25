@@ -41,7 +41,7 @@ internal sealed class FakeGitRepositoryClient : IGitRepositoryClient
     /// <summary>Replaces the default two-file unstaged list when set.</summary>
     public IReadOnlyList<GitFileChange>? UnstagedChangesOverride { get; init; }
 
-    public IReadOnlyList<GitRefItem>? RefsOverride { get; init; }
+    public IReadOnlyList<GitRefItem>? RefsOverride { get; set; }
 
     public IReadOnlyList<GitStashItem> Stashes { get; init; } = [];
 
