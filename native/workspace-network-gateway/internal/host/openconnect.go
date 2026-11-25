@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xjasonlyu/tun2socks/v2/proxy"
 	directproxy "github.com/xjasonlyu/tun2socks/v2/proxy/direct"
 	"golang.org/x/sys/unix"
 
@@ -236,6 +237,23 @@ func pumpVPNFD(
 	maximumPacketSize int,
 	announceReady func() error,
 ) error {
+	return pumpVPNFDWithDirectUpstream(
+		ctx, vpn, channel, routePolicy, maximumPacketSize,
+		func() (proxy.Proxy, error) { return directproxy.New() },
+		announceReady)
+}
+
+// pumpVPNFDWithDirectUpstream is pumpVPNFD with the split route's direct side
+// sent through newDirectUpstream rather than the host's own network.
+func pumpVPNFDWithDirectUpstream(
+	ctx context.Context,
+	vpn io.ReadWriteCloser,
+	channel *protocol.Channel,
+	routePolicy openConnectRoutePolicy,
+	maximumPacketSize int,
+	newDirectUpstream func() (proxy.Proxy, error),
+	announceReady func() error,
+) error {
 	// A blocking inherited datagram read may survive peer death on macOS even
 	// after shutdown. The network poller makes Close/deadlines interrupt it.
 	if file, ok := vpn.(*os.File); ok {
@@ -250,7 +268,7 @@ func pumpVPNFD(
 	var directStream *routedDirectPacketStream
 	var directPlane *dataPlane
 	if routePolicy.usesDirectPath() {
-		upstream, err := directproxy.New()
+		upstream, err := newDirectUpstream()
 		if err != nil {
 			return fmt.Errorf("start direct side of OpenConnect split route: %w", err)
 		}
