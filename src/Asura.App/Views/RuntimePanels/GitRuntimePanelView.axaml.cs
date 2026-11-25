@@ -466,8 +466,11 @@ public sealed partial class GitRuntimePanelView : UserControl
                 e.Handled = true;
                 break;
             case Key.Left when rows.ParentOf(node) is { } parent:
+                // Focus moves with the selection: Up and Down go on from
+                // the row that has focus, not the one that is selected.
                 tree.SelectedItem = parent;
                 tree.ScrollIntoView(parent);
+                tree.ContainerFromItem(parent)?.Focus(NavigationMethod.Directional);
                 e.Handled = true;
                 break;
         }

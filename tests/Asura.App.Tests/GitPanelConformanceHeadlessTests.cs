@@ -65,22 +65,30 @@ public sealed class GitPanelConformanceHeadlessTests
         var folder = panel.UnstagedTreeRows.First(row => row.IsDirectory);
         var file = panel.UnstagedTreeRows[panel.UnstagedTreeRows.IndexOf(folder) + 1];
         tree.SelectedItem = file;
+        tree.ContainerFromItem(file)!.Focus(NavigationMethod.Directional);
 
-        Press(tree, Key.Left);
+        // Keys arrive at the focused row, as they do from a keyboard, and
+        // focus follows the selection to the folder.
+        Press(Key.Left);
         Assert.Same(folder, tree.SelectedItem);
-        Press(tree, Key.Left);
+        Assert.Same(tree.ContainerFromItem(folder), TopLevel.GetTopLevel(tree)!.FocusManager!.GetFocusedElement());
+        Press(Key.Left);
         Assert.False(folder.IsExpanded);
         Assert.DoesNotContain(file, panel.UnstagedTreeRows);
-        Press(tree, Key.Right);
+        Press(Key.Right);
         Assert.True(folder.IsExpanded);
         Assert.Contains(file, panel.UnstagedTreeRows);
         return Task.CompletedTask;
 
-        static void Press(ListBox target, Key key) => target.RaiseEvent(new KeyEventArgs
+        void Press(Key key)
         {
-            RoutedEvent = InputElement.KeyDownEvent,
-            Key = key,
-        });
+            var focused = (Interactive)TopLevel.GetTopLevel(tree)!.FocusManager!.GetFocusedElement()!;
+            focused.RaiseEvent(new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Key = key,
+            });
+        }
     });
 
     [Fact]
