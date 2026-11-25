@@ -2056,6 +2056,48 @@
     </Setter>
   </Style>
 
+  <!-- A folder's chevron in a tree drawn as a flat list: the same turn as a
+       section's, with nothing beside it and no focus stop of its own — the
+       row is what the keyboard moves through, and Left and Right fold it. -->
+  <Style Selector="ToggleButton.TreeDisclosure">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="Foreground" Value="{DynamicResource ShellMutedBrush}" />
+    <Setter Property="controls:SettledTransitions.IsEnabled" Value="True" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent">
+          <icons:SymbolIcon
+              Name="Chevron"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Symbol="ChevronRight"
+              FontSize="{DynamicResource ShellIconSizeXs}"
+              RenderTransformOrigin="50%,50%"
+              RenderTransform="rotate(0deg)" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="ToggleButton.TreeDisclosure:checked /template/ icons|SymbolIcon#Chevron">
+    <Setter Property="RenderTransform" Value="rotate(90deg)" />
+  </Style>
+  <Style Selector="Window:not(.motion-disabled) ToggleButton.TreeDisclosure.settled /template/ icons|SymbolIcon#Chevron">
+    <Setter Property="Transitions">
+      <Transitions>
+        <TransformOperationsTransition
+            Property="RenderTransform"
+            Duration="{x:Static controls:MotionTokens.Disclosure}"
+            Easing="{x:Static controls:MotionTokens.EaseInOut}" />
+      </Transitions>
+    </Setter>
+  </Style>
+
   <!-- Sliders track the accent so a value reads at a glance. -->
   <Style Selector="Slider">
     <Setter Property="MinHeight" Value="0" />

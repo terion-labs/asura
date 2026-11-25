@@ -170,6 +170,8 @@ public sealed class GitChangeItemViewModel(GitFileChange change)
 /// One node of a working-set section shown as a directory tree. Unlike the
 /// commit tree, the whole working set is already in memory, so the tree is
 /// built eagerly from the flat change list and rebuilt with every snapshot.
+/// It is shown through <see cref="GitChangeTreeRows"/>, which lists only the
+/// nodes whose folders are open.
 /// </summary>
 public sealed class GitChangeTreeNodeViewModel : ObservableObject
 {
@@ -193,9 +195,7 @@ public sealed class GitChangeTreeNodeViewModel : ObservableObject
     /// <summary>
     /// Mutates a live tree to match the given flat list, touching only what
     /// actually changed. Kept nodes keep their instances — and with them
-    /// their expansion state — because the bound TreeView does not
-    /// virtualize: replacing the roots wholesale would rebuild every row on
-    /// every stage, unstage, and reconciliation.
+    /// their expansion state and the rows already shown for them.
     /// </summary>
     public static void Reconcile(
         ObservableCollection<GitChangeTreeNodeViewModel> current,
@@ -321,8 +321,21 @@ public sealed class GitChangeTreeNodeViewModel : ObservableObject
     public bool IsExpanded
     {
         get => _isExpanded;
-        set => SetProperty(ref _isExpanded, value);
+        set
+        {
+            if (SetProperty(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(AccessibleSummary));
+                Rows?.Refresh();
+            }
+        }
     }
+
+    /// <summary>How many folders deep this row is shown; set as it is listed.</summary>
+    public int Depth { get; internal set; }
+
+    /// <summary>The rows this node is listed in, told when it opens or closes.</summary>
+    internal GitChangeTreeRows? Rows { get; set; }
 
     public string FileName => Name;
 
@@ -334,7 +347,8 @@ public sealed class GitChangeTreeNodeViewModel : ObservableObject
 
     public bool IsConflicted => Item?.IsConflicted ?? false;
 
-    public string AccessibleSummary => Item?.AccessibleSummary ?? $"Folder {RelativePath}";
+    public string AccessibleSummary => Item?.AccessibleSummary
+        ?? $"Folder {RelativePath}, {(IsExpanded ? "expanded" : "collapsed")}";
 
     /// <summary>This node's own change plus every descendant file's.</summary>
     public IReadOnlyList<GitChangeItemViewModel> CollectItems()

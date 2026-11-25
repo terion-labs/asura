@@ -137,6 +137,8 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         : base(id, PanelKind.Git, title, "Git")
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
+        UnstagedTreeRows = new(UnstagedTreeRoots);
+        StagedTreeRows = new(StagedTreeRoots);
         _mutationCoordinator = mutationCoordinator;
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _connectionDisplayName = connectionDisplayName;
@@ -585,6 +587,12 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
     public ObservableCollection<GitChangeTreeNodeViewModel> UnstagedTreeRoots { get; } = [];
 
     public ObservableCollection<GitChangeTreeNodeViewModel> StagedTreeRoots { get; } = [];
+
+    /// <summary>The unstaged tree's open rows, which the tree view lists.</summary>
+    public GitChangeTreeRows UnstagedTreeRows { get; }
+
+    /// <summary>The staged tree's open rows, which the tree view lists.</summary>
+    public GitChangeTreeRows StagedTreeRows { get; }
 
     public bool UnstagedViewIsTree
     {
@@ -1220,8 +1228,8 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         PendingGitFlowFinish = null;
         UnstagedItems = [];
         StagedItems = [];
-        GitChangeTreeNodeViewModel.Reconcile(UnstagedTreeRoots, UnstagedItems);
-        GitChangeTreeNodeViewModel.Reconcile(StagedTreeRoots, StagedItems);
+        UnstagedTreeRows.Reconcile(UnstagedItems);
+        StagedTreeRows.Reconcile(StagedItems);
         SelectedChange = null;
         SelectedUnstagedItems = [];
         SelectedStagedItems = [];
@@ -1451,13 +1459,13 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         if (unstagedChanged)
         {
             UnstagedItems = [.. snapshot.UnstagedChanges.Select(change => new GitChangeItemViewModel(change))];
-            GitChangeTreeNodeViewModel.Reconcile(UnstagedTreeRoots, UnstagedItems);
+            UnstagedTreeRows.Reconcile(UnstagedItems);
         }
 
         if (stagedChanged)
         {
             StagedItems = [.. snapshot.StagedChanges.Select(change => new GitChangeItemViewModel(change))];
-            GitChangeTreeNodeViewModel.Reconcile(StagedTreeRoots, StagedItems);
+            StagedTreeRows.Reconcile(StagedItems);
         }
 
         if (!Equals(_presentedHead, snapshot.Head))

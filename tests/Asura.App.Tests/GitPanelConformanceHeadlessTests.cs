@@ -36,6 +36,53 @@ public sealed class GitPanelConformanceHeadlessTests
         "a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "of", "on", "onto", "or", "the", "to", "with",
     };
 
+    /// <summary>
+    /// The change tree draws only the rows on screen. As a TreeView it built
+    /// every row up front: twenty thousand untracked files cost gigabytes
+    /// and minutes before the panel drew anything.
+    /// </summary>
+    [Fact]
+    public Task A_tree_of_many_untracked_files_draws_only_the_rows_on_screen() => RunPanelAsync((view, panel, window) =>
+    {
+        _ = window;
+        var tree = view.FindControl<ListBox>("UnstagedTree")!;
+
+        Assert.True(tree.IsEffectivelyVisible);
+        Assert.Equal(1 + 400 + 20_000, panel.UnstagedTreeRows.Count);
+        Assert.InRange(tree.GetRealizedContainers().Count(), 1, 200);
+        return Task.CompletedTask;
+    }, new FakeGitRepositoryClient
+    {
+        UnstagedChangesOverride = [.. Enumerable.Range(0, 20_000).Select(index => new GitFileChange(
+            $"node_modules/pkg{index / 50:D3}/file{index % 50:D2}.js", null, GitChangeKind.Untracked, GitChangeArea.Unstaged))],
+    });
+
+    [Fact]
+    public Task Left_and_Right_fold_a_folder_in_the_change_tree() => RunPanelAsync((view, panel, window) =>
+    {
+        _ = window;
+        var tree = view.FindControl<ListBox>("UnstagedTree")!;
+        var folder = panel.UnstagedTreeRows.First(row => row.IsDirectory);
+        var file = panel.UnstagedTreeRows[panel.UnstagedTreeRows.IndexOf(folder) + 1];
+        tree.SelectedItem = file;
+
+        Press(tree, Key.Left);
+        Assert.Same(folder, tree.SelectedItem);
+        Press(tree, Key.Left);
+        Assert.False(folder.IsExpanded);
+        Assert.DoesNotContain(file, panel.UnstagedTreeRows);
+        Press(tree, Key.Right);
+        Assert.True(folder.IsExpanded);
+        Assert.Contains(file, panel.UnstagedTreeRows);
+        return Task.CompletedTask;
+
+        static void Press(ListBox target, Key key) => target.RaiseEvent(new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Key = key,
+        });
+    });
+
     [Fact]
     public Task The_repository_menu_is_three_pull_downs_with_short_groups_and_one_submenu_level() => RunPanelAsync((view, panel, window) =>
     {

@@ -148,6 +148,9 @@
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
       <Setter Property="MinHeight" Value="30" />
     </Style>
+    <Style Selector="ListBox.GitChangeTree ListBoxItem">
+      <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+    </Style>
     <Style Selector="ListBox.GitChanges">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
@@ -1302,22 +1305,30 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-              <TreeView
+              <!-- The tree as the rows it shows, in a virtualizing list: a
+                   TreeView builds every row up front, and a working set of
+                   many untracked files cost gigabytes before it drew one. -->
+              <ListBox
                   x:Name="UnstagedTree"
                   Grid.Row="1"
-                  ItemsSource="{Binding UnstagedTreeRoots}"
+                  Classes="GitChanges GitChangeTree"
+                  ItemsSource="{Binding UnstagedTreeRows}"
                   SelectionChanged="OnUnstagedTreeSelectionChanged"
+                  DoubleTapped="OnChangeTreeDoubleTapped"
                   IsVisible="{Binding UnstagedViewIsTree}"
                   AutomationProperties.Name="Unstaged changes tree">
-                <TreeView.ItemContainerTheme>
-                  <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
-                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                    <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerTheme>
+                  <ControlTheme TargetType="ListBoxItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleSummary}" />
                   </ControlTheme>
-                </TreeView.ItemContainerTheme>
-                <TreeView.ItemTemplate>
-                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                </ListBox.ItemContainerTheme>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:GitChangeTreeNodeViewModel">
                     <StackPanel
                         Orientation="Horizontal"
                         Spacing="{DynamicResource ShellSpaceXs}"
@@ -1334,6 +1345,15 @@
                           <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
+                      <controls:TreeIndent Depth="{Binding Depth}" Step="{DynamicResource ShellSpaceLg}" />
+                      <Panel Width="{DynamicResource ShellIconSizeMd}">
+                        <ToggleButton
+                            Classes="TreeDisclosure"
+                            IsChecked="{Binding IsExpanded}"
+                            IsVisible="{Binding IsDirectory}"
+                            ToolTip.Tip="Show or hide this folder's changes"
+                            AutomationProperties.Name="Expand folder" />
+                      </Panel>
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
@@ -1350,9 +1370,9 @@
                       </Border>
                       <TextBlock VerticalAlignment="Center" Classes="GitCommitCell" Text="{Binding Name}" />
                     </StackPanel>
-                  </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
 
               <Border
                   Grid.Row="2"
@@ -1440,22 +1460,30 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
-              <TreeView
+              <!-- The tree as the rows it shows, in a virtualizing list: a
+                   TreeView builds every row up front, and a working set of
+                   many untracked files cost gigabytes before it drew one. -->
+              <ListBox
                   x:Name="StagedTree"
                   Grid.Row="3"
-                  ItemsSource="{Binding StagedTreeRoots}"
+                  Classes="GitChanges GitChangeTree"
+                  ItemsSource="{Binding StagedTreeRows}"
                   SelectionChanged="OnStagedTreeSelectionChanged"
+                  DoubleTapped="OnChangeTreeDoubleTapped"
                   IsVisible="{Binding StagedViewIsTree}"
                   AutomationProperties.Name="Staged changes tree">
-                <TreeView.ItemContainerTheme>
-                  <ControlTheme TargetType="TreeViewItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type TreeViewItem}}">
-                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                    <Setter Property="Padding" Value="{controls:Inset Horizontal=Xs}" />
-                    <Setter Property="MinHeight" Value="{DynamicResource ShellTreeRowMinHeight}" />
+                <ListBox.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemContainerTheme>
+                  <ControlTheme TargetType="ListBoxItem" x:DataType="vm:GitChangeTreeNodeViewModel" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleSummary}" />
                   </ControlTheme>
-                </TreeView.ItemContainerTheme>
-                <TreeView.ItemTemplate>
-                  <TreeDataTemplate ItemsSource="{Binding Children}">
+                </ListBox.ItemContainerTheme>
+                <ListBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:GitChangeTreeNodeViewModel">
                     <StackPanel
                         Orientation="Horizontal"
                         Spacing="{DynamicResource ShellSpaceXs}"
@@ -1472,6 +1500,15 @@
                           <MenuItem components:PanelMenuCommand.Command="{x:Static core:BuiltInCommands.GitFileIgnoreExtension}" IsVisible="{Binding !IsDirectory}" Click="OnGitMenuCommand" />
                         </ContextMenu>
                       </StackPanel.ContextMenu>
+                      <controls:TreeIndent Depth="{Binding Depth}" Step="{DynamicResource ShellSpaceLg}" />
+                      <Panel Width="{DynamicResource ShellIconSizeMd}">
+                        <ToggleButton
+                            Classes="TreeDisclosure"
+                            IsChecked="{Binding IsExpanded}"
+                            IsVisible="{Binding IsDirectory}"
+                            ToolTip.Tip="Show or hide this folder's changes"
+                            AutomationProperties.Name="Expand folder" />
+                      </Panel>
                       <icons:SymbolIcon
                           VerticalAlignment="Center"
                           Symbol="Folder"
@@ -1488,9 +1525,9 @@
                       </Border>
                       <TextBlock VerticalAlignment="Center" Classes="GitCommitCell" Text="{Binding Name}" />
                     </StackPanel>
-                  </TreeDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
 
               <!-- The commit composer persists across refreshes: drafts live
                    on the view model, not in the controls. -->
