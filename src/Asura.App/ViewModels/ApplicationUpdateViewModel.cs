@@ -40,7 +40,7 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         ApplicationUpdateStage.ManagedExternally =>
             "Your install source checks, downloads, and applies updates.",
         ApplicationUpdateStage.Idle =>
-            "No check has run yet. Asura checks only when you ask.",
+            "No check has run yet. Asura checks shortly after it starts, then every few hours.",
         ApplicationUpdateStage.Checking => "Checking for updates…",
         ApplicationUpdateStage.UpToDate => "Asura is up to date.",
         ApplicationUpdateStage.Available =>
@@ -68,6 +68,43 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         _snapshot.Stage == ApplicationUpdateStage.Downloading;
 
     public int DownloadProgress => _snapshot.DownloadProgress ?? 0;
+
+    /// <summary>
+    /// Whether the workspaces rail offers the update: from the moment one is
+    /// found until Asura restarts into it.
+    /// </summary>
+    public bool IsUpdateOffered => _snapshot.Stage is ApplicationUpdateStage.Available
+        or ApplicationUpdateStage.Downloading
+        or ApplicationUpdateStage.ReadyToRestart
+        or ApplicationUpdateStage.PreparingToRestart;
+
+    /// <summary>Whether the rail's update button can start the update now.</summary>
+    public bool CanUpdateNow => _snapshot.CanDownload || _snapshot.CanRestartToApply;
+
+    public string UpdateNowTip => _snapshot.Stage switch
+    {
+        ApplicationUpdateStage.Available or ApplicationUpdateStage.ReadyToRestart =>
+            $"Update to version {_snapshot.AvailableVersion} and restart",
+        _ => Status,
+    };
+
+    /// <summary>
+    /// The rail's one-click update: downloads the update if it isn't yet, then
+    /// restarts into it. A failed or cancelled download stops before the restart.
+    /// </summary>
+    public async Task UpdateNowAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_updates.Snapshot.CanDownload)
+        {
+            await _updates.DownloadAsync(cancellationToken);
+        }
+
+        if (_updates.Snapshot.CanRestartToApply)
+        {
+            await _updates.RestartToApplyAsync();
+        }
+    }
 
     public async Task CheckAsync(CancellationToken cancellationToken)
     {
@@ -127,6 +164,9 @@ public sealed class ApplicationUpdateViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsDownloading));
         OnPropertyChanged(nameof(IsPreparingToRestart));
         OnPropertyChanged(nameof(DownloadProgress));
+        OnPropertyChanged(nameof(IsUpdateOffered));
+        OnPropertyChanged(nameof(CanUpdateNow));
+        OnPropertyChanged(nameof(UpdateNowTip));
     }
 
     private static string FailureStatus(ApplicationUpdateError error) => error switch

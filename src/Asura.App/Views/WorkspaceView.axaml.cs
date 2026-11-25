@@ -307,6 +307,8 @@ public sealed partial class WorkspaceView : UserControl
 
     public event EventHandler<RoutedEventArgs>? ShowSettingsRequested;
 
+    public event EventHandler<RoutedEventArgs>? UpdateNowRequested;
+
     public event EventHandler<RoutedEventArgs>? SubmitAgentQuestionRequested;
 
     public event EventHandler<RoutedEventArgs>? ToggleAgentRequested;
@@ -519,6 +521,9 @@ public sealed partial class WorkspaceView : UserControl
 
     private void OnShowSettingsClick(object? sender, RoutedEventArgs e) =>
         ShowSettingsRequested?.Invoke(sender, e);
+
+    private void OnUpdateNowClick(object? sender, RoutedEventArgs e) =>
+        UpdateNowRequested?.Invoke(sender, e);
 
     private void OnSubmitAgentQuestionClick(object? sender, RoutedEventArgs e) =>
         SubmitAgentQuestionRequested?.Invoke(sender, e);

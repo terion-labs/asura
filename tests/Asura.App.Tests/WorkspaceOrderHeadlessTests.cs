@@ -3,6 +3,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
+using Asura.Application.ApplicationUpdates;
 using Asura.Core;
 using Avalonia;
 using Avalonia.Controls;
@@ -303,7 +304,9 @@ public sealed class WorkspaceOrderHeadlessTests
     private static Point Position(WorkspaceRailTile tile, Window window, double fraction) =>
         tile.TranslatePoint(new Point(tile.Bounds.Width / 2, tile.Bounds.Height * fraction), window)!.Value;
 
-    internal static MainWindowViewModel CreateModel(out OrderCatalog catalog)
+    internal static MainWindowViewModel CreateModel(
+        out OrderCatalog catalog,
+        IApplicationUpdateService? updates = null)
     {
         var dependency = DispatchProxy.Create<IDefinitionCatalog, OrderCatalog>();
         catalog = (OrderCatalog)(object)dependency;
@@ -314,7 +317,8 @@ public sealed class WorkspaceOrderHeadlessTests
             DispatchProxy.Create<IFilePanelClient, MainWindowTabReorderTests.EmptyDependency>(),
             DispatchProxy.Create<IFileTransferQueueClient, MainWindowTabReorderTests.EmptyDependency>(),
             new TerminalStartupCommandDispatcher(
-                DispatchProxy.Create<IAuditStore, MainWindowTabReorderTests.EmptyDependency>(), TimeProvider.System));
+                DispatchProxy.Create<IAuditStore, MainWindowTabReorderTests.EmptyDependency>(), TimeProvider.System),
+            applicationUpdateService: updates);
     }
 
     public class OrderCatalog : DispatchProxy

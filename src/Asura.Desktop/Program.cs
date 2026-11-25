@@ -2,6 +2,7 @@ using Asura.App;
 using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.Application;
+using Asura.Application.ApplicationUpdates;
 using Asura.Browser;
 using Asura.ConnectionBackend;
 using Asura.Infrastructure;
@@ -266,6 +267,7 @@ internal static class Program
                     services.GetRequiredService<INativeNotificationService>();
                 nativeNotifications.Activated += OnNativeNotificationActivated;
                 mainWindowViewModel = services.GetRequiredService<MainWindowViewModel>();
+                services.GetRequiredService<PeriodicUpdateCheck>().Start();
                 if (profile.IsRecovery)
                 {
                     // Every window says so, not just the first, and every

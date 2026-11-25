@@ -571,6 +571,23 @@ public sealed partial class MainWindow
         }
     }
 
+    /// <summary>
+    /// The rail's update button: downloads the update it offers and restarts
+    /// into it. Progress and failures read out on Settings › About.
+    /// </summary>
+    private async void OnUpdateNowClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        try
+        {
+            await ViewModel.ApplicationUpdates.UpdateNowAsync(_lifetime.Token);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+    }
+
     private void OnEnableStartupProtectionClick(object? sender, RoutedEventArgs e)
     {
         _ = sender;

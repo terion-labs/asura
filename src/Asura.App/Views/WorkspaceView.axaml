@@ -283,6 +283,17 @@
           <!-- Settings lives at the foot of the workspaces rail. While the rail
                is hidden the gear stands here instead, so it never leaves the
                window. -->
+          <!-- The rail's update button stands here with the gear while the
+               rail is hidden. -->
+          <Button x:Name="TitleBarUpdateButton" Classes="IconButton UpdateButton" Click="OnUpdateNowClick" IsEnabled="{Binding ApplicationUpdates.CanUpdateNow}" ToolTip.Tip="{Binding ApplicationUpdates.UpdateNowTip}" ToolTip.ShowOnDisabled="True" AutomationProperties.Name="{Binding ApplicationUpdates.UpdateNowTip}">
+            <Button.IsVisible>
+              <MultiBinding Converter="{x:Static BoolConverters.And}">
+                <Binding Path="ApplicationUpdates.IsUpdateOffered" />
+                <Binding Path="!IsWorkspaceRailVisible" />
+              </MultiBinding>
+            </Button.IsVisible>
+            <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeSm}" />
+          </Button>
           <Button x:Name="TitleBarSettingsButton" Classes="IconButton" Click="OnShowSettingsClick" ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}" AutomationProperties.Name="Settings" IsVisible="{Binding !IsWorkspaceRailVisible}"><icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
           <Button Classes="IconButton" Click="OnLockShellClick" ToolTip.Tip="Lock Asura" AutomationProperties.Name="Lock Asura" IsVisible="{Binding ApplicationSecurityEditor.IsProtectionEnabled}"><icons:SymbolIcon Symbol="LockClosed" FontSize="{DynamicResource ShellIconSizeMd}" /></Button>
         </StackPanel>
@@ -445,19 +456,33 @@
           </StackPanel>
           <!-- Settings, at the foot of the rail on every platform, after the
                workspaces in the Tab order. On a Mac the app menu and ⌘, reach
-               it too. -->
-          <Button
-              x:Name="RailSettingsButton"
-              DockPanel.Dock="Bottom"
-              Classes="IconButton"
-              Width="{DynamicResource ShellTileSizeMd}"
-              Height="{DynamicResource ShellTileSizeMd}"
-              HorizontalAlignment="Center"
-              Click="OnShowSettingsClick"
-              ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}"
-              AutomationProperties.Name="Settings">
-            <icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" />
-          </Button>
+               it too. An update Asura has found waits just above it until it
+               is installed: one click downloads it and restarts into it. -->
+          <StackPanel DockPanel.Dock="Bottom" Spacing="{DynamicResource ShellSpaceSm}">
+            <Button
+                x:Name="RailUpdateButton"
+                Classes="IconButton UpdateButton"
+                HorizontalAlignment="Center"
+                Click="OnUpdateNowClick"
+                IsVisible="{Binding ApplicationUpdates.IsUpdateOffered}"
+                IsEnabled="{Binding ApplicationUpdates.CanUpdateNow}"
+                ToolTip.Tip="{Binding ApplicationUpdates.UpdateNowTip}"
+                ToolTip.ShowOnDisabled="True"
+                AutomationProperties.Name="{Binding ApplicationUpdates.UpdateNowTip}">
+              <icons:SymbolIcon Symbol="ArrowDownload" FontSize="{DynamicResource ShellIconSizeSm}" />
+            </Button>
+            <Button
+                x:Name="RailSettingsButton"
+                Classes="IconButton"
+                Width="{DynamicResource ShellTileSizeMd}"
+                Height="{DynamicResource ShellTileSizeMd}"
+                HorizontalAlignment="Center"
+                Click="OnShowSettingsClick"
+                ToolTip.Tip="{Binding Settings, Source={x:Static vm:ShortcutTips.Current}}"
+                AutomationProperties.Name="Settings">
+              <icons:SymbolIcon Symbol="Settings" FontSize="{DynamicResource ShellIconSizeMd}" />
+            </Button>
+          </StackPanel>
         </DockPanel>
       </Border>
 

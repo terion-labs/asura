@@ -437,6 +437,7 @@
         EnableAgentYoloRequested="OnEnableAgentYoloClick"
         LockShellRequested="OnLockShellClick"
         ShowSettingsRequested="OnShowSettingsClick"
+        UpdateNowRequested="OnUpdateNowClick"
         IsVisible="{Binding IsWorkspaceVisible}"
         KeepAgentCapabilityOffRequested="OnKeepAgentCapabilityOffClick"
         LoadOlderAgentAuditRequested="OnLoadOlderAgentAuditClick"

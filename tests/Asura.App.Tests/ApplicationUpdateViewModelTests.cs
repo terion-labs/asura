@@ -39,6 +39,57 @@ public sealed class ApplicationUpdateViewModelTests
         Assert.False(viewModel.IsPreparingToRestart);
     }
 
+    [Fact]
+    public async Task The_rail_offers_a_found_update_and_installs_it_in_one_click()
+    {
+        var service = new FakeApplicationUpdates();
+        using var viewModel = new ApplicationUpdateViewModel(
+            service,
+            new ImmediateDispatcher());
+        Assert.False(viewModel.IsUpdateOffered);
+
+        service.Set(ApplicationUpdateStage.Available, "1.4.0");
+
+        Assert.True(viewModel.IsUpdateOffered);
+        Assert.True(viewModel.CanUpdateNow);
+        Assert.Equal("Update to version 1.4.0 and restart", viewModel.UpdateNowTip);
+
+        await viewModel.UpdateNowAsync(CancellationToken.None);
+
+        Assert.Equal(["download", "restart"], service.Calls);
+        Assert.True(viewModel.IsUpdateOffered);
+    }
+
+    [Fact]
+    public async Task A_download_that_fails_does_not_restart()
+    {
+        var service = new FakeApplicationUpdates { DownloadFails = true };
+        using var viewModel = new ApplicationUpdateViewModel(
+            service,
+            new ImmediateDispatcher());
+        service.Set(ApplicationUpdateStage.Available, "1.4.0");
+
+        await viewModel.UpdateNowAsync(CancellationToken.None);
+
+        Assert.Equal(["download"], service.Calls);
+        Assert.False(viewModel.IsUpdateOffered);
+    }
+
+    [Fact]
+    public void While_the_update_downloads_the_button_waits_and_says_how_far_it_is()
+    {
+        var service = new FakeApplicationUpdates();
+        using var viewModel = new ApplicationUpdateViewModel(
+            service,
+            new ImmediateDispatcher());
+
+        service.Set(ApplicationUpdateStage.Downloading, "1.4.0", downloadProgress: 42);
+
+        Assert.True(viewModel.IsUpdateOffered);
+        Assert.False(viewModel.CanUpdateNow);
+        Assert.Equal("Downloading version 1.4.0 · 42%", viewModel.UpdateNowTip);
+    }
+
     [Theory]
     [InlineData(DistributionSource.AppleAppStore, "Mac App Store")]
     [InlineData(DistributionSource.MicrosoftStore, "Microsoft Store")]
@@ -83,13 +134,29 @@ public sealed class ApplicationUpdateViewModelTests
             DirectDistribution,
             ApplicationUpdateStage.Idle);
 
+        public List<string> Calls { get; } = [];
+
+        public bool DownloadFails { get; init; }
+
         public Task CheckAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task DownloadAsync(CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public Task DownloadAsync(CancellationToken cancellationToken)
+        {
+            Calls.Add("download");
+            Set(
+                DownloadFails
+                    ? ApplicationUpdateStage.Failed
+                    : ApplicationUpdateStage.ReadyToRestart,
+                Snapshot.AvailableVersion ?? string.Empty);
+            return Task.CompletedTask;
+        }
 
-        public Task RestartToApplyAsync() => Task.CompletedTask;
+        public Task RestartToApplyAsync()
+        {
+            Calls.Add("restart");
+            return Task.CompletedTask;
+        }
 
         public void Set(
             ApplicationUpdateStage stage,

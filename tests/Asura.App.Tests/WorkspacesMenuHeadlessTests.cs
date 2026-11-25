@@ -2,6 +2,7 @@ using Asura.App.Controls;
 using Asura.App.ViewModels;
 using Asura.App.Views;
 using Asura.Application;
+using Asura.Application.ApplicationUpdates;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -167,6 +168,50 @@ public sealed class WorkspacesMenuHeadlessTests
     });
 
     [Fact]
+    public Task An_update_Asura_found_waits_above_the_Settings_gear_until_clicked() => RunAsync(async () =>
+    {
+        var updates = new FoundUpdate();
+        using var model = WorkspaceOrderHeadlessTests.CreateModel(out _, updates);
+        var (view, window, _) = Show(model);
+        var clicks = 0;
+        view.UpdateNowRequested += (_, _) => clicks++;
+        try
+        {
+            var update = view.FindControl<Button>("RailUpdateButton")!;
+            var gear = view.FindControl<Button>("RailSettingsButton")!;
+            Assert.False(update.IsVisible);
+
+            updates.Find("0.2.0");
+            await Settle(window);
+
+            Assert.True(update.IsEffectivelyVisible);
+            Assert.True(update.IsEnabled);
+            Assert.Equal("Update to version 0.2.0 and restart", AutomationProperties.GetName(update));
+            Assert.Equal(update.Bounds.Width, update.Bounds.Height);
+            var updateBottom = update.TranslatePoint(new Point(0, update.Bounds.Height), view)!.Value.Y;
+            Assert.True(updateBottom <= gear.TranslatePoint(default, view)!.Value.Y);
+            var updateCenter = Center(update, view);
+            var gearCenter = Center(gear, view);
+            Assert.Equal(gearCenter.X, updateCenter.X, 0.5);
+
+            var center = Center(update, window);
+            window.MouseDown(center, MouseButton.Left);
+            window.MouseUp(center, MouseButton.Left);
+            await Settle(window);
+            Assert.Equal(1, clicks);
+
+            // While the rail is hidden it stands beside the title bar's gear.
+            var titleBarUpdate = view.FindControl<Button>("TitleBarUpdateButton")!;
+            Assert.False(titleBarUpdate.IsEffectivelyVisible);
+            model.UpdateWindowWidth(700);
+            await Settle(window);
+            Assert.False(update.IsEffectivelyVisible);
+            Assert.True(titleBarUpdate.IsEffectivelyVisible);
+        }
+        finally { window.Close(); }
+    });
+
+    [Fact]
     public Task The_Workspaces_menu_hides_and_shows_the_sidebar() => RunAsync(async () =>
     {
         using var model = WorkspaceOrderHeadlessTests.CreateModel(out var catalog);
@@ -254,6 +299,31 @@ public sealed class WorkspacesMenuHeadlessTests
             item.IsEffectivelyVisible && item.Bounds.Width > 100 && item.Bounds.Height > 0,
             $"item={item.Bounds}"));
         return items;
+    }
+
+    private sealed class FoundUpdate : IApplicationUpdateService
+    {
+        private static readonly DistributionIdentity Direct = new(
+            DistributionSource.GitHubRelease,
+            ApplicationUpdateStrategy.Velopack,
+            "osx-arm64-stable");
+
+        public event EventHandler<ApplicationUpdateSnapshot>? Changed;
+
+        public ApplicationUpdateSnapshot Snapshot { get; private set; } =
+            new(Direct, ApplicationUpdateStage.Idle);
+
+        public void Find(string version)
+        {
+            Snapshot = new(Direct, ApplicationUpdateStage.Available, version);
+            Changed?.Invoke(this, Snapshot);
+        }
+
+        public Task CheckAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task DownloadAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task RestartToApplyAsync() => Task.CompletedTask;
     }
 
     private static (WorkspaceView View, Window Window, List<object?> Opened) Show(MainWindowViewModel model)
