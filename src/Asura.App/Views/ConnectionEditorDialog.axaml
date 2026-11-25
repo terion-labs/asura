@@ -454,7 +454,17 @@
               <!-- Structured fields -->
               <StackPanel Spacing="{DynamicResource ShellSpaceMd}" IsVisible="{Binding UseFields}">
                 <controls:LabeledField Label="File" IsVisible="{Binding IsFileBased}" controls:FieldValidation.For="FilePath">
-                  <TextBox Text="{Binding FilePath}" PlaceholderText="/path/to/database.db" AutomationProperties.Name="Database file path" />
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                    <TextBox Text="{Binding FilePath}" PlaceholderText="{Binding ConnectionStringHint}" AutomationProperties.Name="Database file path" />
+                    <Button
+                        x:Name="ChooseDatabaseFileButton"
+                        Grid.Column="1"
+                        VerticalAlignment="Stretch"
+                        Classes="SecondaryButton"
+                        Click="OnChooseDatabaseFileClick"
+                        Content="Choose…"
+                        AutomationProperties.Name="Choose a database file" />
+                  </Grid>
                 </controls:LabeledField>
 
                 <Grid ColumnDefinitions="*,110" ColumnSpacing="{DynamicResource ShellSpaceSm}" IsVisible="{Binding IsServerBased}">

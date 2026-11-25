@@ -1207,6 +1207,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         _diffCancellation?.Cancel();
         _snapshot = null;
         _presentedHead = null;
+        _presentedRefs = null;
         SelectedCommit = null;
         StartCommitDetailLoad();
         SelectedCommits = [];
@@ -1313,7 +1314,8 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (Submodules.Count > 0)
             {
                 var submodules = await ReadSubmodulesAsync(_lifetime.Token);
-                if (submodules is GitResult<IReadOnlyList<GitSubmoduleItem>>.Success submoduleRows)
+                if (submodules is GitResult<IReadOnlyList<GitSubmoduleItem>>.Success submoduleRows
+                    && !Submodules.SequenceEqual(submoduleRows.Value))
                 {
                     Submodules = submoduleRows.Value;
                 }
@@ -1321,7 +1323,7 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
             if (_comparisonCancellation is null && _comparisonBase is { } comparisonBase && _comparisonTarget is null
                 && !_disposed && ReferenceEquals(repository, _repository))
             {
-                await CompareAsync(comparisonBase, null);
+                await CompareAsync(comparisonBase, null, refresh: true);
             }
         }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
@@ -1407,11 +1409,29 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
         _snapshot = snapshot;
         OnPropertyChanged(nameof(CanContinueOperation));
         OnPropertyChanged(nameof(OperationLabel));
+        // The panel re-reads the repository every few seconds, and a list
+        // handed to the view rebuilds every row it shows. A read that finds
+        // what is already presented keeps the presented lists.
         PresentRefs(snapshot);
-        Remotes = snapshot.Remotes;
-        Stashes = snapshot.Stashes;
-        Worktrees = snapshot.Worktrees;
-        Submodules = snapshot.Submodules;
+        if (!Remotes.SequenceEqual(snapshot.Remotes))
+        {
+            Remotes = snapshot.Remotes;
+        }
+        if (!Stashes.SequenceEqual(snapshot.Stashes))
+        {
+            Stashes = snapshot.Stashes;
+        }
+        if (!Worktrees.SequenceEqual(snapshot.Worktrees))
+        {
+            Worktrees = snapshot.Worktrees;
+        }
+        // The snapshot only lists the submodules; the refresh then reads each
+        // one's checkout and replaces a row whose state moved. The rows from
+        // that second read stay while the same submodules are listed.
+        if (!Submodules.Select(item => item.Path).SequenceEqual(snapshot.Submodules.Select(item => item.Path), StringComparer.Ordinal))
+        {
+            Submodules = snapshot.Submodules;
+        }
         ApplyWorkingSet(snapshot, forceDiffReload: true);
     }
 

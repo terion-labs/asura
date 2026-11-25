@@ -106,7 +106,16 @@ public sealed partial class GitRuntimePanelViewModel
         }
     }
 
-    public async Task CompareAsync(string baseRevision, string? targetRevision)
+    public Task CompareAsync(string baseRevision, string? targetRevision) =>
+        CompareAsync(baseRevision, targetRevision, refresh: false);
+
+    /// <summary>
+    /// Compares two revisions, or a revision with the working tree. The
+    /// periodic refresh re-reads a working-tree comparison with
+    /// <paramref name="refresh"/> set: it keeps the section, the tab and
+    /// the selected file, and changes no rows when no file changed.
+    /// </summary>
+    private async Task CompareAsync(string baseRevision, string? targetRevision, bool refresh)
     {
         if (_disposed || _repository is not { } repository)
         {
@@ -129,6 +138,23 @@ public sealed partial class GitRuntimePanelViewModel
                 return;
             }
             var comparison = ((GitResult<GitComparison>.Success)result).Value;
+            if (refresh)
+            {
+                if (!CommitChanges.Select(item => item.Change).SequenceEqual(comparison.Changes))
+                {
+                    var selectedPath = SelectedCommitChange?.Path;
+                    CommitChanges = [.. comparison.Changes.Select(change => new GitChangeItemViewModel(change))];
+                    SelectedCommitChange =
+                        CommitChanges.FirstOrDefault(item => string.Equals(item.Path, selectedPath, StringComparison.Ordinal))
+                        ?? CommitChanges.FirstOrDefault();
+                }
+
+                // A file's content can move under an unchanged list; the diff
+                // read is cheap and its presentation dedupes.
+                RefreshDiffForSelection(force: true);
+                return;
+            }
+
             _comparisonBase = comparison.BaseRevision;
             _comparisonTarget = comparison.TargetRevision;
             CommitDetail = null;
