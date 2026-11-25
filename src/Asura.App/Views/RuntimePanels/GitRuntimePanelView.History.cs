@@ -197,6 +197,10 @@ public sealed partial class GitRuntimePanelView
         try
         {
             UnstagedTree.SelectedItem = node;
+            if (node is not null)
+            {
+                UnstagedTree.ScrollIntoView(node);
+            }
             StagedTree.SelectedItem = null;
         }
         finally
