@@ -85,7 +85,8 @@ internal sealed class SqliteDatabaseDriver : IDatabaseDriver
         "sqlite",
         "SQLite",
         "/path/to/database.db",
-        IsFileBased: true);
+        IsFileBased: true,
+        FileExtensions: [".db", ".sqlite", ".sqlite3", ".db3"]);
 
     public DbConnection CreateConnection(string connectionString) =>
         SqliteInMemoryDatabases.TryCreateConnection(connectionString)
@@ -617,7 +618,8 @@ internal sealed class DuckDbDatabaseDriver : IDatabaseDriver
         "duckdb",
         "DuckDB",
         "/path/to/analytics.duckdb",
-        IsFileBased: true);
+        IsFileBased: true,
+        FileExtensions: [".duckdb", ".db"]);
 
     public DbConnection CreateConnection(string connectionString) =>
         new DuckDBConnection(connectionString);

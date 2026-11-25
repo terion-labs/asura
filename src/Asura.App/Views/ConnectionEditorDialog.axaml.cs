@@ -199,6 +199,51 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
         }
     }
 
+    /// <summary>
+    /// A file database on this computer: the system's Open panel chooses the
+    /// file, filtered to the engine's usual extensions with All Files a
+    /// choice away, starting in the folder of the file already entered.
+    /// </summary>
+    private async void OnChooseDatabaseFileClick(object? sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (ViewModel.Database is not { } database
+            || StorageProvider is not { CanOpen: true } storage)
+        {
+            return;
+        }
+
+        IStorageFolder? start = null;
+        if (Path.GetDirectoryName(database.FilePath.Trim()) is { Length: > 0 } folder && Directory.Exists(folder))
+        {
+            start = await storage.TryGetFolderFromPathAsync(folder);
+        }
+
+        var driver = database.SelectedDriver;
+        List<FilePickerFileType> types = [];
+        if (driver.FileExtensions is { Count: > 0 } extensions)
+        {
+            types.Add(new FilePickerFileType($"{driver.DisplayName} Databases")
+            {
+                Patterns = [.. extensions.Select(extension => "*" + extension)],
+            });
+        }
+        types.Add(FilePickerFileTypes.All);
+
+        var picked = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = $"Choose {driver.DisplayName} Database",
+            AllowMultiple = false,
+            SuggestedStartLocation = start,
+            FileTypeFilter = types,
+        });
+        if (picked.Count > 0 && picked[0].TryGetLocalPath() is { } path)
+        {
+            database.FilePath = path;
+        }
+    }
+
     private void OnRepositoryChosen(object? sender, string path)
     {
         _ = sender;

@@ -7,7 +7,8 @@ namespace Asura.Application;
 /// facts the UI shapes itself around live here so a form never hard-codes an
 /// engine: the default port fills the placeholder, <see cref="DatabaseLabel"/>
 /// names what the engine calls a database (Oracle connects to a service), and
-/// <see cref="CanListDatabases"/> gates the database selector.
+/// <see cref="CanListDatabases"/> gates the database selector, and a file
+/// engine's <see cref="FileExtensions"/> filter the file picker.
 /// </summary>
 public sealed record DatabaseDriverDescriptor(
     string Id,
@@ -16,7 +17,8 @@ public sealed record DatabaseDriverDescriptor(
     bool IsFileBased = false,
     int? DefaultPort = null,
     string DatabaseLabel = "Database",
-    bool CanListDatabases = false);
+    bool CanListDatabases = false,
+    IReadOnlyList<string>? FileExtensions = null);
 
 /// <summary>
 /// Facts about an established session that only the server can answer. Every
