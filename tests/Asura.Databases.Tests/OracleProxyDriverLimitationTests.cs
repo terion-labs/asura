@@ -7,7 +7,9 @@ namespace Asura.Databases.Tests;
 
 public sealed class OracleProxyDriverLimitationTests
 {
-    [Fact]
+    internal const string UnresolvableHost = "asura-oracle-route.invalid";
+
+    [UnresolvableHostFact]
     public async Task Pinned_Oracle_driver_loses_unresolved_host_in_its_HTTP_CONNECT_authority()
     {
         // Regression canary for the driver's built-in HTTP proxy API, which
@@ -36,7 +38,7 @@ public sealed class OracleProxyDriverLimitationTests
         });
         var options = new OracleConnectionStringBuilder
         {
-            DataSource = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=asura-oracle-route.invalid)(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=app))(SECURITY=(SSL_SERVER_DN_MATCH=YES)))",
+            DataSource = "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=" + UnresolvableHost + ")(PORT=1522))(CONNECT_DATA=(SERVICE_NAME=app))(SECURITY=(SSL_SERVER_DN_MATCH=YES)))",
             UserID = "fixture",
             Password = "fixture",
             Pooling = false,
@@ -51,5 +53,29 @@ public sealed class OracleProxyDriverLimitationTests
 
         await Assert.ThrowsAsync<OracleException>(() => connection.OpenAsync(lifetime.Token));
         Assert.Equal("CONNECT :1522 HTTP/1.1", await observed);
+    }
+}
+
+/// <summary>
+/// The canary needs a name the driver cannot resolve, and RFC 6761 reserves
+/// <c>.invalid</c> for that. Some networks answer every failed lookup with an
+/// address of their own; behind one, the driver sees a resolved host and the
+/// canary has nothing to observe, so it skips and says why.
+/// </summary>
+internal sealed class UnresolvableHostFactAttribute : FactAttribute
+{
+    public UnresolvableHostFactAttribute()
+    {
+        try
+        {
+            var addresses = Dns.GetHostAddresses(OracleProxyDriverLimitationTests.UnresolvableHost);
+            if (addresses.Length > 0)
+            {
+                Skip = $"This host's DNS resolver answers for the reserved name {OracleProxyDriverLimitationTests.UnresolvableHost} (with {addresses[0]}), so the driver never sees an unresolved host.";
+            }
+        }
+        catch (SocketException)
+        {
+        }
     }
 }
