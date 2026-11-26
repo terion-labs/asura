@@ -190,7 +190,7 @@ public sealed partial class GitRuntimePanelView : IPanelCommandTarget
     /// </summary>
     private void JoinSidebarSelection()
     {
-        TreeView[] trees = [GitLocalBranchTree, GitRemoteBranchTree, GitTagTree];
+        ListBox[] trees = [GitLocalBranchTree, GitRemoteBranchTree, GitTagTree];
         ListBox[] lists = [GitStashList, GitWorktreeList, GitSubmoduleList];
         foreach (var tree in trees)
         {
@@ -221,7 +221,7 @@ public sealed partial class GitRuntimePanelView : IPanelCommandTarget
         }
     }
 
-    private static GitRefItemViewModel? SelectedRef(TreeView tree) =>
+    private static GitRefItemViewModel? SelectedRef(ListBox tree) =>
         tree.IsEffectivelyVisible && tree.SelectedItem is GitRefTreeNodeViewModel { Item: { } item } ? item : null;
 
     private static object? SelectedItem(ListBox list) => list.IsEffectivelyVisible ? list.SelectedItem : null;

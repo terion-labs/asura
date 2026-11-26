@@ -12,8 +12,8 @@ public sealed partial class GitRuntimePanelView
 
     /// <summary>
     /// Typing a name in the branch, remote or tag list selects the first row
-    /// that starts with it, as in any Mac list. A tree has no text search of
-    /// its own, so the shared type-select buffer stands in for one.
+    /// that starts with it, as in any Mac list. The shared type-select buffer
+    /// gives every sidebar list the same search.
     /// </summary>
     private void EnableRefTypeSelect()
     {
@@ -25,31 +25,15 @@ public sealed partial class GitRuntimePanelView
 
     private void OnRefTreeTextInput(object? sender, TextInputEventArgs e)
     {
-        if (sender is not TreeView { ItemsSource: IEnumerable<GitRefTreeNodeViewModel> roots } tree
+        // The list holds exactly the rows a person can see, top to bottom.
+        if (sender is not ListBox { ItemsSource: TreeRows<GitRefTreeNodeViewModel> rows } tree
             || _refTypeSelect.Append(e.Text, DateTimeOffset.UtcNow) is not { } prefix
-            || TypeSelectBuffer.FindMatch(VisibleRefNodes(roots), node => node.Name, prefix) is not { } match)
+            || TypeSelectBuffer.FindMatch(rows, node => node.Name, prefix) is not { } match)
         {
             return;
         }
 
         e.Handled = true;
-        tree.SelectedItem = match;
-        tree.TreeContainerFromItem(match)?.BringIntoView();
-    }
-
-    /// <summary>The rows a person can see, top to bottom: closed folders hide theirs.</summary>
-    internal static IEnumerable<GitRefTreeNodeViewModel> VisibleRefNodes(IEnumerable<GitRefTreeNodeViewModel> nodes)
-    {
-        foreach (var node in nodes)
-        {
-            yield return node;
-            if (node.IsFolder && node.IsExpanded)
-            {
-                foreach (var child in VisibleRefNodes(node.Children))
-                {
-                    yield return child;
-                }
-            }
-        }
+        TreeList.Select(tree, match);
     }
 }

@@ -21,10 +21,9 @@ public enum GitCommitDetailTab
 /// One node of a commit's file tree. Directories load their children the
 /// first time they expand, so huge trees cost only what the user opens.
 /// </summary>
-public sealed class GitTreeNodeViewModel : ObservableObject
+public sealed class GitTreeNodeViewModel : TreeRowNode
 {
     private readonly Func<string, Task<IReadOnlyList<GitTreeNodeViewModel>>>? _loadChildren;
-    private bool _isExpanded;
     private bool _isLoaded;
 
     public GitTreeNodeViewModel(
@@ -32,6 +31,7 @@ public sealed class GitTreeNodeViewModel : ObservableObject
         string path,
         bool isDirectory,
         Func<string, Task<IReadOnlyList<GitTreeNodeViewModel>>>? loadChildren)
+        : base(isExpanded: false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentNullException.ThrowIfNull(path);
@@ -48,6 +48,7 @@ public sealed class GitTreeNodeViewModel : ObservableObject
     }
 
     private GitTreeNodeViewModel()
+        : base(isExpanded: false)
     {
         Name = "…";
         Path = "";
@@ -67,16 +68,16 @@ public sealed class GitTreeNodeViewModel : ObservableObject
 
     public ObservableCollection<GitTreeNodeViewModel> Children { get; } = [];
 
-    public bool IsExpanded
+    public override bool CanExpand => IsDirectory;
+
+    internal override IEnumerable<TreeRowNode> ChildRows => Children;
+
+    protected override void OnExpandedChanged(bool isExpanded)
     {
-        get => _isExpanded;
-        set
+        if (isExpanded && !_isLoaded)
         {
-            if (SetProperty(ref _isExpanded, value) && value && !_isLoaded)
-            {
-                _isLoaded = true;
-                _ = LoadChildrenAsync();
-            }
+            _isLoaded = true;
+            _ = LoadChildrenAsync();
         }
     }
 
@@ -93,6 +94,9 @@ public sealed class GitTreeNodeViewModel : ObservableObject
         {
             Children.Add(child);
         }
+
+        // The placeholder row gives way to what the folder holds.
+        Rows?.Refresh();
     }
 }
 
@@ -173,11 +177,10 @@ public sealed class GitChangeItemViewModel(GitFileChange change)
 /// It is shown through <see cref="GitChangeTreeRows"/>, which lists only the
 /// nodes whose folders are open.
 /// </summary>
-public sealed class GitChangeTreeNodeViewModel : ObservableObject
+public sealed class GitChangeTreeNodeViewModel : TreeRowNode
 {
-    private bool _isExpanded = true;
-
     private GitChangeTreeNodeViewModel(string name, string relativePath)
+        : base(isExpanded: true)
     {
         Name = name;
         RelativePath = relativePath;
@@ -185,6 +188,7 @@ public sealed class GitChangeTreeNodeViewModel : ObservableObject
     }
 
     private GitChangeTreeNodeViewModel(GitChangeItemViewModel item)
+        : base(isExpanded: false)
     {
         Item = item;
         Name = item.FileName;
@@ -318,24 +322,12 @@ public sealed class GitChangeTreeNodeViewModel : ObservableObject
 
     public ObservableCollection<GitChangeTreeNodeViewModel> Children { get; } = [];
 
-    public bool IsExpanded
-    {
-        get => _isExpanded;
-        set
-        {
-            if (SetProperty(ref _isExpanded, value))
-            {
-                OnPropertyChanged(nameof(AccessibleSummary));
-                Rows?.Refresh();
-            }
-        }
-    }
+    public override bool CanExpand => IsDirectory;
 
-    /// <summary>How many folders deep this row is shown; set as it is listed.</summary>
-    public int Depth { get; internal set; }
+    internal override IEnumerable<TreeRowNode> ChildRows => Children;
 
-    /// <summary>The rows this node is listed in, told when it opens or closes.</summary>
-    internal GitChangeTreeRows? Rows { get; set; }
+    protected override void OnExpandedChanged(bool isExpanded) =>
+        OnPropertyChanged(nameof(AccessibleSummary));
 
     public string FileName => Name;
 

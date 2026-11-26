@@ -156,13 +156,14 @@ public sealed class GitCommitMenuHeadlessTests
     {
         panel.SidebarColumnWidth = new GridLength(180);
         window.UpdateLayout();
-        var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
-        var rows = tree.GetVisualDescendants().OfType<TreeViewItem>()
+        var tree = view.FindControl<ListBox>("GitLocalBranchTree")!;
+        var rows = tree.GetVisualDescendants().OfType<ListBoxItem>()
             .Where(row => row.DataContext is GitRefTreeNodeViewModel { Name: not "main" })
-            .OrderBy(row => row.Level).ToArray();
+            .OrderBy(row => ((GitRefTreeNodeViewModel)row.DataContext!).Depth).ToArray();
         Assert.Equal(3, rows.Length);
-        var headers = rows.Select(row => row.GetVisualDescendants().OfType<Grid>()
-            .First(grid => grid.Name == "PART_Header")).ToArray();
+        // What follows a row's indent: a folder's disclosure and name, or a ref.
+        var headers = rows.Select(row => row.GetVisualDescendants().OfType<DockPanel>()
+            .First(panel => panel.Classes.Contains("GitRefTreeRow")).Children[1]).ToArray();
         var lefts = headers.Select(header => header.TranslatePoint(default, tree)!.Value.X).ToArray();
         Assert.Equal(16, lefts[1] - lefts[0], precision: 2);
         Assert.Equal(16, lefts[2] - lefts[1], precision: 2);
@@ -170,7 +171,7 @@ public sealed class GitCommitMenuHeadlessTests
         {
             // The disclosure target is at least the 20-point minimum.
             var toggle = header.GetVisualDescendants().OfType<ToggleButton>()
-                .Single(button => button.Name == "PART_ExpandCollapseChevron");
+                .Single(button => button.Classes.Contains("TreeDisclosure"));
             Assert.True(toggle.Bounds.Width >= 20 && toggle.Bounds.Height >= 20, $"{toggle.Bounds}");
             // The chevron is the section headers' small glyph drawn inside
             // the target, not Fluent's path stretched to fill it.
@@ -183,10 +184,14 @@ public sealed class GitCommitMenuHeadlessTests
             var folderLeft = folderLabel.TranslatePoint(default, header)!.Value.X;
             Assert.InRange(folderLeft - toggleRight, 0, 2);
         }
-        foreach (var header in headers)
+        foreach (var row in rows)
         {
             // A sidebar row is the Finder sidebar's 28-point band.
-            Assert.InRange(header.Bounds.Height, 28, 32);
+            Assert.InRange(row.Bounds.Height, 28, 32);
+        }
+
+        foreach (var header in headers)
+        {
             var bounds = header.TranslatePoint(new Point(header.Bounds.Width, 0), tree)!.Value;
             Assert.InRange(bounds.X, 1, tree.Bounds.Width);
         }

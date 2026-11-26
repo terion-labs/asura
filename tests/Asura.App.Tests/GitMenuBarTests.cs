@@ -170,11 +170,11 @@ public sealed class GitPanelMenuBarHeadlessTests
     public Task A_branch_command_acts_on_the_selected_branch_and_is_dimmed_without_one() => RunAsync(async (view, panel, window, client) =>
     {
         IPanelCommandTarget target = view;
-        var branches = view.FindControl<TreeView>("GitLocalBranchTree")!;
+        var branches = view.FindControl<ListBox>("GitLocalBranchTree")!;
         Assert.False(target.CanExecute(BuiltInCommands.GitBranchCheckout));
         Assert.False(target.CanExecute(BuiltInCommands.GitBranchCopyName));
 
-        branches.SelectedItem = Node(panel.LocalBranchTree, "topic");
+        branches.SelectedItem = Node(panel.LocalBranchRows, "topic");
         Assert.True(target.CanExecute(BuiltInCommands.GitBranchCheckout));
         Assert.True(target.CanExecute(BuiltInCommands.GitBranchDelete));
         Assert.False(target.CanExecute(BuiltInCommands.GitTagCopyName));
@@ -182,7 +182,7 @@ public sealed class GitPanelMenuBarHeadlessTests
         await WaitForAsync(() => client.RefOperations.Contains("checkout topic"));
 
         // The checked-out branch can't be checked out, merged or deleted.
-        branches.SelectedItem = Node(panel.LocalBranchTree, "dev");
+        branches.SelectedItem = Node(panel.LocalBranchRows, "dev");
         Assert.False(target.CanExecute(BuiltInCommands.GitBranchCheckout));
         Assert.False(target.CanExecute(BuiltInCommands.GitBranchDelete));
         Assert.True(target.CanExecute(BuiltInCommands.GitBranchCopyName));
@@ -198,20 +198,20 @@ public sealed class GitPanelMenuBarHeadlessTests
     public Task Choosing_a_row_in_one_sidebar_section_clears_the_others() => RunAsync(async (view, panel, window, client) =>
     {
         IPanelCommandTarget target = view;
-        var branches = view.FindControl<TreeView>("GitLocalBranchTree")!;
-        var tags = view.FindControl<TreeView>("GitTagTree")!;
-        var remotes = view.FindControl<TreeView>("GitRemoteBranchTree")!;
+        var branches = view.FindControl<ListBox>("GitLocalBranchTree")!;
+        var tags = view.FindControl<ListBox>("GitTagTree")!;
+        var remotes = view.FindControl<ListBox>("GitRemoteBranchTree")!;
         var stashes = view.FindControl<ListBox>("GitStashList")!;
 
-        branches.SelectedItem = Node(panel.LocalBranchTree, "topic");
-        tags.SelectedItem = Node(panel.TagTree, "v1");
+        branches.SelectedItem = Node(panel.LocalBranchRows, "topic");
+        tags.SelectedItem = Node(panel.TagRows, "v1");
         Assert.Null(branches.SelectedItem);
         Assert.False(target.CanExecute(BuiltInCommands.GitBranchCopyName));
         Assert.True(target.CanExecute(BuiltInCommands.GitTagCopyName));
         await target.ExecuteAsync(BuiltInCommands.GitTagCopyName);
         Assert.Equal("v1", await window.Clipboard!.TryGetTextAsync());
 
-        remotes.SelectedItem = Node(panel.RemoteBranchTree, "dev");
+        remotes.SelectedItem = Node(panel.RemoteBranchRows, "dev");
         Assert.Null(tags.SelectedItem);
         Assert.True(target.CanExecute(BuiltInCommands.GitRemoteFetch));
         await target.ExecuteAsync(BuiltInCommands.GitRemoteFetch);
@@ -427,8 +427,8 @@ public sealed class GitPanelMenuBarHeadlessTests
         Assert.All(request.Lines, line => Assert.Equal(added.HunkIndex, line.Hunk));
     });
 
-    private static GitRefTreeNodeViewModel Node(IEnumerable<GitRefTreeNodeViewModel> roots, string leaf) =>
-        GitRuntimePanelView.VisibleRefNodes(roots).First(node => node.Item?.LeafName == leaf);
+    private static GitRefTreeNodeViewModel Node(TreeRows<GitRefTreeNodeViewModel> rows, string leaf) =>
+        rows.First(node => node.Item?.LeafName == leaf);
 
     private static async Task WaitForAsync(Func<bool> condition)
     {

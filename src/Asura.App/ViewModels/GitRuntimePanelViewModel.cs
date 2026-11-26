@@ -771,8 +771,17 @@ public sealed partial class GitRuntimePanelViewModel : RuntimePanelViewModel
     public IReadOnlyList<GitTreeNodeViewModel> CommitTreeRoots
     {
         get => _commitTreeRoots;
-        private set => SetProperty(ref _commitTreeRoots, value);
+        private set
+        {
+            if (SetProperty(ref _commitTreeRoots, value))
+            {
+                CommitTreeRows.Reset(value);
+            }
+        }
     }
+
+    /// <summary>The commit's file tree as the rows it shows, for a virtualizing list.</summary>
+    public TreeRows<GitTreeNodeViewModel> CommitTreeRows { get; } = new([]);
 
     public GitTreeNodeViewModel? SelectedTreeNode
     {
