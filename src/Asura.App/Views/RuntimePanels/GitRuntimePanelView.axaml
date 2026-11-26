@@ -10,13 +10,14 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:controls="using:Asura.App.Controls"
     xmlns:icons="using:FluentIcons.Avalonia"
+    xmlns:panelViews="using:Asura.App.Views.RuntimePanels"
     Classes="RuntimePanelFocusTarget"
     Focusable="True"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
     AutomationProperties.Name="Git panel"
-    Container.Name="gitPanel"
+    controls:WidthClasses.AtMost="700 1000"
     Container.Sizing="Width">
   <UserControl.Styles>
     <!-- The section list is a source list: the shell's list selection draws
@@ -326,28 +327,29 @@
     <Style Selector="TreeView.GitRefTree:focus-within TreeViewItem:selected /template/ ToggleButton#PART_ExpandCollapseChevron">
       <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
     </Style>
-    <ContainerQuery Name="gitPanel" Query="max-width:700">
-      <Style Selector="Border#GitSidebar">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-      <!-- The splitter follows the sidebar out of the narrow layout; the
-           column itself collapses through the view model, which the
-           code-behind informs from the sidebar's visibility. -->
-      <Style Selector="Border#GitSidebarSplitterLine">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-      <Style Selector="GridSplitter#GitSidebarSplitter">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-      <Style Selector="controls|SegmentedControl#GitCompactSections">
-        <Setter Property="IsVisible" Value="True" />
-      </Style>
-    </ContainerQuery>
-    <ContainerQuery Name="gitPanel" Query="max-width:1000">
-      <Style Selector="TextBlock.GitCommitAuthor">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-    </ContainerQuery>
+    <!-- The layout answers to the panel's own width through classes it sets
+         on itself (WidthClasses), not a ContainerQuery: a query hands every
+         control in the panel a handler on the panel's size, and with a
+         thousand branches in the sidebar that made the panel take seconds to
+         build and tens of seconds to leave. -->
+    <Style Selector="panelViews|GitRuntimePanelView.at-most-700 Border#GitSidebar">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!-- The splitter follows the sidebar out of the narrow layout; the
+         column itself collapses through the view model, which the
+         code-behind informs from the sidebar's visibility. -->
+    <Style Selector="panelViews|GitRuntimePanelView.at-most-700 Border#GitSidebarSplitterLine">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="panelViews|GitRuntimePanelView.at-most-700 GridSplitter#GitSidebarSplitter">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="panelViews|GitRuntimePanelView.at-most-700 controls|SegmentedControl#GitCompactSections">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="panelViews|GitRuntimePanelView.at-most-1000 TextBlock.GitCommitAuthor">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
   </UserControl.Styles>
 
   <controls:PanelChrome

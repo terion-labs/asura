@@ -38,6 +38,22 @@ public sealed class RuntimeDockControl : DockControl
 
     private void UpdateCollapsedDocks()
     {
+        // Every canvas hears every layout pass in the window, and each workspace
+        // and tab keeps one. A hidden one has nothing on screen to correct, and
+        // the pass that shows it again runs this then.
+        if (!IsEffectivelyVisible)
+        {
+            return;
+        }
+
+        // Once its panels are laid out on screen the tab's canvas is drawn,
+        // and kept: coming back to it needs no cover while it builds.
+        if (RuntimeTab is { IsCanvasDrawn: false } tab
+            && this.GetVisualDescendants().OfType<RuntimePanelContentControl>().Any())
+        {
+            tab.MarkCanvasDrawn();
+        }
+
         // Containers can be replaced by Dock during drag/drop. Derive their
         // collapsed state from the unchanged document graph after layout mounts.
         foreach (var stack in this.GetVisualDescendants().OfType<ProportionalStackPanel>())

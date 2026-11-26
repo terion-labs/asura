@@ -241,6 +241,44 @@ public sealed class GitPanelConformanceHeadlessTests
     });
 
     [Fact]
+    public Task A_narrow_panel_trades_its_sidebar_for_section_buttons_and_drops_the_author_column_first() => RunPanelAsync(async (view, panel, window) =>
+    {
+        panel.Section = GitPanelSection.AllCommits;
+        var sidebar = view.FindControl<Border>("GitSidebar")!;
+        var compact = view.FindControl<SegmentedControl>("GitCompactSections")!;
+        IReadOnlyList<TextBlock> Authors() => [.. view.GetVisualDescendants().OfType<TextBlock>()
+            .Where(text => text.Classes.Contains("GitCommitAuthor"))];
+        async Task ResizeAsync(double width)
+        {
+            window.Width = width;
+            await WaitForAsync(() =>
+            {
+                window.UpdateLayout();
+                return Math.Abs(view.Bounds.Width - width) < 1;
+            });
+        }
+
+        await ResizeAsync(1400);
+        Assert.True(sidebar.IsVisible);
+        Assert.False(compact.IsVisible);
+        Assert.NotEmpty(Authors());
+        Assert.All(Authors(), author => Assert.True(author.IsVisible));
+
+        await ResizeAsync(900);
+        Assert.True(sidebar.IsVisible);
+        Assert.All(Authors(), author => Assert.False(author.IsVisible));
+
+        await ResizeAsync(650);
+        Assert.False(sidebar.IsVisible);
+        Assert.True(compact.IsVisible);
+
+        await ResizeAsync(1400);
+        Assert.True(sidebar.IsVisible);
+        Assert.False(compact.IsVisible);
+        Assert.All(Authors(), author => Assert.True(author.IsVisible));
+    });
+
+    [Fact]
     public Task Sidebar_sections_are_disclosure_toggles_that_say_whether_they_are_open() => RunPanelAsync((view, panel, window) =>
     {
         var branches = view.FindControl<ToggleButton>("GitBranchesDisclosure")!;

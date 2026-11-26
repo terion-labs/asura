@@ -1871,11 +1871,17 @@ public sealed class RuntimePanelViewContractTests
         }
 
         // And the toolbar answers to the panel's own width, not the window's:
-        // two of these can share one window at different widths.
-        var containerQuery = Assert.Single(
+        // two of these can share one window at different widths. The panel
+        // marks itself as its width crosses the limit, and the toolbar's
+        // styles select on that mark.
+        Assert.Equal("660", AttributeValue(root, "WidthClasses.AtMost"));
+        Assert.Contains(
             root.Descendants(),
-            element => string.Equals(element.Name.LocalName, "ContainerQuery", StringComparison.Ordinal));
-        Assert.Equal("filePanel", AttributeValue(containerQuery, "Name"));
+            element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal)
+                && string.Equals(
+                    AttributeValue(element, "Selector"),
+                    "panelViews|FileRuntimePanelView.at-most-660 StackPanel#FileToolbarActionStrip",
+                    StringComparison.Ordinal));
         Assert.Equal("Width", AttributeValue(root, "Container.Sizing"));
 
         var itemCount = FindUniqueAccessibleElement(root, "Files item count");

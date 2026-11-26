@@ -9,12 +9,13 @@
     xmlns:components="using:Asura.App.Views.Components"
     xmlns:icons="using:FluentIcons.Avalonia"
     xmlns:vm="using:Asura.App.ViewModels"
+    xmlns:panelViews="using:Asura.App.Views.RuntimePanels"
     Classes="RuntimePanelFocusTarget"
     Focusable="True"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
     IsVisible="{Binding IsVisibleInLayout}"
-    Container.Name="filePanel"
+    controls:WidthClasses.AtMost="660"
     Container.Sizing="Width">
   <UserControl.Styles>
     <!--
@@ -26,19 +27,17 @@
       Nothing becomes unreachable by it: the overflow menu lists every one of
       them already, because both are the same list of actions.
     -->
-    <ContainerQuery Name="filePanel" Query="max-width:660">
-      <Style Selector="StackPanel#FileToolbarActionStrip">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-      <Style Selector="components|CountPill#FileListingCount">
-        <Setter Property="IsCompact" Value="True" />
-      </Style>
-      <!-- And the search box takes what a search box needs rather than what it
-           would like, so the path it sits beside stays readable. -->
-      <Style Selector="TextBox#FileFilterBox">
-        <Setter Property="Width" Value="110" />
-      </Style>
-    </ContainerQuery>
+    <Style Selector="panelViews|FileRuntimePanelView.at-most-660 StackPanel#FileToolbarActionStrip">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="panelViews|FileRuntimePanelView.at-most-660 components|CountPill#FileListingCount">
+      <Setter Property="IsCompact" Value="True" />
+    </Style>
+    <!-- And the search box takes what a search box needs rather than what it
+         would like, so the path it sits beside stays readable. -->
+    <Style Selector="panelViews|FileRuntimePanelView.at-most-660 TextBox#FileFilterBox">
+      <Setter Property="Width" Value="110" />
+    </Style>
     <!-- A row's icon is sized from the icon ramp, so it grows with the text
          beside it: the list size in rows, the tile size in the grid. The
          system icon and the stand-in glyph share one box. -->

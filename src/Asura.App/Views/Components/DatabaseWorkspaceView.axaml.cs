@@ -179,7 +179,7 @@ public sealed partial class DatabaseWorkspaceView : UserControl
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
         base.OnSizeChanged(e);
-        // The row-action labels fold by ContainerQuery; only the objects list,
+        // The row-action labels fold by width class; only the objects list,
         // whose folding changes layout structure, still needs code.
         SetObjectsFolded(e.NewSize.Width < ObjectsListMinimumWorkspaceWidth);
     }

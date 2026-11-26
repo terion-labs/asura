@@ -7,7 +7,7 @@ using FluentIcons.Common;
 
 namespace Asura.App.ViewModels;
 
-public sealed class RuntimeWorkspaceViewModel : ObservableObject
+public sealed class RuntimeWorkspaceViewModel : ObservableObject, IStackedCanvas
 {
     private RuntimeTabViewModel? _activeTab;
     private RuntimeTabViewModel? _lastActiveTab;
@@ -115,6 +115,20 @@ public sealed class RuntimeWorkspaceViewModel : ObservableObject
         internal set => SetProperty(ref _canvasDepth, value);
     }
 
+    bool IStackedCanvas.IsCanvasShown
+    {
+        get => IsCanvasShown;
+        set => IsCanvasShown = value;
+    }
+
+    int IStackedCanvas.CanvasDepth
+    {
+        get => CanvasDepth;
+        set => CanvasDepth = value;
+    }
+
+    /// <summary>A workspace draws what its tab in front draws.</summary>
+    bool IStackedCanvas.IsCanvasDrawn => ActiveTab?.IsCanvasDrawn ?? false;
 
     public ObservableCollection<LauncherConnectionViewModel> Connections { get; }
 
@@ -188,9 +202,10 @@ public sealed class RuntimeWorkspaceViewModel : ObservableObject
         get => _activeTab;
         internal set
         {
-            if (!ReferenceEquals(_activeTab, value) && _activeTab is not null && Tabs.Contains(_activeTab))
+            var previous = _activeTab;
+            if (!ReferenceEquals(previous, value) && previous is not null && Tabs.Contains(previous))
             {
-                _lastActiveTab = _activeTab;
+                _lastActiveTab = previous;
             }
 
             if (SetProperty(ref _activeTab, value))
@@ -199,6 +214,10 @@ public sealed class RuntimeWorkspaceViewModel : ObservableObject
                 {
                     tab.IsActive = ReferenceEquals(tab, value);
                 }
+
+                // Each tab keeps the canvas it was built in, so switching tabs
+                // shows a different one rather than rebuilding every panel.
+                CanvasStack.Bring(value, leaving: previous);
             }
         }
     }
@@ -344,7 +363,7 @@ public sealed record RuntimeHistorySource
         && !value.Any(char.IsControl);
 }
 
-public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem
+public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabStripItem, IStackedCanvas
 {
     private const double DefaultPanelMinimumWidth = 220;
     private const double DefaultPanelMinimumHeight = 140;
@@ -360,6 +379,8 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
     private BrowserRuntimePanelViewModel? _pageTitleSource;
     private bool _hasChosenIcon;
     private bool _isActive;
+    private bool _isCanvasShown;
+    private int _canvasDepth;
     private bool _canClose = true;
     private bool _hasAttention;
     private string _agentActivity = string.Empty;
@@ -578,6 +599,47 @@ public sealed partial class RuntimeTabViewModel : ObservableObject, IRuntimeTabS
         get => _isActive;
         set => SetProperty(ref _isActive, value);
     }
+
+    /// <summary>
+    /// Whether this tab's canvas is on screen. Each tab keeps the dock control
+    /// its panels were built in: one shared by every tab took the panels being
+    /// left apart and built the arriving ones afresh on every switch, which for
+    /// a Git panel with a long branch list was seconds each way. Like a
+    /// workspace's, the canvas being left stays up over the arriving one until
+    /// that one has been built.
+    /// </summary>
+    public bool IsCanvasShown
+    {
+        get => _isCanvasShown;
+        internal set => SetProperty(ref _isCanvasShown, value);
+    }
+
+    /// <summary>Where this tab's canvas sits among its workspace's; see <see cref="IsCanvasShown"/>.</summary>
+    public int CanvasDepth
+    {
+        get => _canvasDepth;
+        internal set => SetProperty(ref _canvasDepth, value);
+    }
+
+    bool IStackedCanvas.IsCanvasShown
+    {
+        get => IsCanvasShown;
+        set => IsCanvasShown = value;
+    }
+
+    int IStackedCanvas.CanvasDepth
+    {
+        get => CanvasDepth;
+        set => CanvasDepth = value;
+    }
+
+    /// <summary>
+    /// Whether this tab's panels have been built and drawn in its canvas, which
+    /// is kept from then on; the canvas reports it once it has.
+    /// </summary>
+    public bool IsCanvasDrawn { get; private set; }
+
+    internal void MarkCanvasDrawn() => IsCanvasDrawn = true;
 
     /// <summary>
     /// Whether the strip offers to close this tab. A lone launcher tab does not:

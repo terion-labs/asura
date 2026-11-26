@@ -441,7 +441,7 @@ public sealed class DatabaseWorkspaceHigHeadlessTests
             window.UpdateLayout();
             Assert.True(panel.CanFilterTable);
             var data = view.GetVisualDescendants().OfType<Grid>()
-                .First(grid => string.Equals(Avalonia.Styling.Container.GetName(grid), "databaseData", StringComparison.Ordinal));
+                .First(grid => grid.Classes.Contains("databaseData"));
             string[] filterControls =
             [
                 "Include this filter condition",
