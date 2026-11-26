@@ -347,6 +347,86 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
         ];
     }
 
+    [Fact]
+    public async Task Each_tab_keeps_the_panels_it_built_and_switching_shows_its_own_canvas()
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await using var session = HeadlessSessions.StartNew(typeof(SqlEditorHeadlessApplication));
+        Assert.True(await session.Dispatch(async () =>
+        {
+            var (client, _) = CreateSessionClient();
+            using var viewModel = CreateViewModel(client, CreateCatalogSnapshot());
+            Assert.True(await viewModel.OpenWorkspaceAsync(WorkspaceId));
+            var workspace = viewModel.RuntimeWorkspace!;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var first = workspace.ActiveTab!;
+            Assert.True(await viewModel.AddLocalTerminalTabAsync());
+            var second = workspace.ActiveTab!;
+            Assert.NotSame(first, second);
+            var window = new MainWindow { DataContext = viewModel, Width = 1400, Height = 900 };
+            window.DataTemplates.Insert(0, new Avalonia.Controls.Templates.FuncDataTemplate<TerminalRuntimePanelViewModel>(
+                (panel, _) => new Asura.App.Controls.PanelChrome
+                {
+                    Title = panel!.Title,
+                    DataContext = panel,
+                    Content = new TextBlock { Text = "Terminal renderer is tested in the dev build." },
+                }));
+            window.Show();
+            try
+            {
+                void Settle()
+                {
+                    // The canvas being left covers the arriving one for a few
+                    // frames while that one builds.
+                    for (var frame = 0; frame < 6; frame++)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+                        window.UpdateLayout();
+                    }
+                }
+
+                Asura.App.Controls.PanelChrome ViewOf(RuntimeTabViewModel tab) =>
+                    window.GetVisualDescendants().OfType<Asura.App.Controls.PanelChrome>()
+                        .Single(chrome => ReferenceEquals(chrome.DataContext, tab.Panels[0]));
+
+                Assert.True(await viewModel.ActivateTabAsync(first.Id));
+                Settle();
+                var firstView = ViewOf(first);
+                Assert.True(firstView.IsEffectivelyVisible);
+
+                Assert.True(await viewModel.ActivateTabAsync(second.Id));
+                Settle();
+                var secondView = ViewOf(second);
+                Assert.True(secondView.IsEffectivelyVisible);
+                Assert.Same(firstView, ViewOf(first));
+                Assert.False(firstView.IsEffectivelyVisible);
+                Assert.True(second.IsCanvasShown);
+                Assert.False(first.IsCanvasShown);
+
+                // A tab drawn before is shown at once, with no cover over it.
+                Assert.True(await viewModel.ActivateTabAsync(first.Id));
+                Assert.True(first.IsCanvasDrawn);
+                Assert.True(first.IsCanvasShown);
+                Assert.False(second.IsCanvasShown);
+                Settle();
+                Assert.Same(firstView, ViewOf(first));
+                Assert.Same(secondView, ViewOf(second));
+                Assert.True(firstView.IsEffectivelyVisible);
+                Assert.False(secondView.IsEffectivelyVisible);
+                Assert.Equal(
+                    [first.Panels[0]],
+                    window.GetVisualDescendants().OfType<RuntimePanelContentControl>()
+                        .Where(control => control.IsEffectivelyVisible)
+                        .Select(control => control.Content));
+                return true;
+            }
+            finally
+            {
+                window.Close();
+            }
+        }, timeout.Token));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1166,7 +1166,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                 // the workspace from it, and Dock rebuilds its layout while
                 // this setter is still running. Without a mark here that cost
                 // would be charged to whatever came next.
-                ShowCanvasOf(value, insteadOf: previous);
+                CanvasStack.Bring(value, leaving: previous);
                 FollowWorkspaceBehindIsolationProgress();
                 _activation?.Mark("bindings");
                 StopRuntimeGraphWatch();
@@ -1853,77 +1853,6 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
         SecretSafeDiagnosticProjection.WriteStandardError(
             "workspace.activation.performance-budget-exceeded",
             SecretSafeDiagnosticKind.Unexpected);
-    }
-
-    /// <summary>
-    /// Brings one workspace's canvas forward without ever showing an empty one.
-    ///
-    /// A dock control builds only the layout it is showing — one that is not
-    /// shown has no visual tree at all, whatever it is given and however long it
-    /// waits — so the arriving canvas cannot be prepared out of sight. It is
-    /// shown straight away and the departing one is left on top of it, covering
-    /// it whole, until it has had frames enough to build. Then the cover comes
-    /// off and what is underneath is finished.
-    /// </summary>
-    private static void ShowCanvasOf(
-        RuntimeWorkspaceViewModel? workspace,
-        RuntimeWorkspaceViewModel? insteadOf)
-    {
-        if (workspace is not null)
-        {
-            workspace.CanvasDepth = 0;
-            workspace.IsCanvasShown = true;
-        }
-
-        if (insteadOf is null || ReferenceEquals(insteadOf, workspace))
-        {
-            return;
-        }
-
-        if (workspace is null)
-        {
-            insteadOf.IsCanvasShown = false;
-            insteadOf.CanvasDepth = 0;
-            return;
-        }
-
-        insteadOf.CanvasDepth = 1;
-        RetireCanvas(insteadOf, CoveringCanvasFrames);
-    }
-
-    /// <summary>
-    /// How long the departing canvas keeps covering the arriving one. Frames
-    /// rather than milliseconds, because what is being waited for is a dock
-    /// control building its tree, which happens across passes. Three, because
-    /// the measurement that found this showed the rebuild landing after the
-    /// frame following the swap.
-    /// </summary>
-    private const int CoveringCanvasFrames = 3;
-
-    private static void RetireCanvas(
-        RuntimeWorkspaceViewModel canvas,
-        int framesRemaining)
-    {
-        Avalonia.Threading.Dispatcher.UIThread.Post(
-            () =>
-            {
-                // It came back to the front while it was covering; it is not
-                // retiring any more.
-                if (canvas.CanvasDepth == 0)
-                {
-                    return;
-                }
-
-                if (framesRemaining > 0)
-                {
-                    RetireCanvas(canvas, framesRemaining - 1);
-                    return;
-                }
-
-                canvas.IsCanvasShown = false;
-                canvas.CanvasDepth = 0;
-            },
-            Avalonia.Threading.DispatcherPriority.Background);
     }
 
     public string NewItemLauncherTitle => HasRuntimeWorkspace ? "New Tab" : "New Workspace";

@@ -11,7 +11,7 @@
     xmlns:core="using:Asura.Core"
     HorizontalContentAlignment="Stretch"
     VerticalContentAlignment="Stretch"
-    Container.Name="databaseWorkspace"
+    controls:WidthClasses.AtMost="680"
     Container.Sizing="Width">
   <UserControl.Styles>
     <!-- The row-action strip adapts to its width: labels on a roomy panel,
@@ -21,21 +21,19 @@
     <Style Selector="local|DatabaseWorkspaceView icons|SymbolIcon.rowActionGlyph">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <ContainerQuery Name="databaseWorkspace" Query="max-width:680">
-      <Style Selector="icons|SymbolIcon.rowActionGlyph">
-        <Setter Property="IsVisible" Value="True" />
-      </Style>
-      <Style Selector="TextBlock.rowActionLabel">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-      <!-- Explanatory prose is the first thing a narrow panel can no longer
-           afford; the disabled buttons still say what it said. Opacity rather
-           than IsVisible, because the hint's visibility is already bound. -->
-      <Style Selector="TextBlock.adaptiveHint">
-        <Setter Property="Opacity" Value="0" />
-        <Setter Property="MaxWidth" Value="0" />
-      </Style>
-    </ContainerQuery>
+    <Style Selector="local|DatabaseWorkspaceView.at-most-680 icons|SymbolIcon.rowActionGlyph">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
+    <Style Selector="local|DatabaseWorkspaceView.at-most-680 TextBlock.rowActionLabel">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <!-- Explanatory prose is the first thing a narrow panel can no longer
+         afford; the disabled buttons still say what it said. Opacity rather
+         than IsVisible, because the hint's visibility is already bound. -->
+    <Style Selector="local|DatabaseWorkspaceView.at-most-680 TextBlock.adaptiveHint">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="MaxWidth" Value="0" />
+    </Style>
 
     <!-- Placed by style rather than in the markup, so the narrow layout
          below can move them: a value set on the element would win over it. -->
@@ -55,61 +53,55 @@
     <!-- The rows above the grid answer to the width they actually have —
          the data column, beside the objects list — rather than to the whole
          workspace's. -->
-    <ContainerQuery Name="databaseData" Query="max-width:640">
-      <!-- A condition takes two lines rather than squeezing its pickers until
-           they read "Colum" and "Opera": what to compare on the first, the
-           value and its actions on the second. The second line is a grid of
-           its own, so the actions never claim width from the pickers above. -->
-      <Style Selector="ComboBox.filterOperator">
-        <Setter Property="Grid.ColumnSpan" Value="2" />
-      </Style>
-      <Style Selector="Grid.filterValueLine">
-        <Setter Property="Grid.Row" Value="1" />
-        <Setter Property="Grid.Column" Value="1" />
-        <Setter Property="Grid.ColumnSpan" Value="3" />
-        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
-      </Style>
-      <!-- The pager takes a line of its own under the row actions. -->
-      <Style Selector="StackPanel.resultPager">
-        <Setter Property="Grid.Row" Value="1" />
-        <Setter Property="Grid.Column" Value="0" />
-        <Setter Property="Grid.ColumnSpan" Value="2" />
-        <Setter Property="HorizontalAlignment" Value="Right" />
-      </Style>
-    </ContainerQuery>
-    <ContainerQuery Name="databaseData" Query="max-width:440">
-      <!-- Narrower still, the condition takes three lines so the switch keeps
-           its "Filter" caption: the switch on the first, beside Clear; what
-           to compare on the second; the value and its actions on the third.
-           The caption is what says the box switches the condition, so it is
-           the pickers that move, never the words. -->
-      <Style Selector="CheckBox.filterInclude">
-        <Setter Property="Grid.ColumnSpan" Value="4" />
-      </Style>
-      <Style Selector="ComboBox.filterColumn">
-        <Setter Property="Grid.Row" Value="1" />
-        <Setter Property="Grid.Column" Value="0" />
-        <Setter Property="Grid.ColumnSpan" Value="2" />
-        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
-      </Style>
-      <Style Selector="ComboBox.filterOperator">
-        <Setter Property="Grid.Row" Value="1" />
-        <Setter Property="Grid.Column" Value="2" />
-        <Setter Property="Grid.ColumnSpan" Value="2" />
-        <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
-      </Style>
-      <Style Selector="Grid.filterValueLine">
-        <Setter Property="Grid.Row" Value="2" />
-        <Setter Property="Grid.Column" Value="0" />
-        <Setter Property="Grid.ColumnSpan" Value="4" />
-      </Style>
-    </ContainerQuery>
-    <ContainerQuery Name="databaseData" Query="max-width:400">
-      <!-- The field keeps its accessible name; the caption is what goes. -->
-      <Style Selector="TextBlock.pagerCaption">
-        <Setter Property="IsVisible" Value="False" />
-      </Style>
-    </ContainerQuery>
+    <!-- A condition takes two lines rather than squeezing its pickers until
+         they read "Colum" and "Opera": what to compare on the first, the
+         value and its actions on the second. The second line is a grid of
+         its own, so the actions never claim width from the pickers above. -->
+    <Style Selector="Grid.databaseData.at-most-640 ComboBox.filterOperator">
+      <Setter Property="Grid.ColumnSpan" Value="2" />
+    </Style>
+    <Style Selector="Grid.databaseData.at-most-640 Grid.filterValueLine">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="Grid.Column" Value="1" />
+      <Setter Property="Grid.ColumnSpan" Value="3" />
+      <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
+    </Style>
+    <!-- The pager takes a line of its own under the row actions. -->
+    <Style Selector="Grid.databaseData.at-most-640 StackPanel.resultPager">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="Grid.Column" Value="0" />
+      <Setter Property="Grid.ColumnSpan" Value="2" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+    <!-- Narrower still, the condition takes three lines so the switch keeps
+         its "Filter" caption: the switch on the first, beside Clear; what
+         to compare on the second; the value and its actions on the third.
+         The caption is what says the box switches the condition, so it is
+         the pickers that move, never the words. -->
+    <Style Selector="Grid.databaseData.at-most-440 CheckBox.filterInclude">
+      <Setter Property="Grid.ColumnSpan" Value="4" />
+    </Style>
+    <Style Selector="Grid.databaseData.at-most-440 ComboBox.filterColumn">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="Grid.Column" Value="0" />
+      <Setter Property="Grid.ColumnSpan" Value="2" />
+      <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
+    </Style>
+    <Style Selector="Grid.databaseData.at-most-440 ComboBox.filterOperator">
+      <Setter Property="Grid.Row" Value="1" />
+      <Setter Property="Grid.Column" Value="2" />
+      <Setter Property="Grid.ColumnSpan" Value="2" />
+      <Setter Property="Margin" Value="{controls:Inset Top=Xs}" />
+    </Style>
+    <Style Selector="Grid.databaseData.at-most-440 Grid.filterValueLine">
+      <Setter Property="Grid.Row" Value="2" />
+      <Setter Property="Grid.Column" Value="0" />
+      <Setter Property="Grid.ColumnSpan" Value="4" />
+    </Style>
+    <!-- The field keeps its accessible name; the caption is what goes. -->
+    <Style Selector="Grid.databaseData.at-most-400 TextBlock.pagerCaption">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
 
     <!-- Delete's label is red at the strip's own weight; filled with the
          danger tone under the pointer, it turns to the fill's foreground. -->
@@ -332,7 +324,8 @@
       <Grid
           Grid.Column="2"
           RowDefinitions="Auto,Auto,Auto,Auto,*"
-          Container.Name="databaseData"
+          Classes="databaseData"
+          controls:WidthClasses.AtMost="400 440 640"
           Container.Sizing="Width">
         <!-- Embedded in another panel — the file viewer's database preview —
              there is no panel header to carry the perspectives, so they get a

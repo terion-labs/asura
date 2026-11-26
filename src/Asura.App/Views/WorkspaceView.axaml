@@ -593,70 +593,100 @@
       <Grid
           Margin="{controls:Inset Horizontal=Sm, Bottom=Sm}"
           IsVisible="{Binding IsWorkspaceCanvasVisible}">
-        <!-- One canvas per open workspace, and switching shows a different
-             one rather than rebuilding the only one.
+        <!-- One canvas per open workspace, and within it one per tab, so
+             switching either shows a different canvas rather than rebuilding
+             the only one.
 
              A dock control does not swap layouts in place: measured across a
              switch it holds the outgoing tree through the next layout pass,
              drops to bare chrome after the frame, and builds the incoming one
-             later still — and that bare state is a visible blink. It also will
-             not build a layout while it is not the canvas being shown, so
-             there is no preparing one off to the side either. Each workspace
-             keeps its own, built once while it is in front and kept
-             afterwards, so coming back to it is a change of which one is
-             visible and nothing else. -->
-        <ItemsControl ItemsSource="{Binding OpenWorkspaces}">
+             later still — and that bare state is a visible blink. Rebuilding
+             also takes every panel of the tab being left apart and builds the
+             arriving tab's afresh, which for a Git panel with a long branch
+             list was seconds each way. A dock control will not build a layout
+             while it is not the canvas being shown, so there is no preparing
+             one off to the side either. Each tab keeps its own, built once
+             while it is in front and kept afterwards, so coming back to it is
+             a change of which one is visible and nothing else.
+
+             The depth that lets a canvas being left cover the arriving one is
+             set on the item's container: the dock control sits alone inside
+             it, and depth orders only siblings. -->
+        <ItemsControl Classes="WorkspaceCanvases" ItemsSource="{Binding OpenWorkspaces}">
+          <ItemsControl.Styles>
+            <Style Selector="ItemsControl.WorkspaceCanvases > ContentPresenter" x:DataType="vm:RuntimeWorkspaceViewModel">
+              <Setter Property="ZIndex" Value="{Binding CanvasDepth}" />
+            </Style>
+          </ItemsControl.Styles>
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <Panel />
             </ItemsPanelTemplate>
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
-            <DataTemplate>
-        <components:RuntimeDockControl
-            Theme="{StaticResource RuntimeDockControlTheme}"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            IsVisible="{Binding IsCanvasShown}"
-            ZIndex="{Binding CanvasDepth}"
-            RuntimeTab="{Binding ActiveTab}"
-            IsDockingEnabled="{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}"
-            InitializeFactory="True"
-            InitializeLayout="False">
-          <components:RuntimeDockControl.Styles>
-            <!-- Keep the drag ghost compact. Dock's stock preview can render a
-                 second full document surface, which is misleading for the
-                 one-panel-per-leaf workspace model. -->
-            <Style Selector="dock|DragPreviewControl">
-              <Setter Property="Template">
-                <ControlTemplate>
-                  <Border
-                      MinWidth="132"
-                      Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
-                      Background="{DynamicResource ShellSurfaceElevatedBrush}"
-                      BorderBrush="{DynamicResource ShellAccentBrush}"
-                      BorderThickness="1"
-                      CornerRadius="{DynamicResource ShellControlCornerRadius}"
-                      BoxShadow="{DynamicResource ShellOverlayShadow}">
-                    <Grid x:DataType="dockCore:IDockable" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                      <TextBlock
-                          VerticalAlignment="Center"
-                          Classes="MiddleTruncated"
-                          FontWeight="SemiBold"
-                          Text="{Binding Title}" />
-                      <TextBlock
-                          Grid.Column="1"
-                          VerticalAlignment="Center"
-                          Classes="Muted"
-                          FontSize="{DynamicResource ShellSecondaryFontSize}"
-                          Text="{TemplateBinding Status}" />
-                    </Grid>
-                  </Border>
-                </ControlTemplate>
-              </Setter>
-            </Style>
-          </components:RuntimeDockControl.Styles>
-        </components:RuntimeDockControl>
+            <DataTemplate x:DataType="vm:RuntimeWorkspaceViewModel">
+              <ItemsControl
+                  Classes="TabCanvases"
+                  IsVisible="{Binding IsCanvasShown}"
+                  ItemsSource="{Binding Tabs}">
+                <ItemsControl.Styles>
+                  <Style Selector="ItemsControl.TabCanvases > ContentPresenter" x:DataType="vm:RuntimeTabViewModel">
+                    <Setter Property="ZIndex" Value="{Binding CanvasDepth}" />
+                  </Style>
+                </ItemsControl.Styles>
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <Panel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:RuntimeTabViewModel">
+                    <components:RuntimeDockControl
+                        Theme="{StaticResource RuntimeDockControlTheme}"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch"
+                        IsVisible="{Binding IsCanvasShown}"
+                        RuntimeTab="{Binding}"
+                        IsDockingEnabled="{Binding $parent[views:WorkspaceView].((vm:MainWindowViewModel)DataContext).IsWorkspaceDockingEnabled}"
+                        InitializeFactory="True"
+                        InitializeLayout="False">
+                      <components:RuntimeDockControl.Styles>
+                        <!-- Keep the drag ghost compact. Dock's stock preview can render a
+                             second full document surface, which is misleading for the
+                             one-panel-per-leaf workspace model. -->
+                        <Style Selector="dock|DragPreviewControl">
+                          <Setter Property="Template">
+                            <ControlTemplate>
+                              <Border
+                                  MinWidth="132"
+                                  Padding="{controls:Inset Horizontal=Md, Vertical=Sm}"
+                                  Background="{DynamicResource ShellSurfaceElevatedBrush}"
+                                  BorderBrush="{DynamicResource ShellAccentBrush}"
+                                  BorderThickness="1"
+                                  CornerRadius="{DynamicResource ShellControlCornerRadius}"
+                                  BoxShadow="{DynamicResource ShellOverlayShadow}">
+                                <Grid x:DataType="dockCore:IDockable" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                                  <TextBlock
+                                      VerticalAlignment="Center"
+                                      Classes="MiddleTruncated"
+                                      FontWeight="SemiBold"
+                                      Text="{Binding Title}" />
+                                  <TextBlock
+                                      Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      Classes="Muted"
+                                      FontSize="{DynamicResource ShellSecondaryFontSize}"
+                                      Text="{TemplateBinding Status}" />
+                                </Grid>
+                              </Border>
+                            </ControlTemplate>
+                          </Setter>
+                        </Style>
+                      </components:RuntimeDockControl.Styles>
+                    </components:RuntimeDockControl>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>

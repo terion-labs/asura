@@ -452,12 +452,15 @@ public sealed class WorkspaceViewContractTests
                     StringComparison.Ordinal));
         }
 
-        // One canvas per open workspace, and switching shows a different one
-        // rather than rebuilding the only one. A dock control does not swap
-        // layouts in place — it holds the outgoing tree, drops to bare chrome
-        // after the frame, and builds the incoming one later — and it will not
-        // build a layout while it is not the canvas being shown, so there is no
-        // preparing one aside either. Each workspace keeps its own.
+        // One canvas per open workspace, and within it one per tab, so
+        // switching either shows a different one rather than rebuilding the
+        // only one. A dock control does not swap layouts in place — it holds
+        // the outgoing tree, drops to bare chrome after the frame, and builds
+        // the incoming one later — and rebuilding takes the panels being left
+        // apart and builds the arriving ones afresh, seconds each way for a
+        // Git panel with a long branch list. It will not build a layout while
+        // it is not the canvas being shown, so there is no preparing one aside
+        // either. Each tab keeps its own.
         var canvases = Assert.Single(
             root.Descendants(),
             element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
@@ -465,13 +468,21 @@ public sealed class WorkspaceViewContractTests
                     AttributeValue(element, "ItemsSource"),
                     "{Binding OpenWorkspaces}",
                     StringComparison.Ordinal));
+        var tabCanvases = Assert.Single(
+            canvases.Descendants(),
+            element => string.Equals(element.Name.LocalName, "ItemsControl", StringComparison.Ordinal)
+                && string.Equals(
+                    AttributeValue(element, "ItemsSource"),
+                    "{Binding Tabs}",
+                    StringComparison.Ordinal));
         var dockControl = Assert.Single(
             canvases.Descendants(),
             element => string.Equals(element.Name.LocalName, "RuntimeDockControl", StringComparison.Ordinal));
+        Assert.Contains(tabCanvases, dockControl.Ancestors());
         // The typed canvas owns Dock's presentation lifecycle. Binding Layout
         // directly lets Dock consume an uninitialized restored model and leaves
         // the first frame empty until a tab switch publishes it again.
-        Assert.Equal("{Binding ActiveTab}", AttributeValue(dockControl, "RuntimeTab"));
+        Assert.Equal("{Binding}", AttributeValue(dockControl, "RuntimeTab"));
         Assert.Equal(
             "{StaticResource RuntimeDockControlTheme}",
             AttributeValue(dockControl, "Theme"));
@@ -491,17 +502,33 @@ public sealed class WorkspaceViewContractTests
                 "PART_ContentControl",
                 StringComparison.Ordinal));
         Assert.Equal("ContentControl", runtimeContentHost.Name.LocalName);
-        // Shown, not in front: the workspace being left keeps its canvas on
-        // screen and above the arriving one until that one has built, because a
-        // dock control builds only what it is showing.
+        // Shown, not in front: the workspace or tab being left keeps its canvas
+        // on screen and above the arriving one until that one has built,
+        // because a dock control builds only what it is showing. Depth orders
+        // siblings, so it is set on each item's container rather than on the
+        // canvas that sits alone inside it.
+        Assert.Equal("{Binding IsCanvasShown}", AttributeValue(tabCanvases, "IsVisible"));
         Assert.Equal("{Binding IsCanvasShown}", AttributeValue(dockControl, "IsVisible"));
-        Assert.Equal("{Binding CanvasDepth}", AttributeValue(dockControl, "ZIndex"));
+        Assert.Null(AttributeValue(dockControl, "ZIndex"));
+        foreach (var stack in new[] { canvases, tabCanvases })
+        {
+            var depth = Assert.Single(
+                stack.Elements().Where(element => element.Name.LocalName.EndsWith(".Styles", StringComparison.Ordinal))
+                    .Elements(),
+                element => string.Equals(element.Name.LocalName, "Style", StringComparison.Ordinal));
+            Assert.EndsWith("> ContentPresenter", AttributeValue(depth, "Selector"), StringComparison.Ordinal);
+            Assert.Contains(
+                depth.Elements(),
+                setter => string.Equals(AttributeValue(setter, "Property"), "ZIndex", StringComparison.Ordinal)
+                    && string.Equals(AttributeValue(setter, "Value"), "{Binding CanvasDepth}", StringComparison.Ordinal));
+        }
+
         // Docking pauses only while a slot is held in the Layout Designer
         // window: Dock resolves drop targets across every registered
         // DockControl, and a designer slot must not land in the live workspace.
         // The rest of the time the workspace docks as usual beside the designer.
         Assert.Equal(
-            "{Binding $parent[ItemsControl].DataContext.IsWorkspaceDockingEnabled}",
+            "{Binding $parent[views:WorkspaceView].((vm:MainWindowViewModel)DataContext).IsWorkspaceDockingEnabled}",
             AttributeValue(dockControl, "IsDockingEnabled"));
         Assert.Equal("True", AttributeValue(dockControl, "InitializeFactory"));
         Assert.Equal("False", AttributeValue(dockControl, "InitializeLayout"));
