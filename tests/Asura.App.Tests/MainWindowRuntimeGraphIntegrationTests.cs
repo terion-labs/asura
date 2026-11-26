@@ -9161,7 +9161,7 @@ public sealed partial class MainWindowRuntimeGraphIntegrationTests
             TargetTitle = "Selected terminals",
             Status = "Run bound.",
         });
-        await WaitForAsync(() => viewModel.AgentChat is { CanChangeProvider: false });
+        await WaitForAsync(() => viewModel.AgentChat is { CanChangeTarget: false });
         selected.IsSelected = false;
         viewModel.SelectedAgentRunScope = Assert.Single(
             viewModel.AgentRunScopeOptions,

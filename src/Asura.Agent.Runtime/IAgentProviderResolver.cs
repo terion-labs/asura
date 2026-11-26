@@ -10,7 +10,7 @@ namespace Asura.Agent.Runtime;
 public interface IAgentProviderResolver
 {
     /// <summary>
-    /// Pins one immutable, non-secret provider configuration for the run.
+    /// Captures one immutable, non-secret provider configuration for a turn.
     /// </summary>
     IAgentProviderBinding PinProvider(AiProviderProfileId profileId);
 }
@@ -28,7 +28,7 @@ public interface IAgentProviderBinding
 
     /// <summary>
     /// False after the underlying profile is edited, disabled, or removed.
-    /// The governed run must then require Clear before sending more transcript.
+    /// The next turn resolves the selected profile again.
     /// </summary>
     bool IsCurrent { get; }
 

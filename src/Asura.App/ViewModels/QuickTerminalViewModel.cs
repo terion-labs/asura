@@ -142,7 +142,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
                     nameof(value));
             }
 
-            if (AgentChat is { CanChangeProvider: false })
+            if (AgentChat is { CanChangeTarget: false })
             {
                 return;
             }
@@ -943,7 +943,7 @@ public sealed class QuickTerminalViewModel : ObservableObject, IDisposable, IAge
         AgentTerminalSelectionItemViewModel option,
         bool selected)
     {
-        if (AgentChat is not { CanChangeProvider: true }
+        if (AgentChat is not { CanChangeTarget: true }
             || !AgentTerminalSelectionOptions.Contains(option))
         {
             return false;

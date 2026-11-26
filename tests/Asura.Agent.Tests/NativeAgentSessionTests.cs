@@ -2029,6 +2029,10 @@ public sealed partial class NativeAgentSessionTests
 
     private sealed class SequenceProvider(params AgentProviderEvent[] events) : IAgentProvider
     {
+        public AgentProviderReplayBinding? ReplayBinding { get; init; }
+
+        AgentProviderReplayBinding? IAgentProvider.ReplayBinding => ReplayBinding;
+
         public int CallCount { get; private set; }
 
         public AgentProviderRequest? LastRequest { get; private set; }

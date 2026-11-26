@@ -2129,7 +2129,7 @@ public sealed partial class AgentChatViewModelTests
         Assert.Null(runtime.LastRequest);
         Assert.Equal("Keep this trusted prompt.", viewModel.Prompt);
         Assert.Contains(
-            "isn't set up anymore. Choose another provider in AI Settings",
+            "Choose an enabled provider in the model picker",
             viewModel.Status,
             StringComparison.OrdinalIgnoreCase);
     }
@@ -3482,7 +3482,7 @@ public sealed partial class AgentChatViewModelTests
     }
 
     [Fact]
-    public void Missing_bound_provider_requires_clear_instead_of_selecting_another()
+    public async Task Missing_bound_provider_can_be_replaced_without_clearing_the_conversation()
     {
         var removed = Provider("removed", "Removed", order: 0);
         var replacement = Provider("replacement", "Replacement", order: 1);
@@ -3513,10 +3513,25 @@ public sealed partial class AgentChatViewModelTests
         Assert.False(viewModel.CanEnterPrompt);
         Assert.True(viewModel.CanClear);
         Assert.True(viewModel.NeedsProviderAttention);
-        Assert.Equal("Clear required", viewModel.ConnectionStatus);
+        Assert.Equal("Choose a provider", viewModel.ConnectionStatus);
         Assert.Equal(
-            "This run's provider is no longer enabled. Clear the run to choose another.",
+            "This conversation's provider is no longer enabled. Choose another provider to continue.",
             viewModel.Status);
+        Assert.True(viewModel.CanChangeProvider);
+        Assert.True(viewModel.CanUseModelPicker);
+        Assert.True(viewModel.ShowProviderPicker);
+        Assert.False(viewModel.CanChangeTarget);
+
+        viewModel.SelectedProvider = replacement;
+        profiles.RaiseProfilesChanged();
+        viewModel.Prompt = "Continue the conversation.";
+        await viewModel.SendAsync(Target(), Policy(removed), CancellationToken.None);
+
+        Assert.Equal(replacement.Id, viewModel.SelectedProvider?.Id);
+        Assert.Equal(replacement.Id, runtime.LastRequest?.ProviderId);
+        Assert.Equal(0, runtime.ClearCount);
+        Assert.Equal(["Question", "Answer"],
+            viewModel.Messages.Select(message => message.Content), StringComparer.Ordinal);
     }
 
     [Fact]

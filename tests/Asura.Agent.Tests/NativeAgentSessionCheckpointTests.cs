@@ -83,6 +83,52 @@ public sealed partial class NativeAgentSessionTests
     }
 
     [Fact]
+    public async Task RestoredConversationRetainsHistoryAfterTheSameProfilesCredentialRouteChanges()
+    {
+        var session = CreateSession();
+        var state = ReplayState(
+            "anthropic-profile",
+            AiProviderKind.Anthropic,
+            AiProviderProtocol.AnthropicMessages,
+            "claude-test",
+            AgentProviderReplayFormat.AnthropicContentBlocks,
+            [
+                new AgentProviderReplayItem(
+                    0, AgentProviderReplayItemKind.AnthropicText,
+                    """{"type":"text","text":"First answer."}"""),
+            ]);
+        var original = ReplayProvider("First answer.", state);
+        Assert.True(session.TrySetConversationRoute(state.Binding.ProfileId, state.Binding.Model));
+        Assert.True((await session.RunTurnAsync(
+            "First prompt.", [], original, CancellationToken.None)).Succeeded);
+        var checkpoint = Assert.IsType<AgentSessionCheckpoint>(session.CaptureCheckpoint().Checkpoint);
+        var restored = Assert.IsType<NativeAgentSession>(NativeAgentSession.RestoreCheckpoint(checkpoint).Session);
+
+        var unchanged = new SequenceProvider { ReplayBinding = state.Binding };
+        Assert.True(restored.TrySetConversationRoute(state.Binding.ProfileId, state.Binding.Model, unchanged));
+        Assert.NotNull(restored.Snapshot().Conversation[^1].ProviderReplayState);
+
+        var replacement = new SequenceProvider(
+            new AgentProviderEvent.ResponseStarted(),
+            new AgentProviderEvent.TextDelta("Second answer."),
+            new AgentProviderEvent.ResponseCompleted(AgentProviderStopReason.EndTurn))
+        {
+            ReplayBinding = new AgentProviderReplayBinding(
+                state.Binding.ProfileId, state.Binding.ProviderKind, state.Binding.Protocol,
+                state.Binding.Model, state.Binding.Endpoint, "updated-credential-route"),
+        };
+        Assert.True(restored.TrySetConversationRoute(state.Binding.ProfileId, state.Binding.Model, replacement));
+        Assert.True((await restored.RunTurnAsync(
+            "Continue.", [], replacement, CancellationToken.None)).Succeeded);
+
+        var request = Assert.IsType<AgentProviderRequest>(replacement.LastRequest);
+        Assert.Equal("First prompt.", request.Messages[^3].Content);
+        Assert.Equal("First answer.", request.Messages[^2].Content);
+        Assert.Null(request.Messages[^2].ProviderReplayState);
+        Assert.Equal("Continue.", request.Messages[^1].Content);
+    }
+
+    [Fact]
     public async Task CheckpointDropsSuppressedReasoningButRejectsItOnRestore()
     {
         var safeSession = CreateSession();

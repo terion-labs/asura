@@ -40,22 +40,20 @@ provider-neutral reducer never projects it to run events, UI, logs, or audit.
 The binding covers the exact profile ID, provider identity, wire protocol,
 model, actual routed endpoint, and stable adapter/auth route identity. For
 vault-backed routes, that identity contains a one-way digest of the selected
-opaque credential reference, never the reference itself or its value. Any
-endpoint, credential-reference, authentication-route, profile, or protocol
-drift fails closed before the transcript is serialized or sent. Replacing
-material behind the same opaque reference is outside this check because the
-current vault contract exposes no immutable credential revision.
+opaque credential reference, never the reference itself or its value. The
+kernel removes incompatible replay artifacts when the desktop selects a route
+for the next turn. Adapters still reject a mismatched authenticated route if
+those artifacts reach them. Replacing material behind the same opaque
+reference leaves that identity intact because the vault exposes no immutable
+credential revision.
 
 A conversation is identified by its workspace-scoped run, not by its model.
-The model is a per-turn routing choice: changing it while idle retains the
-committed visible transcript and does not clear or fork the conversation. The
-next request uses the selected model under the already-pinned provider profile
-and authorization policy. Exact-model replay may retain provider-private signed
-or encrypted reasoning artifacts. A same-route model change instead serializes
-the visible assistant text and tool history without those model-bound opaque
-artifacts, matching Pi's cross-model message transformation. This preserves the
-human conversation without presenting incompatible provider state to the new
-model.
+The provider and model are per-turn routing choices. The next turn resolves
+the selected profile at its current revision and sends the conversation history
+under the existing authorization policy. Exact-model replay on the same route
+may retain provider-private signed or encrypted reasoning artifacts. A change
+of provider route or model sends the visible assistant text and tool history
+using the selected adapter's format.
 
 Conversation maintenance follows Pi's context-budget behavior without adopting
 its session format. Every model descriptor may publish a bounded context

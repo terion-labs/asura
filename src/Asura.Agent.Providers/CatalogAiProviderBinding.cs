@@ -4,7 +4,7 @@ using Asura.Core;
 namespace Asura.Agent.Providers;
 
 /// <summary>
-/// Immutable, non-secret run binding for one stored provider revision. The
+/// Immutable, non-secret binding for one stored provider revision. The
 /// captured profile contains only an opaque credential reference; secret
 /// material remains resolved inside the request-scoped transport.
 /// </summary>

@@ -1449,7 +1449,7 @@
                             ItemsSource="{Binding AgentChat.Providers}"
                             SelectedItem="{Binding AgentChat.SelectedProvider, Mode=TwoWay}"
                             IsEnabled="{Binding AgentChat.CanChangeProvider}"
-                            IsVisible="{Binding AgentChat.HasMultipleProviders}"
+                            IsVisible="{Binding AgentChat.ShowProviderPicker}"
                             AutomationProperties.Name="AI provider">
                           <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="application:AiProviderProfileDescriptor"><TextBlock Text="{Binding Name}" /></DataTemplate>

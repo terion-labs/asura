@@ -502,6 +502,9 @@ public sealed record AgentProviderRequest
 /// </summary>
 public interface IAgentProvider
 {
+    // Lets the session remove opaque replay from other routes before a new turn.
+    internal AgentProviderReplayBinding? ReplayBinding => null;
+
     IAsyncEnumerable<AgentProviderEvent> StreamAsync(
         AgentProviderRequest request,
         CancellationToken cancellationToken);

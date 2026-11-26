@@ -625,27 +625,24 @@ public sealed partial class GovernedAgentRuntime :
                 "The agent conversation belongs to a different workspace.");
         }
 
-        var providerBinding = GetPinnedProviderBinding();
-        if (providerBinding is null)
+        IAgentProviderBinding providerBinding;
+        try
         {
-            try
-            {
-                providerBinding = _providerResolver.PinProvider(request.ProviderId);
-            }
-            catch (Exception exception)
-                when (exception is ArgumentException or KeyNotFoundException)
-            {
-                return Failure(
-                    "agent_provider_unavailable",
-                    "Choose an enabled AI-provider profile.");
-            }
+            providerBinding = _providerResolver.PinProvider(request.ProviderId);
+        }
+        catch (Exception exception)
+            when (exception is ArgumentException or KeyNotFoundException)
+        {
+            return Failure(
+                "agent_provider_unavailable",
+                "Choose an enabled AI-provider profile.");
         }
 
         if (providerBinding.ProfileId != request.ProviderId)
         {
             return Failure(
                 "agent_provider_changed",
-                "Clear the current run before switching providers.");
+                "The resolved AI-provider profile does not match the selected profile.");
         }
 
         AgentPolicy requestedPolicy;
@@ -719,7 +716,6 @@ public sealed partial class GovernedAgentRuntime :
                     "Clear the failed run before starting another one.");
             }
 
-            _providerBinding ??= providerBinding;
             var compatibilityError = ValidateExistingRun(request, requestedPolicy);
             if (compatibilityError is not null)
             {
@@ -732,6 +728,7 @@ public sealed partial class GovernedAgentRuntime :
             _acceptedFollowUpsThisTurn = 0;
             _initialPromptCommittedThisTurn = false;
             _turnCancellation = turnCancellation;
+            _providerBinding = providerBinding;
             _capabilityRequestDecisionConsumedThisTurn = false;
             _steeringLease = null;
             baseMessages = _snapshot.Messages;
@@ -904,16 +901,13 @@ public sealed partial class GovernedAgentRuntime :
                 browserEligiblePanelIds,
                 fileMetadata);
             setupStage = "provider_binding";
-            providerBinding = GetPinnedProviderBinding()
-                ?? throw new InvalidOperationException(
-                    "A governed run requires a pinned provider binding.");
             if (!providerBinding.IsCurrent)
             {
-                return FinishFailure(
+                return FinishRecoverableSetupFailure(
                     turnCancellation,
                     baseMessages,
                     "agent_provider_configuration_changed",
-                    "The AI-provider profile changed. Clear the run before sending its transcript again.");
+                    "The AI-provider profile changed while preparing the request. Send again.");
             }
 
             var disclosedDraftCount = 0;
@@ -922,56 +916,54 @@ public sealed partial class GovernedAgentRuntime :
                 provider = providerBinding.CreateProvider(
                     selectedModel,
                     request.ServiceTier);
-                if (_chatSecrets is not null)
-                {
-                    var draft = _chatSecrets.Protect(request.Message);
-                    if (request.DiscloseHiddenMessageIds.IsDefault || request.DiscloseHiddenReferences.IsDefault
-                        || request.DiscloseHiddenMessageIds.Length > 4096 || request.DiscloseHiddenReferences.Length > 4096)
-                    {
-                        return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
-                            "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
-                    }
-                    var selectedMessages = Snapshot.Messages.Where(message => message.ChatMessageId is not null
-                        && request.DiscloseHiddenMessageIds.Contains(message.ChatMessageId, StringComparer.Ordinal)).ToArray();
-                    var known = selectedMessages.SelectMany(message => message.HiddenReferences ?? [])
-                        .Concat(request.DiscloseDraftSecrets ? draft.References : []).ToHashSet();
-                    if (request.DiscloseHiddenMessageIds.Distinct(StringComparer.Ordinal).Count() != selectedMessages.Length
-                        || selectedMessages.Any(message => message.HiddenReferences is not { Count: > 0 })
-                        || request.DiscloseHiddenReferences.Any(reference => !known.Contains(reference)))
-                    {
-                        return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
-                            "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
-                    }
-                    foreach (var reference in request.DiscloseHiddenReferences.Distinct())
-                    {
-                        if (!await _chatSecrets.CanResolveAsync(reference, turnCancellation.Token).ConfigureAwait(false))
-                        {
-                            return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
-                                "agent_hidden_content_unavailable", $"The selected hidden content isn't available. Unlock {PlatformTerms.SecretStore}, or send without the originals.");
-                        }
-                    }
-                    disclosedDraftCount = request.DiscloseDraftSecrets
-                        ? draft.References.Count(request.DiscloseHiddenReferences.Contains) : 0;
-                    provider = new ChatSecretProvider(provider, _chatSecrets, request.DiscloseHiddenReferences,
-                        request.DiscloseHiddenMessageIds, request.DiscloseDraftSecrets, selectedMessages);
-                }
             }
             catch (Exception exception)
-                when (exception is
-                    ArgumentException
-                    or InvalidOperationException
-                    or KeyNotFoundException)
+                when (exception is ArgumentException or InvalidOperationException or KeyNotFoundException)
             {
-                return FinishFailure(
+                return FinishRecoverableSetupFailure(
                     turnCancellation,
                     baseMessages,
-                    "agent_provider_configuration_changed",
-                    "The AI-provider profile changed. Clear the run before sending its transcript again.");
+                    "agent_provider_unavailable",
+                    "The selected AI provider or model could not be prepared. Check the selection and send again.");
+            }
+
+            if (_chatSecrets is not null)
+            {
+                var draft = _chatSecrets.Protect(request.Message);
+                if (request.DiscloseHiddenMessageIds.IsDefault || request.DiscloseHiddenReferences.IsDefault
+                    || request.DiscloseHiddenMessageIds.Length > 4096 || request.DiscloseHiddenReferences.Length > 4096)
+                {
+                    return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                        "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
+                }
+                var selectedMessages = Snapshot.Messages.Where(message => message.ChatMessageId is not null
+                    && request.DiscloseHiddenMessageIds.Contains(message.ChatMessageId, StringComparer.Ordinal)).ToArray();
+                var known = selectedMessages.SelectMany(message => message.HiddenReferences ?? [])
+                    .Concat(request.DiscloseDraftSecrets ? draft.References : []).ToHashSet();
+                if (request.DiscloseHiddenMessageIds.Distinct(StringComparer.Ordinal).Count() != selectedMessages.Length
+                    || selectedMessages.Any(message => message.HiddenReferences is not { Count: > 0 })
+                    || request.DiscloseHiddenReferences.Any(reference => !known.Contains(reference)))
+                {
+                    return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                        "agent_hidden_selection_invalid", "Choose hidden content from this workspace conversation before sending it.");
+                }
+                foreach (var reference in request.DiscloseHiddenReferences.Distinct())
+                {
+                    if (!await _chatSecrets.CanResolveAsync(reference, turnCancellation.Token).ConfigureAwait(false))
+                    {
+                        return FinishRecoverableSetupFailure(turnCancellation, baseMessages,
+                            "agent_hidden_content_unavailable", $"The selected hidden content isn't available. Unlock {PlatformTerms.SecretStore}, or send without the originals.");
+                    }
+                }
+                disclosedDraftCount = request.DiscloseDraftSecrets
+                    ? draft.References.Count(request.DiscloseHiddenReferences.Contains) : 0;
+                provider = new ChatSecretProvider(provider, _chatSecrets, request.DiscloseHiddenReferences,
+                    request.DiscloseHiddenMessageIds, request.DiscloseDraftSecrets, selectedMessages);
             }
 
             setupStage = "conversation_checkpoint";
             session = GetRequiredSession();
-            if (!session.TrySetConversationRoute(request.ProviderId, selectedModel))
+            if (!session.TrySetConversationRoute(request.ProviderId, selectedModel, provider))
             {
                 return FinishFailure(
                     turnCancellation,
@@ -3847,13 +3839,6 @@ public sealed partial class GovernedAgentRuntime :
             return null;
         }
 
-        if (_snapshot.ProviderId != request.ProviderId)
-        {
-            return Failure(
-                "agent_provider_changed",
-                "Clear the current run before switching providers.");
-        }
-
         if (_snapshot.Target != request.Target)
         {
             return Failure(
@@ -3861,7 +3846,7 @@ public sealed partial class GovernedAgentRuntime :
                 "Clear the current run before changing its panel scope.");
         }
 
-        if (!PolicyAuthorityEqual(_baselinePolicy, requestedPolicy))
+        if (!PolicyPermissionsEqual(_baselinePolicy, requestedPolicy))
         {
             return Failure(
                 "agent_policy_changed",
@@ -5259,6 +5244,7 @@ public sealed partial class GovernedAgentRuntime :
             if (ReferenceEquals(_turnCancellation, turnCancellation))
             {
                 _turnCancellation = null;
+                _providerBinding = null;
                 DiscardFollowUpsUnsafe();
                 _acceptedFollowUpsThisTurn = 0;
                 _initialPromptCommittedThisTurn = false;
@@ -5327,14 +5313,6 @@ public sealed partial class GovernedAgentRuntime :
             return _session
                 ?? throw new InvalidOperationException(
                     "The governed agent session is not initialized.");
-        }
-    }
-
-    private IAgentProviderBinding? GetPinnedProviderBinding()
-    {
-        lock (_gate)
-        {
-            return _providerBinding;
         }
     }
 
@@ -5905,7 +5883,10 @@ public sealed partial class GovernedAgentRuntime :
 
     private static bool PolicyAuthorityEqual(AgentPolicy left, AgentPolicy right) =>
         string.Equals(left.Provider, right.Provider, StringComparison.Ordinal)
-        && AgentPolicy.Capabilities.All(capability =>
+        && PolicyPermissionsEqual(left, right);
+
+    private static bool PolicyPermissionsEqual(AgentPolicy left, AgentPolicy right) =>
+        AgentPolicy.Capabilities.All(capability =>
             left.GetPermission(capability) == right.GetPermission(capability));
 
     private static bool PoliciesEqual(AgentPolicy left, AgentPolicy right) =>

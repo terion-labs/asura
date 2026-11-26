@@ -464,8 +464,8 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
             : null;
         AgentWorkspaceScope = new AgentWorkspaceScopeViewModel(
             WindowId,
-            () => AgentChat is not { CanChangeProvider: false },
-            () => AgentChat is { CanChangeProvider: true },
+            () => AgentChat is not { CanChangeTarget: false },
+            () => AgentChat is { CanChangeTarget: true },
             TrackRecentSession);
         AgentWorkspaceScope.PropertyChanged += OnAgentWorkspaceScopePropertyChanged;
         DefaultAgentPolicySettings = new DefaultAgentPolicySettingsViewModel(
@@ -739,7 +739,7 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
                     nameof(value));
             }
 
-            if (AgentChat is { CanChangeProvider: false })
+            if (AgentChat is { CanChangeTarget: false })
             {
                 return;
             }
@@ -777,12 +777,12 @@ public sealed partial class MainWindowViewModel : ObservableObject, IDisposable,
 
     public bool CanCreateAgentSavedScreenTarget =>
         SelectedAgentSavedScreenTemplate is not null
-        && AgentChat is { CanChangeProvider: true }
+        && AgentChat is { CanChangeTarget: true }
         && !IsPreparingAgentSavedScreenTarget;
 
     public bool CanAuthorizeAgentSavedScreenTarget =>
         HasPendingAgentSavedScreenTarget
-        && AgentChat is { CanChangeProvider: true }
+        && AgentChat is { CanChangeTarget: true }
         && !IsPreparingAgentSavedScreenTarget;
 
     public string AgentSavedScreenTargetStatus

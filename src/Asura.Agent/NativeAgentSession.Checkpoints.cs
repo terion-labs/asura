@@ -116,7 +116,13 @@ public sealed partial class NativeAgentSession
 
     public bool TrySetConversationRoute(
         AiProviderProfileId providerId,
-        string model)
+        string model) =>
+        TrySetConversationRoute(providerId, model, provider: null);
+
+    internal bool TrySetConversationRoute(
+        AiProviderProfileId providerId,
+        string model,
+        IAgentProvider? provider)
     {
         if (providerId == default)
         {
@@ -132,6 +138,7 @@ public sealed partial class NativeAgentSession
                 nameof(model));
         }
 
+        var replayBinding = provider?.ReplayBinding;
         lock (_gate)
         {
             if (_state != NativeAgentSessionState.Ready
@@ -146,25 +153,22 @@ public sealed partial class NativeAgentSession
 
             var profileChanged = _conversationProviderId is { } currentProviderId
                 && currentProviderId != providerId;
-            var containsForeignReplayState = _conversation.Any(message =>
+            // Route changes keep the transcript and discard opaque items issued
+            // by a different profile, endpoint, protocol, or credential route.
+            bool HasForeignReplay(AgentMessage message) =>
                 message.ProviderReplayState is { } replayState
-                && replayState.Binding.ProfileId != providerId);
-            if (profileChanged || containsForeignReplayState)
+                && (profileChanged || replayState.Binding.ProfileId != providerId
+                    || (provider is not null
+                        && (replayBinding is null || !replayState.MatchesRoute(replayBinding))));
+            AgentMessage KeepCompatibleReplay(AgentMessage message) =>
+                HasForeignReplay(message)
+                    ? message.WithoutProviderReplayState()
+                    : message;
+
+            if (_transcript.Any(HasForeignReplay) || _conversation.Any(HasForeignReplay))
             {
-                // Provider-private response items are bound to one authenticated
-                // route. A restored transcript may be resumed with another
-                // selected profile, but only its provider-neutral history can
-                // cross that boundary.
-                _conversation =
-                [
-                    .. _conversation.Select(message =>
-                        message.WithoutProviderReplayState()),
-                ];
-                _transcript =
-                [
-                    .. _transcript.Select(message =>
-                        message.WithoutProviderReplayState()),
-                ];
+                _conversation = [.. _conversation.Select(KeepCompatibleReplay)];
+                _transcript = [.. _transcript.Select(KeepCompatibleReplay)];
             }
 
             _conversationProviderId = providerId;

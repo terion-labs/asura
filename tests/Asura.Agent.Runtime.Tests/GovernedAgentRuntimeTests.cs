@@ -1928,7 +1928,7 @@ public sealed partial class GovernedAgentRuntimeTests
     }
 
     [Fact]
-    public async Task RunPinsProviderAndPermissionsButAllowsModelSwitches()
+    public async Task RunPinsPermissionsButAllowsModelSwitches()
     {
         await using var fixture = new RuntimeFixture(
             ProviderRound.AnswerEveryTurn());
@@ -2493,8 +2493,10 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.True(fixture.Runtime.Snapshot.CanSend);
     }
 
-    [Fact]
-    public async Task EditedProviderBindingCannotReceiveExistingTranscript()
+    [Theory]
+    [InlineData("provider-1")]
+    [InlineData("replacement-provider")]
+    public async Task ContinuingOnAChangedProviderReplaysTheConversation(string providerId)
     {
         await using var fixture = new RuntimeFixture(
             ProviderRound.ReadThenAnswer());
@@ -2504,18 +2506,40 @@ public sealed partial class GovernedAgentRuntimeTests
         Assert.True((await fixture.Runtime.SendAsync(
             fixture.Prompt("Inspect."),
             CancellationToken.None)).IsSuccess);
+        var runId = fixture.Runtime.Snapshot.RunId;
         fixture.ProviderResolver.Binding.IsCurrent = false;
+        var stale = await fixture.Runtime.SendAsync(
+            fixture.Prompt("Retry when the profile is ready."),
+            CancellationToken.None);
+        Assert.Equal("agent_provider_configuration_changed", stale.Code);
+        Assert.Equal(GovernedAgentState.Ready, fixture.Runtime.Snapshot.State);
+        Assert.Equal(runId, fixture.Runtime.Snapshot.RunId);
+
+        var replacement = ProviderRound.AnswerEveryTurn();
+        fixture.ProviderResolver.ReplacementBinding = new FixedProviderBinding(
+            new AiProviderProfileId(providerId), "replacement-model", replacement);
+        var policy = fixture.ConfiguredPolicy.SelectPrimaryModel(providerId, "replacement-model");
 
         var result = await fixture.Runtime.SendAsync(
-            fixture.Prompt("Continue."),
+            fixture.Prompt("Continue.", policy),
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(
-            "agent_provider_configuration_changed",
-            result.Code);
-        Assert.Equal(GovernedAgentState.Failed, fixture.Runtime.Snapshot.State);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(GovernedAgentState.Ready, fixture.Runtime.Snapshot.State);
+        Assert.Equal(runId, fixture.Runtime.Snapshot.RunId);
+        Assert.Equal(new AiProviderProfileId(providerId), fixture.Runtime.Snapshot.ProviderId);
+        Assert.Equal("replacement-model", fixture.Runtime.Snapshot.Model);
         Assert.Equal(2, fixture.Provider.Requests.Count);
+        var original = fixture.Provider.Requests.Last().Messages;
+        var replay = Assert.Single(replacement.Requests).Messages;
+        Assert.Equal(
+            [AgentMessageRole.System, AgentMessageRole.User, AgentMessageRole.Assistant,
+                AgentMessageRole.Tool, AgentMessageRole.Assistant, AgentMessageRole.User],
+            replay.Select(message => message.Role));
+        Assert.Equal(original.Select(message => message.Content),
+            replay.Take(original.Length).Select(message => message.Content), StringComparer.Ordinal);
+        Assert.Equal("The terminal is ready.", replay[^2].Content);
+        Assert.Equal("Continue.", replay[^1].Content);
     }
 
     [Fact]
@@ -3764,7 +3788,7 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public GovernedAgentPrompt Prompt(string message, AgentPolicy policy) =>
             new(
-                new AiProviderProfileId("provider-1"),
+                new AiProviderProfileId(policy.Provider),
                 message,
                 Target,
                 policy);
@@ -3805,6 +3829,8 @@ public sealed partial class GovernedAgentRuntimeTests
             "provider-default-model",
             provider);
 
+        public FixedProviderBinding? ReplacementBinding { get; set; }
+
         private FixedProviderBinding TitleBinding { get; } = new(
             new AiProviderProfileId("title-provider"),
             "title-model",
@@ -3813,6 +3839,11 @@ public sealed partial class GovernedAgentRuntimeTests
 
         public IAgentProviderBinding PinProvider(AiProviderProfileId profileId)
         {
+            if (ReplacementBinding is { } replacement && profileId == replacement.ProfileId)
+            {
+                return replacement;
+            }
+
             if (profileId == Binding.ProfileId)
             {
                 return Binding;

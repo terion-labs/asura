@@ -1356,29 +1356,41 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         get => _selectedProvider;
         set
         {
-            var previousId = _selectedProvider?.Id;
-            if (SetProperty(ref _selectedProvider, value))
+            if (value is null || !CanChangeProvider || !Providers.Contains(value)
+                || value.Id == _selectedProvider?.Id)
             {
-                ResetHiddenDisclosure();
-                if (previousId != value?.Id)
-                {
-                    _modelSelectionExplicit = false;
-                }
-                UpdateModels(value, previousId == value?.Id ? SelectedModel?.Id : value?.DefaultModel);
+                return;
+            }
 
-                // Load the provider's real limits when a chat opens, including
-                // old profiles that only saved model IDs. Do not loop when the
-                // resulting ProfilesChanged event refreshes this selection.
-                if (value is not null && _metadataDiscoveryStarted.Add(value.Id))
-                {
-                    _ = DiscoverModelsAsync(value.Id, _lifetime.Token);
-                }
-
-                OnPropertyChanged(nameof(CanAttachImages));
-                OnPropertyChanged(nameof(CanAttachFiles));
-                NotifyAvailabilityChanged();
+            var providerWasMissing = _selectedProvider is null;
+            _modelSelectionExplicit = true;
+            SetSelectedProvider(value);
+            if (providerWasMissing)
+            {
+                Status = _runtime.Snapshot.Status;
             }
         }
+    }
+
+    private void SetSelectedProvider(AiProviderProfileDescriptor? value)
+    {
+        var previousId = _selectedProvider?.Id;
+        if (!SetProperty(ref _selectedProvider, value, nameof(SelectedProvider)))
+        {
+            return;
+        }
+
+        ResetHiddenDisclosure();
+        UpdateModels(value, previousId == value?.Id ? SelectedModel?.Id : value?.DefaultModel);
+
+        // Model discovery can trigger ProfilesChanged. Start it once per profile.
+        if (value is not null && _metadataDiscoveryStarted.Add(value.Id))
+        {
+            _ = DiscoverModelsAsync(value.Id, _lifetime.Token);
+        }
+
+        OnPropertyChanged(nameof(ShowProviderPicker));
+        NotifyAvailabilityChanged();
     }
 
     public string Prompt
@@ -1999,6 +2011,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
 
     public bool HasMultipleProviders => Providers.Count > 1;
 
+    public bool ShowProviderPicker => HasMultipleProviders || (HasProvider && SelectedProvider is null);
+
     public bool HasNoProvider => !HasProvider;
 
     public bool HasConversation => Messages.Count > 0 || HasProvisionalAgentContent;
@@ -2128,6 +2142,10 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             || State is GovernedAgentState.Failed or GovernedAgentState.Cancelled);
 
     public bool CanChangeProvider =>
+        State is GovernedAgentState.Ready or GovernedAgentState.Cancelled
+        && !_clearInFlight;
+
+    public bool CanChangeTarget =>
         State == GovernedAgentState.Ready
         && !_isRunBound
         && !HasConversation
@@ -2152,7 +2170,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         && State is not (GovernedAgentState.Failed or GovernedAgentState.Cancelling);
 
     /// <summary>The model picker: a composer option that also waits for a run to end.</summary>
-    public bool CanUseModelPicker => CanBrowseModels && CanUseComposerOptions;
+    public bool CanUseModelPicker => HasProvider && CanChangeProvider;
 
     public bool CanSelectReasoningEffort =>
         ReasoningEfforts.Count > 1
@@ -2179,8 +2197,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             or GovernedAgentState.AwaitingApproval;
 
     public string ConnectionStatus => SelectedProvider is null
-        ? HasProvider && _isRunBound
-            ? "Clear required"
+        ? HasProvider
+            ? "Choose a provider"
             : "Not connected"
         : StateLabel;
 
@@ -2328,7 +2346,8 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             return Task.CompletedTask;
         }
 
-        var provider = _modelSelectionExplicit
+        var useConversationRoute = _modelSelectionExplicit || _isRunBound || HasConversation;
+        var provider = useConversationRoute
             ? SelectedProvider
             : Providers.SingleOrDefault(candidate =>
                 string.Equals(
@@ -2338,17 +2357,14 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         if (provider is null)
         {
             ReportTargetUnavailable(
-                "The AI provider in the agent's policy isn't set up anymore. Choose another provider in AI Settings, then send again.");
+                "The AI provider is unavailable. Choose an enabled provider in the model picker, then send again.");
             return Task.CompletedTask;
         }
 
-        if (!_modelSelectionExplicit)
+        if (!useConversationRoute)
         {
-            SelectedProvider = provider;
-            if (startsRun)
-            {
-                UpdateModels(provider, policy.Model);
-            }
+            SetSelectedProvider(provider);
+            UpdateModels(provider, policy.Model);
         }
 
         if (HasPendingImages && !provider.SupportsImageInput)
@@ -3255,17 +3271,17 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(HasNoProvider));
         }
         OnPropertyChanged(nameof(HasMultipleProviders));
+        OnPropertyChanged(nameof(ShowProviderPicker));
 
         var selectedProvider = Providers.FirstOrDefault(profile => profile.Id == selectedId);
         // A restored transcript has messages and a provider, but no live broker run.
         // Keep approval-mode selection pending until the next prompt creates that run.
         var isRunBound = snapshot.RunId is not null;
-        // Restored history keeps its provider boundary even before a live run
-        // exists. A missing profile requires an explicit replacement selection.
+        // Let the user choose a destination for retained history when its provider is gone.
         var boundProviderMissing = snapshot.ProviderId is not null
             && selectedProvider is null;
-        SelectedProvider = selectedProvider
-            ?? (boundProviderMissing ? null : Providers.FirstOrDefault());
+        SetSelectedProvider(selectedProvider
+            ?? (boundProviderMissing ? null : Providers.FirstOrDefault()));
         UpdateModels(SelectedProvider, selectedModelId);
 
         _contextTokensUsed = snapshot.ContextTokensUsed;
@@ -3447,7 +3463,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         _runtimeCanStop = snapshot.CanStop;
         _isRunBound = isRunBound;
         Status = boundProviderMissing
-            ? "This run's provider is no longer enabled. Clear the run to choose another."
+            ? "This conversation's provider is no longer enabled. Choose another provider to continue."
             : snapshot.Status;
         ReportError(snapshot.PersistenceError, snapshot.PersistenceError?.StartsWith("Conversation saved", StringComparison.Ordinal) == true
             ? "Hidden content not saved" : "Conversation not saved");
@@ -4180,6 +4196,7 @@ public sealed class AgentChatViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(CanRequestStop));
         OnPropertyChanged(nameof(CanClear));
         OnPropertyChanged(nameof(CanChangeProvider));
+        OnPropertyChanged(nameof(CanChangeTarget));
         OnPropertyChanged(nameof(CanBrowseModels));
         OnPropertyChanged(nameof(CanChangeModel));
         OnPropertyChanged(nameof(CanSelectReasoningEffort));

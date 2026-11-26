@@ -528,6 +528,8 @@ internal sealed class AnthropicAgentProvider(
         }
     }
 
+    AgentProviderReplayBinding IAgentProvider.ReplayBinding => ReplayBinding();
+
     private AgentProviderReplayBinding ReplayBinding() =>
         new(
             profile.Id,

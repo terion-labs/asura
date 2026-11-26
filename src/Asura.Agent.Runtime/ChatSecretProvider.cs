@@ -21,6 +21,8 @@ internal sealed class ChatSecretProvider(
 {
     private ChatHiddenReference[]? _nextDisclosure = [.. selection.Distinct()];
 
+    AgentProviderReplayBinding? IAgentProvider.ReplayBinding => provider.ReplayBinding;
+
     public async IAsyncEnumerable<AgentProviderEvent> StreamAsync(
         AgentProviderRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
