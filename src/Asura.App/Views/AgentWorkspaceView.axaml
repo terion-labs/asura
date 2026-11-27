@@ -1237,11 +1237,10 @@
           <TextBox
               x:Name="AgentChatPromptInput"
               Grid.Row="1"
+              Classes="Embedded"
               MinHeight="{controls:TextScaled 56}"
               MaxHeight="{controls:TextScaled 150}"
               Padding="{controls:Inset Sm}"
-              Background="Transparent"
-              BorderThickness="0"
               AcceptsReturn="True"
               TextWrapping="Wrap"
               MaxLength="65536"

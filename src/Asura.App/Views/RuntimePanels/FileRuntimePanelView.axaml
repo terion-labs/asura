@@ -163,8 +163,7 @@
               ColumnDefinitions="*,Auto"
               ColumnSpacing="{DynamicResource ShellSpaceXs}">
             <TextBox
-                Background="Transparent"
-                BorderThickness="0"
+                Classes="Embedded"
                 Text="{Binding LocationText}"
                 IsEnabled="{Binding CanEditLocation}"
                 KeyDown="OnLocationKeyDown"
