@@ -180,26 +180,6 @@ public sealed partial class ConnectionEditorDialog : DialogWindow
     }
 
     /// <summary>
-    /// A Files connection to a folder on this computer: the system's Open
-    /// panel chooses it, starting at the folder already entered.
-    /// </summary>
-    private async void OnChooseLocalFolderClick(object? sender, RoutedEventArgs e)
-    {
-        _ = sender;
-        _ = e;
-        if (ViewModel.Files is not { } files
-            || StorageProvider is not { CanPickFolder: true } storage)
-        {
-            return;
-        }
-
-        if (await PickLocalFolderAsync(storage, files.LocalRoot, "Choose Folder") is { } chosen)
-        {
-            files.LocalRoot = chosen;
-        }
-    }
-
-    /// <summary>
     /// A file database on this computer: the system's Open panel chooses the
     /// file, filtered to the engine's usual extensions with All Files a
     /// choice away, starting in the folder of the file already entered.

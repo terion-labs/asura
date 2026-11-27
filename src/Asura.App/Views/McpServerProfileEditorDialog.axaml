@@ -73,15 +73,18 @@
                 Label="Executable"
                 Hint="Enter one fully qualified executable path. Asura launches it directly; this field is not a shell command."
                 controls:FieldValidation.For="Executable">
-              <TextBox
-                  Text="{Binding Executable}"
+              <controls:PathField
+                  Path="{Binding Executable}"
                   PlaceholderText="/absolute/path/to/server"
+                  PickerTitle="Choose MCP Server"
                   AutomationProperties.Name="MCP server executable path" />
             </controls:LabeledField>
             <controls:LabeledField Label="Working directory" controls:FieldValidation.For="WorkingDirectory">
-              <TextBox
-                  Text="{Binding WorkingDirectory}"
+              <controls:PathField
+                  Kind="Folder"
+                  Path="{Binding WorkingDirectory}"
                   PlaceholderText="Optional absolute path"
+                  PickerTitle="Choose Working Directory"
                   AutomationProperties.Name="MCP server working directory" />
             </controls:LabeledField>
           </StackPanel>
