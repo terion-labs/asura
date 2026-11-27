@@ -771,6 +771,15 @@
     <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
 
+  <!-- A field's focus ring is drawn outside it. A text box and its
+       validation frame clip to their bounds, which cut the ring down to the
+       four slivers between the rounded field and its box: a rough outline
+       with chopped corners. They let it through; the text is still clipped
+       by the field's own scroller. -->
+  <Style Selector="TextBox, TextBox /template/ DataValidationErrors, NumericUpDown /template/ DataValidationErrors, NumericUpDown /template/ ButtonSpinner, NumericUpDown /template/ ButtonSpinner /template/ DataValidationErrors">
+    <Setter Property="ClipToBounds" Value="False" />
+  </Style>
+
   <Style Selector="TextBox[AcceptsReturn=True]">
     <Setter Property="VerticalContentAlignment" Value="Top" />
   </Style>
@@ -782,7 +791,7 @@
   <Style Selector="NumericUpDown">
     <Setter Property="HorizontalAlignment" Value="Stretch" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="ClipToBounds" Value="False" />
   </Style>
 
   <!-- The number field is one rounded surface. Its inner TextBox must not draw
@@ -875,6 +884,22 @@
   <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
     <Setter Property="BoxShadow" Value="{DynamicResource ShellFocusRingShadow}" />
     <Setter Property="Background" Value="{Binding $parent[TextBox].Background}" />
+    <!-- Fluent thickens a focused field's border to two points. Under the
+         halo that drew a second band with its own corners, and the halo's
+         poked past them: a rough double outline notched at every corner. -->
+    <Setter Property="BorderThickness" Value="{Binding $parent[TextBox].BorderThickness}" />
+  </Style>
+
+  <!-- An embedded text box is part of a surface that draws its frame — the
+       chat composer, a location bar, a patch view — so it has no fill,
+       border or ring of its own. -->
+  <Style Selector="TextBox.Embedded">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="TextBox.Embedded:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BoxShadow" Value="0 0 0 0 #00000000" />
   </Style>
 
   <!-- A field's fill never answers the pointer — Fluent's hover restyle

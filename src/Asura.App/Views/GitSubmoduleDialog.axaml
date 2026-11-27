@@ -57,7 +57,7 @@
         </Border>
         <Border Grid.Column="1" Classes="GitSubmoduleWell">
           <Panel>
-            <TextBox x:Name="PatchInput" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" BorderThickness="0" Background="Transparent" FontFamily="{DynamicResource ShellDataFontFamily}" AutomationProperties.Name="Selected submodule file patch" />
+            <TextBox x:Name="PatchInput" Classes="Embedded" IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap" FontFamily="{DynamicResource ShellDataFontFamily}" AutomationProperties.Name="Selected submodule file patch" />
             <TextBlock x:Name="PatchEmpty" Classes="Muted" Margin="{controls:Inset Md}" TextWrapping="Wrap" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" IsHitTestVisible="False" Text="Select a file to see how it changed." />
           </Panel>
         </Border>

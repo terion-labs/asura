@@ -538,14 +538,7 @@
 
   <!-- The search field at the top of the sidebar is a capsule. -->
   <!-- Its corners are half its height exactly, on the field and on the
-       part that wears the focus ring, so the ring is a capsule too. The
-       ring is drawn outside the field: a text box clips to its bounds, which
-       cut the ring to the four slivers between the capsule and its box, so
-       the field and its validation frame let it through. Its text is still
-       clipped by the field's own scroller. -->
-  <Style Selector="TextBox.SettingsSearch, TextBox.SettingsSearch /template/ DataValidationErrors">
-    <Setter Property="ClipToBounds" Value="False" />
-  </Style>
+       part that wears the focus ring, so the ring is a capsule too. -->
   <Style Selector="TextBox.SettingsSearch">
     <Setter Property="MinHeight" Value="{DynamicResource ShellSettingsSearchFieldHeight}" />
     <Setter Property="Height" Value="{DynamicResource ShellSettingsSearchFieldHeight}" />
