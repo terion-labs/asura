@@ -25,10 +25,6 @@ public sealed partial class GitRuntimePanelView : UserControl
         CommitHistory.AddHandler(ContextRequestedEvent, OnHistoryContextRequested,
             RoutingStrategies.Tunnel);
         CommitHistory.KeyDown += OnHistoryKeyDown;
-        // The list moves focus on Left and Right itself; a change tree folds
-        // on them, so it hears them first.
-        UnstagedTree.AddHandler(KeyDownEvent, OnChangeTreeKeyDown, RoutingStrategies.Tunnel);
-        StagedTree.AddHandler(KeyDownEvent, OnChangeTreeKeyDown, RoutingStrategies.Tunnel);
         DataContextChanged += OnDataContextChanged;
         GitSidebar.PropertyChanged += OnSidebarPropertyChanged;
         EnableRefTypeSelect();
@@ -439,50 +435,6 @@ public sealed partial class GitRuntimePanelView : UserControl
         // Outside the guard: the anchor change must reach the hidden lists
         // through the usual presentation path.
         viewModel.SelectTreeChange(node, sourceIsStaged);
-    }
-
-    /// <summary>
-    /// A change tree is a flat list of its open rows, so it folds the way a
-    /// tree does by hand: Right opens a folder, Left closes it or moves to
-    /// the folder a row sits in.
-    /// </summary>
-    private void OnChangeTreeKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (sender is not ListBox { SelectedItem: GitChangeTreeNodeViewModel node } tree
-            || e.KeyModifiers != KeyModifiers.None
-            || node.Rows is not { } rows)
-        {
-            return;
-        }
-
-        switch (e.Key)
-        {
-            case Key.Right when node is { IsDirectory: true, IsExpanded: false }:
-                node.IsExpanded = true;
-                e.Handled = true;
-                break;
-            case Key.Left when node is { IsDirectory: true, IsExpanded: true }:
-                node.IsExpanded = false;
-                e.Handled = true;
-                break;
-            case Key.Left when rows.ParentOf(node) is { } parent:
-                // Focus moves with the selection: Up and Down go on from
-                // the row that has focus, not the one that is selected.
-                tree.SelectedItem = parent;
-                tree.ScrollIntoView(parent);
-                tree.ContainerFromItem(parent)?.Focus(NavigationMethod.Directional);
-                e.Handled = true;
-                break;
-        }
-    }
-
-    private void OnChangeTreeDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        _ = e;
-        if (sender is ListBox { SelectedItem: GitChangeTreeNodeViewModel { IsDirectory: true } folder })
-        {
-            folder.IsExpanded = !folder.IsExpanded;
-        }
     }
 
     private void OnUnstagedDoubleTapped(object? sender, TappedEventArgs e)

@@ -1,10 +1,10 @@
 namespace Asura.App.ViewModels;
 
 /// <summary>A slash-delimited ref tree keeps folder expansion through snapshot refreshes.</summary>
-public sealed class GitRefTreeNodeViewModel(string name, string path, bool expanded, Action<string, bool> expansionChanged, GitRefItemViewModel? item = null) : ObservableObject
+public sealed class GitRefTreeNodeViewModel(string name, string path, bool expanded, Action<string, bool> expansionChanged, GitRefItemViewModel? item = null)
+    : TreeRowNode(expanded)
 {
     private readonly List<GitRefTreeNodeViewModel> _children = [];
-    private bool _isExpanded = expanded;
 
     public string Name { get; } = name;
     public GitRefItemViewModel? Item { get; } = item;
@@ -20,15 +20,9 @@ public sealed class GitRefTreeNodeViewModel(string name, string path, bool expan
     public IReadOnlyList<GitRefTreeNodeViewModel> Children => _children;
     internal void Add(GitRefTreeNodeViewModel item) => _children.Add(item);
 
-    public bool IsExpanded
-    {
-        get => _isExpanded;
-        set
-        {
-            if (SetProperty(ref _isExpanded, value))
-            {
-                expansionChanged(Path, value);
-            }
-        }
-    }
+    public override bool CanExpand => IsFolder;
+
+    internal override IEnumerable<TreeRowNode> ChildRows => _children;
+
+    protected override void OnExpandedChanged(bool isExpanded) => expansionChanged(Path, isExpanded);
 }

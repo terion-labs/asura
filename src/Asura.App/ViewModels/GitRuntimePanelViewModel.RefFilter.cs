@@ -11,9 +11,52 @@ public sealed partial class GitRuntimePanelViewModel
     private IReadOnlyList<GitRefTreeNodeViewModel> _tagTree = [];
     private (IReadOnlyList<GitRefItem> Refs, string? DefaultRemote, string Filter)? _presentedRefs;
 
-    public IReadOnlyList<GitRefTreeNodeViewModel> LocalBranchTree { get => _localBranchTree; private set => SetProperty(ref _localBranchTree, value); }
-    public IReadOnlyList<GitRefTreeNodeViewModel> RemoteBranchTree { get => _remoteBranchTree; private set => SetProperty(ref _remoteBranchTree, value); }
-    public IReadOnlyList<GitRefTreeNodeViewModel> TagTree { get => _tagTree; private set => SetProperty(ref _tagTree, value); }
+    public IReadOnlyList<GitRefTreeNodeViewModel> LocalBranchTree
+    {
+        get => _localBranchTree;
+        private set
+        {
+            if (SetProperty(ref _localBranchTree, value))
+            {
+                LocalBranchRows.Reset(value);
+            }
+        }
+    }
+
+    public IReadOnlyList<GitRefTreeNodeViewModel> RemoteBranchTree
+    {
+        get => _remoteBranchTree;
+        private set
+        {
+            if (SetProperty(ref _remoteBranchTree, value))
+            {
+                RemoteBranchRows.Reset(value);
+            }
+        }
+    }
+
+    public IReadOnlyList<GitRefTreeNodeViewModel> TagTree
+    {
+        get => _tagTree;
+        private set
+        {
+            if (SetProperty(ref _tagTree, value))
+            {
+                TagRows.Reset(value);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The ref trees as the rows they show, which the sidebar lists in
+    /// virtualizing lists: a TreeView builds a row with its menu for every
+    /// ref, and eight hundred branches took seconds to show.
+    /// </summary>
+    public TreeRows<GitRefTreeNodeViewModel> LocalBranchRows { get; } = new([]);
+
+    public TreeRows<GitRefTreeNodeViewModel> RemoteBranchRows { get; } = new([]);
+
+    public TreeRows<GitRefTreeNodeViewModel> TagRows { get; } = new([]);
 
     public string? GetReviewedRemoteSha(string remote, string destination)
     {

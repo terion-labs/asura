@@ -2097,6 +2097,13 @@
       </Transitions>
     </Setter>
   </Style>
+  <!-- A tree drawn as a list turns its folder's chevron with a selected row.
+       The chevron is drawn inside the toggle's template, out of reach of the
+       list's own selection rules, and this comes after the disclosure's own
+       style so that it wins over it. -->
+  <Style Selector="ListBox:not(.NeutralSelection):not(.OwnSelection):focus-within ListBoxItem:selected ToggleButton.TreeDisclosure">
+    <Setter Property="Foreground" Value="{DynamicResource ShellAccentForegroundBrush}" />
+  </Style>
 
   <!-- Sliders track the accent so a value reads at a glance. -->
   <Style Selector="Slider">

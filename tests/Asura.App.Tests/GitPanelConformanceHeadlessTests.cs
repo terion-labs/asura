@@ -57,6 +57,34 @@ public sealed class GitPanelConformanceHeadlessTests
             $"node_modules/pkg{index / 50:D3}/file{index % 50:D2}.js", null, GitChangeKind.Untracked, GitChangeArea.Unstaged))],
     });
 
+    /// <summary>
+    /// The sidebar draws only the ref rows on screen, though its sections
+    /// share one scroll view. As TreeViews they built a row, menu and all,
+    /// for every ref: eight hundred remote branches took seconds to show and
+    /// tens of seconds to take down.
+    /// </summary>
+    [Fact]
+    public Task A_sidebar_of_hundreds_of_branches_draws_only_the_rows_on_screen() => RunPanelAsync((view, panel, window) =>
+    {
+        panel.IsRemotesSectionExpanded = true;
+        window.UpdateLayout();
+        var remotes = view.FindControl<ListBox>("GitRemoteBranchTree")!;
+
+        Assert.True(remotes.IsEffectivelyVisible);
+        Assert.Equal(1 + 20 + 800, panel.RemoteBranchRows.Count);
+        Assert.InRange(remotes.GetRealizedContainers().Count(), 1, 100);
+        return Task.CompletedTask;
+    }, new FakeGitRepositoryClient
+    {
+        RefsOverride =
+        [
+            new("refs/heads/dev", "dev", GitRefKind.LocalBranch, "aaaa000000000000000000000000000000000000", IsCurrent: true),
+            .. Enumerable.Range(0, 800).Select(index => new GitRefItem(
+                $"refs/remotes/origin/team{index % 20:D2}/feature-{index:D3}", $"origin/team{index % 20:D2}/feature-{index:D3}",
+                GitRefKind.RemoteBranch, "aaaa000000000000000000000000000000000000", IsCurrent: false)),
+        ],
+    });
+
     [Fact]
     public Task Left_and_Right_fold_a_folder_in_the_change_tree() => RunPanelAsync((view, panel, window) =>
     {
@@ -282,7 +310,7 @@ public sealed class GitPanelConformanceHeadlessTests
     public Task Sidebar_sections_are_disclosure_toggles_that_say_whether_they_are_open() => RunPanelAsync((view, panel, window) =>
     {
         var branches = view.FindControl<ToggleButton>("GitBranchesDisclosure")!;
-        var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+        var tree = view.FindControl<ListBox>("GitLocalBranchTree")!;
         Assert.True(branches.IsChecked);
         Assert.Equal("Branches", AutomationProperties.GetName(branches));
         Assert.True(tree.IsVisible);
@@ -311,9 +339,9 @@ public sealed class GitPanelConformanceHeadlessTests
         };
         return RunPanelAsync((view, panel, window) =>
         {
-            var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+            var tree = view.FindControl<ListBox>("GitLocalBranchTree")!;
             window.UpdateLayout();
-            Assert.True(Assert.IsType<TreeViewItem>(tree.ContainerFromIndex(0)).Focus());
+            Assert.True(Assert.IsType<ListBoxItem>(tree.ContainerFromIndex(0)).Focus());
 
             window.KeyTextInput("r");
             Assert.Equal("release", Assert.IsType<GitRefTreeNodeViewModel>(tree.SelectedItem).Name);
@@ -367,7 +395,7 @@ public sealed class GitPanelConformanceHeadlessTests
     [Fact]
     public Task A_branch_menu_has_three_title_case_groups_with_deletion_last() => RunPanelAsync((view, panel, window) =>
     {
-        var row = view.FindControl<TreeView>("GitLocalBranchTree")!.GetVisualDescendants().OfType<Border>()
+        var row = view.FindControl<ListBox>("GitLocalBranchTree")!.GetVisualDescendants().OfType<Border>()
             .First(border => border.Classes.Contains("GitRefRow") && border.DataContext is GitRefItemViewModel { IsCurrent: false });
         var menu = row.ContextMenu!;
         var items = menu.Items.Cast<Control>().ToArray();
@@ -411,20 +439,22 @@ public sealed class GitPanelConformanceHeadlessTests
     public Task A_focused_ref_tree_selects_its_row_in_accent_without_recolouring_nested_rows() => RunPanelAsync((view, panel, window) =>
     {
         window.Resources["ShellAccentForegroundBrush"] = new SolidColorBrush(Colors.Magenta);
-        var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
-        var folder = tree.GetVisualDescendants().OfType<TreeViewItem>()
-            .Single(item => item.DataContext is GitRefTreeNodeViewModel { Name: "codex" });
-        var nestedText = folder.GetVisualDescendants().OfType<TextBlock>()
+        var tree = view.FindControl<ListBox>("GitLocalBranchTree")!;
+        var folder = RefItem(tree, "codex");
+        var nestedText = RefItem(tree, "team").GetVisualDescendants().OfType<TextBlock>()
             .Single(text => text.Text == "team");
         tree.SelectedItem = folder.DataContext;
         Assert.True(folder.Focus(NavigationMethod.Tab));
         window.UpdateLayout();
 
-        var ownText = folder.GetLogicalChildren().OfType<Panel>().Single().GetVisualDescendants().OfType<TextBlock>()
+        var ownText = folder.GetVisualDescendants().OfType<TextBlock>()
             .Single(text => text.Text == "codex");
         Assert.Equal(Colors.Magenta, Color(ownText.Foreground));
         Assert.NotEqual(Colors.Magenta, Color(nestedText.Foreground));
-        var band = folder.GetVisualDescendants().OfType<Border>().First(border => border.Name == "PART_LayoutRoot");
+        var chevron = folder.GetVisualDescendants().OfType<ToggleButton>()
+            .Single(button => button.Classes.Contains("TreeDisclosure"));
+        Assert.Equal(Colors.Magenta, Color(chevron.Foreground));
+        var band = folder.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().First(presenter => presenter.Name == "PART_ContentPresenter");
         var accent = window.TryFindResource("ShellAccentFillBrush", window.ActualThemeVariant, out var value)
             ? Color(value as IBrush)
             : null;
@@ -586,7 +616,7 @@ public sealed class GitPanelConformanceHeadlessTests
     [Fact]
     public Task The_current_branch_is_a_checkmark_and_a_status_not_a_second_selection() => RunPanelAsync((view, panel, window) =>
     {
-        var tree = view.FindControl<TreeView>("GitLocalBranchTree")!;
+        var tree = view.FindControl<ListBox>("GitLocalBranchTree")!;
         var current = RefItem(tree, "main");
         Assert.Equal("Current branch", AutomationProperties.GetItemStatus(current));
         Assert.Equal("main", AutomationProperties.GetName(current));
@@ -612,8 +642,8 @@ public sealed class GitPanelConformanceHeadlessTests
         window.Resources["ShellIconSizeXs"] = 10d;
         panel.IsTagsSectionExpanded = true;
         window.UpdateLayout();
-        var branches = view.FindControl<TreeView>("GitLocalBranchTree")!;
-        var tags = view.FindControl<TreeView>("GitTagTree")!;
+        var branches = view.FindControl<ListBox>("GitLocalBranchTree")!;
+        var tags = view.FindControl<ListBox>("GitTagTree")!;
         var branchName = NameLeft(RefItem(branches, "main"), "main");
         var tagName = NameLeft(RefItem(tags, "v1.0"), "v1.0");
         var folder = RefItem(branches, "codex");
@@ -623,7 +653,7 @@ public sealed class GitPanelConformanceHeadlessTests
         // starts there too, after its disclosure target rather than under it.
         Assert.Equal(branchName, tagName, 0.5);
         Assert.Equal(branchName, folderName, 2);
-        var toggle = folder.GetVisualDescendants().OfType<ToggleButton>().First(button => button.Name == "PART_ExpandCollapseChevron");
+        var toggle = folder.GetVisualDescendants().OfType<ToggleButton>().First(button => button.Classes.Contains("TreeDisclosure"));
         var chevron = toggle.GetVisualDescendants().OfType<SymbolIcon>().Single(icon => icon.IsEffectivelyVisible);
         Assert.True(chevron.Bounds.Width <= 12 && chevron.Bounds.Height <= 12, $"The chevron draws at {chevron.Bounds.Size}.");
         Assert.True(toggle.Bounds.Width >= 20 && toggle.Bounds.Height >= 20);
@@ -631,7 +661,7 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(toggleRight <= folderName + 0.5, "The disclosure target runs under the folder's name.");
         return Task.CompletedTask;
 
-        double NameLeft(TreeViewItem item, string text)
+        double NameLeft(ListBoxItem item, string text)
         {
             var block = item.GetVisualDescendants().OfType<TextBlock>().First(candidate => candidate.Text == text && candidate.IsEffectivelyVisible);
             return block.TranslatePoint(default, view)!.Value.X;
@@ -671,7 +701,7 @@ public sealed class GitPanelConformanceHeadlessTests
         Assert.True(caption >= 11, $"The {profile} caption is {caption} points.");
         Assert.True(body >= caption, $"The {profile} body ({body}) is under its caption ({caption}).");
 
-        var current = RefItem(view.FindControl<TreeView>("GitLocalBranchTree")!, "main");
+        var current = RefItem(view.FindControl<ListBox>("GitLocalBranchTree")!, "main");
         var name = current.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == "main" && text.IsEffectivelyVisible);
         Assert.Equal(body, name.FontSize);
         Assert.True(current.Bounds.Height >= 28, $"A ref row is {current.Bounds.Height} points tall.");
@@ -784,8 +814,8 @@ public sealed class GitPanelConformanceHeadlessTests
         return Task.CompletedTask;
     });
 
-    private static TreeViewItem RefItem(TreeView tree, string name) =>
-        tree.GetVisualDescendants().OfType<TreeViewItem>().First(item => item.DataContext is GitRefTreeNodeViewModel node && node.Name == name);
+    private static ListBoxItem RefItem(ListBox tree, string name) =>
+        tree.GetVisualDescendants().OfType<ListBoxItem>().First(item => item.DataContext is GitRefTreeNodeViewModel node && node.Name == name);
 
     private static FakeGitRepositoryClient BranchesAndTags() => new()
     {
