@@ -296,7 +296,11 @@ public sealed class AiProviderProfileEditorViewModelTests
                 true,
                 "ai_provider_test_succeeded",
                 "Connected.",
-                [new AiProviderModelDescriptor("model", "Model", contextWindowTokens: 1_048_576)]),
+                [new AiProviderModelDescriptor(
+                    "model",
+                    "Model",
+                    [AgentReasoningEffort.Automatic, AgentReasoningEffort.Low, AgentReasoningEffort.High],
+                    contextWindowTokens: 1_048_576)]),
         };
         var editor = new AiProviderProfileEditorViewModel(runtime, [])
         {
@@ -316,9 +320,15 @@ public sealed class AiProviderProfileEditorViewModelTests
         var saved = editor.CreateSaveRequest().Profile;
         Assert.Equal(["model"], saved.DiscoveredModelIds);
         Assert.Equal(1_048_576, Assert.Single(saved.DiscoveredModels).ContextWindowTokens);
+        // The provider's own effort list is kept with the model, without the
+        // Automatic choice every model has.
+        Assert.Equal([AgentReasoningEffort.Low, AgentReasoningEffort.High], Assert.Single(saved.DiscoveredModels).ReasoningEfforts);
         var reopened = new AiProviderProfileEditorViewModel(runtime, [], saved);
         Assert.Equal(["model"], reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
         Assert.Equal(1_048_576, Assert.Single(reopened.Models).ContextWindowTokens);
+        Assert.Equal(
+            [AgentReasoningEffort.Low, AgentReasoningEffort.High],
+            Assert.Single(reopened.CreateSaveRequest().Profile.DiscoveredModels).ReasoningEfforts);
         reopened.DefaultModel = "another-model";
         Assert.Equal(["model"], reopened.CreateSaveRequest().Profile.DiscoveredModelIds);
         reopened.Endpoint = "http://localhost:11435/v1/";

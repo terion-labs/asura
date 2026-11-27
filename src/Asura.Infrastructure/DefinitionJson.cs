@@ -97,6 +97,7 @@ internal static class DefinitionJson
         AddStrictStringEnumConverter<AiProviderKind>(options);
         AddStrictStringEnumConverter<AiProviderProtocol>(options);
         AddStrictStringEnumConverter<AiProviderOAuthFlow>(options);
+        AddStrictStringEnumConverter<AgentReasoningEffort>(options);
         AddStrictStringEnumConverter<AppearanceMode>(options);
         AddStrictStringEnumConverter<PlatformProfile>(options);
         AddStrictStringEnumConverter<InterfaceDensity>(options);

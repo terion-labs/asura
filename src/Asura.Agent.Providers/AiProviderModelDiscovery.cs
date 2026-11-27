@@ -224,7 +224,10 @@ internal sealed class AiProviderModelDiscovery(
 
             try
             {
-                models.Add(new AiProviderModelDescriptor(id, displayName));
+                models.Add(new AiProviderModelDescriptor(
+                    id,
+                    displayName,
+                    WithAutomatic(ReportedEfforts(item))));
             }
             catch (ArgumentException exception)
             {
@@ -337,7 +340,11 @@ internal sealed class AiProviderModelDiscovery(
 
             try
             {
-                models.Add(new AiProviderModelDescriptor(id, displayName, contextWindowTokens: contextWindow));
+                models.Add(new AiProviderModelDescriptor(
+                    id,
+                    displayName,
+                    WithAutomatic(CodexReportedEfforts(item)),
+                    contextWindowTokens: contextWindow));
             }
             catch (ArgumentException exception)
             {
@@ -355,4 +362,73 @@ internal sealed class AiProviderModelDiscovery(
 
         return Array.AsReadOnly(models.ToArray());
     }
+
+    /// <summary>
+    /// The efforts a model list names for one model, where the provider says:
+    /// GitHub Copilot's <c>capabilities.supports.reasoning_effort</c>, or
+    /// OpenRouter's <c>supported_parameters</c> naming <c>reasoning</c>, which
+    /// takes the common three levels. Null where the list says nothing; a
+    /// shape this version doesn't know leaves the model as it was rather than
+    /// failing the whole list.
+    /// </summary>
+    private static IReadOnlyList<AgentReasoningEffort>? ReportedEfforts(JsonElement item)
+    {
+        if (item.TryGetProperty("capabilities", out var capabilities)
+            && capabilities.ValueKind == JsonValueKind.Object
+            && capabilities.TryGetProperty("supports", out var supports)
+            && supports.ValueKind == JsonValueKind.Object
+            && supports.TryGetProperty("reasoning_effort", out var efforts)
+            && efforts.ValueKind == JsonValueKind.Array)
+        {
+            return Efforts(efforts.EnumerateArray());
+        }
+
+        if (item.TryGetProperty("supported_parameters", out var parameters)
+            && parameters.ValueKind == JsonValueKind.Array
+            && parameters.EnumerateArray().Any(parameter =>
+                parameter.ValueKind == JsonValueKind.String
+                && string.Equals(parameter.GetString(), "reasoning", StringComparison.Ordinal)))
+        {
+            return [AgentReasoningEffort.Low, AgentReasoningEffort.Medium, AgentReasoningEffort.High];
+        }
+
+        return null;
+    }
+
+    /// <summary>The ChatGPT model list's <c>supported_reasoning_levels</c>, each an object naming its <c>effort</c>.</summary>
+    private static IReadOnlyList<AgentReasoningEffort>? CodexReportedEfforts(JsonElement item) =>
+        item.TryGetProperty("supported_reasoning_levels", out var levels)
+        && levels.ValueKind == JsonValueKind.Array
+            ? Efforts(levels.EnumerateArray().Select(level =>
+                level.ValueKind == JsonValueKind.Object && level.TryGetProperty("effort", out var effort)
+                    ? effort
+                    : level))
+            : null;
+
+    private static IReadOnlyList<AgentReasoningEffort>? Efforts(IEnumerable<JsonElement> values)
+    {
+        var efforts = values
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => Effort(value.GetString()))
+            .OfType<AgentReasoningEffort>()
+            .Distinct()
+            .Order()
+            .ToArray();
+        return efforts.Length == 0 ? null : efforts;
+    }
+
+    private static AgentReasoningEffort? Effort(string? wire) => wire?.ToLowerInvariant() switch
+    {
+        "none" => AgentReasoningEffort.Off,
+        "minimal" => AgentReasoningEffort.Minimal,
+        "low" => AgentReasoningEffort.Low,
+        "medium" => AgentReasoningEffort.Medium,
+        "high" => AgentReasoningEffort.High,
+        "xhigh" => AgentReasoningEffort.ExtraHigh,
+        "max" => AgentReasoningEffort.Max,
+        _ => null,
+    };
+
+    private static IReadOnlyList<AgentReasoningEffort>? WithAutomatic(IReadOnlyList<AgentReasoningEffort>? reported) =>
+        reported is null ? null : [AgentReasoningEffort.Automatic, .. reported];
 }

@@ -13,7 +13,8 @@ internal sealed class OpenAiCompatibleAgentProvider(
     string model,
     AiProviderHttpTransport transport,
     AiProviderRuntimeLimits limits,
-    AgentServiceTier serviceTier = AgentServiceTier.Automatic) : IAgentProvider
+    AgentServiceTier serviceTier = AgentServiceTier.Automatic,
+    IReadOnlyList<AgentReasoningEffort>? reportedReasoningEfforts = null) : IAgentProvider
 {
     public async IAsyncEnumerable<AgentProviderEvent> StreamAsync(
         AgentProviderRequest request,
@@ -163,17 +164,22 @@ internal sealed class OpenAiCompatibleAgentProvider(
                         AiProviderRuntimeErrorCode.InvalidConfiguration);
                 }
 
-                if (request.ReasoningEffort != AgentReasoningEffort.Automatic)
+                // This protocol is implemented by unrelated providers with
+                // incompatible reasoning controls. An effort is sent only where
+                // the provider listed it for this model, in that provider's
+                // own field; never reinterpreted as another vendor's extension.
+                if (request.ReasoningEffort != AgentReasoningEffort.Automatic
+                    && !AiProviderReasoningPolicy
+                        .SupportedEfforts(profile, model, reportedReasoningEfforts)
+                        .Contains(request.ReasoningEffort))
                 {
-                    // This protocol is implemented by unrelated providers with
-                    // incompatible reasoning controls. Never silently reinterpret
-                    // a user-selected effort as a vendor-specific extension.
                     throw AiProviderClientException.Create(
                         AiProviderRuntimeErrorCode.InvalidConfiguration);
                 }
 
                 writer.WriteStartObject();
                 writer.WriteString("model", model);
+                WriteReasoningEffort(writer, request.ReasoningEffort);
                 if (serviceTier != AgentServiceTier.Automatic)
                 {
                     AiProviderServiceTierPolicy.EnsureSupported(
@@ -234,6 +240,41 @@ internal sealed class OpenAiCompatibleAgentProvider(
 
                 writer.WriteEndObject();
             });
+
+    /// <summary>
+    /// OpenRouter takes the effort as <c>reasoning.effort</c>; GitHub Copilot
+    /// and the other OpenAI-shaped servers as <c>reasoning_effort</c>.
+    /// </summary>
+    private void WriteReasoningEffort(Utf8JsonWriter writer, AgentReasoningEffort effort)
+    {
+        if (effort == AgentReasoningEffort.Automatic)
+        {
+            return;
+        }
+
+        var wire = effort switch
+        {
+            AgentReasoningEffort.Off => "none",
+            AgentReasoningEffort.Minimal => "minimal",
+            AgentReasoningEffort.Low => "low",
+            AgentReasoningEffort.Medium => "medium",
+            AgentReasoningEffort.High => "high",
+            AgentReasoningEffort.ExtraHigh => "xhigh",
+            AgentReasoningEffort.Max => "max",
+            _ => throw AiProviderClientException.Create(
+                AiProviderRuntimeErrorCode.InvalidConfiguration),
+        };
+        if (profile.Identity == AiProviderKind.OpenRouter)
+        {
+            writer.WriteStartObject("reasoning");
+            writer.WriteString("effort", wire);
+            writer.WriteEndObject();
+        }
+        else
+        {
+            writer.WriteString("reasoning_effort", wire);
+        }
+    }
 
     private static void WriteMessage(Utf8JsonWriter writer, AgentMessage message)
     {

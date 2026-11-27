@@ -310,7 +310,7 @@ public sealed class CatalogAiProviderRuntime :
                 "The pinned AI-provider profile changed and must be rebound.");
         }
 
-        return _factory.Create(profile, model, serviceTier);
+        return _factory.Create(profile, model, serviceTier, ReportedEfforts(profile, model));
     }
 
     internal IAgentProvider CreateProvider(
@@ -359,8 +359,28 @@ public sealed class CatalogAiProviderRuntime :
             }
         }
 
-        return routedFactory.Create(profile, model, serviceTier);
+        return routedFactory.Create(profile, model, serviceTier, ReportedEfforts(profile, model));
     }
+
+    /// <summary>
+    /// The efforts the provider reported for a model, as offered in the model
+    /// picker, so a request is checked against the same list it was chosen from.
+    /// </summary>
+    private IReadOnlyList<AgentReasoningEffort>? ReportedEfforts(
+        AiProviderProfile profile,
+        string? model)
+    {
+        var id = string.IsNullOrWhiteSpace(model) ? profile.DefaultModel : model.Trim();
+        return DiscoveredOrAvailableModels(profile)
+            .FirstOrDefault(candidate => string.Equals(candidate.Id, id, StringComparison.Ordinal))
+            is { } descriptor
+            ? Reported(descriptor)
+            : null;
+    }
+
+    /// <summary>A discovered model's own effort list, or null where its provider didn't give one.</summary>
+    private static IReadOnlyList<AgentReasoningEffort>? Reported(AiProviderModelDescriptor model) =>
+        model.SupportedReasoningEfforts.Length > 1 ? model.SupportedReasoningEfforts : null;
 
     internal static WebProxy CreateWebProxy(Uri endpoint)
     {
@@ -696,7 +716,7 @@ public sealed class CatalogAiProviderRuntime :
             .Select(model => new AiProviderModelDescriptor(
                 model.Id,
                 model.DisplayName,
-                AiProviderReasoningPolicy.SupportedEfforts(profile, model.Id),
+                AiProviderReasoningPolicy.SupportedEfforts(profile, model.Id, Reported(model)),
                 AiProviderServiceTierPolicy.SupportedTiers(profile, model.Id),
                 model.ContextWindowTokens))
             .ToArray();
@@ -744,6 +764,9 @@ public sealed class CatalogAiProviderRuntime :
                 {
                     var metadata = profile.DiscoveredModels.SingleOrDefault(model => string.Equals(model.Id, id, StringComparison.Ordinal));
                     return new AiProviderModelDescriptor(id, metadata?.DisplayName ?? id,
+                        metadata?.ReasoningEfforts is { Count: > 0 } efforts
+                            ? [AgentReasoningEffort.Automatic, .. efforts]
+                            : null,
                         contextWindowTokens: metadata?.ContextWindowTokens);
                 })];
         }

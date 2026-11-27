@@ -134,6 +134,9 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             {
                 var metadata = existing.DiscoveredModels.SingleOrDefault(model => string.Equals(model.Id, id, StringComparison.Ordinal));
                 return new AiProviderModelDescriptor(id, metadata?.DisplayName ?? id,
+                    metadata?.ReasoningEfforts is { Count: > 0 } efforts
+                        ? [AgentReasoningEffort.Automatic, .. efforts]
+                        : null,
                     contextWindowTokens: metadata?.ContextWindowTokens);
             })];
         var existingMode = existing.Authentication switch
@@ -791,7 +794,10 @@ public sealed class AiProviderProfileEditorViewModel : ObservableObject
             discoveredModelIds: keepModelMetadata ? Models.Select(model => model.Id).ToArray() : [],
             discoveredModels: keepModelMetadata
                 ? Models.Select(model => new AiProviderModelMetadata(
-                    model.Id, model.DisplayName, model.ContextWindowTokens)).ToArray()
+                    model.Id, model.DisplayName, model.ContextWindowTokens,
+                    model.SupportedReasoningEfforts.Length > 1
+                        ? [.. model.SupportedReasoningEfforts.Where(effort => effort != AgentReasoningEffort.Automatic)]
+                        : null)).ToArray()
                 : []);
     }
 

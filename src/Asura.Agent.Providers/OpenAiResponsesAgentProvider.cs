@@ -20,7 +20,8 @@ internal sealed class OpenAiResponsesAgentProvider(
     string model,
     AiProviderHttpTransport transport,
     AiProviderRuntimeLimits limits,
-    AgentServiceTier serviceTier = AgentServiceTier.Automatic) : IAgentProvider
+    AgentServiceTier serviceTier = AgentServiceTier.Automatic,
+    IReadOnlyList<AgentReasoningEffort>? reportedReasoningEfforts = null) : IAgentProvider
 {
     private static readonly Uri OpenAiCodexEndpoint =
         new("https://chatgpt.com/backend-api/codex/");
@@ -263,7 +264,7 @@ internal sealed class OpenAiResponsesAgentProvider(
 
     private void EnsureReasoningEffortSupport(AgentReasoningEffort effort)
     {
-        if (!AiProviderReasoningPolicy.SupportedEfforts(profile, model).Contains(effort))
+        if (!AiProviderReasoningPolicy.SupportedEfforts(profile, model, reportedReasoningEfforts).Contains(effort))
         {
             throw AiProviderClientException.Create(
                 AiProviderRuntimeErrorCode.InvalidConfiguration);
