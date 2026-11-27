@@ -54,6 +54,95 @@ public sealed class AiProviderRuntimeBoundaryTests
     }
 
     [Fact]
+    public async Task ChatGpt_models_offer_the_reasoning_levels_their_model_list_names()
+    {
+        using var vault = new InMemorySecretVault();
+        var id = new AiProviderProfileId("chatgpt-levels");
+        var secret = new SecretRef("chatgpt-levels-session");
+        await new AiProviderOAuthVault(vault).StoreAsync(id, secret,
+            new AiProviderOAuthSession(AiProviderOAuthSession.CurrentSchemaVersion,
+                "openai", "asura-token", null, DateTimeOffset.MaxValue, "asura-account"),
+            CancellationToken.None);
+        var profile = new AiProviderProfile(id, AiProviderProfile.CurrentSchemaVersion,
+            "OpenAI", AiProviderKind.OpenAi, AiProviderProfile.DefaultEndpoint(AiProviderKind.OpenAi),
+            new AiProviderAuthentication.OAuth(secret, AiProviderOAuthFlow.Browser), "gpt-6.2-alpha", 0);
+        var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
+            """
+            {"models":[
+              {"slug":"gpt-6.2-alpha","display_name":"GPT-6.2-Alpha","visibility":"list",
+               "default_reasoning_level":"medium",
+               "supported_reasoning_levels":[{"effort":"low","description":"Fast"},{"effort":"medium"},
+                 {"effort":"xhigh"},{"effort":"max"},{"effort":"someday"}]},
+              {"slug":"gpt-quiet","display_name":"Quiet","visibility":"list","supported_reasoning_levels":[]}
+            ]}
+            """));
+        using var factory = new AiProviderFactory(vault, handler,
+            readCodexVersion: _ => ValueTask.FromResult<string?>("1.23.45"));
+        using var runtime = new CatalogAiProviderRuntime(new FixedDefinitionCatalog(Snapshot(profile)), factory);
+
+        Assert.True((await runtime.DiscoverModelsAsync(id, CancellationToken.None)).IsSuccess);
+
+        var models = Assert.Single(runtime.Profiles).Models;
+        Assert.Equal(
+            [
+                AgentReasoningEffort.Automatic,
+                AgentReasoningEffort.Low,
+                AgentReasoningEffort.Medium,
+                AgentReasoningEffort.ExtraHigh,
+                AgentReasoningEffort.Max,
+            ],
+            models.Single(model => model.Id == "gpt-6.2-alpha").SupportedReasoningEfforts.ToArray());
+        // An empty list says nothing; the model-name table stands in.
+        Assert.Equal(
+            AiProviderReasoningPolicy.SupportedEfforts(profile, "gpt-quiet"),
+            models.Single(model => model.Id == "gpt-quiet").SupportedReasoningEfforts);
+    }
+
+    [Fact]
+    public async Task Chat_completions_models_offer_the_efforts_their_provider_lists()
+    {
+        using var vault = new InMemorySecretVault();
+        var profile = LoopbackProfile();
+        var handler = new StubHttpMessageHandler((_, _) => JsonResponseAsync(
+            """
+            {"data":[
+              {"id":"copilot-style","capabilities":{"supports":{"reasoning_effort":["high","low","xhigh","unheard-of"]}}},
+              {"id":"openrouter-style","supported_parameters":["tools","reasoning"]},
+              {"id":"local-model","capabilities":"not an object"}
+            ]}
+            """));
+        using var factory = new AiProviderFactory(vault, handler);
+        using var runtime = new CatalogAiProviderRuntime(new FixedDefinitionCatalog(Snapshot(profile)), factory);
+
+        Assert.True((await runtime.DiscoverModelsAsync(profile.Id, CancellationToken.None)).IsSuccess);
+
+        var models = Assert.Single(runtime.Profiles).Models;
+        Assert.Equal(
+            [AgentReasoningEffort.Automatic, AgentReasoningEffort.Low, AgentReasoningEffort.High, AgentReasoningEffort.ExtraHigh],
+            models.Single(model => model.Id == "copilot-style").SupportedReasoningEfforts.ToArray());
+        Assert.Equal(
+            [AgentReasoningEffort.Automatic, AgentReasoningEffort.Low, AgentReasoningEffort.Medium, AgentReasoningEffort.High],
+            models.Single(model => model.Id == "openrouter-style").SupportedReasoningEfforts.ToArray());
+        Assert.Equal(
+            [AgentReasoningEffort.Automatic],
+            models.Single(model => model.Id == "local-model").SupportedReasoningEfforts.ToArray());
+    }
+
+    [Theory]
+    [InlineData("gpt-6.2-alpha")]
+    [InlineData("gpt-7")]
+    [InlineData("gpt-5.6-terra")]
+    public void A_newer_gpt_keeps_the_highest_efforts_without_a_reported_list(string model)
+    {
+        var profile = ApiKeyProfile(AiProviderKind.OpenAi, "provider-openai-new", SecretRef.New(), defaultModel: model);
+
+        var efforts = AiProviderReasoningPolicy.SupportedEfforts(profile, model);
+
+        Assert.Contains(AgentReasoningEffort.ExtraHigh, efforts);
+        Assert.Contains(AgentReasoningEffort.Max, efforts);
+    }
+
+    [Fact]
     public async Task Missing_codex_version_is_explained_without_sending_a_fallback_version()
     {
         using var vault = new InMemorySecretVault();

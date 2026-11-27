@@ -42,10 +42,15 @@ public sealed class AiProviderFactory : IDisposable
         _modelDiscovery = new AiProviderModelDiscovery(_transport, _limits, readCodexVersion);
     }
 
+    /// <param name="reportedReasoningEfforts">
+    /// The efforts the provider listed for this model with its model list, or
+    /// null where it didn't; the model-name table stands in then.
+    /// </param>
     public IAgentProvider Create(
         AiProviderProfile profile,
         string? model = null,
-        AgentServiceTier serviceTier = AgentServiceTier.Automatic)
+        AgentServiceTier serviceTier = AgentServiceTier.Automatic,
+        IReadOnlyList<AgentReasoningEffort>? reportedReasoningEfforts = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -82,16 +87,18 @@ public sealed class AiProviderFactory : IDisposable
                 selectedModel,
                 _transport,
                 _limits,
-                serviceTier),
+                serviceTier,
+                reportedReasoningEfforts),
             AiProviderProtocol.GitHubCopilot =>
-                CreateGitHubCopilotProvider(profile, selectedModel, serviceTier),
+                CreateGitHubCopilotProvider(profile, selectedModel, serviceTier, reportedReasoningEfforts),
             AiProviderProtocol.OpenAiChatCompletions =>
                 new OpenAiCompatibleAgentProvider(
                     profile,
                     selectedModel,
                     _transport,
                     _limits,
-                    serviceTier),
+                    serviceTier,
+                    reportedReasoningEfforts),
             _ => throw AiProviderClientException.Create(
                 AiProviderRuntimeErrorCode.InvalidConfiguration),
         };
@@ -178,20 +185,23 @@ public sealed class AiProviderFactory : IDisposable
     private IAgentProvider CreateGitHubCopilotProvider(
         AiProviderProfile profile,
         string selectedModel,
-        AgentServiceTier serviceTier) =>
+        AgentServiceTier serviceTier,
+        IReadOnlyList<AgentReasoningEffort>? reportedReasoningEfforts) =>
         UsesGitHubCopilotResponses(selectedModel)
             ? new OpenAiResponsesAgentProvider(
                 profile,
                 selectedModel,
                 _transport,
                 _limits,
-                serviceTier)
+                serviceTier,
+                reportedReasoningEfforts)
             : new OpenAiCompatibleAgentProvider(
                 profile,
                 selectedModel,
                 _transport,
                 _limits,
-                serviceTier);
+                serviceTier,
+                reportedReasoningEfforts);
 
     internal static bool UsesGitHubCopilotResponses(string modelId) =>
         modelId.Contains("-codex", StringComparison.OrdinalIgnoreCase);

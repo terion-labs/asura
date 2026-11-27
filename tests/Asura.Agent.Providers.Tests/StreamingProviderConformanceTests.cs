@@ -1076,6 +1076,42 @@ public sealed class StreamingProviderConformanceTests
     }
 
     [Theory]
+    [InlineData(AiProviderKind.OpenAiCompatible)]
+    [InlineData(AiProviderKind.OpenRouter)]
+    public async Task OpenAiCompatibleSendsAnEffortOnlyWhereTheProviderListedIt(AiProviderKind providerKind)
+    {
+        using var vault = new InMemorySecretVault();
+        var profile = CreateLoopbackProfile(providerKind);
+        using var handler = new StubHttpMessageHandler(
+            (_, _) => Task.FromResult(SseResponse(OpenAiTextStream("Done."))));
+        using var factory = new AiProviderFactory(vault, handler);
+        var listed = factory.Create(
+            profile,
+            Model,
+            AgentServiceTier.Automatic,
+            [AgentReasoningEffort.Low, AgentReasoningEffort.High]);
+
+        var sent = await CreateSession().RunTurnAsync(
+            "Decide.", [], [], AgentReasoningEffort.High, listed, CancellationToken.None);
+
+        Assert.True(sent.Succeeded);
+        using (var body = JsonDocument.Parse(handler.LastRequest!.Body))
+        {
+            var effort = providerKind == AiProviderKind.OpenRouter
+                ? body.RootElement.GetProperty("reasoning").GetProperty("effort")
+                : body.RootElement.GetProperty("reasoning_effort");
+            Assert.Equal("high", effort.GetString());
+        }
+
+        // Where the model list named no efforts, a chosen one is refused
+        // before anything is sent rather than guessed into a vendor field.
+        var unlisted = await CreateSession().RunTurnAsync(
+            "Decide.", [], [], AgentReasoningEffort.High, factory.Create(profile), CancellationToken.None);
+        Assert.False(unlisted.Succeeded);
+        Assert.Single(handler.Requests);
+    }
+
+    [Theory]
     [InlineData("reasoning_content")]
     [InlineData("reasoning")]
     [InlineData("reasoning_text")]

@@ -53,18 +53,50 @@ internal static class AiProviderReasoningPolicy
     private static readonly ImmutableArray<AgentReasoningEffort> AnthropicAlwaysThinkingMaximum =
         [.. AnthropicAlwaysThinking, AgentReasoningEffort.ExtraHigh, AgentReasoningEffort.Max];
 
+    // The levels each wire format can carry: Responses' reasoning.effort,
+    // Chat Completions' reasoning_effort (OpenRouter's reasoning.effort).
+    private static readonly ImmutableArray<AgentReasoningEffort> WireEfforts =
+    [
+        AgentReasoningEffort.Off,
+        AgentReasoningEffort.Minimal,
+        AgentReasoningEffort.Low,
+        AgentReasoningEffort.Medium,
+        AgentReasoningEffort.High,
+        AgentReasoningEffort.ExtraHigh,
+        AgentReasoningEffort.Max,
+    ];
+
     public static ImmutableArray<AgentReasoningEffort> SupportedEfforts(
         AiProviderProfile profile) => SupportedEfforts(profile, profile.DefaultModel);
 
+    /// <summary>
+    /// The efforts a model takes. A list the provider reported for the model
+    /// with its model list wins; the model-name table below only stands in
+    /// for providers that don't say.
+    /// </summary>
     public static ImmutableArray<AgentReasoningEffort> SupportedEfforts(
         AiProviderProfile profile,
-        string modelId)
+        string modelId,
+        IReadOnlyList<AgentReasoningEffort>? reported = null)
     {
         ArgumentNullException.ThrowIfNull(profile);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         if (!profile.IsEnabled
-            || !profile.Capabilities.SupportsReasoning
             || !AiProviderCatalog.Get(profile.Identity).IsRuntimeSupported)
+        {
+            return AutomaticOnly;
+        }
+
+        if (reported is { Count: > 0 } && CarriesReportedEfforts(profile))
+        {
+            return
+            [
+                AgentReasoningEffort.Automatic,
+                .. WireEfforts.Where(reported.Contains),
+            ];
+        }
+
+        if (!profile.Capabilities.SupportsReasoning)
         {
             return AutomaticOnly;
         }
@@ -88,10 +120,21 @@ internal static class AiProviderReasoningPolicy
         };
     }
 
+    /// <summary>
+    /// Whether the profile's request writer sends a reported effort: the
+    /// Responses and Chat Completions adapters do; Anthropic's thinking
+    /// budgets have no reported list to follow.
+    /// </summary>
+    private static bool CarriesReportedEfforts(AiProviderProfile profile) =>
+        profile.Protocol is AiProviderProtocol.OpenAiResponses
+            or AiProviderProtocol.GitHubCopilot
+            or AiProviderProtocol.OpenAiChatCompletions;
+
     private static ImmutableArray<AgentReasoningEffort> ResponsesEfforts(string modelId)
     {
         var normalized = modelId.ToLowerInvariant();
-        if (normalized.Contains("gpt-5.6", StringComparison.Ordinal))
+        var version = GptVersion(normalized);
+        if (version >= new Version(5, 6))
         {
             return Responses56;
         }
@@ -107,12 +150,45 @@ internal static class AiProviderReasoningPolicy
             return [AgentReasoningEffort.Automatic, AgentReasoningEffort.High];
         }
 
-        if (normalized.Contains("gpt-5", StringComparison.Ordinal))
+        if (version >= new Version(5, 0))
         {
             return ResponsesExtraHigh;
         }
 
         return Responses;
+    }
+
+    /// <summary>
+    /// The GPT generation a model id names ("gpt-5.6-terra" is 5.6,
+    /// "gpt-6" is 6.0), or null for another family. A newer generation keeps
+    /// the levels of the one before it rather than losing them to an exact
+    /// name match.
+    /// </summary>
+    private static Version? GptVersion(string normalizedModelId)
+    {
+        const string prefix = "gpt-";
+        var start = normalizedModelId.IndexOf(prefix, StringComparison.Ordinal);
+        if (start < 0)
+        {
+            return null;
+        }
+
+        start += prefix.Length;
+        var end = start;
+        while (end < normalizedModelId.Length
+               && (char.IsAsciiDigit(normalizedModelId[end]) || normalizedModelId[end] == '.'))
+        {
+            end++;
+        }
+
+        var parts = normalizedModelId[start..end].Split('.', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0
+            && int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var major)
+            ? new Version(major, parts.Length > 1
+                && int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var minor)
+                    ? minor
+                    : 0)
+            : null;
     }
 
     public static bool SupportsAdaptiveThinking(string modelId)
