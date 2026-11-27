@@ -54,7 +54,7 @@
         <StackPanel DataContext="{Binding Terminal}" Spacing="{DynamicResource ShellSpaceMd}">
           <controls:SurfaceCard IsVisible="{Binding ShowsLocalShell}">
             <controls:LabeledField Label="Shell executable" Hint="Leave blank to use the host default shell.">
-              <TextBox Text="{Binding LocalShell}" PlaceholderText="/bin/zsh" />
+              <controls:PathField Path="{Binding LocalShell}" PlaceholderText="/bin/zsh" PickerTitle="Choose Shell" AutomationProperties.Name="Shell executable" />
             </controls:LabeledField>
           </controls:SurfaceCard>
 
@@ -193,8 +193,13 @@
           <controls:SurfaceCard IsVisible="{Binding ShowsStartupOptions}">
             <StackPanel Spacing="{DynamicResource ShellSpaceMd}">
               <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource ShellSpaceSm}">
+                <!-- A folder on this computer is chosen in the Open panel; one
+                     on a remote host is typed, since the panel can't see it. -->
                 <controls:LabeledField Label="Working directory">
-                  <TextBox Text="{Binding StartupDirectory}" PlaceholderText="Optional" />
+                  <Panel>
+                    <controls:PathField Kind="Folder" Path="{Binding StartupDirectory}" PlaceholderText="Optional" PickerTitle="Choose Working Directory" IsVisible="{Binding IsLocal}" AutomationProperties.Name="Working directory" />
+                    <TextBox Text="{Binding StartupDirectory}" PlaceholderText="Optional" IsVisible="{Binding !IsLocal}" AutomationProperties.Name="Working directory" />
+                  </Panel>
                 </controls:LabeledField>
                 <controls:LabeledField Grid.Column="1" Label="Startup command">
                   <TextBox Text="{Binding StartupCommand}" PlaceholderText="Optional command run in the shell" />
@@ -274,17 +279,7 @@
                 Label="Folder"
                 Hint="Asura stays inside this folder and doesn't follow links that lead outside it."
                 controls:FieldValidation.For="LocalRoot">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource ShellSpaceSm}">
-                <TextBox Text="{Binding LocalRoot}" PlaceholderText="/Users/you/Projects" AutomationProperties.Name="Folder" />
-                <Button
-                    x:Name="ChooseLocalFolderButton"
-                    Grid.Column="1"
-                    VerticalAlignment="Stretch"
-                    Classes="SecondaryButton"
-                    Click="OnChooseLocalFolderClick"
-                    Content="Choose…"
-                    AutomationProperties.Name="Choose a folder" />
-              </Grid>
+              <controls:PathField Kind="Folder" Path="{Binding LocalRoot}" PlaceholderText="/Users/you/Projects" AutomationProperties.Name="Folder" />
             </controls:LabeledField>
           </controls:SurfaceCard>
 
@@ -399,7 +394,7 @@
 
       <StackPanel IsVisible="{Binding IsKubernetes}" Spacing="{DynamicResource ShellSpaceMd}">
         <StackPanel DataContext="{Binding Kubernetes}" Spacing="{DynamicResource ShellSpaceMd}">
-          <controls:LabeledField Label="Kubeconfig file"><TextBox Text="{Binding KubeconfigPath}" PlaceholderText="~/.kube/config" AutomationProperties.Name="Kubeconfig file" /></controls:LabeledField>
+          <controls:LabeledField Label="Kubeconfig file"><controls:PathField Path="{Binding KubeconfigPath}" PlaceholderText="~/.kube/config" PickerTitle="Choose Kubeconfig File" AutomationProperties.Name="Kubeconfig file" /></controls:LabeledField>
           <Button Content="Review Configuration" Command="{Binding ReviewCommand}" HorizontalAlignment="Left" />
           <TextBlock Classes="Muted" Text="{Binding ReviewStatus}" TextWrapping="Wrap" />
           <ComboBox ItemsSource="{Binding Contexts}" SelectedItem="{Binding SelectedContext}" HorizontalAlignment="Stretch" AutomationProperties.Name="Discovered Kubernetes contexts">

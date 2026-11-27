@@ -172,6 +172,25 @@ public sealed partial class DesignSystemConventionTests
     private static readonly Dictionary<string, string> CaptionExceptions = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// A file or folder this computer reads is chosen in the Open panel as
+    /// well as typed: each such field is a PathField, never a bare text box.
+    /// </summary>
+    [Theory]
+    [InlineData("src/Asura.App/Views/ConnectionEditorDialog.axaml", "KubeconfigPath")]
+    [InlineData("src/Asura.App/Views/ConnectionEditorDialog.axaml", "LocalShell")]
+    [InlineData("src/Asura.App/Views/ConnectionEditorDialog.axaml", "LocalRoot")]
+    [InlineData("src/Asura.App/Views/McpServerProfileEditorDialog.axaml", "Executable")]
+    [InlineData("src/Asura.App/Views/McpServerProfileEditorDialog.axaml", "WorkingDirectory")]
+    public void A_local_path_field_offers_the_open_panel(string file, string property)
+    {
+        var source = File.ReadAllText(Path.Combine(ApplicationViews.RepositoryRoot, file));
+
+        Assert.Contains($"<controls:PathField", source, StringComparison.Ordinal);
+        Assert.Matches($@"<controls:PathField\b[^>]*Path=""{{Binding {property}}}""", source);
+        Assert.DoesNotMatch($@"<TextBox\b[^>]*Text=""{{Binding {property}}}""", source);
+    }
+
+    /// <summary>
     /// The ramp starts at the macOS Caption, 10 pt. ShellFontSize8 and 9 (and
     /// their line heights) are no longer published, so markup that names them
     /// silently falls back to the default size.
